@@ -1,0 +1,17 @@
+# Android release signing configuration.
+#
+# Copy this file to `android/key.properties` and fill in real values to produce
+# a store-signable release build. When this file is ABSENT, the release build
+# falls back to debug signing so `flutter run --release` still works locally.
+#
+# Generate a keystore (run once, keep the .jks file safe and OUT of git):
+#   keytool -genkey -v -keystore mcare-release.jks -keyalg RSA -keysize 2048 \
+#     -validity 10000 -alias mcare
+#
+# Then set the values below. `storeFile` is resolved relative to the android/app
+# directory (e.g. put the .jks there, or use an absolute path).
+
+storePassword=changeme
+keyPassword=changeme
+keyAlias=mcare
+storeFile=mcare-release.jks

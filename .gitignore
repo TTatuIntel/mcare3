@@ -1,0 +1,85 @@
+# ─── Environment / secrets — NEVER commit ────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
+
+# Firebase / OAuth service accounts
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase-service-account*.json
+**/firebase-adminsdk*.json
+
+# Android release signing
+**/key.properties
+**/*.jks
+**/*.keystore
+
+# ─── Backend (Laravel) ───────────────────────────────────────────────────
+/backend/vendor/
+/backend/node_modules/
+/backend/public/build/
+/backend/public/hot/
+/backend/public/storage
+/backend/storage/*.key
+/backend/storage/pail
+/backend/storage/app/private/*
+!/backend/storage/app/private/.gitkeep
+/backend/storage/app/public/*
+!/backend/storage/app/public/.gitkeep
+/backend/storage/framework/cache/data/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/testing/*
+/backend/storage/framework/views/*
+/backend/storage/logs/*
+!/backend/storage/**/.gitkeep
+/backend/bootstrap/cache/*.php
+/backend/.phpunit.result.cache
+/backend/auth.json
+/backend/Homestead.json
+/backend/Homestead.yaml
+
+# ─── Frontend (Flutter) ──────────────────────────────────────────────────
+/frontend/build/
+/frontend/.dart_tool/
+/frontend/.flutter-plugins
+/frontend/.flutter-plugins-dependencies
+/frontend/.packages
+/frontend/.pub-cache/
+/frontend/.pub/
+/frontend/coverage/
+/frontend/**/GeneratedPluginRegistrant.*
+/frontend/android/.gradle/
+/frontend/android/app/debug
+/frontend/android/app/profile
+/frontend/android/app/release
+/frontend/android/local.properties
+/frontend/ios/Pods/
+/frontend/ios/.symlinks/
+/frontend/ios/Flutter/App.framework
+/frontend/ios/Flutter/Flutter.framework
+/frontend/ios/Flutter/Flutter.podspec
+/frontend/ios/Flutter/Generated.xcconfig
+/frontend/ios/Flutter/ephemeral/
+/frontend/ios/Flutter/flutter_export_environment.sh
+/frontend/ios/Runner/GeneratedPluginRegistrant.*
+/frontend/windows/flutter/ephemeral/
+/frontend/macos/Flutter/ephemeral/
+/frontend/linux/flutter/ephemeral/
+
+# ─── Editors / OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+.idea/
+.vscode/
+*.iml
+.history/
+
+# ─── Local Claude Code settings (personal tooling) ───────────────────────
+.claude/

@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1;
+
+use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
+use App\Models\CareAssignment;
+use App\Models\CareProvider;
+use App\Models\CareRequest;
+use App\Support\ApiResponse;
+use Illuminate\Http\Request;
+
+class DoctorCareRequestsController extends Controller
+{
+    use ApiResponse;
+
+    public function accept(Request $request, CareRequest $careRequest)
+    {
+        $provider = $this->myProvider($request);
+        abort_unless($careRequest->provider_id === $provider->id, 403, 'Not your request.');
+
+        $careRequest->update(['status' => 'accepted']);
+        CareAssignment::create([
+            'patient_user_id' => $careRequest->user_id,
+            'provider_id' => $provider->id,
+            'role' => 'Primary',
+            'assigned_at' => now(),
+        ]);
+        AppNotification::create([
+            'user_id' => $careRequest->user_id,
+            'kind' => 'careRequest',
+            'title' => 'Your provider request was accepted',
+            'body' => 'Dr. '.$request->user()->fullName().' is now part of your care team.',
+            'action_route' => '/patient/care-team',
+            'read' => false,
+        ]);
+        DoctorAccess::audit(
+            $request->user(),
+            'Accepted care request',
+            "Patient #{$careRequest->user_id}"
+        );
+        return $this->success(['request' => $careRequest->fresh()->toApiArray()], 'Request accepted.');
+    }
+
+    public function decline(Request $request, CareRequest $careRequest)
+    {
+        $provider = $this->myProvider($request);
+        abort_unless($careRequest->provider_id === $provider->id, 403, 'Not your request.');
+
+        $data = $request->validate(['reason' => 'nullable|string|max:200']);
+        $careRequest->update(['status' => 'declined']);
+        AppNotification::create([
+            'user_id' => $careRequest->user_id,
+            'kind' => 'careRequest',
+            'title' => 'Provider request declined',
+            'body' => 'Dr. '.$request->user()->fullName().' is unable to take on new patients at this time.',
+            'action_route' => '/patient/care-team',
+            'read' => false,
+        ]);
+        DoctorAccess::audit(
+            $request->user(),
+            'Declined care request',
+            "Patient #{$careRequest->user_id}".(! empty($data['reason']) ? " — {$data['reason']}" : '')
+        );
+        return $this->success(['request' => $careRequest->fresh()->toApiArray()], 'Request declined.');
+    }
+
+    private function myProvider(Request $request): CareProvider
+    {
+        $p = CareProvider::where('user_id', $request->user()->id)->first();
+        abort_unless($p !== null, 409, 'No care provider profile on file.');
+        return $p;
+    }
+}

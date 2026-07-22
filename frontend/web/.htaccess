@@ -1,0 +1,29 @@
+# SPA fallback for Apache / XAMPP.
+#
+# With clean path URLs enabled (usePathUrlStrategy), the browser can request
+# deep links such as /reset-password?token=... or /accept-invite?token=...
+# directly. Apache must serve index.html for any path that is not a real file
+# or directory, otherwise those links 404 before Flutter can route them.
+#
+# Files under web/ are copied verbatim into build/web/ by `flutter build web`,
+# so this ships with the built app.
+#
+# NOTE: if you deploy under a sub-directory (e.g. /app/) build with
+#   flutter build web --base-href /app/
+# and change both RewriteBase and the fallback target below to /app/.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Never rewrite the real entry point.
+  RewriteRule ^index\.html$ - [L]
+
+  # Serve existing files and directories as-is (assets, canvaskit, etc.).
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Everything else falls back to the SPA shell.
+  RewriteRule ^ /index.html [L]
+</IfModule>

@@ -1,0 +1,806 @@
+import 'core/web/html_splash_bridge.dart';
+import 'shared/bootstrap/launch_readiness.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+import 'admin/alerts/admin_alerts_view.dart';
+import 'admin/analytics/admin_analytics_view.dart';
+import 'admin/announcements/admin_announcements_view.dart';
+import 'admin/approvals/admin_approvals_view.dart';
+import 'admin/assignments/admin_assignments_view.dart';
+import 'admin/audit/admin_audit_view.dart';
+import 'admin/care_requests/admin_care_requests_view.dart';
+import 'shared/navigation/staff_route_config.dart';
+import 'shared/navigation/staff_route_factory.dart';
+import 'shared/sos/staff_sos_hub_view.dart';
+import 'admin/dashboard/admin_dashboard_view.dart';
+import 'admin/notifications/admin_notifications_view.dart';
+import 'admin/patients/admin_patients_view.dart';
+import 'admin/permissions/admin_permissions_view.dart';
+import 'admin/profile/admin_profile_view.dart';
+import 'admin/security/admin_security_view.dart';
+import 'admin/settings/admin_settings_view.dart';
+import 'admin/system/admin_system_view.dart';
+import 'admin/users/admin_users_view.dart';
+import 'shared/vitals/vital_catalog_screen.dart';
+import 'auth/accept_invite_view.dart';
+import 'auth/external_doctor_view.dart';
+import 'auth/forgot_password_view.dart';
+import 'auth/landing_view.dart';
+import 'auth/login_view.dart';
+import 'auth/otp_view.dart';
+import 'auth/pending_approval_view.dart';
+import 'auth/register_view.dart';
+import 'auth/reset_password_view.dart';
+import 'doctors/alerts/doctor_alert_detail_view.dart';
+import 'doctors/alerts/doctor_alerts_view.dart';
+import 'doctors/appointments/doctor_appointments_view.dart';
+import 'doctors/dashboard/doctor_action_inbox_view.dart';
+import 'doctors/dashboard/doctor_dashboard_view.dart';
+import 'doctors/overview/doctor_overview_view.dart';
+import 'doctors/vitals/doctor_vitals_hub_view.dart';
+import 'doctors/visits/doctor_visits_view.dart';
+import 'doctors/patients/doctor_patient_section.dart';
+import 'doctors/patients/doctor_patient_workspace_view.dart';
+import 'doctors/patients/doctor_patients_view.dart';
+import 'doctors/prescriptions/doctor_prescriptions_view.dart';
+import 'doctors/reports/doctor_report_editor_view.dart';
+import 'doctors/reports/doctor_reports_view.dart';
+import 'doctors/settings/doctor_settings_view.dart';
+import 'mcare_assistant/assistant_settings_view.dart';
+import 'mcare_assistant/assistant_views.dart';
+import 'mcare_assistant/dashboard/assistant_dashboard_view.dart';
+import 'patients/appointments/appointment_detail_view.dart';
+import 'patients/appointments/appointments_view.dart';
+import 'patients/care_team/care_team_view.dart';
+import 'patients/dashboard/patient_dashboard_view.dart';
+import 'patients/documents/documents_view.dart';
+import 'patients/medications/medication_detail_view.dart';
+import 'patients/medications/medications_view.dart';
+import 'patients/onboarding/patient_onboarding_view.dart';
+import 'patients/messages/chat_thread_view.dart';
+import 'patients/messages/messages_view.dart';
+import 'patients/notifications/notifications_view.dart';
+import 'patients/profile/profile_view.dart';
+import 'patients/settings/settings_view.dart';
+import 'patients/sos/sos_view.dart';
+import 'patients/support/support_view.dart';
+import 'patients/vitals/vital_detail_view.dart';
+import 'patients/vitals/vital_history_view.dart';
+import 'patients/vitals/vitals_7day_view.dart';
+import 'patients/vitals/vitals_view.dart';
+import 'core/auth/google_sign_in_service.dart';
+import 'core/push/push_notification_service.dart';
+import 'core/web/url_strategy.dart';
+import 'doctors/dashboard/critical_alert_popup.dart';
+import 'shared/auth/auth_state.dart';
+import 'shared/services/auth_service.dart';
+import 'shared/widgets/app_toast.dart';
+import 'shared/auth/patient_onboarding_gate.dart';
+import 'shared/auth/staff_profile_gate.dart';
+import 'shared/profile/complete_staff_profile_view.dart';
+import 'shared/profile/force_change_password_view.dart';
+import 'shared/auth/role_guard.dart';
+import 'shared/constants/route_names.dart';
+import 'shared/models/notifications_filter.dart';
+import 'shared/models/user_role.dart';
+import 'shared/models/vital.dart';
+import 'shared/models/vital_detail_args.dart';
+import 'shared/state/settings_state.dart';
+import 'shared/navigation/sos_navigation.dart';
+import 'shared/bootstrap/app_bootstrap.dart';
+import 'shared/navigation/root_navigator.dart';
+import 'l10n/app_localizations.dart';
+import 'shared/theme/app_colors.dart';
+import 'shared/theme/app_theme.dart';
+import 'shared/widgets/app_icons.dart';
+import 'shared/widgets/app_page_route.dart';
+import 'shared/widgets/bubble_background.dart';
+import 'shared/widgets/pre_login_top_bar.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Clean path URLs on web so `/reset-password?token=...` deep links resolve.
+  configureWebUrlStrategy();
+  if (kIsWeb) {
+    GoogleSignInService.instance.warmUp();
+  }
+  PushNotificationService.instance.init();
+  // Role modules register logout cleanup here so shared/auth stays decoupled.
+  AuthState.addLogoutCleanup(CriticalAlertPopup.reset);
+  runApp(const McareApp());
+}
+
+class McareApp extends StatefulWidget {
+  const McareApp({super.key});
+
+  @override
+  State<McareApp> createState() => _McareAppState();
+}
+
+class _McareAppState extends State<McareApp> {
+  @override
+  void initState() {
+    super.initState();
+    _runBootstrap();
+  }
+
+  Future<void> _runBootstrap() async {
+    final result = await AppBootstrap.run();
+    if (!mounted) return;
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    if (kIsWeb) {
+      final gr = result.googleAuthResult;
+      if (gr != null) {
+        if (gr.isSuccess) {
+          AuthService.instance.completeNavigation(ctx, gr);
+          // Dismiss HTML splash after navigation frame is painted.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              HtmlSplashBridge.dismiss();
+            });
+          });
+          return;
+        } else if (!gr.cancelled) {
+          AppToast.error(ctx, gr.errorMessage ?? 'Google sign-in failed.');
+        }
+      }
+    }
+
+    LaunchReadiness.instance.markBootstrapComplete();
+
+    final target = result.initialRoute;
+    // Already on LandingView; only navigate if a saved session was restored.
+    if (target != RouteNames.home) {
+      Navigator.of(ctx).pushReplacementNamed(target);
+    }
+
+    // Dismiss HTML splash only after bootstrap is done and content is painted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        HtmlSplashBridge.dismiss();
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        AuthState.instance,
+        SettingsState.instance,
+      ]),
+      builder: (context, _) {
+        final accent =
+            AuthState.instance.user?.role.accent ?? AppColors.brandIndigo;
+        return MaterialApp(
+          title: 'mCare',
+          navigatorKey: rootNavigatorKey,
+          navigatorObservers: [AppRouteTracker()],
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(accent: accent),
+          darkTheme: AppTheme.dark(accent: accent),
+          themeMode: SettingsState.instance.themeMode,
+          locale: SettingsState.instance.locale,
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localeResolutionCallback: (locale, supported) {
+            if (locale == null) return const Locale('en');
+            for (final s in supported) {
+              if (s.languageCode == locale.languageCode) return s;
+            }
+            return const Locale('en');
+          },
+          builder: (context, child) => ColoredBox(
+            color: AppPalette.scaffoldBg(context),
+            child: child ?? const SizedBox.shrink(),
+          ),
+          initialRoute: RouteNames.landing,
+          // Produce a single-route stack so home screens never have a "/" route
+          // lurking underneath them (Flutter's default splits initialRoute on "/").
+          onGenerateInitialRoutes: (route) => [
+            _onGenerateRoute(RouteSettings(name: route)),
+          ],
+          onGenerateRoute: _onGenerateRoute,
+        );
+      },
+    );
+  }
+
+  Route<dynamic> _onGenerateRoute(RouteSettings settings) {
+    final rawName = settings.name ?? RouteNames.home;
+    // A deep-linked initial route arrives as a full path, e.g.
+    // `/reset-password?token=abc&email=x`. Split off the query so the switch
+    // matches the bare route, and expose the params to token-based screens.
+    final parsedUri = Uri.tryParse(rawName);
+    final name = (parsedUri != null && parsedUri.path.isNotEmpty)
+        ? parsedUri.path
+        : rawName;
+    final linkParams = <String, String>{
+      ...?parsedUri?.queryParameters,
+    };
+    Widget page;
+
+    switch (name) {
+      // ----- Pre-login --------------------------------------------------
+      case RouteNames.home:
+      case RouteNames.landing:
+        page = const LandingView();
+        break;
+      case RouteNames.login:
+        page = const LoginView();
+        break;
+      case RouteNames.register:
+        page = RegisterView(asSheet: false);
+        break;
+      case RouteNames.forgotPassword:
+        page = const ForgotPasswordView();
+        break;
+      case RouteNames.resetPassword:
+        page = ResetPasswordView(
+          args: ResetPasswordArgs.tryParse(settings.arguments) ??
+              ResetPasswordArgs.tryParse(linkParams),
+        );
+        break;
+      case RouteNames.verifyEmail:
+        page = const OtpView(isEmail: true);
+        break;
+      case RouteNames.pendingApproval:
+        page = const PendingApprovalView();
+        break;
+      case RouteNames.acceptInvite:
+        final token = (settings.arguments as String?) ??
+            linkParams['token'] ??
+            Uri.base.queryParameters['token'];
+        page = AcceptInviteView(token: token);
+        break;
+      case RouteNames.externalDoctor:
+        // Token can arrive as a navigation argument (in-app) or in the URL
+        // query string (emergency link opened in an outside doctor's browser).
+        final extToken = (settings.arguments as String?) ??
+            linkParams['token'] ??
+            Uri.base.queryParameters['token'];
+        page = ExternalDoctorView(token: extToken);
+        break;
+
+      // ----- Patient ----------------------------------------------------
+      case RouteNames.patientOnboarding:
+        page = const RoleGuard(
+          allowed: [UserRole.patient],
+          child: PatientOnboardingView(),
+        );
+        break;
+      case RouteNames.patientForcePassword:
+        page = const RoleGuard(
+          allowed: [UserRole.patient],
+          child: ForceChangePasswordView(role: UserRole.patient),
+        );
+        break;
+      case RouteNames.patientDashboard:
+        page = const _PatientGuarded(child: PatientDashboardView());
+        break;
+      case RouteNames.patientVitals:
+        page = const _PatientGuarded(child: VitalsView());
+        break;
+      case RouteNames.patientVitalDetail:
+        final args = VitalDetailArgs.tryParse(settings.arguments);
+        page = _PatientGuarded(
+          child: VitalDetailView(
+            vital: args?.vital ?? VitalKey.heartRate,
+            initialRangeDays: args?.rangeDays ?? 7,
+          ),
+        );
+        break;
+      case RouteNames.patientVitalHistory:
+        final vital = VitalDetailArgs.tryParse(settings.arguments)?.vital ??
+            settings.arguments as VitalKey? ??
+            VitalKey.heartRate;
+        page = _PatientGuarded(child: VitalHistoryView(vital: vital));
+        break;
+      case RouteNames.patientVital7Day:
+        page = const _PatientGuarded(child: Vitals7DayView());
+        break;
+      case RouteNames.patientNotifications:
+        final filter = NotificationsFilter.tryParse(settings.arguments);
+        page = _PatientGuarded(
+          child: NotificationsView(
+            initialShowResolved: filter?.showResolved ?? false,
+          ),
+        );
+        break;
+      case RouteNames.patientMedications:
+        page = const _PatientGuarded(child: MedicationsView());
+        break;
+      case RouteNames.patientMedicationDetail:
+        final medId = settings.arguments as String? ?? '';
+        page = _PatientGuarded(child: MedicationDetailView(medicationId: medId));
+        break;
+      case RouteNames.patientAppointments:
+        page = const _PatientGuarded(child: AppointmentsView());
+        break;
+      case RouteNames.patientAppointmentDetail:
+        final apptId = settings.arguments as String? ?? '';
+        page =
+            _PatientGuarded(child: AppointmentDetailView(appointmentId: apptId));
+        break;
+      case RouteNames.patientDocuments:
+        page = const _PatientGuarded(child: DocumentsView());
+        break;
+      case RouteNames.patientMessages:
+        page = const _PatientGuarded(child: MessagesView());
+        break;
+      case RouteNames.patientChatThread:
+        final convId = settings.arguments as String? ?? '';
+        page = _PatientGuarded(child: ChatThreadView(conversationId: convId));
+        break;
+      case RouteNames.patientCareTeam:
+        page = const _PatientGuarded(child: CareTeamView());
+        break;
+      case RouteNames.patientProfile:
+        page = const _PatientGuarded(child: ProfileView());
+        break;
+      case RouteNames.patientSettings:
+        page = const _PatientGuarded(child: SettingsView());
+        break;
+      case RouteNames.patientSupport:
+        page = const _PatientGuarded(child: SupportView());
+        break;
+      case RouteNames.patientTicketDetail:
+        final ticketId = settings.arguments as String? ?? '';
+        page = _PatientGuarded(child: TicketDetailView(ticketId: ticketId));
+        break;
+      case RouteNames.patientSos:
+        page = const _PatientGuarded(child: SosView());
+        break;
+
+      // ----- Doctor ----------------------------------------------------
+      case RouteNames.doctorDashboard:
+        page = const _DoctorGuarded(child: DoctorDashboardView());
+        break;
+      case RouteNames.doctorPatients:
+        page = const _DoctorGuarded(child: DoctorPatientsView());
+        break;
+      case RouteNames.doctorPatientChart:
+        final args = settings.arguments;
+        var pid = '';
+        var section = DoctorPatientSection.overview;
+        var openSosRespond = false;
+        String? sosEventId;
+        if (args is String) {
+          pid = args;
+        } else if (args is Map) {
+          pid = args['patientId'] as String? ?? '';
+          final raw = args['section'] as String?;
+          if (raw != null) {
+            section = DoctorPatientSection.values.firstWhere(
+              (e) => e.name == raw,
+              orElse: () => DoctorPatientSection.overview,
+            );
+          }
+          openSosRespond = args['sosRespond'] == true;
+          sosEventId = args['eventId'] as String?;
+        }
+        page = _DoctorGuarded(
+          child: DoctorPatientWorkspaceView(
+            patientId: pid,
+            initialSection: section,
+            openSosRespond: openSosRespond,
+            sosEventId: sosEventId,
+          ),
+        );
+        break;
+      case RouteNames.doctorInbox:
+        page = const _DoctorGuarded(child: DoctorActionInboxView());
+        break;
+      case RouteNames.doctorAlerts:
+        page = const _DoctorGuarded(child: DoctorAlertsView());
+        break;
+      case RouteNames.doctorAlertDetail:
+        final aid = settings.arguments as String? ?? '';
+        page = _DoctorGuarded(child: DoctorAlertDetailView(alertId: aid));
+        break;
+      case RouteNames.doctorVisits:
+        page = const _DoctorGuarded(child: DoctorVisitsView());
+        break;
+      case RouteNames.doctorOverview:
+        page = const _DoctorGuarded(child: DoctorOverviewView());
+        break;
+      case RouteNames.doctorVitals:
+        page = const _DoctorGuarded(child: DoctorVitalsHubView());
+        break;
+      case RouteNames.doctorVitalTemplate:
+        page = const _DoctorGuarded(child: VitalCatalogScreen.doctor());
+        break;
+      case RouteNames.doctorAppointments:
+        page = const _DoctorGuarded(child: DoctorAppointmentsView());
+        break;
+      case RouteNames.doctorPrescriptions:
+        page = const _DoctorGuarded(child: DoctorPrescriptionsView());
+        break;
+      case RouteNames.doctorReports:
+        page = const _DoctorGuarded(child: DoctorReportsView());
+        break;
+      case RouteNames.doctorReportEditor:
+        page = _DoctorGuarded(
+          child: DoctorReportEditorView(argument: settings.arguments),
+        );
+        break;
+      case RouteNames.doctorMessages:
+        page = _DoctorGuarded(
+          child: StaffRouteFactory.messages(
+            StaffRouteConfig.doctor(RouteNames.doctorMessages),
+          ),
+        );
+        break;
+      case RouteNames.doctorChatThread:
+        final cid = settings.arguments as String? ?? '';
+        page = _DoctorGuarded(
+          child: StaffRouteFactory.chatThread(
+            StaffRouteConfig.doctor(RouteNames.doctorMessages),
+            cid,
+          ),
+        );
+        break;
+      case RouteNames.doctorNotifications:
+        page = _DoctorGuarded(
+          child: StaffRouteFactory.notifications(
+            StaffRouteConfig.doctor(RouteNames.doctorNotifications),
+          ),
+        );
+        break;
+      case RouteNames.doctorCompleteProfile:
+        page = const RoleGuard(
+          allowed: [UserRole.doctor],
+          child: CompleteStaffProfileView(role: UserRole.doctor),
+        );
+        break;
+      case RouteNames.doctorForcePassword:
+        page = const RoleGuard(
+          allowed: [UserRole.doctor],
+          child: ForceChangePasswordView(role: UserRole.doctor),
+        );
+        break;
+      case RouteNames.doctorProfile:
+        page = _DoctorGuarded(
+          child: StaffRouteFactory.profile(
+            StaffRouteConfig.doctor(RouteNames.doctorProfile),
+          ),
+        );
+        break;
+      case RouteNames.doctorSettings:
+        page = const _DoctorGuarded(child: DoctorSettingsView());
+        break;
+      case RouteNames.doctorSos:
+        final sosArgs = SosNavigation.parseArgs(settings.arguments);
+        page = _DoctorGuarded(
+          child: StaffSosHubView(
+            initialPatientId: sosArgs.patientId,
+            initialEventId: sosArgs.eventId,
+          ),
+        );
+        break;
+
+      // ----- Admin -----------------------------------------------------
+      case RouteNames.adminDashboard:
+        page = const _AdminGuarded(child: AdminDashboardView());
+        break;
+      case RouteNames.adminSos:
+        final adminSosArgs = SosNavigation.parseArgs(settings.arguments);
+        page = _AdminStaffGuarded(
+          child: StaffSosHubView(
+            initialPatientId: adminSosArgs.patientId,
+            initialEventId: adminSosArgs.eventId,
+          ),
+        );
+        break;
+      case RouteNames.adminPatients:
+        page = const _AdminGuarded(child: AdminPatientsView());
+        break;
+      case RouteNames.adminUsers:
+        page = const _AdminGuarded(child: AdminUsersView());
+        break;
+      case RouteNames.adminUserDetail:
+        final uid = settings.arguments as String? ?? '';
+        page = _AdminStaffGuarded(child: AdminUserDetailView(userId: uid));
+        break;
+      case RouteNames.adminApprovals:
+        page = const _AdminGuarded(child: AdminApprovalsView());
+        break;
+      case RouteNames.adminCareRequests:
+        page = const _AdminGuarded(child: AdminCareRequestsView());
+        break;
+      case RouteNames.adminAssignments:
+        page = const _AdminGuarded(child: AdminAssignmentsView());
+        break;
+      case RouteNames.adminVitalCatalog:
+        page = const _AdminGuarded(child: VitalCatalogScreen.admin());
+        break;
+      case RouteNames.adminPermissions:
+        page = const _AdminGuarded(child: AdminPermissionsView());
+        break;
+      case RouteNames.adminSupport:
+        page = _AdminGuarded(
+          child: StaffRouteFactory.support(
+            StaffRouteConfig.admin(RouteNames.adminSupport),
+          ),
+        );
+        break;
+      case RouteNames.adminAudit:
+        page = const _AdminGuarded(child: AdminAuditView());
+        break;
+      case RouteNames.adminAnnouncements:
+        page = const _AdminGuarded(child: AdminAnnouncementsView());
+        break;
+      case RouteNames.adminSecurity:
+        page = const _AdminGuarded(child: AdminSecurityView());
+        break;
+      case RouteNames.adminAlerts:
+        page = const _AdminGuarded(child: AdminAlertsView());
+        break;
+      case RouteNames.adminAnalytics:
+        page = const _AdminGuarded(child: AdminAnalyticsView());
+        break;
+      case RouteNames.adminSystem:
+        page = const _AdminGuarded(child: AdminSystemView());
+        break;
+      case RouteNames.adminSettings:
+        page = const _AdminGuarded(child: AdminSettingsView());
+        break;
+      case RouteNames.adminMessages:
+        page = _AdminGuarded(
+          child: StaffRouteFactory.messages(
+            StaffRouteConfig.admin(RouteNames.adminMessages),
+          ),
+        );
+        break;
+      case RouteNames.adminChatThread:
+        final cid = settings.arguments as String? ?? '';
+        page = _AdminGuarded(
+          child: StaffRouteFactory.chatThread(
+            StaffRouteConfig.admin(RouteNames.adminMessages),
+            cid,
+          ),
+        );
+        break;
+      case RouteNames.adminNotifications:
+        page = const _AdminGuarded(child: AdminNotificationsView());
+        break;
+      case RouteNames.adminCompleteProfile:
+        page = const RoleGuard(
+          allowed: [UserRole.admin],
+          child: CompleteStaffProfileView(role: UserRole.admin),
+        );
+        break;
+      case RouteNames.adminForcePassword:
+        page = const RoleGuard(
+          allowed: [UserRole.admin],
+          child: ForceChangePasswordView(role: UserRole.admin),
+        );
+        break;
+      case RouteNames.adminProfile:
+        page = const _AdminGuarded(child: AdminProfileView());
+        break;
+
+      // ----- mCare Assistant -------------------------------------------
+      case RouteNames.assistantDashboard:
+        page = const _AssistantGuarded(child: AssistantDashboardView());
+        break;
+      case RouteNames.assistantApprovals:
+        page = const _AssistantGuarded(child: AssistantApprovalsView());
+        break;
+      case RouteNames.assistantCareRequests:
+        page = const _AssistantGuarded(child: AssistantCareRequestsView());
+        break;
+      case RouteNames.assistantAssignments:
+        page = const _AssistantGuarded(child: AssistantAssignmentsView());
+        break;
+      case RouteNames.assistantPatients:
+        page = const _AssistantGuarded(child: AssistantPatientsView());
+        break;
+      case RouteNames.assistantUsers:
+        page = const _AssistantGuarded(child: AssistantUsersView());
+        break;
+      case RouteNames.assistantUserDetail:
+        final asstUid = settings.arguments as String? ?? '';
+        page = _AssistantGuarded(child: AssistantUserDetailView(userId: asstUid));
+        break;
+      case RouteNames.assistantSupport:
+        page = const _AssistantGuarded(child: AssistantSupportView());
+        break;
+      case RouteNames.assistantAudit:
+        page = const _AssistantGuarded(child: AssistantAuditView());
+        break;
+      case RouteNames.assistantAnalytics:
+        page = const _AssistantGuarded(child: AssistantAnalyticsView());
+        break;
+      case RouteNames.assistantAnnouncements:
+        page = const _AssistantGuarded(child: AssistantAnnouncementsView());
+        break;
+      case RouteNames.assistantSecurity:
+        page = const _AssistantGuarded(child: AssistantSecurityView());
+        break;
+      case RouteNames.assistantAlerts:
+        page = const _AssistantGuarded(child: AssistantAlertsView());
+        break;
+      case RouteNames.assistantMessages:
+        page = _AssistantGuarded(
+          child: StaffRouteFactory.messages(
+            StaffRouteConfig.assistant(RouteNames.assistantMessages),
+          ),
+        );
+        break;
+      case RouteNames.assistantChatThread:
+        final cid = settings.arguments as String? ?? '';
+        page = _AssistantGuarded(
+          child: StaffRouteFactory.chatThread(
+            StaffRouteConfig.assistant(RouteNames.assistantMessages),
+            cid,
+          ),
+        );
+        break;
+      case RouteNames.assistantNotifications:
+        page = _AssistantGuarded(
+          child: StaffRouteFactory.notifications(
+            StaffRouteConfig.assistant(RouteNames.assistantNotifications),
+          ),
+        );
+        break;
+      case RouteNames.assistantSos:
+        final asstSosArgs = SosNavigation.parseArgs(settings.arguments);
+        page = _AssistantGuarded(
+          child: AssistantSosView(
+            initialPatientId: asstSosArgs.patientId,
+            initialEventId: asstSosArgs.eventId,
+          ),
+        );
+        break;
+      case RouteNames.assistantVitalCatalog:
+        page = const _AssistantGuarded(child: AssistantVitalCatalogView());
+        break;
+      case RouteNames.assistantCompleteProfile:
+        page = const RoleGuard(
+          allowed: [UserRole.mcareAssistant],
+          child: CompleteStaffProfileView(role: UserRole.mcareAssistant),
+        );
+        break;
+      case RouteNames.assistantForcePassword:
+        page = const RoleGuard(
+          allowed: [UserRole.mcareAssistant],
+          child: ForceChangePasswordView(role: UserRole.mcareAssistant),
+        );
+        break;
+      case RouteNames.assistantSettings:
+        page = const _AssistantGuarded(child: AssistantSettingsView());
+        break;
+      case RouteNames.assistantProfile:
+        page = _AssistantGuarded(
+          child: StaffRouteFactory.profile(
+            StaffRouteConfig.assistant(RouteNames.assistantProfile),
+          ),
+        );
+        break;
+
+      default:
+        page = const _NotFoundView();
+    }
+
+    return AppPageRoute(builder: (_) => page, settings: settings);
+  }
+}
+
+class _PatientGuarded extends StatelessWidget {
+  const _PatientGuarded({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) =>
+      RoleGuard(
+        allowed: const [UserRole.patient],
+        child: PatientOnboardingGate(child: child),
+      );
+}
+
+class _DoctorGuarded extends StatelessWidget {
+  const _DoctorGuarded({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => RoleGuard(
+        allowed: const [UserRole.doctor],
+        child: StaffProfileGate(
+          completeProfileRoute: RouteNames.doctorCompleteProfile,
+          forcePasswordRoute: RouteNames.doctorForcePassword,
+          child: child,
+        ),
+      );
+}
+
+class _AdminGuarded extends StatelessWidget {
+  const _AdminGuarded({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => RoleGuard(
+        allowed: const [UserRole.admin],
+        child: StaffProfileGate(
+          completeProfileRoute: RouteNames.adminCompleteProfile,
+          forcePasswordRoute: RouteNames.adminForcePassword,
+          child: child,
+        ),
+      );
+}
+
+class _AssistantGuarded extends StatelessWidget {
+  const _AssistantGuarded({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => RoleGuard(
+        allowed: const [UserRole.mcareAssistant],
+        child: StaffProfileGate(
+          completeProfileRoute: RouteNames.assistantCompleteProfile,
+          forcePasswordRoute: RouteNames.assistantForcePassword,
+          child: child,
+        ),
+      );
+}
+
+class _AdminStaffGuarded extends StatelessWidget {
+  const _AdminStaffGuarded({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final role = AuthState.instance.user?.role ?? UserRole.admin;
+    return RoleGuard(
+      allowed: const [UserRole.admin, UserRole.mcareAssistant],
+      child: StaffProfileGate(
+        completeProfileRoute: StaffProfileGate.completeRouteFor(role),
+        forcePasswordRoute: StaffProfileGate.forcePasswordRouteFor(role),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _NotFoundView extends StatelessWidget {
+  const _NotFoundView();
+  @override
+  Widget build(BuildContext context) {
+    final surface = AppPalette.scaffoldBg(context);
+    return Scaffold(
+      backgroundColor: surface,
+      body: BubbleBackground(
+        surfaceColor: surface,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const PreLoginTopBar(),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(AppIcons.error,
+                            size: 48, color: AppPalette.textMuted(context)),
+                        const SizedBox(height: 12),
+                        Text('Page not found',
+                            style: Theme.of(context).textTheme.headlineMedium),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => Navigator.of(context)
+                              .pushNamedAndRemoveUntil(RouteNames.home, (_) => false),
+                          child: const Text('Back home'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

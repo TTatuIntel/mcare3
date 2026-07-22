@@ -1,0 +1,356 @@
+<?php
+
+use App\Http\Controllers\Api\V1\Admin\AdminAlertsController;
+use App\Http\Controllers\Api\V1\Admin\AdminSessionController as AdminSessionController;
+use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
+use App\Http\Controllers\Api\V1\Admin\AnnouncementsController as AdminAnnouncementsController;
+use App\Http\Controllers\Api\V1\Admin\ApprovalsController as AdminApprovalsController;
+use App\Http\Controllers\Api\V1\Admin\AssignmentsController as AdminAssignmentsController;
+use App\Http\Controllers\Api\V1\Admin\AuditController as AdminAuditController;
+use App\Http\Controllers\Api\V1\Admin\CareRequestsController as AdminCareRequestsController;
+use App\Http\Controllers\Api\V1\Admin\ConversationsController as AdminConversationsController;
+use App\Http\Controllers\Api\V1\Admin\NotificationsController as AdminNotificationsController;
+use App\Http\Controllers\Api\V1\Admin\PatientsController as AdminPatientsController;
+use App\Http\Controllers\Api\V1\Admin\PermissionsController as AdminPermissionsController;
+use App\Http\Controllers\Api\V1\Admin\SecurityIncidentsController as AdminSecurityIncidentsController;
+use App\Http\Controllers\Api\V1\Admin\SupportTicketsController as AdminSupportTicketsController;
+use App\Http\Controllers\Api\V1\Admin\SystemSettingsController as AdminSystemSettingsController;
+use App\Http\Controllers\Api\V1\Admin\UsersController as AdminUsersController;
+use App\Http\Controllers\Api\V1\Admin\VitalCatalogController as AdminVitalCatalogController;
+use App\Http\Controllers\Api\V1\AdminSosController;
+use App\Http\Controllers\Api\V1\AppointmentsController;
+use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CareController;
+use App\Http\Controllers\Api\V1\DoctorAlertsController;
+use App\Http\Controllers\Api\V1\DoctorAppointmentsController;
+use App\Http\Controllers\Api\V1\DoctorCareRequestsController;
+use App\Http\Controllers\Api\V1\DoctorMealPlansController;
+use App\Http\Controllers\Api\V1\DoctorMessagesController;
+use App\Http\Controllers\Api\V1\DoctorPatientController;
+use App\Http\Controllers\Api\V1\DoctorPrescriptionsController;
+use App\Http\Controllers\Api\V1\DoctorReportsController;
+use App\Http\Controllers\Api\V1\DoctorSessionController;
+use App\Http\Controllers\Api\V1\DoctorSosController;
+use App\Http\Controllers\Api\V1\DoctorVitalCatalogController;
+use App\Http\Controllers\Api\V1\DoctorVitalReportRequestsController;
+use App\Http\Controllers\Api\V1\DocumentsController;
+use App\Http\Controllers\Api\V1\ExternalDoctorController;
+use App\Http\Controllers\Api\V1\FcmTokenController;
+use App\Http\Controllers\Api\V1\MedicationsController;
+use App\Http\Controllers\Api\V1\MessagesController;
+use App\Http\Controllers\Api\V1\NotificationsController;
+use App\Http\Controllers\Api\V1\PatientExternalAccessController;
+use App\Http\Controllers\Api\V1\PatientProfileController;
+use App\Http\Controllers\Api\V1\PatientTrackedVitalsController;
+use App\Http\Controllers\Api\V1\PatientSessionController;
+use App\Http\Controllers\Api\V1\SosController;
+use App\Http\Controllers\Api\V1\SupportController;
+use App\Http\Controllers\Api\V1\StaffNotificationStateController;
+use App\Http\Controllers\Api\V1\UserSettingsController;
+use App\Http\Controllers\Api\V1\VitalReportRequestsController;
+use App\Http\Controllers\Api\V1\VitalsController;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('auth')->group(function () {
+    // Brute-force protection: unauthenticated credential endpoints are
+    // rate-limited per IP (on top of the per-account lockout).
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('register', [AuthController::class, 'register']);
+        Route::post('login', [AuthController::class, 'login']);
+        Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('reset-password', [AuthController::class, 'resetPassword']);
+        Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
+        Route::post('accept-invite', [AuthController::class, 'acceptInvite']);
+    });
+    Route::post('google', [AuthController::class, 'google'])->middleware('throttle:20,1');
+    Route::get('google/redirect', [AuthController::class, 'googleRedirect']);
+    Route::get('google/callback', [AuthController::class, 'googleCallback']);
+    Route::post('apple', [AuthController::class, 'apple'])->middleware('throttle:20,1');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('me', [AuthController::class, 'me']);
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('change-password', [AuthController::class, 'changePassword']);
+        Route::post('change-email', [AuthController::class, 'changeEmail']);
+        Route::put('profile', [AuthController::class, 'updateProfile']);
+        Route::post('avatar', [AuthController::class, 'uploadAvatar']);
+        Route::delete('avatar', [AuthController::class, 'deleteAvatar']);
+    });
+});
+
+Route::prefix('external')->group(function () {
+    // Code→token exchange is the brute-forceable surface: throttle hard.
+    Route::post('resolve-code', [ExternalDoctorController::class, 'resolveCode'])
+        ->middleware('throttle:6,1');
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::get('{token}', [ExternalDoctorController::class, 'show']);
+        Route::post('{token}/notes', [ExternalDoctorController::class, 'addNote']);
+        Route::post('{token}/vitals', [ExternalDoctorController::class, 'addVital']);
+        Route::post('{token}/medications', [ExternalDoctorController::class, 'addMedication']);
+        Route::post('{token}/documents', [ExternalDoctorController::class, 'uploadDocument']);
+    });
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('fcm-tokens', [FcmTokenController::class, 'store']);
+    Route::delete('fcm-tokens', [FcmTokenController::class, 'destroy']);
+
+    // Per-user preferences — any authenticated role.
+    Route::get('me/settings', [UserSettingsController::class, 'show']);
+    Route::patch('me/settings', [UserSettingsController::class, 'update']);
+
+    // Read/resolve state for client-computed staff notifications.
+    Route::get('me/notification-states', [StaffNotificationStateController::class, 'index']);
+    Route::post('me/notification-states', [StaffNotificationStateController::class, 'upsert']);
+    Route::post('me/notification-states/read-all', [StaffNotificationStateController::class, 'readAll']);
+});
+
+Route::middleware(['auth:sanctum', 'role:patient'])->prefix('patient')->group(function () {
+    Route::get('session', [PatientSessionController::class, 'show']);
+
+    Route::get('profile', [PatientProfileController::class, 'show']);
+    Route::put('profile/account', [PatientProfileController::class, 'updateAccount']);
+    Route::put('profile/health', [PatientProfileController::class, 'updateHealth']);
+    Route::post('onboarding', [PatientProfileController::class, 'completeOnboarding']);
+    Route::post('emergency-contacts', [PatientProfileController::class, 'storeEmergencyContact']);
+    Route::delete('emergency-contacts/{contact}', [PatientProfileController::class, 'destroyEmergencyContact']);
+
+    Route::get('vitals', [VitalsController::class, 'index']);
+    Route::post('vitals', [VitalsController::class, 'store']);
+    Route::patch('tracked-vitals', [PatientTrackedVitalsController::class, 'update']);
+
+    Route::post('medications', [MedicationsController::class, 'store']);
+    Route::patch('medications/{medication}', [MedicationsController::class, 'update']);
+    Route::delete('medications/{medication}', [MedicationsController::class, 'destroy']);
+    Route::patch('medication-doses/{dose}', [MedicationsController::class, 'recordDose']);
+
+    Route::post('appointments', [AppointmentsController::class, 'store']);
+    Route::patch('appointments/{appointment}', [AppointmentsController::class, 'update']);
+    Route::delete('appointments/{appointment}', [AppointmentsController::class, 'destroy']);
+
+    Route::post('documents', [DocumentsController::class, 'store']);
+    Route::patch('documents/{document}', [DocumentsController::class, 'update']);
+    Route::delete('documents/{document}', [DocumentsController::class, 'destroy']);
+    Route::get('documents/{document}/stream', [DocumentsController::class, 'stream']);
+    Route::get('documents/{document}/download', [DocumentsController::class, 'downloadUrl']);
+
+    Route::get('conversations/{conversation}/messages', [MessagesController::class, 'thread']);
+    Route::post('conversations/{conversation}/messages', [MessagesController::class, 'send']);
+    Route::post('conversations/{conversation}/read', [MessagesController::class, 'markRead']);
+
+    Route::get('notifications', [NotificationsController::class, 'index']);
+    Route::patch('notifications/{notification}/read', [NotificationsController::class, 'markRead']);
+    Route::patch('notifications/{notification}/resolve', [NotificationsController::class, 'resolve']);
+    Route::post('notifications/read-all', [NotificationsController::class, 'markAllRead']);
+
+    Route::post('support-tickets', [SupportController::class, 'store']);
+    Route::post('support-tickets/{ticket}/replies', [SupportController::class, 'reply']);
+    Route::patch('support-tickets/{ticket}/close', [SupportController::class, 'close']);
+
+    Route::post('sos', [SosController::class, 'trigger']);
+    Route::patch('sos/{event}', [SosController::class, 'resolve']);
+
+    Route::get('care/providers', [CareController::class, 'providers']);
+    Route::post('care/requests', [CareController::class, 'requestProvider']);
+    Route::patch('care/requests/{careRequest}', [CareController::class, 'cancelRequest']);
+
+    Route::post('vital-report-requests', [VitalReportRequestsController::class, 'store']);
+    Route::patch('vital-report-requests/{vitalReportRequest}', [VitalReportRequestsController::class, 'cancel']);
+
+    // Patient-managed external access links/codes (emergency consults).
+    Route::get('external-access', [PatientExternalAccessController::class, 'index']);
+    Route::post('external-access', [PatientExternalAccessController::class, 'store']);
+    Route::patch('external-access/{externalToken}/revoke', [PatientExternalAccessController::class, 'revoke']);
+
+});
+
+Route::middleware(['auth:sanctum', 'role:doctor'])->prefix('doctor')->group(function () {
+    Route::get('session', [DoctorSessionController::class, 'show']);
+
+    Route::get('patients/{patient}', [DoctorPatientController::class, 'show']);
+    Route::patch('patients/{patient}/chart', [DoctorPatientController::class, 'updateChart']);
+    Route::patch('patients/{patient}/assigned-vitals', [DoctorPatientController::class, 'updateAssignedVitals']);
+    Route::post('patients/{patient}/documents', [DoctorPatientController::class, 'storeDocument']);
+    Route::patch('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'updateDocument']);
+    Route::delete('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'destroyDocument']);
+    Route::get('patients/{patient}/documents/{document}/stream', [DoctorPatientController::class, 'streamDocument']);
+    Route::get('patients/{patient}/documents/{document}/download', [DoctorPatientController::class, 'downloadDocument']);
+
+    Route::get('alerts', [DoctorAlertsController::class, 'index']);
+    Route::patch('alerts/{alert}/acknowledge', [DoctorAlertsController::class, 'acknowledge']);
+    Route::patch('alerts/{alert}/resolve', [DoctorAlertsController::class, 'resolve']);
+
+    Route::post('prescriptions', [DoctorPrescriptionsController::class, 'store']);
+    Route::patch('prescriptions/{medication}/revoke', [DoctorPrescriptionsController::class, 'revoke']);
+
+    Route::get('reports', [DoctorReportsController::class, 'index']);
+    Route::post('reports', [DoctorReportsController::class, 'store']);
+    Route::patch('reports/{report}', [DoctorReportsController::class, 'update']);
+    Route::patch('reports/{report}/publish', [DoctorReportsController::class, 'publish']);
+    Route::delete('reports/{report}', [DoctorReportsController::class, 'destroy']);
+
+    Route::get('appointments', [DoctorAppointmentsController::class, 'index']);
+    Route::post('appointments', [DoctorAppointmentsController::class, 'store']);
+    Route::patch('appointments/{appointment}', [DoctorAppointmentsController::class, 'update']);
+
+    Route::get('vital-catalog', [DoctorVitalCatalogController::class, 'index']);
+    Route::post('vital-catalog', [DoctorVitalCatalogController::class, 'store']);
+    Route::patch('vital-catalog/{vitalCatalog}', [DoctorVitalCatalogController::class, 'update']);
+    Route::delete('vital-catalog/{vitalCatalog}', [DoctorVitalCatalogController::class, 'destroy']);
+
+    Route::post('meal-plans', [DoctorMealPlansController::class, 'store']);
+    Route::delete('meal-plans/{mealPlan}', [DoctorMealPlansController::class, 'destroy']);
+
+    Route::get('vital-report-requests', [DoctorVitalReportRequestsController::class, 'index']);
+    Route::patch('vital-report-requests/{vitalReportRequest}/fulfill', [DoctorVitalReportRequestsController::class, 'fulfill']);
+    Route::patch('vital-report-requests/{vitalReportRequest}/escalate', [DoctorVitalReportRequestsController::class, 'escalate']);
+
+    Route::patch('care-requests/{careRequest}/accept', [DoctorCareRequestsController::class, 'accept']);
+    Route::patch('care-requests/{careRequest}/decline', [DoctorCareRequestsController::class, 'decline']);
+
+    Route::patch('sos/{event}', [DoctorSosController::class, 'resolve']);
+
+    Route::get('conversations', [DoctorMessagesController::class, 'index']);
+    Route::get('conversations/{conversation}/messages', [DoctorMessagesController::class, 'thread']);
+    Route::post('conversations/{conversation}/messages', [DoctorMessagesController::class, 'send']);
+    Route::post('conversations/{conversation}/read', [DoctorMessagesController::class, 'markRead']);
+});
+
+Route::middleware(['auth:sanctum', 'role:admin,mcare_assistant'])->prefix('admin')->group(function () {
+    Route::get('session', [AdminSessionController::class, 'show']);
+
+    // System-wide vital alerts
+    Route::get('alerts', [AdminAlertsController::class, 'index']);
+    Route::patch('alerts/{alert}/acknowledge', [AdminAlertsController::class, 'acknowledge']);
+    Route::patch('alerts/{alert}/resolve', [AdminAlertsController::class, 'resolve']);
+
+    // SOS — existing
+    Route::get('sos-events',           [AdminSosController::class, 'index'])
+        ->middleware('permission:can_access_emergency_location');
+    Route::patch('sos-events/{event}', [AdminSosController::class, 'resolve'])
+        ->middleware('permission:can_access_emergency_location');
+
+    // Approvals
+    Route::get   ('approvals',                            [AdminApprovalsController::class, 'index'])
+        ->middleware('permission:can_approve_healthworkers');
+    Route::patch ('approvals/{user}/approve',             [AdminApprovalsController::class, 'approve'])
+        ->middleware('permission:can_approve_healthworkers');
+    Route::patch ('approvals/{user}/reject',              [AdminApprovalsController::class, 'reject'])
+        ->middleware('permission:can_approve_healthworkers');
+    Route::post  ('approvals/{user}/request-info',        [AdminApprovalsController::class, 'requestInfo'])
+        ->middleware('permission:can_approve_healthworkers');
+    Route::post  ('approvals/{user}/credential',          [AdminApprovalsController::class, 'uploadCredential'])
+        ->middleware('permission:can_approve_healthworkers');
+    Route::get   ('approvals/{user}/credential/stream',   [AdminApprovalsController::class, 'streamCredential'])
+        ->middleware('permission:can_approve_healthworkers');
+
+    // Care requests
+    Route::get   ('care-requests',                [AdminCareRequestsController::class, 'index'])
+        ->middleware('permission:can_manage_care_requests');
+    Route::patch ('care-requests/{careRequest}/route',  [AdminCareRequestsController::class, 'route'])
+        ->middleware('permission:can_manage_care_requests');
+    Route::patch ('care-requests/{careRequest}/cancel', [AdminCareRequestsController::class, 'cancel'])
+        ->middleware('permission:can_manage_care_requests');
+
+    // Assignments
+    Route::get   ('assignments',                  [AdminAssignmentsController::class, 'index'])
+        ->middleware('permission:can_assign_patients');
+    Route::post  ('assignments',                  [AdminAssignmentsController::class, 'store'])
+        ->middleware('permission:can_assign_patients');
+    Route::delete('assignments/{assignment}',     [AdminAssignmentsController::class, 'destroy'])
+        ->middleware('permission:can_assign_patients');
+
+    // Patient clinical profile (read-only)
+    Route::get('patients/{patient}', [AdminPatientsController::class, 'show'])
+        ->middleware('permission:can_create_users');
+
+    // Users
+    Route::get   ('users',                        [AdminUsersController::class, 'index'])
+        ->middleware('permission:can_create_users');
+    Route::post  ('users',                        [AdminUsersController::class, 'store'])
+        ->middleware('permission:can_create_users');
+    Route::patch ('users/{user}/role',            [AdminUsersController::class, 'changeRole'])
+        ->middleware('permission:can_change_user_types');
+    Route::patch ('users/{user}/status',          [AdminUsersController::class, 'changeStatus'])
+        ->middleware('permission:can_create_users');
+    Route::post  ('users/{user}/password-reset',  [AdminUsersController::class, 'resetPassword'])
+        ->middleware('permission:can_create_users');
+    Route::post  ('users/{user}/unlock',          [AdminUsersController::class, 'unlock'])
+        ->middleware('permission:can_create_users');
+    Route::post  ('users/{user}/resend-invite',   [AdminUsersController::class, 'resendInvite'])
+        ->middleware('permission:can_create_users');
+
+    // Permissions (admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get  ('permissions',                [AdminPermissionsController::class, 'index']);
+        Route::get  ('permissions/{user}',         [AdminPermissionsController::class, 'show']);
+        Route::patch('permissions/{user}',         [AdminPermissionsController::class, 'sync']);
+    });
+
+    // Announcements
+    Route::get   ('announcements',                [AdminAnnouncementsController::class, 'index'])
+        ->middleware('permission:can_manage_advertising');
+    Route::post  ('announcements',                [AdminAnnouncementsController::class, 'store'])
+        ->middleware('permission:can_manage_advertising');
+    Route::patch ('announcements/{announcement}', [AdminAnnouncementsController::class, 'update'])
+        ->middleware('permission:can_manage_advertising');
+    Route::patch ('announcements/{announcement}/publish', [AdminAnnouncementsController::class, 'publish'])
+        ->middleware('permission:can_manage_advertising');
+    Route::delete('announcements/{announcement}', [AdminAnnouncementsController::class, 'destroy'])
+        ->middleware('permission:can_manage_advertising');
+
+    // Audit log
+    Route::get('audit',         [AdminAuditController::class, 'index'])
+        ->middleware('permission:can_view_activity_logs');
+    Route::get('audit/export',  [AdminAuditController::class, 'export'])
+        ->middleware('permission:can_view_activity_logs');
+
+    // Security incidents
+    Route::get  ('security-incidents',          [AdminSecurityIncidentsController::class, 'index'])
+        ->middleware('permission:can_view_security_incidents');
+    Route::patch('security-incidents/{id}',     [AdminSecurityIncidentsController::class, 'resolve'])
+        ->middleware('permission:can_view_security_incidents');
+
+    // Support tickets (staff side)
+    Route::get  ('support-tickets',                  [AdminSupportTicketsController::class, 'index']);
+    Route::post ('support-tickets/{ticket}/replies', [AdminSupportTicketsController::class, 'reply']);
+    Route::patch('support-tickets/{ticket}/assign',  [AdminSupportTicketsController::class, 'assign']);
+    Route::patch('support-tickets/{ticket}/resolve', [AdminSupportTicketsController::class, 'resolve']);
+    Route::patch('support-tickets/{ticket}/close',   [AdminSupportTicketsController::class, 'close']);
+    Route::patch('support-tickets/{ticket}/reopen',  [AdminSupportTicketsController::class, 'reopen']);
+
+    // Conversations
+    Route::get ('conversations',                          [AdminConversationsController::class, 'index']);
+    Route::post('conversations',                          [AdminConversationsController::class, 'store']);
+    Route::get ('conversations/{conversation}/messages',  [AdminConversationsController::class, 'thread']);
+    Route::post('conversations/{conversation}/messages',  [AdminConversationsController::class, 'send']);
+    Route::post('conversations/{conversation}/read',      [AdminConversationsController::class, 'markRead']);
+
+    // Notifications
+    Route::get  ('notifications',                       [AdminNotificationsController::class, 'index']);
+    Route::patch('notifications/{notification}/read',   [AdminNotificationsController::class, 'markRead']);
+    Route::patch('notifications/{notification}/resolve',[AdminNotificationsController::class, 'resolve']);
+    Route::post ('notifications/read-all',              [AdminNotificationsController::class, 'markAllRead']);
+
+    // Analytics
+    Route::get('analytics/kpis',       [AdminAnalyticsController::class, 'kpis'])
+        ->middleware('permission:can_view_activity_logs');
+    Route::get('analytics/timeseries', [AdminAnalyticsController::class, 'timeseries'])
+        ->middleware('permission:can_view_activity_logs');
+
+    // System settings (admin-only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('system/settings', [AdminSystemSettingsController::class, 'index']);
+        Route::patch('system/settings/{key}', [AdminSystemSettingsController::class, 'update']);
+    });
+
+    // Vital catalog (read — admin bypasses; assistant needs can_manage_vital_catalog)
+    Route::get('vital-catalog', [AdminVitalCatalogController::class, 'index'])
+        ->middleware('permission:can_manage_vital_catalog');
+    Route::post('vital-catalog', [AdminVitalCatalogController::class, 'store'])
+        ->middleware('permission:can_manage_vital_catalog');
+    Route::patch('vital-catalog/{vitalCatalog}', [AdminVitalCatalogController::class, 'update'])
+        ->middleware('permission:can_manage_vital_catalog');
+    Route::delete('vital-catalog/{vitalCatalog}', [AdminVitalCatalogController::class, 'destroy'])
+        ->middleware('permission:can_manage_vital_catalog');
+});
