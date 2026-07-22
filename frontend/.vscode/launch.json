@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mCare — Live (matendocare.com)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=MCARE_USE_BACKEND=true",
+        "--dart-define=MCARE_API_URL=https://api.matendocare.com/api/v1",
+        "--dart-define=MCARE_GOOGLE_CLIENT_ID=937360649671-n0lq1k435l0l233bfs9upinvmj302dee.apps.googleusercontent.com"
+      ]
+    },
+    {
+      "name": "mCare — Web (localhost)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=MCARE_API_URL=http://127.0.0.1:9090/api/v1"
+      ]
+    },
+    {
+      "name": "mCare — Android/iOS Device (LAN)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=MCARE_API_URL=http://192.168.100.33:9090/api/v1"
+      ]
+    },
+    {
+      "name": "mCare — Android Emulator",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=MCARE_API_URL=http://10.0.2.2:9090/api/v1"
+      ]
+    }
+  ]
+}
