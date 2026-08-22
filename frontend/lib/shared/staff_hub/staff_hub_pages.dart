@@ -4,6 +4,9 @@ import '../models/user_role.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_icons.dart';
+import '../widgets/app_page_route.dart';
+import '../widgets/section_label.dart';
+import '../widgets/staff_filter_chip.dart';
 import 'staff_hub_components.dart';
 import 'staff_hub_models.dart';
 
@@ -248,10 +251,57 @@ class _StaffHubWorkPageState extends State<StaffHubWorkPage> {
     });
   }
 
+  String get _urgencyKey => switch (_urgency) {
+        null => 'all',
+        StaffWorkUrgency.critical => 'urgent',
+        StaffWorkUrgency.attention => 'attention',
+        StaffWorkUrgency.routine => 'routine',
+      };
+
+  void _setUrgency(String key) {
+    setState(() {
+      _urgency = switch (key) {
+        'urgent' => StaffWorkUrgency.critical,
+        'attention' => StaffWorkUrgency.attention,
+        'routine' => StaffWorkUrgency.routine,
+        _ => null,
+      };
+    });
+  }
+
+  String _sectionTitle() => switch (_urgency) {
+        null => 'Open work',
+        StaffWorkUrgency.critical => 'Urgent',
+        StaffWorkUrgency.attention => 'Needs attention',
+        StaffWorkUrgency.routine => 'Routine',
+      };
+
   @override
   Widget build(BuildContext context) {
     final total = widget.snapshot.workItems.length;
     final visible = _computeVisible();
+
+    final options = [
+      StaffFilterOption(
+        value: 'all',
+        label: 'All · ${_countFor(null)}',
+      ),
+      StaffFilterOption(
+        value: 'urgent',
+        label: 'Urgent · ${_countFor(StaffWorkUrgency.critical)}',
+        color: AppColors.critical,
+      ),
+      StaffFilterOption(
+        value: 'attention',
+        label: 'Watch · ${_countFor(StaffWorkUrgency.attention)}',
+        color: AppColors.warning,
+      ),
+      StaffFilterOption(
+        value: 'routine',
+        label: 'Routine · ${_countFor(StaffWorkUrgency.routine)}',
+        color: AppColors.info,
+      ),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -262,99 +312,65 @@ class _StaffHubWorkPageState extends State<StaffHubWorkPage> {
               '${widget.snapshot.openWorkCount} open items across the workspaces you can access.',
         ),
         const SizedBox(height: AppSpacing.lg),
-        _WorkSearchField(
-          controller: _searchCtrl,
-          onChanged: (value) => setState(() => _query = value),
+        StaggeredEntry(
+          index: 0,
+          child: _WorkSearchField(
+            controller: _searchCtrl,
+            onChanged: (value) => setState(() => _query = value),
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _FilterChip(
-                label: 'All',
-                count: _countFor(null),
-                selected: _urgency == null,
-                onSelected: () => setState(() => _urgency = null),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _FilterChip(
-                label: 'Urgent',
-                count: _countFor(StaffWorkUrgency.critical),
-                selected: _urgency == StaffWorkUrgency.critical,
-                onSelected: () =>
-                    setState(() => _urgency = StaffWorkUrgency.critical),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _FilterChip(
-                label: 'Needs attention',
-                count: _countFor(StaffWorkUrgency.attention),
-                selected: _urgency == StaffWorkUrgency.attention,
-                onSelected: () =>
-                    setState(() => _urgency = StaffWorkUrgency.attention),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              _FilterChip(
-                label: 'Routine',
-                count: _countFor(StaffWorkUrgency.routine),
-                selected: _urgency == StaffWorkUrgency.routine,
-                onSelected: () =>
-                    setState(() => _urgency = StaffWorkUrgency.routine),
-              ),
-            ],
+        StaggeredEntry(
+          index: 1,
+          child: StaffFilterChipBar(
+            options: options,
+            selected: _urgencyKey,
+            onSelected: _setUrgency,
           ),
         ),
-        if (_hasActiveFilters) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${visible.length} of $total item${total == 1 ? '' : 's'}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _clearFilters,
-                icon: const Icon(AppIcons.close, size: 14),
-                label: const Text('Clear filters'),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-              ),
-            ],
+        const SizedBox(height: AppSpacing.md),
+        StaggeredEntry(
+          index: 2,
+          child: SectionLabel(
+            title: _sectionTitle(),
+            icon: AppIcons.alert,
+            trailing: '${visible.length}/$total',
+            actionLabel: _hasActiveFilters ? 'Clear' : null,
+            onAction: _hasActiveFilters ? _clearFilters : null,
           ),
-        ],
-        const SizedBox(height: AppSpacing.lg),
-        if (visible.isEmpty)
-          StaffHubEmptyState(
-            title: 'Nothing in this view',
-            message: _hasActiveFilters
-                ? 'Try clearing the search or picking another chip.'
-                : 'Return when the session updates.',
-          )
-        else
-          StaffHubSurface(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (var i = 0; i < visible.length; i++) ...[
-                  StaffHubWorkRow(
-                    item: visible[i],
-                    accent: widget.snapshot.role.accent,
-                    compact: MediaQuery.sizeOf(context).width < 560,
-                    onTap: () => widget.openRoute(visible[i].route),
+        ),
+        StaggeredEntry(
+          index: 3,
+          child: visible.isEmpty
+              ? StaffHubEmptyState(
+                  title: 'Nothing in this view',
+                  message: _hasActiveFilters
+                      ? 'Try clearing the search or picking another chip.'
+                      : 'Return when the session updates.',
+                )
+              : StaffHubSurface(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < visible.length; i++) ...[
+                        StaffHubWorkRow(
+                          item: visible[i],
+                          accent: widget.snapshot.role.accent,
+                          compact:
+                              MediaQuery.sizeOf(context).width < 560,
+                          onTap: () =>
+                              widget.openRoute(visible[i].route),
+                        ),
+                        if (i < visible.length - 1)
+                          Divider(
+                            height: 1,
+                            color: AppPalette.border(context),
+                          ),
+                      ],
+                    ],
                   ),
-                  if (i < visible.length - 1)
-                    Divider(height: 1, color: AppPalette.border(context)),
-                ],
-              ],
-            ),
-          ),
+                ),
+        ),
         const SizedBox(height: AppSpacing.lg),
         Text(
           'The hub is read-only. Decisions and clinical actions open the existing secured workflow.',
@@ -499,36 +515,3 @@ class _LinkGrid extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-    this.count,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  /// When non-null the count is appended to the label. When it equals zero
-  /// the chip is disabled to signal an empty view before the operator taps.
-  final int? count;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = count != null && count == 0 && !selected;
-    final displayLabel = count == null ? label : '$label · $count';
-    return ChoiceChip(
-      label: Text(displayLabel),
-      selected: selected,
-      onSelected: disabled ? null : (_) => onSelected(),
-      selectedColor: Theme.of(context).colorScheme.primaryContainer,
-      side: BorderSide(color: AppPalette.border(context)),
-      showCheckmark: false,
-      labelStyle: disabled
-          ? TextStyle(color: AppPalette.textMuted(context))
-          : null,
-    );
-  }
-}

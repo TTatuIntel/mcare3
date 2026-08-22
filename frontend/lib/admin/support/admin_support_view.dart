@@ -20,7 +20,6 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
-import '../../shared/settings/widgets/settings_dropdown_row.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
@@ -367,6 +366,7 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
         final isClosed = t.status == TicketStatus.closed ||
             t.status == TicketStatus.resolved;
 
+        final theme = Theme.of(context);
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl,
@@ -378,6 +378,7 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
               // header badges
               Wrap(
                 spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
                 children: [
                   _StatusChip(label: t.status.label, color: t.status.color),
                   _StatusChip(
@@ -392,46 +393,51 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.sm),
-              GlassCard(
-                frosted: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-                child: SettingsDropdownRow<String?>(
-                  label: 'Assigned to',
-                  subtitle: _assigning
-                      ? 'Updating…'
-                      : 'Reassign without sending a reply',
-                  value: t.assignedTo,
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Unassigned'),
-                    ),
-                    for (final u in _assignableStaff)
-                      DropdownMenuItem<String?>(
-                        value: u.id,
-                        child: Text('${u.name} · ${u.role.label}'),
+              if (t.patientName != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Icon(AppIcons.user,
+                        size: 14, color: AppPalette.textMuted(context)),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Requested by ${t.patientName!}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                        ),
                       ),
+                    ),
                   ],
-                  onChanged: _assigning
-                      ? (_) {}
-                      : (v) {
-                          if (v == t.assignedTo) return;
-                          _assign(v);
-                        },
                 ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+
+              // assignment
+              _AssignmentCard(
+                assignedTo: t.assignedTo,
+                assignedToName: t.assignedToName,
+                assignableStaff: _assignableStaff,
+                assigning: _assigning,
+                onChanged: (v) {
+                  if (v == t.assignedTo) return;
+                  _assign(v);
+                },
               ),
               const SizedBox(height: AppSpacing.md),
 
               // description
+              _SectionHeader(
+                icon: AppIcons.info,
+                title: 'Original request',
+                color: AppColors.brandIndigo,
+              ),
+              const SizedBox(height: AppSpacing.xs),
               GlassCard(
                 frosted: true,
                 child: Text(
                   t.description,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -439,7 +445,7 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
               // replies
               if (t.replies.isNotEmpty) ...[
                 SectionLabel(
-                  title: 'Replies (${t.replies.length})',
+                  title: 'Conversation (${t.replies.length})',
                   icon: AppIcons.chat,
                 ),
                 for (final r in t.replies) _ReplyBubble(reply: r),
@@ -448,54 +454,90 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
 
               // compose
               if (!isClosed) ...[
-                GlassCard(
-                  frosted: true,
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                _SectionHeader(
+                  icon: AppIcons.send,
+                  title: 'Reply to requester',
+                  color: AppColors.adminPurple,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface(context),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusLg),
+                    border: Border.all(color: AppPalette.border(context)),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.sm,
+                    AppSpacing.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _ctrl,
-                          minLines: 2,
-                          maxLines: 5,
-                          decoration: InputDecoration(
-                            hintText: 'Type a reply…',
-                            border: InputBorder.none,
-                            hintStyle:
-                                TextStyle(color: AppPalette.textMuted(context)),
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
-                          onSubmitted: (_) => _send(),
+                      TextField(
+                        controller: _ctrl,
+                        minLines: 3,
+                        maxLines: 6,
+                        decoration: InputDecoration(
+                          hintText: 'Write a helpful reply…',
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                          hintStyle: TextStyle(
+                              color: AppPalette.textMuted(context)),
                         ),
+                        textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: (_) => _send(),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      AppButton(
-                        label: 'Send',
-                        icon: AppIcons.send,
-                        size: AppButtonSize.sm,
-                        loading: _sending,
-                        onPressed: _send,
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Reply will be visible to the requester.',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppPalette.textFaint(context),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          AppButton(
+                            label: 'Send',
+                            icon: AppIcons.send,
+                            size: AppButtonSize.sm,
+                            loading: _sending,
+                            onPressed: _send,
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                AppButton(
-                  label: 'Mark resolved',
-                  icon: AppIcons.check,
-                  expand: true,
-                  loading: _closing,
-                  onPressed: _resolve,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                AppButton(
-                  label: 'Close ticket',
-                  icon: AppIcons.close,
-                  expand: true,
-                  variant: AppButtonVariant.secondary,
-                  loading: _closing,
-                  onPressed: _close,
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        label: 'Mark resolved',
+                        icon: AppIcons.check,
+                        expand: true,
+                        loading: _closing,
+                        onPressed: _resolve,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: AppButton(
+                        label: 'Close',
+                        icon: AppIcons.close,
+                        expand: true,
+                        variant: AppButtonVariant.secondary,
+                        loading: _closing,
+                        onPressed: _close,
+                      ),
+                    ),
+                  ],
                 ),
               ],
 
@@ -507,7 +549,7 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                       Icon(AppIcons.check, color: AppColors.success, size: 28),
                       const SizedBox(height: AppSpacing.xs),
                       Text('This ticket is ${t.status.label.toLowerCase()}.',
-                          style: Theme.of(context).textTheme.bodyMedium),
+                          style: theme.textTheme.bodyMedium),
                       const SizedBox(height: AppSpacing.sm),
                       AppButton(
                         label: 'Reopen',
@@ -523,6 +565,148 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.color,
+  });
+  final IconData icon;
+  final String title;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 2),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AssignmentCard extends StatelessWidget {
+  const _AssignmentCard({
+    required this.assignedTo,
+    required this.assignedToName,
+    required this.assignableStaff,
+    required this.assigning,
+    required this.onChanged,
+  });
+
+  final String? assignedTo;
+  final String? assignedToName;
+  final List<DirectoryUser> assignableStaff;
+  final bool assigning;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GlassCard(
+      frosted: true,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.mcareAmber.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: Icon(AppIcons.users,
+                    size: 14, color: AppColors.mcareAmber),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Assigned to',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      assigning
+                          ? 'Updating…'
+                          : 'Reassign without sending a reply',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (assigning)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: AppPalette.surface(context),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppPalette.border(context)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                isExpanded: true,
+                value: assignedTo,
+                icon: Icon(AppIcons.expandMore,
+                    color: AppPalette.textMuted(context)),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppPalette.ink(context),
+                  fontWeight: FontWeight.w600,
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Unassigned'),
+                  ),
+                  for (final u in assignableStaff)
+                    DropdownMenuItem<String?>(
+                      value: u.id,
+                      child: Text(
+                        '${u.name} · ${u.role.label}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: assigning ? null : onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
