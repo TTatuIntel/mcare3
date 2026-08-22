@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ExternalAccessLinkResource;
 use App\Models\ExternalAccessToken;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -28,10 +30,9 @@ class PatientExternalAccessController extends Controller
             ->where('patient_user_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->limit(20)
-            ->get()
-            ->map(fn (ExternalAccessToken $t) => $this->toApiArray($t));
+            ->get();
 
-        return $this->success(['links' => $tokens]);
+        return $this->success(['links' => ExternalAccessLinkResource::collection($tokens)]);
     }
 
     public function store(Request $request)
@@ -53,26 +54,36 @@ class PatientExternalAccessController extends Controller
             return $this->error('You already have 5 active links. Revoke one before creating another.', 422);
         }
 
-        $token = ExternalAccessToken::create([
-            'patient_user_id' => $user->id,
-            'created_by_user_id' => $user->id,
-            'token' => Str::random(64),
-            'access_code' => $this->generateAccessCode(),
-            'label' => $data['label'] ?? 'Emergency access',
-            'expires_at' => now()->addHours((int) ($data['expires_in_hours'] ?? 24)),
-        ]);
+        // §4.1: audit + state change run in one transaction — compliance
+        // requires the audit row not be droppable if the write succeeds.
+        $token = DB::transaction(function () use ($user, $data) {
+            $token = ExternalAccessToken::create([
+                'patient_user_id' => $user->id,
+                'created_by_user_id' => $user->id,
+                'token' => Str::random(64),
+                'access_code' => $this->generateAccessCode(),
+                'label' => $data['label'] ?? 'Emergency access',
+                'expires_at' => now()->addHours((int) ($data['expires_in_hours'] ?? 24)),
+            ]);
 
-        \App\Models\AuditEntry::create([
-            'actor_user_id' => $user->id,
-            'actor_label' => $user->fullName(),
-            'action' => 'external.link_created',
-            'target' => $user->fullName(),
-            'category' => 'security',
-            'meta' => ['token_id' => $token->id, 'expires_at' => $token->expires_at->toIso8601String()],
-            'happened_at' => now(),
-        ]);
+            \App\Models\AuditEntry::create([
+                'actor_user_id' => $user->id,
+                'actor_label' => $user->fullName(),
+                'action' => 'external.link_created',
+                'target' => $user->fullName(),
+                'category' => 'security',
+                'meta' => ['token_id' => $token->id, 'expires_at' => $token->expires_at->toIso8601String()],
+                'happened_at' => now(),
+            ]);
 
-        return $this->success(['link' => $this->toApiArray($token)], 'External access link created.', 201);
+            return $token;
+        });
+
+        return $this->success(
+            ['link' => new ExternalAccessLinkResource($token)],
+            'External access link created.',
+            201,
+        );
     }
 
     public function revoke(Request $request, ExternalAccessToken $externalToken)
@@ -82,20 +93,22 @@ class PatientExternalAccessController extends Controller
         }
 
         if ($externalToken->revoked_at === null) {
-            $externalToken->update(['revoked_at' => now()]);
+            DB::transaction(function () use ($externalToken, $request) {
+                $externalToken->update(['revoked_at' => now()]);
 
-            \App\Models\AuditEntry::create([
-                'actor_user_id' => $request->user()->id,
-                'actor_label' => $request->user()->fullName(),
-                'action' => 'external.link_revoked',
-                'target' => $request->user()->fullName(),
-                'category' => 'security',
-                'meta' => ['token_id' => $externalToken->id],
-                'happened_at' => now(),
-            ]);
+                \App\Models\AuditEntry::create([
+                    'actor_user_id' => $request->user()->id,
+                    'actor_label' => $request->user()->fullName(),
+                    'action' => 'external.link_revoked',
+                    'target' => $request->user()->fullName(),
+                    'category' => 'security',
+                    'meta' => ['token_id' => $externalToken->id],
+                    'happened_at' => now(),
+                ]);
+            });
         }
 
-        return $this->success(['link' => $this->toApiArray($externalToken)], 'Link revoked.');
+        return $this->success(['link' => new ExternalAccessLinkResource($externalToken)], 'Link revoked.');
     }
 
     private function generateAccessCode(): string
@@ -110,22 +123,5 @@ class PatientExternalAccessController extends Controller
         } while (ExternalAccessToken::where('access_code', $code)->exists());
 
         return $code;
-    }
-
-    private function toApiArray(ExternalAccessToken $t): array
-    {
-        $frontend = rtrim((string) config('mcare.frontend_url', ''), '/');
-
-        return [
-            'id' => (string) $t->id,
-            'label' => $t->label,
-            'access_code' => $t->access_code,
-            'url' => $frontend !== '' ? $frontend.'/external?token='.$t->token : null,
-            'token' => $t->token,
-            'expires_at' => $t->expires_at->toIso8601String(),
-            'revoked_at' => $t->revoked_at?->toIso8601String(),
-            'active' => $t->isValid(),
-            'created_at' => $t->created_at?->toIso8601String(),
-        ];
     }
 }

@@ -1,111 +1,160 @@
 # mCare — Remote Patient Monitoring Platform
 
-**mCare** is a full-stack Remote Patient Monitoring (RPM) and healthcare-management platform. Patients record vitals at home; the backend classifies readings against clinical thresholds; care providers respond through alerts, messaging, appointments, prescriptions, reports, and emergency SOS. Administrators and delegated **mCare Assistants** run the platform. Patients can mint **time-limited external-doctor links** so outside clinicians can work on the chart from the web.
+**mCare** is a full-stack Remote Patient Monitoring (RPM) and healthcare-management platform. Patients record vitals at home; the Laravel backend evaluates readings against clinical thresholds; care teams respond through alerts, messaging, appointments, prescriptions, reports, documents, and emergency SOS workflows.
 
-**Stack:** Laravel 12 REST API (`backend/`) · Flutter 3 (`frontend/`, web + Android + iOS + Windows) · MySQL  
-**Last audited:** 2026-07-22 — this document is the single source of truth.
+**Stack:** Laravel 12 REST API (`backend/`) · Flutter 3 (`frontend/`, web + Android + iOS + Windows) · MySQL 8+
 
-> **Golden rule:** Build once, use everywhere. One app, one design language, one component library, one notification pipeline. Role changes **content and accent colour** — not duplicate screens.
+**Repository truth last verified:** 2026-08-07
 
----
-
-## Table of contents
-
-1. [Audit summary (done / pending / missing)](#audit-summary-done--pending--missing)
-2. [Quick start](#quick-start)
-3. [Architecture](#architecture)
-4. [Routes & navigation (all roles)](#routes--navigation-all-roles)
-5. [External doctor access (temp links)](#external-doctor-access-temp-links)
-6. [User roles & assistant permissions](#user-roles--assistant-permissions)
-7. [Feature status](#feature-status)
-8. [API reference](#api-reference)
-9. [Database schema](#database-schema)
-10. [Demo accounts](#demo-accounts)
-11. [Environment & configuration](#environment--configuration)
-12. [Host on Amazon (AWS)](#host-on-amazon-aws)
-13. [Google Play Store](#google-play-store)
-14. [Apple App Store](#apple-app-store)
-15. [Improvements roadmap](#improvements-roadmap)
-16. [License](#license)
+> **Canonical documentation:** this root `README.md` is the single engineering, product, setup, deployment, and rollout reference. The approved screen-by-screen visual specification is the [complete mCare design blueprint PDF](output/pdf/mcare-complete-application-design-blueprint.pdf).
+>
+> **Golden rule:** one application, one design language, one shared component library, and one backend contract. Roles change content, accent, navigation context, and authority—not component ownership.
 
 ---
 
-## Audit summary (done / pending / missing)
+## Contents
 
-_Re-verified against code on 2026-07-22._
-
-### At-a-glance metrics
-
-| Layer | Metric | Count |
-|-------|--------|-------|
-| Backend routes | `Route::(get\|post\|put\|patch\|delete)` in `routes/api.php` | **140** |
-| Backend controllers | `app/Http/Controllers/Api/V1/` + `.../V1/Admin/` | **50** |
-| Backend models | `app/Models/*.php` | **34** |
-| Backend migrations | `database/migrations/` | **19** |
-| Backend feature tests | `tests/Feature/` (excl. Example) | **2+** |
-| Frontend `RouteNames` | Named route constants | **99** |
-| Frontend `main.dart` wired cases | Every `RouteNames.*` has a switch case | **99 / 99** |
-| Frontend API clients | `lib/core/api/*.dart` | **25** |
-| Frontend state stores | `lib/shared/state/*.dart` | **14** |
-
-### ✅ Done — product & code complete
-
-| Area | Status |
-|------|--------|
-| Auth (email/password, Google web, Apple wired, forgot/reset, OTP, invites) | Done |
-| Force-change password (patient + all staff) | Done — `*ForcePassword` routes |
-| Voluntary change password (all roles via `ChangePasswordSheet`) | Done — single Security section (no patient duplicate) |
-| Patient onboarding (health profile) | Done — replaces any `patientCompleteProfile` idea |
-| All role routes wired, no orphans / no duplicates in `RouteNames` | Done |
-| NotificationBell role-aware default | Done — uses `ProfileNavigation.notificationsRouteFor` |
-| Patient external access create / share / revoke | Done — Care Team + Settings → Privacy |
-| External portal: vitals, notes, **medications**, **document upload** | Done |
-| SOS (patient + staff hubs) | Done — dashboard / profile / alerts (not forced into bottom nav) |
-| Android release signing hook (`key.properties`) | Done |
-| Brand launcher icons (Android / iOS / Web) | Done |
-
-### ⚠️ Partial — works with caveats
-
-| Area | Reality | Action |
-|------|---------|--------|
-| Staff notification *content* | Some `staff_*` items are computed client-side; read/resolve **is** persisted | Optional: server-side feed table |
-| Native document open/download | Web works; Android/iOS no-op | Add `path_provider` + `open_filex` |
-| `flutter test` on this Windows sandbox | Can hang; `flutter analyze` is reliable | Run tests in CI |
-| Bottom nav omits Notifications & SOS | Reachable via header bell + dashboard / profile | Optional 6th tab or SOS FAB |
-
-### 🚫 Blocked on credentials / infra (code ready)
-
-| Item | What's missing |
-|------|----------------|
-| Production HTTPS host | AWS (or other) server + TLS + MySQL |
-| SMTP | Real `MAIL_*` (SES / Gmail app password) |
-| FCM push | Firebase project + service account + dart-defines + `firebase-messaging-sw.js` |
-| Apple Sign-In live | Apple Developer Services ID + env vars |
-| Native Google/Apple plugins | Device testing + plugin wiring |
-| Play / App Store listings | Developer accounts, privacy policy URL, store assets |
-
-### Intentionally absent (not bugs)
-
-| Item | Why |
-|------|-----|
-| `patientCompleteProfile` route | Patients complete health data via **`patientOnboarding`**. Staff use `*CompleteProfile`. |
-| Notifications / SOS as patient bottom-nav tabs | UX choice — 5 primary tabs. Entry points exist. Add a tab or FAB only if product wants one-tap from every screen. |
-| Separate external-doctor account | External clinicians are **token guests**, not registered users. |
-
-### 🔴 P0 before real patients
-
-1. Host API + DB on HTTPS with `APP_DEBUG=false`, dedicated MySQL user, automated backups.  
-2. Real SMTP so OTP / reset / invite emails send.  
-3. Privacy policy + terms URLs (required by Play Store & App Store for health apps).  
-4. Expand tests: auth/lockout, SOS, external-access create→vitals/meds/docs→revoke.
+1. [Product truth](#1-product-truth)
+2. [Verified repository snapshot](#2-verified-repository-snapshot)
+3. [Quick start](#3-quick-start)
+4. [Architecture](#4-architecture)
+5. [Approved design system](#5-approved-design-system)
+6. [Navigation and responsive structure](#6-navigation-and-responsive-structure)
+7. [Role experiences and capabilities](#7-role-experiences-and-capabilities)
+8. [External Clinical Access](#8-external-clinical-access)
+9. [Backend and API compatibility](#9-backend-and-api-compatibility)
+10. [Security and production gates](#10-security-and-production-gates)
+11. [Safe implementation and old-design retirement](#11-safe-implementation-and-old-design-retirement)
+12. [Testing, UAT, and rollback](#12-testing-uat-and-rollback)
+13. [Environment and configuration](#13-environment-and-configuration)
+14. [Deployment](#14-deployment)
+15. [Google Play and Apple App Store](#15-google-play-and-apple-app-store)
+16. [Demo accounts](#16-demo-accounts)
+17. [Documentation policy](#17-documentation-policy)
+18. [License](#18-license)
 
 ---
 
-## Quick start
+## 1. Product truth
 
-You need **two** processes: Laravel API + Flutter web.
+mCare supports five distinct experiences from one Flutter application:
 
-### 1. Backend
+| Experience | Identity and scope |
+|---|---|
+| Patient | Registered user; owns their chart and care workflows |
+| Doctor | Registered clinician; works only within an assigned caseload |
+| Administrator | Registered platform operator with administrative authority |
+| mCare Assistant | Registered **human delegated staff member** with permission-scoped administrative access |
+| External clinician | Time-limited **token guest** invited by one patient to one patient record; not an account role |
+
+### Terminology that must not change
+
+- **mCare Assistant is a person.** The current `mcare_assistant` role is not an AI chatbot, voice assistant, clinical decision-support system, or automation agent.
+- **External Clinical Access is token-based.** An outside clinician does not receive a persistent account, caseload, inbox, settings area, or patient switcher.
+- **Patient onboarding is the patient profile-completion flow.** Staff-only complete-profile routes are separate account gates.
+- **mCare is a monitoring and care-coordination product.** It must not claim to diagnose, replace professional clinical judgment, or replace emergency services.
+
+### Existing functional domains
+
+The repository currently contains working domains for:
+
+- authentication, registration, verification, password recovery, OTP, invitations, and account/profile management;
+- users, health profiles, roles, assistant grants, approvals, and assignments;
+- vital catalog, tracked vitals, readings, thresholds, alerts, and patient report requests;
+- medications, dose tracking, prescriptions, appointments, and meal plans;
+- medical documents, conversations, messages, notifications, and support tickets;
+- patient care-team requests and clinician caseloads;
+- emergency SOS, announcements, security incidents, audit events, analytics, and settings;
+- patient-issued external-access links/codes, consultation notes, vitals, medications, and document uploads;
+- FCM token registration and an opt-in Laravel Reverb vital-alert channel.
+
+### Not complete backend modules
+
+Do not present the following concepts as functional product modules until their own models, policies, API contracts, tests, and operational controls exist:
+
+- structured laboratory ordering/results;
+- structured imaging/radiology or PACS workflows;
+- billing, payments, claims, and insurance;
+- pharmacy inventory, dispensing, or stock control;
+- formal referral management;
+- embedded video consultation/telemedicine;
+- AI/LLM assistant, voice assistant, or clinical decision support;
+- user-facing backup/recovery controls;
+- integration registries or API-key management.
+
+Documents may carry laboratory or radiology files, and appointments may carry external meeting information. Those facts do not create full laboratory, imaging, or telemedicine modules.
+
+---
+
+## 2. Verified repository snapshot
+
+| Layer | Verified count/status |
+|---|---:|
+| Flutter named-route constants | **105** |
+| Shared/pre-login routes | **10** |
+| Patient routes | **21** |
+| Doctor routes | **22** |
+| Administrator routes | **27** (24 compatibility routes + Work/People/More hubs) |
+| mCare Assistant routes | **25** (22 compatibility routes + Work/People/More hubs) |
+| Laravel `/api/v1` route entries | **171** |
+| API route groups | `admin` 61 · `auth` 17 · `doctor` 38 · `external` 6 · `fcm-tokens` 2 · `me` 5 · `patient` 42 |
+| Laravel API controllers | **50** |
+| Eloquent models | **34** |
+| Database migrations | **20** |
+| Laravel tests | **11 feature + 1 unit** |
+| Flutter API clients | **25** |
+| Flutter shared-state files | **14** |
+| Flutter test files | **5** |
+
+Counts are descriptive audit evidence, not architecture. The source files remain authoritative:
+
+- Flutter routes: `frontend/lib/shared/constants/route_names.dart`
+- Flutter route wiring: `frontend/lib/main.dart`
+- Laravel routes: `backend/routes/api.php`
+- Assistant permission keys: `backend/app/Models/AssistantPermission.php`
+
+When one of these surfaces changes, update this snapshot in the same change.
+
+The approved PDF was generated from the 99-route compatibility baseline. The six new Admin/Assistant hub entry routes are additive implementations of the PDF navigation and do not replace any legacy route. Regenerate the PDF atlas before treating it as an exact current route inventory; its visual, workflow, responsive, and security decisions remain the approved design reference.
+
+### Runtime design rollout status
+
+- Administrator and mCare Assistant dashboard/Work/People/More entry routes are wired to the shared Guided Operations hub.
+- The existing Admin/Assistant feature and detail routes remain registered as compatibility destinations from that hub.
+- Patient, Doctor, and External Clinical Access still use their existing route-level presentation while their PDF-approved shells are migrated.
+- Legacy presentation code and decorative design assets have not been bulk-deleted; they remain only until the route-by-route parity and rollback gates in section 11 pass.
+
+This status describes the repository at the verification date. Update it in the same change that cuts over another role or retires a legacy surface.
+
+---
+
+## 3. Quick start
+
+### Prerequisites
+
+- PHP 8.2+
+- Composer
+- MySQL 8+ or MariaDB 10.6+
+- Flutter compatible with the SDK constraint in `frontend/pubspec.yaml`
+- Chrome or another Flutter-supported target
+
+The live application needs at least two terminals: Laravel and Flutter. A queue worker and Reverb server use separate terminals when those paths are being tested.
+
+### 3.1 First-time backend setup — Terminal 1
+
+PowerShell:
+
+```powershell
+Set-Location backend
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+# Configure DB_* in .env before migrating.
+php artisan migrate --seed
+php artisan storage:link
+```
+
+Command Prompt equivalent:
 
 ```bat
 cd backend
@@ -114,342 +163,675 @@ copy .env.example .env
 php artisan key:generate
 php artisan migrate --seed
 php artisan storage:link
-php artisan serve --port=9090
 ```
 
-API: `http://127.0.0.1:9090/api/v1`
+### 3.2 Run the Laravel API — Terminal 1
 
-Production scheduler (SLA escalation):
-
+```powershell
+Set-Location backend
+php artisan serve --host=127.0.0.1 --port=8000
 ```
-* * * * * cd /path/to/backend && php artisan schedule:run >> /dev/null 2>&1
+
+API base: `http://127.0.0.1:8000/api/v1`
+
+### 3.3 Run the queue worker — Terminal 2
+
+The default local queue is database-backed. Run the worker when testing queued mail, broadcasts, and other jobs:
+
+```powershell
+Set-Location backend
+php artisan queue:work --tries=3
 ```
 
-### 2. Frontend (live API)
+### 3.4 Run Reverb — optional Terminal 3
 
-```bat
-cd frontend
+Reverb is opt-in. It currently accelerates the vital-alert notification path; REST polling remains active as reconciliation and fallback.
+
+```powershell
+Set-Location backend
+php artisan reverb:start --host=127.0.0.1 --port=8080
+```
+
+Fill `REVERB_*` in `backend/.env`, set `BROADCAST_CONNECTION=reverb`, and pass the matching app key to Flutter.
+
+### 3.5 Run Flutter web against Laravel — Terminal 4
+
+REST only:
+
+```powershell
+Set-Location frontend
 flutter pub get
-flutter run -d web-server --web-hostname localhost --web-port 8090 ^
-  --dart-define=MCARE_USE_BACKEND=true ^
-  --dart-define=MCARE_API_URL=http://127.0.0.1:9090/api/v1
+flutter run -d web-server --web-hostname localhost --web-port 8090 `
+  --dart-define=MCARE_USE_BACKEND=true `
+  --dart-define=MCARE_API_URL=http://127.0.0.1:8000/api/v1
+```
+
+REST plus opt-in Reverb:
+
+```powershell
+Set-Location frontend
+flutter run -d web-server --web-hostname localhost --web-port 8090 `
+  --dart-define=MCARE_USE_BACKEND=true `
+  --dart-define=MCARE_API_URL=http://127.0.0.1:8000/api/v1 `
+  --dart-define=MCARE_WS_URL=ws://127.0.0.1:8080 `
+  --dart-define=MCARE_WS_APP_KEY=your-reverb-app-key
 ```
 
 Open `http://localhost:8090`.
 
-### Demo mode (no backend)
+### 3.6 Demo mode without Laravel
 
-```bat
-flutter run -d web-server --web-hostname localhost --web-port 8090 ^
+```powershell
+Set-Location frontend
+flutter run -d web-server --web-hostname localhost --web-port 8090 `
   --dart-define=MCARE_USE_BACKEND=false
 ```
 
----
+### 3.7 Useful verification commands
 
-## Architecture
+```powershell
+# Backend
+Set-Location backend
+php artisan route:list --path=api/v1
+php artisan test
 
-```
-mcares3/
-├── backend/            Laravel 12 REST API → /api/v1/*
-│   ├── routes/api.php
-│   ├── app/Http/Controllers/
-│   ├── app/Services/          Audit, FCM, SOS, VitalAlert
-│   ├── app/Models/
-│   └── database/              migrations + seeders
-├── frontend/           Flutter (web + mobile + desktop)
-│   └── lib/
-│       ├── patients/ doctors/ admin/ mcare_assistant/
-│       ├── auth/              login, register, external portal
-│       ├── core/              API, env, poller, push, mock
-│       └── shared/            UI, state, theme, navigation
-├── resources/          Branding assets
-└── README.md           This file (canonical docs)
+# Frontend
+Set-Location ..\frontend
+flutter analyze
+flutter test
 ```
 
-**Real-time:** no WebSocket. `SessionPoller` hits role session endpoints every **30 s** (8 s during SOS). Mutations hit REST immediately; the poller reconciles.
-
-**Import rule:** `shared/` never imports role folders (0 violations).
+If a process is already using port 8000, 8090, or 8080, stop that process or choose a different port and update the matching URLs.
 
 ---
 
-## Routes & navigation (all roles)
+## 4. Architecture
 
-Routing uses Flutter **named routes** (`MaterialApp.onGenerateRoute` in `main.dart`), not GoRouter.  
-**Source of truth:** `frontend/lib/shared/constants/route_names.dart` — **99 constants, all wired**.
+```text
+Flutter application
+  Web · Android · iOS · Windows
+        |
+        | HTTPS REST + Sanctum bearer authentication
+        | optional WSS/Reverb vital-alert signal
+        v
+Laravel 12 API
+  Controllers · middleware · services · policies/permission checks
+        |
+        +-- MySQL: application and clinical data
+        +-- Queue: database locally; Redis recommended for production scale
+        +-- Storage: private local/S3 delivery for medical files
+        +-- Mail/FCM: credential-gated notification delivery
+```
 
-### Pre-login / shared
+### Frontend boundaries
 
-`/`, `/home`, `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`, `/pending-approval`, `/accept-invite`, `/external`
+- Named routes are registered centrally in `main.dart`.
+- `shared/` owns reusable UI, navigation, authentication, state, and role-neutral behavior.
+- Role folders compose shared components and provide labels, routes, accent, and capability configuration.
+- Existing API clients and shared state stores remain the canonical data and mutation layer.
+- Responsive code changes composition only; it must not change authorization or business rules.
+- `shared/` must never import Patient, Doctor, Admin, or Assistant feature folders.
 
-### Patient
+### Current refresh and real-time behavior
 
-| Route | Purpose |
-|-------|---------|
-| `/patient/onboarding` | Health-profile onboarding (not a separate “complete profile”) |
-| `/patient` … vitals / meds / appointments / documents / messages / care-team | Core tabs & features |
-| `/patient/notifications` | Inbox (header bell) |
-| `/patient/profile`, `/patient/settings`, `/patient/support` | Account |
-| `/patient/force-password` | Admin-issued temp password gate |
-| `/patient/sos` | Emergency SOS |
+- `SessionPoller` refreshes normal sessions every **30 seconds** and urgent SOS/alert sessions every **8 seconds**.
+- Reverb is disabled unless both `MCARE_WS_URL` and `MCARE_WS_APP_KEY` are provided.
+- The current WebSocket implementation handles the `vital.alert` event and triggers the same REST hydration path used by polling.
+- Chat, SOS, all notifications, and all role channels are **not yet proven as complete WebSocket replacements**.
+- Polling must not be reduced to a five-minute reconciliation interval until end-to-end subscription, authorization, reconnect, and missed-event tests pass for every critical event.
 
-**Bottom nav (5):** Home · Vitals · Meds · Visits · Chat  
-Desktop rail also exposes Profile + Settings.
-
-### Doctor / Admin / Assistant
-
-All `doctor*`, `admin*`, `assistant*` constants in `RouteNames` are registered — including `*CompleteProfile`, `*ForcePassword`, notifications, SOS hubs, messaging threads, and admin workspace screens.
-
-Staff chrome uses `RoleShell` + `StaffDestinations` (permission-filtered for assistants). Notification routes come from `ProfileNavigation.notificationsRouteFor(role)`.
-
-### Navigation hygiene (2026-07-22)
-
-- **NotificationBell** no longer hardcodes the patient inbox; guests / external doctors with no inbox route are a no-op.  
-- **`NavigationRoots`** includes `assistantPatients` and force-password / complete-profile roots so profile-menu navigation does not bounce.  
-- **Patient profile** exposes Change password once (Security section only).
-
----
-
-## External doctor access (temp links)
-
-Patients create a **time-limited link + spoken code** so an outside clinician can use the **web portal** without an mCare account.
-
-### Where patients manage links
-
-1. **Settings → Privacy** — enable “External doctor access”, then **Create & share external link**.  
-2. **My team (Care team) → Emergency access** — same sheet (create / copy / share / revoke).
-
-Constraints: max **5** active links · expiry **24 h / 3 days / 7 days** · one-tap revoke · security audit on create/revoke · access codes use a no-lookalike alphabet; resolve-code throttled **6/min**.
-
-### What the outside doctor can do on `/external`
-
-| Action | API |
-|--------|-----|
-| Open via link `?token=` or access code | `POST /external/resolve-code`, `GET /external/{token}` |
-| Review summary (allergies, conditions, recent vitals/meds/docs) | `GET /external/{token}` |
-| Record vitals (same risk + care-team alert pipeline) | `POST /external/{token}/vitals` |
-| Assign medication | `POST /external/{token}/medications` |
-| Upload documents / reports (PDF, images, Word) | `POST /external/{token}/documents` |
-| Submit consultation note | `POST /external/{token}/notes` |
-
-Portal UI: `frontend/lib/auth/external_doctor_view.dart`  
-Patient sheet: `frontend/lib/patients/care_team/external_access_sheet.dart`  
-`FRONTEND_URL` in backend `.env` is used to build shareable links (`https://app…/external?token=…`).
+This keeps one state-mutation path regardless of whether REST polling or a WebSocket signal detected the change.
 
 ---
 
-## User roles & assistant permissions
+## 5. Approved design system
 
-| Role | Accent | Access |
-|------|--------|--------|
-| Patient | Indigo | Own chart, SOS, care team, external links, support |
-| Doctor | Green | Caseload clinical tools + SOS |
-| Admin | Purple | Full platform |
-| mCare Assistant | Amber | Admin subset via 12 permission keys |
-| External Doctor | Blue | Token portal only — no account |
+The PDF is the approved visual reference. Runtime implementation must converge on this one system; alternative glass, bubble, duplicated role themes, and one-off page styles are temporary migration code, not additional approved designs.
 
-Assistant permissions (`assistant_permissions` + `EnsurePermission`): approve health workers, care requests, assignments, create users, change roles, register admin/assistant, audit/analytics, security incidents, SOS location, announcements, vital catalog. Grants refresh live via session poller (≤ 30 s).
+### 5.1 Visual tokens
 
----
+| Token | Approved value/use |
+|---|---|
+| Patient accent | `#6366F1` |
+| Doctor accent | `#057A55` |
+| Administrator accent | `#7E3AF2` |
+| Assistant accent | `#E3A008` |
+| External session accent | `#3B82F6` |
+| Primary text | `#0F172A` light · `#F8FAFC` dark |
+| Secondary text | `#64748B` light · `#E2E8F0` dark |
+| Critical | `#EF4444` |
+| Warning | `#F59E0B` |
+| Success | `#10B981` |
+| Information | `#3B82F6` |
+| Spacing scale | `4, 8, 12, 16, 24, 32, 48` |
+| Standard radii | `8, 12, 18, 24`, plus pill |
+| Page inset | 16 mobile · 24 tablet · 32 desktop |
 
-## Feature status
+Role accent identifies context. It never replaces semantic clinical state. A warning is amber for every role; a critical state is red for every role. Every state also includes an icon and readable label.
 
-### Fully functional (backend-wired)
+### 5.2 Visual rules
 
-- **Auth & self-service:** login/register, Google (web), Apple (wired pending creds), forgot/reset, OTP, invites, avatar, email change + re-verify, specialty/licence (doctors), in-app password change, force password for all roles.  
-- **Patient:** vitals, meds, appointments, documents, chat, notifications, SOS, support, care team, vital-report requests, external access.  
-- **Doctor:** caseload, alerts, prescriptions, reports, appointments, chart, docs, meal plans, care requests, SOS, messaging, vital catalog.  
-- **Admin / Assistant:** users, approvals, routing, assignments, permissions, announcements, audit, security, support, analytics, system, SOS, messaging.  
-- **Cross-cutting:** `/me/settings`, staff notification read-state, SLA escalation cron, vital-alert auto-resolve.
+- Use clear white/dark surfaces, restrained borders, and very soft shadows.
+- Frosted glass, decorative bubbles, and heavy gradients are not the default for clinical or operational pages.
+- Reserve gradients for small brand or hero accents, never behind dense data or body text.
+- Use one primary action per decision area.
+- Keep labels visible after form entry; server validation is authoritative.
+- Lists show minimum necessary PHI and open typed detail/action surfaces.
+- Clinical actions follow: open detail → verify context → enter required information/reason → confirm → server result → durable receipt.
+- Never expose a generic ambiguous **Resolve** action when the backend command is acknowledge, assign, close, revoke, reject, or resolve-with-reason.
+- Every data surface implements loading, refreshing, ready, empty, no matches, stale/offline, error, permission revoked, session expired, conflict, and success-receipt states.
 
-### Partial
+### 5.3 Accessibility
 
-- Staff inbox *content* still partly client-derived.  
-- Native (non-web) document preview/download.
+- Target WCAG 2.2 AA on web and equivalent mobile semantics.
+- Minimum touch target: 48 × 48 px; practical desktop target: 44 × 40 px.
+- Support keyboard navigation, visible focus, screen readers, reduced motion, orientation changes, and 200% text scale.
+- Do not rely on color, animation, hover, or position alone.
+- Charts require units, labeled axes, honest missing-data gaps, and a text alternative.
 
-### Credentials-gated
+### 5.4 Shared component ownership
 
-- FCM push, live Apple Sign-In, native OAuth plugins, store-signed release keystores.
+The final component library contains one authoritative implementation of:
 
----
+- adaptive application shell and page header;
+- buttons, fields, selectors, date controls, and confirmation dialogs;
+- cards, status/filter chips, work-item/person rows, and adaptive tables;
+- charts and accessible summaries;
+- master/detail panes, bottom sheets, and drawers;
+- notification bell, freshness/offline banner, toasts, and durable receipts;
+- file upload, progress, validation, scan status, and failure state;
+- loading skeleton, empty state, error state, and pagination.
 
-## API reference
-
-Base: `/api/v1`. Public: `/auth/*` (throttled), `/external/*`. Everything else: Sanctum bearer + role / permission middleware.
-
-| Group | Prefix | Notes |
-|-------|--------|-------|
-| Auth | `/auth/*` | Login, register, OTP, profile, avatar, change-email/password |
-| External | `/external/*` | resolve-code, show, notes, vitals, **medications**, **documents** |
-| Me | `/me/settings`, `/me/notification-states` | Any authenticated role |
-| Patient | `/patient/*` | Incl. `external-access` list/create/revoke |
-| Doctor | `/doctor/*` | Caseload-scoped |
-| Admin | `/admin/*` | Admin + assistant (+ `permission:*`) |
-
-Full definitions: `backend/routes/api.php`.
-
----
-
-## Database schema
-
-19 migrations under `backend/database/migrations`. Core tables include `users`, health profiles, vitals, medications, appointments, `medical_documents`, chat, notifications, SOS, care coordination, `external_access_tokens`, audits, announcements, FCM tokens, settings.
-
-Foreign keys cover owned data; `vital_key` string columns intentionally omit an FK so catalog deletes are not blocked by historical readings (documented trade-off).
-
----
-
-## Demo accounts
-
-After `php artisan migrate --seed` (password `demo-password`):
-
-| Email | Role |
-|-------|------|
-| `admin@mcare.health` | Admin |
-| `assistant@mcare.health` | Assistant (all permissions) |
-| `dr.mensah@mcare.health` | Doctor |
-| `dr.adeyemi@mcare.health` | Doctor (Endocrinology) |
-| `amara.okonkwo@example.com` | Patient (rich demo chart) |
-| Other `@example.com` patients | Caseload variety |
+Role folders may contain thin adapters only. They must not clone networking, state, permissions, validation, or component styling.
 
 ---
 
-## Environment & configuration
+## 6. Navigation and responsive structure
 
-### Backend (`backend/.env`)
+### 6.1 Canonical top-level navigation
 
-| Variable | Production |
-|----------|------------|
-| `APP_ENV` / `APP_DEBUG` | `production` / **`false`** |
-| `APP_URL` | `https://api.yourdomain.com` |
-| `FRONTEND_URL` | `https://app.yourdomain.com` (builds external links) |
-| `DB_*` | Dedicated MySQL user — never root |
-| `MAIL_*` | Real SMTP (SES or Gmail app password) |
-| `GOOGLE_CLIENT_*` | Production OAuth client + redirect |
-| `APPLE_CLIENT_ID` | If shipping Sign in with Apple |
-| `FCM_PROJECT_ID` + service account | If shipping push |
-| `FILESYSTEM_DISK` | `local` (+ `storage:link`) or `s3` |
-| `SANCTUM_STATEFUL_DOMAINS` + CORS origins | Your app domain(s) |
+| Role | Destination 1 | Destination 2 | Destination 3 | Destination 4 | Global actions |
+|---|---|---|---|---|---|
+| Administrator | Home | Work | People | More | Search, bell, avatar |
+| mCare Assistant | Home | Work | People | More | Authorized search, bell, avatar |
+| Patient | Home | Health | Care | More | Bell, SOS, avatar |
+| Doctor | Home | Work | Patients | More | Assigned-patient search, bell, SOS, avatar |
+| External guest | No persistent navigation |  |  |  | Expiry and End session |
 
-### Frontend dart-defines
+Persistent destinations represent user goals, not database tables. Existing named routes remain valid as deep links and compatibility entry points; a typed route-parent registry keeps the correct parent destination selected on child/detail routes.
+
+### 6.2 Responsive tiers
+
+| Tier | Width | Navigation | Layout |
+|---|---:|---|---|
+| Compact | `<600` | Four-item bottom navigation | Single column; full-page detail or bottom sheet |
+| Medium | `600–1023` | Compact rail | One/two columns from available content width |
+| Expanded | `1024–1439` | 220–240 px extended rail | Two-column hubs and master/detail |
+| Wide | `>=1440` | Same extended rail | Max-width content with optional context pane |
+
+Grid decisions use the width remaining **after** navigation, not full `MediaQuery` width. The same workflow and authorization apply at every breakpoint.
+
+### 6.3 Page families
+
+| Family | Purpose |
+|---|---|
+| Home | Truthful freshness, urgent summary, next safe actions, compact secondary counts |
+| Work | Typed queue, plain-language filters, ranked priority, list/detail action flow |
+| People/Patients | Authorized directory and contextual record/workspace |
+| Health/Care | Patient-owned clinical tasks and care coordination |
+| More | Infrequent tools, reports, configuration, profile, settings, and support |
+| External workspace | Access gate, one-patient review, scoped contribution, receipt, session end |
+
+Notifications remain a header bell. Patient and clinical-responder SOS stays visible and must not be buried in More.
+
+---
+
+## 7. Role experiences and capabilities
+
+### 7.1 Administrator
+
+**Home** answers: “What needs the platform team now?” It shows truthful freshness, urgent counts, and recommended next actions without claiming unsupported whole-platform health.
+
+**Work** groups:
+
+- SOS and vital alerts;
+- healthcare-worker approvals;
+- care requests and assignments;
+- support tickets;
+- operational messages.
+
+**People** groups patients and staff/users. User details own account status, role changes, invitations, and assistant access grants.
+
+**More** groups analytics, audit, security incidents, announcements, vital catalog, system settings, personal profile, and account settings.
+
+Admin home must not expose fabricated trends, invented average-response times, or raw PHI when a privacy-minimized count is sufficient.
+
+### 7.2 mCare Assistant
+
+The Assistant uses the same shared staff shell and page families as Admin, with server-authorized content and actions filtered by live grants. The backend namespace remains `/admin`; there is no separate `/assistant` API namespace.
+
+The 12 canonical grants are:
+
+1. `can_approve_healthworkers`
+2. `can_manage_care_requests`
+3. `can_assign_patients`
+4. `can_create_users`
+5. `can_change_user_types`
+6. `can_register_admin`
+7. `can_register_assistant`
+8. `can_view_activity_logs`
+9. `can_view_security_incidents`
+10. `can_access_emergency_location`
+11. `can_manage_advertising`
+12. `can_manage_vital_catalog`
+
+Hidden navigation is not authorization. Laravel middleware/policies must reject an ungranted action. When a grant is revoked during a session, close restricted detail, clear restricted presentation data, and return to a safe destination with an explanation.
+
+### 7.3 Patient
+
+**Home** shows today’s care plan: next vital, medication dose, appointment, messages, and help/SOS.
+
+**Health** groups vitals and trends, medications/doses, documents, and vital-report requests.
+
+**Care** groups appointments, care team/requests, and secure messages.
+
+**More** groups notifications entry, profile/health profile, privacy/external-access management, settings, and support.
+
+Patient capabilities include onboarding, profile updates, vital recording/history, medication tracking, appointments, documents, messaging, notifications, SOS, support, care-team requests, and creation/revocation of external-access links.
+
+### 7.4 Doctor
+
+**Home** shows assigned caseload attention, today, and ranked clinical work.
+
+**Work** groups SOS, alerts, visits/appointments, inbox/requests, reports due, and messages.
+
+**Patients** is the assigned directory and patient workspace. The workspace groups existing content into:
+
+- Overview;
+- Monitoring: vitals, trends, alerts;
+- Care plan: prescriptions, medications, meals, assigned vitals;
+- Visits and notes: appointments, reports, timeline;
+- Records and communication: documents and messages.
+
+**More** groups schedule/reports, vital setup, profile, and settings.
+
+All patient access remains caseload-scoped on the server. Search suggestions, counts, URLs, and cached state must not reveal unassigned patients.
+
+---
+
+## 8. External Clinical Access
+
+A patient can create a time-limited link and spoken code for an outside clinician. The external clinician is a guest scoped to one patient record.
+
+### Patient management points
+
+- Care Team → External/Emergency access
+- Settings → Privacy → External Clinical Access
+
+Constraints: maximum five active links, expiry choices of 24 hours/3 days/7 days, no-lookalike access-code alphabet, resolve-code throttle, audit on create/revoke, and immediate patient revoke.
+
+### Guest flow
+
+```text
+Open token link or enter code
+→ confirm expiry and permitted scope
+→ review one-patient summary
+→ review vitals, medications, and document metadata
+→ add only a scoped finding
+→ receive a durable result/receipt
+→ end, expire, or become revoked
+```
+
+Current API actions:
+
+| Action | Endpoint |
+|---|---|
+| Resolve spoken code | `POST /api/v1/external/resolve-code` |
+| Review shared summary | `GET /api/v1/external/{token}` |
+| Add consultation note | `POST /api/v1/external/{token}/notes` |
+| Record vital | `POST /api/v1/external/{token}/vitals` |
+| Assign medication | `POST /api/v1/external/{token}/medications` |
+| Upload document | `POST /api/v1/external/{token}/documents` |
+
+There is no external login account, dashboard, global search, patient switcher, secure inbox, profile/settings area, notification identity, or telemedicine module. Those require a separate future backend project.
+
+Production hardening should store only hashed bearer secrets where feasible, exchange codes for short portal sessions, enforce explicit operation scopes, keep files private/scanned, minimize PHI in the access gate, and audit successful access and writes.
+
+---
+
+## 9. Backend and API compatibility
+
+Base URL: `/api/v1`.
+
+| Group | Prefix | Authority |
+|---|---|---|
+| Authentication | `/auth/*` | Public/throttled and authenticated self-service operations |
+| External access | `/external/*` | Public token/code guest, separately throttled |
+| Shared account | `/me/*` | Authenticated user |
+| Patient | `/patient/*` | Sanctum + patient role |
+| Doctor | `/doctor/*` | Sanctum + doctor role + object/caseload checks |
+| Admin/Assistant | `/admin/*` | Sanctum + admin/assistant role; assistant endpoints add permission checks |
+| Push registration | `/fcm-tokens` | Authenticated user |
+
+### Non-breaking contract rules
+
+1. Keep all 105 named Flutter routes and their argument shapes during migration.
+2. Do not rename or delete an API route to make the UI cleaner.
+3. New hubs aggregate existing state; they do not create duplicate clients or stores.
+4. Backend validation and authorization remain authoritative.
+5. A feature flag changes presentation only; it is never permission evidence.
+6. Preserve deep links and back-stack behavior with route-parent mapping.
+7. Every state-changing action retains its existing service, audit, notification, and clinical side effects.
+8. Route-count changes require README, tests, and PDF-atlas review.
+
+### Current rate limits
+
+- authentication surface: named `auth-login` limiter;
+- external code resolution: 6/minute per IP;
+- external token surface: 30/minute per token;
+- authenticated API: 120/minute per user.
+
+Verify limits with feature tests. A rate-limit label in documentation is not sufficient evidence that identifier selection and route placement are correct.
+
+---
+
+## 10. Security and production gates
+
+### Security principles
+
+- HTTPS only in production; `APP_DEBUG=false`.
+- Sanctum bearer authentication and server-side role/object authorization.
+- Force password change for staff-issued temporary passwords.
+- Assistant grants checked on the backend, never inferred from hidden UI.
+- Minimum-necessary PHI in lists, notifications, logs, WebSocket payloads, and analytics.
+- Typed clinical/administrative commands with confirmation, reason where required, audit, idempotency, and durable receipt.
+- Private medical-file delivery; no predictable public document URLs.
+- Secrets stay in environment configuration and never enter source, logs, screenshots, analytics, or share URLs.
+- SOS and alert recipients are scoped to explicit authority/care relationships.
+
+### Production-blocking gates
+
+| Gate | Exit evidence |
+|---|---|
+| Hosting and transport | Production HTTPS, correct CORS/Sanctum origins, `APP_DEBUG=false` |
+| Database | Dedicated non-root user, automated encrypted backups, successful restore rehearsal |
+| Email | OTP, reset, verification, and invite messages delivered using real SMTP |
+| Account state | Suspended/disabled/unapproved users rejected on every protected surface |
+| Session invalidation | Password, role, status, and grant changes invalidate affected sessions/tokens |
+| OAuth | Mock/test OAuth impossible outside local/testing; production credentials configured |
+| External access | Token/code/session expiry, revoke, throttling, operation scopes, and audit tests pass |
+| Medical files | Private authorization, type/size validation, malware-scan policy, and safe download headers |
+| SOS/alerts | Recipient, location, state-machine, acknowledge/resolve, and audit matrices pass |
+| Authorization | Role, assistant-grant, object-type, object-target, and IDOR negative tests pass |
+| Privacy/legal | Public privacy policy and terms explain health data, location/SOS, retention, deletion, and external sharing |
+| Operations | Scheduler, queue worker, monitoring, backups, and incident response are supervised and tested |
+
+No production cohort receives the redesigned workflow until its relevant gates are green.
+
+---
+
+## 11. Safe implementation and old-design retirement
+
+The desired end state contains only the PDF-approved runtime design. Safe delivery is additive first and subtractive only after proven parity.
+
+### Phase 0 — baseline and freeze
+
+- Export the 105-route manifest and 171-route API inventory.
+- Capture legacy screenshots at compact, medium, expanded, and wide sizes.
+- Record route arguments, API payloads, mutations, audit events, notifications, and error behavior.
+- Add route/deep-link/back-stack, role/grant, account-state, and IDOR tests.
+- Resolve ownership of unrelated dirty-worktree changes before editing shared code.
+
+**Exit:** legacy behavior is reproducible and regressions are detectable.
+
+### Phase 1 — security/session prerequisites
+
+- Close production mock-OAuth, account-state, session-revocation, recovery-token, SOS-recipient, and private-file findings.
+- Add global client handling for 401, 403, permission changes, and expired sessions.
+- Rehearse migrations and rollback on a production-like copy.
+
+**Exit:** no open P0 finding for the cohort being enabled.
+
+### Phase 2 — one shared Design System v2
+
+- Implement the approved tokens and shared components under one namespace.
+- Add responsive, dark-mode, semantics, keyboard, reduced-motion, and 200%-text tests.
+- Do not globally restyle legacy widgets before route-level parity is available.
+
+**Exit:** shared components pass tests independently and do not change flag-off screens.
+
+### Phase 3 — route registry and rollout controls
+
+- Map every existing route to role, parent destination, filter/detail context, required capability, and safe fallback.
+- Preserve complete-profile and force-password gates outside the main shell.
+- Use independent server-resolved rollout switches per role/cohort, default disabled until approved.
+- Prove flag-off route and data behavior remains unchanged.
+
+### Phase 4 — Administrator first
+
+1. Guided Home: read-only, privacy-minimized, truthful freshness, ranked links.
+2. Work read-only composer: alerts, SOS, approvals, care requests, assignments, support, messages.
+3. Typed actions one workflow at a time: support → approvals → care requests/assignments → alert acknowledge → alert resolve-with-reason → SOS last.
+4. People: patients/staff directory and contextual user actions.
+5. More: analytics, audit, security, announcements, vital catalog, system/profile/settings.
+
+Each command type receives success, validation, duplicate-submit, conflict, permission, audit, and rollback tests before the next type migrates.
+
+### Phase 5 — mCare Assistant
+
+- Reuse the same Admin components and adapters.
+- Filter content/actions by live server grants.
+- Test all 12 permission keys individually and in changing-session scenarios.
+- Never fork an Assistant copy of Admin networking or workflow logic.
+
+### Phase 6 — Patient
+
+- Migrate Home, Health, Care, and More using existing routes and stores.
+- Preserve onboarding, vitals, doses, appointments, messages, external-access management, and SOS behavior.
+- Validate elderly-user touch targets, plain language, assistive technology, and intermittent connectivity.
+
+### Phase 7 — Doctor
+
+- Migrate Home, Work, Patients, and More.
+- Compose the patient workspace from existing clinical sections without creating parallel chart state.
+- Prove assigned-caseload scope on search, lists, deep links, notifications, and cached state.
+
+### Phase 8 — External Clinical Access
+
+- Apply the constrained guest shell and step-by-step contribution flow.
+- Keep token expiry/scope visible and provide receipts/end states.
+- Enable only after token/session, file, scope, revoke, audit, and PHI-minimization gates pass.
+
+### Phase 9 — remove old designs
+
+Old presentation code may be removed only route by route after all conditions below are true:
+
+1. the new route has functional and visual parity;
+2. compact, medium, expanded, dark, text-scale, keyboard, and screen-reader tests pass;
+3. live-API success, validation, empty, offline/stale, 401/403, conflict, and server-error states pass;
+4. UAT is approved by the affected role;
+5. telemetry shows no release-blocking regression during the cohort window;
+6. the rollback window has closed and a tagged previous release remains deployable;
+7. no other route imports the legacy widget.
+
+Then:
+
+- delete the replaced page/layout and its obsolete styling only;
+- remove unused glass/bubble/decorative design dependencies and assets;
+- collapse temporary v1/v2 variants into one canonical component name;
+- keep route names, API clients, state stores, policies, validation, and backend workflows;
+- run repository-wide reference searches, analysis, tests, and release builds.
+
+Do **not** bulk-delete old design folders before parity. That would make rollback impossible and can silently remove business behavior embedded in screens.
+
+---
+
+## 12. Testing, UAT, and rollback
+
+### Required automated matrix
+
+| Area | Minimum coverage |
+|---|---|
+| Routes/navigation | All named routes, arguments, guards, parent selection, deep links, back stack |
+| Authentication | Login, lockout, verification, OTP, reset, invite, forced password, logout |
+| Account security | Suspension, approval state, password/role/grant changes, session invalidation |
+| Permissions | Every Assistant grant allows the intended operation and denies all others |
+| Vitals/alerts | Normal and threshold breach, alert/notification/audit side effects, duplicate prevention |
+| SOS | Trigger, authorized recipients/location, acknowledge/resolve, state transitions, audit |
+| External access | Create → resolve → view/write → expire/revoke; IDOR and throttle negatives |
+| Documents | Ownership, type/size, private delivery, failed upload, unauthorized download |
+| Responsive UI | Compact, medium, expanded, wide, orientation, text scale, dark mode |
+| Accessibility | Keyboard, focus, semantics, contrast, screen reader, reduced motion |
+| Realtime | Private-channel auth, vital alert, reconnect, missed event, REST fallback |
+
+### UAT cohorts
+
+1. Internal Administrator
+2. Selected Administrator operators
+3. Selected mCare Assistants with varied grants
+4. Patient pilot
+5. Doctor pilot
+6. External-access security/usability pilot
+
+No role is enabled globally because a different role passed UAT.
+
+### Rollback
+
+- Use a tagged previous release and independent role/cohort rollout switches.
+- Prefer forward-compatible, additive database migrations during the compatibility period.
+- Disable the affected presentation immediately when a critical regression appears.
+- Keep API contracts and old route entry points available through the rollback window.
+- Never roll back by deleting or rewriting patient data.
+- Record incident, affected cohort, data impact, mitigation, and follow-up test.
+
+### Release gate
+
+A role is complete only when product, clinical, security, accessibility, engineering, QA, and operations owners sign off with no open P0/P1 issue relevant to that release.
+
+---
+
+## 13. Environment and configuration
+
+### Backend — `backend/.env`
+
+| Variable | Purpose/production guidance |
+|---|---|
+| `APP_ENV`, `APP_DEBUG`, `APP_URL` | `production`, `false`, HTTPS API URL |
+| `FRONTEND_URL` | HTTPS Flutter web URL used for external/OAuth/email links |
+| `DB_*` | Dedicated least-privilege MySQL user |
+| `SESSION_*`, `SANCTUM_STATEFUL_DOMAINS` | Session/Sanctum configuration for approved origins |
+| `QUEUE_CONNECTION` | `database` locally; Redis recommended for production throughput |
+| `BROADCAST_CONNECTION` | `log` locally or `reverb` when real-time is configured |
+| `REVERB_*` | Reverb application credentials and server location |
+| `MAIL_*` | Real SMTP/SES for production messages |
+| `GOOGLE_CLIENT_*` | Production Google OAuth client and callback |
+| `APPLE_CLIENT_ID` | Production Apple configuration if shipped |
+| `FCM_*` | Firebase project/service-account values if push is shipped |
+| `FILESYSTEM_DISK` | Private local storage or S3 |
+| `AWS_*` | S3/SES credentials and region when AWS is used |
+
+### Flutter dart-defines
 
 | Define | Purpose |
-|--------|---------|
-| `MCARE_USE_BACKEND` | `true` for live API |
-| `MCARE_API_URL` | `https://api.yourdomain.com/api/v1` |
-| `MCARE_GOOGLE_CLIENT_ID` | Web Google OAuth |
-| `MCARE_APPLE_*` | Sign in with Apple |
-| `MCARE_FIREBASE_*` | Push (also fill `web/firebase-messaging-sw.js`) |
+|---|---|
+| `MCARE_USE_BACKEND` | `true` for Laravel; `false` for demo/mock state |
+| `MCARE_API_URL` | Laravel `/api/v1` base URL |
+| `MCARE_WS_URL` | Optional Reverb WebSocket root |
+| `MCARE_WS_APP_KEY` | Reverb application key paired with `MCARE_WS_URL` |
+| `MCARE_GOOGLE_CLIENT_ID` | Google web OAuth client |
+| `MCARE_APPLE_CLIENT_ID`, `MCARE_APPLE_REDIRECT_URI` | Apple web OAuth values |
+| `MCARE_FIREBASE_*` | Firebase/push configuration |
 
-Android signing: `frontend/android/key.properties` (see `key.properties.example`).
-
----
-
-## Host on Amazon (AWS)
-
-Goal: HTTPS API for mobile apps + HTTPS web app for the external portal and browser users.
-
-### Recommended minimal architecture
-
-| Piece | AWS service | Notes |
-|-------|-------------|-------|
-| Laravel API | **Lightsail** ($5–12/mo LAMP/Ubuntu) or **EC2** | Docroot → `backend/public/` |
-| MySQL | **Lightsail managed MySQL** or **RDS MySQL 8** | Automated backups (P0 for patient data) |
-| HTTPS | Lightsail **Let's Encrypt** (`bncert-tool`) or ALB + **ACM** | Required for Android cleartext policy, OAuth, SOS GPS |
-| DNS | **Route 53** (or any registrar) | `api.` + `app.` records |
-| Files | Local disk first; later **S3** (`FILESYSTEM_DISK=s3`) | Avatars + medical documents |
-| Email | **Amazon SES** (or Gmail SMTP to start) | SES needs production access out of sandbox |
-| Flutter web | Same box under `/var/www/app` **or** **S3 + CloudFront** | SPA fallback: unknown paths → `index.html` |
-| Optional CDN | CloudFront in front of API/web | Cache static assets only |
-
-### Step-by-step (Lightsail path)
-
-1. **Create instance** — Ubuntu 22.04 / LAMP blueprint, open ports 80/443 (and 22 for SSH).  
-2. **Attach static IP** + point `api.yourdomain.com` A-record at it.  
-3. **Create managed MySQL** — note host/user/password; create database `mcare`.  
-4. **Install PHP 8.2+**, Composer, enable `php-mysql`, `php-mbstring`, `php-xml`, `php-curl`, `php-gd`, `php-zip`.  
-5. **Deploy backend**
-   ```bash
-   cd /var/www/mcare-api
-   composer install --no-dev --optimize-autoloader
-   cp .env.example .env
-   # edit .env: APP_ENV=production APP_DEBUG=false APP_URL DB_* FRONTEND_URL MAIL_*
-   php artisan key:generate
-   php artisan migrate --force
-   php artisan storage:link
-   php artisan config:cache && php artisan route:cache
-   ```
-6. **Apache/Nginx** — virtual host docroot = `backend/public`. Enable HTTPS (bncert or certbot).  
-7. **CORS + Sanctum** — allow `https://app.yourdomain.com` (and mobile origins if needed).  
-8. **Cron** — `* * * * * php artisan schedule:run`.  
-9. **Queue** — `php artisan queue:work` under systemd/supervisor (or `QUEUE_CONNECTION=sync` temporarily).  
-10. **Build & host Flutter web**
-    ```bash
-    cd frontend
-    flutter build web --release \
-      --dart-define=MCARE_USE_BACKEND=true \
-      --dart-define=MCARE_API_URL=https://api.yourdomain.com/api/v1 \
-      --dart-define=MCARE_GOOGLE_CLIENT_ID=...
-    ```
-    Upload `build/web` to the web vhost or S3+CloudFront. Keep SPA rewrite so `/external?token=…` deep links work.  
-11. Set `FRONTEND_URL=https://app.yourdomain.com` so patient-shared external links are correct.  
-12. Smoke-test: login as demo patient → create external link → open in private browser → record vital / assign med / upload PDF.
-
-### Cost ballpark (testing)
-
-Lightsail instance + managed DB ≈ **$15–40/mo**. Add SES, Route 53, and S3 as you harden.
+Android release signing uses `frontend/android/key.properties`; start from `key.properties.example` and keep the real keystore/passwords out of version control.
 
 ---
 
-## Google Play Store
+## 14. Deployment
 
-### Prerequisites
+### Recommended production shape
 
-1. [Google Play Console](https://play.google.com/console) account ($25 one-time) + identity verification.  
-2. **Backend already on HTTPS** (phones cannot use `127.0.0.1`).  
-3. Unique `applicationId` in `frontend/android/app/build.gradle.kts` (immutable after first upload).  
-4. Upload keystore:
-   ```bat
-   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
-   ```
-   Create `frontend/android/key.properties` from the example. **Back up the keystore — losing it blocks updates.**  
-5. Privacy policy URL hosted publicly (health apps). Complete Data safety, content rating, Health apps declaration.
+| Concern | Suggested service | Requirement |
+|---|---|---|
+| Laravel API | AWS Lightsail/EC2 or equivalent | Web root is `backend/public`; HTTPS only |
+| MySQL | RDS/Lightsail managed MySQL | Private network, backups, restore rehearsal |
+| Queue/cache | Redis/ElastiCache at production scale | Supervised queue workers |
+| Reverb | Supervised process behind Nginx/ALB | WSS upgrade headers and private-channel auth |
+| Files | Private S3 bucket | Encryption, signed/authorized delivery, lifecycle policy |
+| Email | Amazon SES or approved SMTP | Production sending access and monitored failures |
+| Flutter web | S3 + CloudFront or web server | SPA fallback to `index.html`, including `/external?token=…` |
+| DNS/TLS | Route 53 + ACM or equivalent | `api.` and `app.` HTTPS domains |
+| Monitoring | Application/error/log monitoring | Alerts for 5xx, job failures, WebSocket failure, and backup failure |
 
-### Build
+### Laravel deployment sequence
 
-```bat
-cd frontend
-flutter build appbundle --release ^
-  --dart-define=MCARE_USE_BACKEND=true ^
-  --dart-define=MCARE_API_URL=https://api.yourdomain.com/api/v1 ^
-  --dart-define=MCARE_GOOGLE_CLIENT_ID=your-client-id
+```bash
+cd /var/www/mcare/backend
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan storage:link
+php artisan config:cache
+php artisan route:cache
 ```
 
-Output: `build/app/outputs/bundle/release/app-release.aab`.
+Run these under systemd/Supervisor or an equivalent process manager:
 
-Optional push: Firebase Android app + `google-services.json` under `android/app/`.
+```bash
+php artisan queue:work --tries=3
+php artisan reverb:start --host=0.0.0.0 --port=8080
+```
 
-### Release track
+Scheduler:
 
-1. Create app → **Internal testing** → upload AAB → add tester emails → share opt-in link.  
-2. Bump `version` in `pubspec.yaml` (`1.0.1+2` — `+N` must increase every upload).  
-3. Promote Internal → Closed → Open → Production. New personal developer accounts often need 12+ closed testers for 14 days before production.
+```cron
+* * * * * cd /var/www/mcare/backend && php artisan schedule:run >> /dev/null 2>&1
+```
 
-Google Sign-In on Android also needs an Android OAuth client with package name + SHA-1 (upload key and Play App Signing certificate).
+### Flutter web production build
+
+```bash
+cd frontend
+flutter build web --release \
+  --dart-define=MCARE_USE_BACKEND=true \
+  --dart-define=MCARE_API_URL=https://api.yourdomain.com/api/v1 \
+  --dart-define=MCARE_WS_URL=wss://api.yourdomain.com \
+  --dart-define=MCARE_WS_APP_KEY=your-reverb-app-key
+```
+
+Before deployment, test login, patient vital → alert, SOS, messaging, file access, and patient external-link create → guest contribution → revoke on the actual HTTPS domains.
 
 ---
 
-## Apple App Store
+## 15. Google Play and Apple App Store
 
-### Prerequisites
+### Google Play
 
-1. **Apple Developer Program** ($99/year).  
-2. Mac with latest **Xcode**.  
-3. Bundle ID (e.g. `com.tattuintel.mcare`) registered in Certificates, Identifiers & Profiles.  
-4. App Store Connect app record + privacy nutrition labels (health data, location for SOS).  
-5. Privacy policy URL.  
-6. Backend on HTTPS reachable from devices.  
-7. If using Sign in with Apple: enable capability on the App ID; set `APPLE_CLIENT_ID` / `MCARE_APPLE_*`.
+- Create and verify a Google Play Console developer account.
+- Finalize the immutable Android `applicationId` before the first production upload.
+- Generate and securely back up the upload keystore; configure `android/key.properties`.
+- Host privacy policy, terms, support, and account-deletion information publicly.
+- Complete health-app, data-safety, location/SOS, and external-record-sharing declarations accurately.
+- Use internal testing before wider tracks.
 
-### Build & upload
+Build:
+
+```powershell
+Set-Location frontend
+flutter build appbundle --release `
+  --dart-define=MCARE_USE_BACKEND=true `
+  --dart-define=MCARE_API_URL=https://api.yourdomain.com/api/v1
+```
+
+Output: `frontend/build/app/outputs/bundle/release/app-release.aab`.
+
+### Apple App Store
+
+- Join the Apple Developer Program and use a Mac with supported Xcode.
+- Register the Bundle ID and configure signing/capabilities.
+- Complete App Store privacy labels for health data, documents, messages, location/SOS, and external sharing.
+- Configure Apple Sign-In and push capabilities only when shipping them.
+- Validate with TestFlight before App Store submission.
+
+Build:
 
 ```bash
 cd frontend
@@ -458,45 +840,41 @@ flutter build ipa --release \
   --dart-define=MCARE_API_URL=https://api.yourdomain.com/api/v1
 ```
 
-Or open `frontend/ios/Runner.xcworkspace` in Xcode → set Team / signing → Product → Archive → Distribute App → App Store Connect.
-
-Optional push: Firebase iOS app + `GoogleService-Info.plist`, enable Push Notifications + Background Modes.
-
-### TestFlight → App Store
-
-1. Upload build → process in App Store Connect.  
-2. Add **TestFlight** internal/external testers.  
-3. Prepare listing: screenshots (6.7" + 6.1" iPhones minimum), description, keywords, support URL, age rating.  
-4. Submit for review. Health / medical apps get extra scrutiny — be clear that mCare is a **monitoring / coordination** tool, not a device that diagnoses or replaces emergency services. Document SOS + external-access behaviour in the review notes.
+Store review notes must explain that mCare coordinates monitoring and care, does not diagnose, does not replace clinicians, and does not replace emergency services.
 
 ---
 
-## Improvements roadmap
+## 16. Demo accounts
 
-### P0 — before real patients
+After `php artisan migrate --seed`, use password `demo-password`:
 
-1. HTTPS hosting + hardened `.env` + DB backups.  
-2. SMTP credentials.  
-3. Privacy policy + terms.  
-4. Broader automated tests on auth, SOS, external access (vitals/meds/docs), med dosing.
+| Email | Role |
+|---|---|
+| `admin@mcare.health` | Administrator |
+| `assistant@mcare.health` | mCare Assistant with all seeded grants |
+| `dr.mensah@mcare.health` | Doctor |
+| `dr.adeyemi@mcare.health` | Doctor — Endocrinology |
+| `amara.okonkwo@example.com` | Patient with a rich demonstration chart |
 
-### P1 — reliability
+Additional `@example.com` patients provide caseload variety.
 
-5. Queue FCM fan-out.  
-6. Indexes: `vital_readings(user_id, recorded_at)`, `app_notifications(user_id, read)`, `chat_messages(conversation_id, created_at)`.  
-7. Turn on FCM to replace 30 s polling for alerts.  
-8. Error monitoring (Sentry free tiers for Laravel + Flutter).
-
-### P2 — product depth
-
-9. Optional PIN on external access; patient “who accessed my record” UI.  
-10. Offline cache for last-known dashboard.  
-11. Native document preview/download.  
-12. Localization beyond English.  
-13. Optional: Notifications / SOS as bottom-nav tab or persistent SOS FAB.
+Demo credentials are development data only. Never seed them into a production database.
 
 ---
 
-## License
+## 17. Documentation policy
+
+The maintained documentation set is intentionally small:
+
+1. **This `README.md`** — current product, architecture, setup, contracts, security gates, implementation, testing, deployment, and operations.
+2. **[Complete design blueprint PDF](output/pdf/mcare-complete-application-design-blueprint.pdf)** — approved screen-by-screen visuals, responsive examples, route atlas, workflows, traceability, and stakeholder review record.
+
+Do not create competing role-specific design plans or duplicate README files. When implementation changes product truth, update this README in the same change. When an approved visual/navigation decision changes, regenerate and reapprove the single PDF.
+
+The PDF contains visual detail that cannot be represented faithfully in plain Markdown—high-fidelity mockups, responsive compositions, complete screen atlas, and visual approval record—so it remains the authoritative visual companion rather than being copied into this README.
+
+---
+
+## 18. License
 
 Private — all rights reserved. Not licensed for public distribution.

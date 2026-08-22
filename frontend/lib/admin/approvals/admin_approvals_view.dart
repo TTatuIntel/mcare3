@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/admin_api.dart';
+import '../../core/api/staff_mapper.dart';
+import '../../core/env/app_env.dart';
 import '../../core/realtime/session_poller.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/navigation/staff_destinations.dart';
@@ -13,6 +15,8 @@ import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_icons.dart';
+import '../../shared/widgets/app_loading_view.dart';
+import '../../shared/widgets/app_page_route.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/empty_state.dart';
@@ -20,6 +24,7 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/role_shell.dart';
+import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
 
 class AdminApprovalsView extends StatelessWidget {
@@ -54,15 +59,45 @@ class _ApprovalsScreen extends StatefulWidget {
 }
 
 class _ApprovalsScreenState extends State<_ApprovalsScreen> {
+  final Set<String> _busyApprovalIds = <String>{};
+  bool _loading = false;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) SessionPoller.instance.triggerNow();
+      if (!mounted) return;
+      SessionPoller.instance.triggerNow();
+      _loadApprovals();
     });
   }
 
-  Future<void> _uploadCredential(BuildContext context, HealthworkerApproval a) async {
+  Future<void> _loadApprovals() async {
+    // Demo data is already seeded by the session service. AdminApi returns an
+    // empty collection while the backend is disabled, so do not erase it.
+    if (!AppEnv.backendEnabled) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rows = await AdminApi.instance.listApprovals();
+      final approvals = rows
+          .map((row) => StaffMapper.approvalFromApi(row))
+          .toList();
+      StaffState.instance.mergeApprovals(approvals);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _uploadCredential(
+    BuildContext context,
+    HealthworkerApproval a,
+  ) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
@@ -71,7 +106,10 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
     final file = result?.files.single;
     if (file == null || !context.mounted) return;
     try {
-      final raw = await AdminApi.instance.uploadApprovalCredential(a.id, file: file);
+      final raw = await AdminApi.instance.uploadApprovalCredential(
+        a.id,
+        file: file,
+      );
       if (!context.mounted) return;
       if (raw != null) {
         StaffState.instance.patchApprovalFromApi(raw);
@@ -85,7 +123,10 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
     }
   }
 
-  Future<void> _viewCredential(BuildContext context, HealthworkerApproval a) async {
+  Future<void> _viewCredential(
+    BuildContext context,
+    HealthworkerApproval a,
+  ) async {
     try {
       final bytes = await AdminApi.instance.fetchApprovalCredentialBytes(a.id);
       if (!context.mounted) return;
@@ -117,39 +158,63 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
     return null;
   }
 
-  Future<void> _showDetail(BuildContext context, HealthworkerApproval a) {
-    return GlassSheet.show(
-      context,
-      title: a.name,
-      subtitle: a.specialty,
+  Future<void> _showDetail(
+    BuildContext pageContext,
+    HealthworkerApproval approval,
+  ) {
+    return GlassSheet.show<void>(
+      pageContext,
+      title: approval.name,
+      subtitle: 'Clinician application · ${approval.specialty}',
       child: AnimatedBuilder(
         animation: StaffState.instance,
-        builder: (context, _) {
-          final current = _approvalById(a.id) ?? a;
+        builder: (sheetContext, _) {
+          final current = _approvalById(approval.id) ?? approval;
+          final busy = _busyApprovalIds.contains(current.id);
           return Padding(
             padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl, AppSpacing.md, AppSpacing.xl, AppSpacing.xl),
+              AppSpacing.xl,
+              AppSpacing.md,
+              AppSpacing.xl,
+              AppSpacing.xl,
+            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _detail('License', current.licenseNumber ?? '—'),
-                _detail(
-                  'Credential document',
-                  current.hasCredentialDocument
-                      ? (current.credentialDocumentName ?? 'On file')
+                _ApprovalIdentityCard(approval: current),
+                const SizedBox(height: AppSpacing.lg),
+                _ApprovalDetailRow(
+                  label: 'License',
+                  value: current.licenseNumber ?? 'Not provided',
+                ),
+                _ApprovalDetailRow(
+                  label: 'Credential',
+                  value: current.hasCredentialDocument
+                      ? (current.credentialDocumentName ?? 'Document on file')
                       : 'Not uploaded',
                 ),
-                _detail('Applied', DateFormat.yMMMd().format(current.appliedAt)),
-                _detail('Status', current.status.toUpperCase()),
-                const SizedBox(height: AppSpacing.sm),
-                if (current.hasCredentialDocument)
+                _ApprovalDetailRow(
+                  label: 'Applied',
+                  value: DateFormat.yMMMd().add_jm().format(current.appliedAt),
+                ),
+                _ApprovalDetailRow(
+                  label: 'Status',
+                  value: _statusLabel(current.status),
+                  valueColor: _statusColor(current.status),
+                ),
+                if (current.hasCredentialDocument) ...[
+                  const SizedBox(height: AppSpacing.sm),
                   AppButton(
                     label: 'Download credential',
                     icon: AppIcons.download,
                     variant: AppButtonVariant.secondary,
                     expand: true,
-                    onPressed: () => _viewCredential(context, current),
+                    onPressed: busy
+                        ? null
+                        : () => _viewCredential(sheetContext, current),
                   ),
+                ],
                 if (current.status == 'pending') ...[
                   const SizedBox(height: AppSpacing.sm),
                   AppButton(
@@ -159,72 +224,65 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
                     icon: AppIcons.upload,
                     variant: AppButtonVariant.secondary,
                     expand: true,
-                    onPressed: () => _uploadCredential(context, current),
+                    onPressed: busy
+                        ? null
+                        : () => _uploadCredential(sheetContext, current),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   AppButton(
-                label: 'Approve',
-                icon: AppIcons.check,
-                expand: true,
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  final ok = await AppDialog.confirm(
-                    context,
-                    title: 'Approve clinician?',
-                    message: '${a.name} will gain access to mCare.',
-                    icon: AppIcons.approval,
-                  );
-                  if (ok != true || !context.mounted) return;
-                  try {
-                    await StaffState.instance.approveApplicationRemote(a.id);
-                    if (!context.mounted) return;
-                    AppToast.success(context, '${a.name} approved.');
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    AppToast.warn(context, 'Could not approve: $e');
-                  }
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              AppButton(
-                label: 'Request more info',
-                icon: AppIcons.chat,
-                variant: AppButtonVariant.secondary,
-                expand: true,
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  await _requestInfo(context, a);
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              AppButton(
-                label: 'Reject',
-                icon: AppIcons.close,
-                variant: AppButtonVariant.danger,
-                expand: true,
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  final ok = await AppDialog.confirm(
-                    context,
-                    title: 'Reject application?',
-                    message: 'This cannot be undone.',
-                    danger: true,
+                    label: 'Approve clinician',
+                    icon: AppIcons.check,
+                    expand: true,
+                    loading: busy,
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final approved = await _approveApplication(
+                              sheetContext,
+                              current,
+                            );
+                            if (approved && sheetContext.mounted) {
+                              Navigator.of(
+                                sheetContext,
+                                rootNavigator: true,
+                              ).pop();
+                            }
+                          },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: 'Request more information',
+                    icon: AppIcons.chat,
+                    variant: AppButtonVariant.secondary,
+                    expand: true,
+                    onPressed: busy
+                        ? null
+                        : () => _requestInfo(sheetContext, current),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: 'Reject application',
                     icon: AppIcons.close,
-                  );
-                  if (ok != true || !context.mounted) return;
-                  try {
-                    await StaffState.instance.rejectApplicationRemote(a.id,
-                        reason: 'Application rejected by staff.');
-                    if (!context.mounted) return;
-                    AppToast.info(context, '${a.name} application rejected.');
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    AppToast.warn(context, 'Could not reject: $e');
-                  }
-                },
-              ),
-            ],
-          ],
+                    variant: AppButtonVariant.danger,
+                    expand: true,
+                    loading: busy,
+                    onPressed: busy
+                        ? null
+                        : () async {
+                            final rejected = await _rejectApplication(
+                              sheetContext,
+                              current,
+                            );
+                            if (rejected && sheetContext.mounted) {
+                              Navigator.of(
+                                sheetContext,
+                                rootNavigator: true,
+                              ).pop();
+                            }
+                          },
+                  ),
+                ],
+              ],
             ),
           );
         },
@@ -232,68 +290,227 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
     );
   }
 
-  Future<void> _requestInfo(BuildContext context, HealthworkerApproval a) async {
-    final msgCtrl = TextEditingController();
-    final ok = await GlassSheet.show<bool>(
+  Future<bool> _approveApplication(
+    BuildContext context,
+    HealthworkerApproval approval,
+  ) async {
+    final confirmed = await AppDialog.confirm(
       context,
-      title: 'Request more info',
-      subtitle: 'Send a message to ${a.name}',
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl, AppSpacing.md, AppSpacing.xl, AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppTextField(
-              controller: msgCtrl,
-              label: 'Message',
-              hint: 'e.g. Please upload a clearer copy of your license.',
-              maxLines: 4,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            AppButton(
-              label: 'Send request',
-              icon: AppIcons.chat,
-              expand: true,
-              onPressed: () {
-                if (msgCtrl.text.trim().isEmpty) {
-                  AppToast.warn(context, 'Message cannot be empty.');
-                  return;
-                }
-                Navigator.of(context).pop(true);
-              },
-            ),
-          ],
-        ),
-      ),
+      title: 'Approve clinician?',
+      message:
+          '${approval.name} will receive clinician access to patient care tools.',
+      confirmLabel: 'Approve',
+      icon: AppIcons.approval,
     );
-    if (ok != true || !context.mounted) return;
+    if (confirmed != true || !mounted) return false;
+
+    _setApprovalBusy(approval.id, true);
     try {
-      await AdminApi.instance
-          .requestApplicationInfo(a.id, message: msgCtrl.text.trim());
-      if (!context.mounted) return;
-      AppToast.success(context, 'Info request sent to ${a.name}.');
-    } catch (e) {
-      if (!context.mounted) return;
-      AppToast.warn(context, 'Could not send request: $e');
+      if (AppEnv.backendEnabled) {
+        await StaffState.instance.approveApplicationRemote(approval.id);
+      } else {
+        StaffState.instance.setApproval(approval.id, 'approved');
+      }
+      if (!context.mounted) return true;
+      AppToast.success(context, '${approval.name} approved.');
+      return true;
+    } catch (error) {
+      if (context.mounted) {
+        AppToast.error(context, 'Could not approve application: $error');
+      }
+      return false;
+    } finally {
+      _setApprovalBusy(approval.id, false);
     }
   }
 
-  Widget _detail(String label, String value) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-        child: Row(
-          children: [
-            Text('$label: ',
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(value),
-          ],
+  Future<bool> _rejectApplication(
+    BuildContext context,
+    HealthworkerApproval approval,
+  ) async {
+    final reasonController = TextEditingController();
+    final reason = await GlassSheet.show<String>(
+      context,
+      title: 'Reject application',
+      subtitle: 'Give ${approval.name} a clear reason',
+      child: Builder(
+        builder: (reasonContext) => Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.md,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppTextField(
+                controller: reasonController,
+                label: 'Reason for rejection',
+                hint: 'Explain what must be corrected before reapplying.',
+                maxLines: 4,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'This reason is recorded in the audit trail.',
+                style: Theme.of(reasonContext).textTheme.bodySmall?.copyWith(
+                  color: AppPalette.textMuted(reasonContext),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AppButton(
+                label: 'Continue',
+                icon: AppIcons.chevronRight,
+                variant: AppButtonVariant.danger,
+                expand: true,
+                onPressed: () {
+                  final value = reasonController.text.trim();
+                  if (value.length < 5) {
+                    AppToast.warn(
+                      reasonContext,
+                      'Enter a clear reason (at least 5 characters).',
+                    );
+                    return;
+                  }
+                  Navigator.of(reasonContext, rootNavigator: true).pop(value);
+                },
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+    reasonController.dispose();
+    if (reason == null || !context.mounted) return false;
+
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Reject ${approval.name}?',
+      message: 'The application will be closed and the clinician notified.',
+      confirmLabel: 'Reject',
+      danger: true,
+      icon: AppIcons.close,
+    );
+    if (confirmed != true || !mounted) return false;
+
+    _setApprovalBusy(approval.id, true);
+    try {
+      if (AppEnv.backendEnabled) {
+        await StaffState.instance.rejectApplicationRemote(
+          approval.id,
+          reason: reason,
+        );
+      } else {
+        StaffState.instance.setApproval(approval.id, 'rejected');
+      }
+      if (!context.mounted) return true;
+      AppToast.info(context, '${approval.name} application rejected.');
+      return true;
+    } catch (error) {
+      if (context.mounted) {
+        AppToast.error(context, 'Could not reject application: $error');
+      }
+      return false;
+    } finally {
+      _setApprovalBusy(approval.id, false);
+    }
+  }
+
+  Future<void> _requestInfo(
+    BuildContext context,
+    HealthworkerApproval approval,
+  ) async {
+    final messageController = TextEditingController();
+    final message = await GlassSheet.show<String>(
+      context,
+      title: 'Request more information',
+      subtitle: 'Send a message to ${approval.name}',
+      child: Builder(
+        builder: (messageContext) => Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.md,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppTextField(
+                controller: messageController,
+                label: 'Message',
+                hint: 'For example: upload a clearer copy of your license.',
+                maxLines: 4,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AppButton(
+                label: 'Send request',
+                icon: AppIcons.chat,
+                expand: true,
+                onPressed: () {
+                  final value = messageController.text.trim();
+                  if (value.isEmpty) {
+                    AppToast.warn(messageContext, 'Message cannot be empty.');
+                    return;
+                  }
+                  Navigator.of(messageContext, rootNavigator: true).pop(value);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    messageController.dispose();
+    if (message == null || !context.mounted) return;
+
+    _setApprovalBusy(approval.id, true);
+    try {
+      await AdminApi.instance.requestApplicationInfo(
+        approval.id,
+        message: message,
       );
+      if (!context.mounted) return;
+      AppToast.success(
+        context,
+        'Information request sent to ${approval.name}.',
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      AppToast.error(context, 'Could not send request: $error');
+    } finally {
+      _setApprovalBusy(approval.id, false);
+    }
+  }
+
+  void _setApprovalBusy(String id, bool busy) {
+    if (!mounted) return;
+    setState(() {
+      if (busy) {
+        _busyApprovalIds.add(id);
+      } else {
+        _busyApprovalIds.remove(id);
+      }
+    });
+  }
+
+  static String _statusLabel(String status) {
+    if (status.isEmpty) return 'Pending';
+    return '${status[0].toUpperCase()}${status.substring(1)}';
+  }
+
+  static Color _statusColor(String status) => switch (status) {
+    'approved' => AppColors.success,
+    'rejected' => AppColors.critical,
+    _ => AppColors.warning,
+  };
 
   @override
   Widget build(BuildContext context) {
     return RoleShell(
+      scrollable: true,
       currentRoute: widget.currentRoute,
       destinations: widget.destinations.cast(),
       profileRoute: widget.profileRoute,
@@ -303,39 +520,71 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
       body: AnimatedBuilder(
         animation: StaffState.instance,
         builder: (context, _) {
-          final pending = StaffState.instance.approvals
-              .where((a) => a.status == 'pending')
-              .toList();
-          final decided = StaffState.instance.approvals
-              .where((a) => a.status != 'pending')
-              .toList();
-          if (pending.isEmpty && decided.isEmpty) {
-            return GlassCard(
-              frosted: true,
-              child: EmptyStateView(
-                icon: AppIcons.approval,
-                title: 'No applications',
-                compact: true,
+          final approvals = StaffState.instance.approvals;
+          if (_loading && approvals.isEmpty) {
+            return const SizedBox(
+              height: 360,
+              child: AppLoadingView(
+                message: 'Loading clinician applications…',
+                itemCount: 3,
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
               ),
             );
+          }
+
+          if (_error != null && approvals.isEmpty) {
+            return _ApprovalErrorCard(
+              message: _error!,
+              onRetry: _loadApprovals,
+            );
+          }
+
+          final pending =
+              StaffState.instance.approvals
+                  .where((a) => a.status == 'pending')
+                  .toList()
+                ..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
+          final decided =
+              StaffState.instance.approvals
+                  .where((a) => a.status != 'pending')
+                  .toList()
+                ..sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
+          if (pending.isEmpty && decided.isEmpty) {
+            return const _ApprovalEmptyCard();
           }
           final handheld = ResponsiveBuilder.of(context).isHandheld;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (pending.isNotEmpty)
-                StaffListCard(
-                  title: 'Pending',
-                  children: pending
-                      .map((a) => StaffListRow(
+              if (pending.isNotEmpty) ...[
+                StaggeredEntry(
+                  index: 0,
+                  child: SectionLabel(
+                    title: 'Applications to review',
+                    icon: AppIcons.approval,
+                    trailing: '${pending.length}/${approvals.length}',
+                    actionLabel: _loading ? null : 'Refresh',
+                    onAction: _loading ? null : _loadApprovals,
+                  ),
+                ),
+                StaggeredEntry(
+                  index: 1,
+                  child: StaffListCard(
+                    children: pending
+                        .map(
+                          (approval) => StaffListRow(
                             icon: AppIcons.approval,
-                            iconColor: AppColors.warning,
-                            title: a.name,
-                            subtitle:
-                                '${a.specialty}${a.licenseNumber != null ? ' · ${a.licenseNumber}' : ''} · ${DateFormat.MMMd().format(a.appliedAt)}',
-                            pill: handheld ? 'Review' : null,
-                            pillColor: AppColors.warning,
-                            onTap: () => _showDetail(context, a),
+                            iconColor: AppColors.adminPurple,
+                            title: approval.name,
+                            subtitle: [
+                              approval.specialty,
+                              if (approval.licenseNumber?.isNotEmpty == true)
+                                approval.licenseNumber!,
+                              DateFormat.MMMd().format(approval.appliedAt),
+                            ].join(' · '),
+                            pill: handheld ? 'REVIEW' : null,
+                            pillColor: AppColors.adminPurple,
+                            onTap: () => _showDetail(context, approval),
                             trailing: handheld
                                 ? null
                                 : Row(
@@ -344,90 +593,255 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
                                       AppButton(
                                         label: 'Approve',
                                         size: AppButtonSize.sm,
-                                        onPressed: () async {
-                                          final ok = await AppDialog.confirm(
-                                            context,
-                                            title: 'Approve clinician?',
-                                            message:
-                                                '${a.name} will gain access to mCare.',
-                                            icon: AppIcons.approval,
-                                          );
-                                          if (ok != true) return;
-                                          try {
-                                            await StaffState.instance
-                                                .approveApplicationRemote(a.id);
-                                          } catch (e) {
-                                            if (!context.mounted) return;
-                                            AppToast.warn(
-                                                context, 'Could not approve: $e');
-                                            return;
-                                          }
-                                          if (!context.mounted) return;
-                                          AppToast.success(
-                                              context, '${a.name} approved.');
-                                        },
+                                        loading: _busyApprovalIds.contains(
+                                          approval.id,
+                                        ),
+                                        onPressed:
+                                            _busyApprovalIds.contains(
+                                              approval.id,
+                                            )
+                                            ? null
+                                            : () => _approveApplication(
+                                                context,
+                                                approval,
+                                              ),
                                       ),
-                                      const SizedBox(width: 6),
+                                      const SizedBox(width: AppSpacing.sm),
                                       AppButton(
                                         label: 'Reject',
                                         size: AppButtonSize.sm,
                                         variant: AppButtonVariant.danger,
-                                        onPressed: () async {
-                                          final ok = await AppDialog.confirm(
-                                            context,
-                                            title: 'Reject application?',
-                                            message: 'This cannot be undone.',
-                                            danger: true,
-                                            icon: AppIcons.close,
-                                          );
-                                          if (ok != true) return;
-                                          try {
-                                            await StaffState.instance
-                                                .rejectApplicationRemote(a.id,
-                                                    reason:
-                                                        'Application rejected by staff.');
-                                          } catch (e) {
-                                            if (!context.mounted) return;
-                                            AppToast.warn(
-                                                context, 'Could not reject: $e');
-                                            return;
-                                          }
-                                          if (!context.mounted) return;
-                                          AppToast.info(context,
-                                              '${a.name} application rejected.');
-                                        },
+                                        onPressed:
+                                            _busyApprovalIds.contains(
+                                              approval.id,
+                                            )
+                                            ? null
+                                            : () => _rejectApplication(
+                                                context,
+                                                approval,
+                                              ),
                                       ),
                                     ],
                                   ),
-                          ))
-                      .toList(),
-                ),
-              if (decided.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                StaffListCard(
-                  title: 'Decided',
-                  children: decided
-                      .map((a) => StaffListRow(
-                            icon: a.status == 'approved'
-                                ? AppIcons.check
-                                : AppIcons.close,
-                            iconColor: a.status == 'approved'
-                                ? AppColors.success
-                                : AppColors.critical,
-                            title: a.name,
-                            subtitle: a.specialty,
-                            pill: a.status.toUpperCase(),
-                            pillColor: a.status == 'approved'
-                                ? AppColors.success
-                                : AppColors.critical,
-                            onTap: () => _showDetail(context, a),
-                          ))
-                      .toList(),
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ),
               ],
+              if (decided.isNotEmpty) ...[
+                if (pending.isNotEmpty) const SizedBox(height: AppSpacing.xl),
+                StaggeredEntry(
+                  index: 2,
+                  child: const SectionLabel(title: 'Recently reviewed'),
+                ),
+                StaggeredEntry(
+                  index: 3,
+                  child: StaffListCard(
+                    children: decided
+                        .map(
+                          (approval) => StaffListRow(
+                            icon: approval.status == 'approved'
+                                ? AppIcons.check
+                                : AppIcons.close,
+                            iconColor: approval.status == 'approved'
+                                ? AppColors.success
+                                : AppColors.critical,
+                            title: approval.name,
+                            subtitle:
+                                '${approval.specialty} · ${DateFormat.MMMd().format(approval.appliedAt)}',
+                            pill: approval.status.toUpperCase(),
+                            pillColor: approval.status == 'approved'
+                                ? AppColors.success
+                                : AppColors.critical,
+                            onTap: () => _showDetail(context, approval),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.huge),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _ApprovalEmptyCard extends StatelessWidget {
+  const _ApprovalEmptyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: 28,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.adminPurple.withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              AppIcons.approval,
+              color: AppColors.adminPurple,
+              size: 34,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'No applications',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalErrorCard extends StatelessWidget {
+  const _ApprovalErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          EmptyStateView(
+            icon: AppIcons.alert,
+            title: 'Could not load applications',
+            message: message,
+            compact: true,
+          ),
+          AppButton(
+            label: 'Try again',
+            icon: AppIcons.refresh,
+            onPressed: onRetry,
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalIdentityCard extends StatelessWidget {
+  const _ApprovalIdentityCard({required this.approval});
+
+  final HealthworkerApproval approval;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.adminPurple.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: AppColors.adminPurple.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.adminPurple.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              AppIcons.approval,
+              color: AppColors.adminPurple,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  approval.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  approval.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalDetailRow extends StatelessWidget {
+  const _ApprovalDetailRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: valueColor ?? AppPalette.ink(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -448,9 +862,9 @@ class ApprovalsScreen extends StatelessWidget {
   final String notificationsRoute;
   @override
   Widget build(BuildContext context) => _ApprovalsScreen(
-        currentRoute: currentRoute,
-        destinations: destinations,
-        profileRoute: profileRoute,
-        notificationsRoute: notificationsRoute,
-      );
+    currentRoute: currentRoute,
+    destinations: destinations,
+    profileRoute: profileRoute,
+    notificationsRoute: notificationsRoute,
+  );
 }

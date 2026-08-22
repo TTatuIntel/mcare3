@@ -25,6 +25,9 @@ dependencies:
   geocoding: ^3.0.0
   file_picker: ^8.1.1
   share_plus: ^10.1.4
+  # README §7.1 — WebSocket client for the Reverb (Pusher-protocol) channel.
+  # Pure-Dart, works across web/mobile/desktop with no native deps.
+  web_socket_channel: ^3.0.0
 
 dev_dependencies:
   flutter_test:

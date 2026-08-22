@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MedicationDoseResource;
+use App\Http\Resources\MedicationResource;
 use App\Models\Medication;
 use App\Models\MedicationDose;
 use App\Support\ApiResponse;
@@ -34,7 +36,7 @@ class MedicationsController extends Controller
             'active' => true,
         ]);
 
-        return $this->success(['medication' => $med->toApiArray()], 'Medication saved.', 201);
+        return $this->success(['medication' => new MedicationResource($med)], 'Medication saved.', 201);
     }
 
     public function update(Request $request, Medication $medication)
@@ -50,7 +52,7 @@ class MedicationsController extends Controller
             'active' => 'nullable|boolean',
         ]);
         $medication->update(array_filter($data, fn ($v) => $v !== null));
-        return $this->success(['medication' => $medication->fresh()->toApiArray()], 'Medication updated.');
+        return $this->success(['medication' => new MedicationResource($medication->fresh())], 'Medication updated.');
     }
 
     public function destroy(Request $request, Medication $medication)
@@ -73,7 +75,7 @@ class MedicationsController extends Controller
             'status' => $data['status'],
             'taken_at' => $data['taken_at'] ?? ($data['status'] === 'taken' ? now() : null),
         ]);
-        return $this->success(['dose' => $dose->fresh()->toApiArray()], 'Dose updated.');
+        return $this->success(['dose' => new MedicationDoseResource($dose->fresh())], 'Dose updated.');
     }
 
     private function authorizeOwnership(Request $request, Medication $med): void

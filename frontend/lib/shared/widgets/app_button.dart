@@ -119,23 +119,50 @@ class _AppButtonState extends State<AppButton> {
         ? BorderRadius.circular(AppSpacing.radiusPill)
         : BorderRadius.circular(AppSpacing.radiusMd);
 
+    final minHeight = switch (widget.size) {
+      AppButtonSize.sm => 40.0,
+      AppButtonSize.md => 48.0,
+      AppButtonSize.lg => 56.0,
+    };
+
     final btn = AnimatedScale(
       scale: _pressed ? 0.97 : 1.0,
       duration: AppMotion.micro,
       curve: Curves.easeOut,
-      child: AnimatedContainer(
-        duration: AppMotion.micro,
-        padding: widget.variant == AppButtonVariant.icon
-            ? const EdgeInsets.all(10)
-            : padding,
-        decoration: BoxDecoration(
-          color: style.bg,
-          gradient: style.gradient,
-          borderRadius: radius,
-          border: style.border,
-          boxShadow: style.shadow,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: minHeight,
+          minWidth: widget.variant == AppButtonVariant.icon ? minHeight : 0,
         ),
-        child: Center(child: child),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: Ink(
+            decoration: BoxDecoration(
+              color: style.bg,
+              gradient: style.gradient,
+              borderRadius: radius,
+              border: style.border,
+              boxShadow: style.shadow,
+            ),
+            child: InkWell(
+              onTap: disabled ? null : widget.onPressed,
+              onHighlightChanged: disabled
+                  ? null
+                  : (highlighted) => setState(() => _pressed = highlighted),
+              borderRadius: radius,
+              mouseCursor: disabled
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.click,
+              child: Padding(
+                padding: widget.variant == AppButtonVariant.icon
+                    ? const EdgeInsets.all(10)
+                    : padding,
+                child: Center(child: child),
+              ),
+            ),
+          ),
+        ),
       ),
     );
 
@@ -143,20 +170,9 @@ class _AppButtonState extends State<AppButton> {
       label: widget.semanticLabel ?? widget.label,
       button: true,
       enabled: !disabled,
-      child: MouseRegion(
-        cursor: disabled
-            ? SystemMouseCursors.basic
-            : SystemMouseCursors.click,
-        child: GestureDetector(
-          onTapDown: disabled ? null : (_) => setState(() => _pressed = true),
-          onTapUp: disabled ? null : (_) => setState(() => _pressed = false),
-          onTapCancel: disabled ? null : () => setState(() => _pressed = false),
-          onTap: disabled ? null : widget.onPressed,
-          child: widget.expand
-              ? SizedBox(width: double.infinity, child: btn)
-              : btn,
-        ),
-      ),
+      child: widget.expand
+          ? SizedBox(width: double.infinity, child: btn)
+          : btn,
     );
   }
 

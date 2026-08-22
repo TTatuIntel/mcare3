@@ -1,5 +1,6 @@
 import '../constants/route_names.dart';
 import '../navigation/staff_destinations.dart';
+import '../navigation/role_nav_destination.dart';
 import '../models/user_role.dart';
 
 /// Central config for shared staff screens — eliminates per-role wrapper files.
@@ -16,7 +17,7 @@ class StaffRouteConfig {
 
   final UserRole role;
   final String currentRoute;
-  final List<dynamic> destinations;
+  final List<RoleNavDestination> destinations;
   final String profileRoute;
   final String notificationsRoute;
   final String? messagesRoute;

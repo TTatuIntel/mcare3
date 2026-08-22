@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             StaffSeeder::class,             // admin, assistant, doctors, pending applicants
             PatientSeeder::class,           // primary patient (Amara Okonkwo) + full clinical dataset
             PatientCaseloadSeeder::class,   // four additional patients across both doctors
+            AdminDemoSeeder::class,         // support tickets, care requests, fresh audit, extra SOS
         ]);
     }
 }

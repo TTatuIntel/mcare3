@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\VitalAlertBroadcast;
 use App\Models\AppNotification;
 use App\Models\User;
 use App\Models\VitalReading;
@@ -10,6 +11,11 @@ use App\Support\VitalAlertPayload;
 /**
  * Creates patient notifications when a vital reading is outside range.
  * Doctors see these via caseload alert sync (patient-owned notifications).
+ *
+ * README §7.1 — additionally fires [VitalAlertBroadcast] so subscribers on
+ * `private-user.{id}` / `private-care-team.{patientId}` get the alert in
+ * <2s. Kept additive: REST/poller path is unchanged; if BROADCAST_CONNECTION
+ * is `log` or `null`, the broadcast is a no-op.
  */
 class VitalAlertNotifier
 {
@@ -47,7 +53,7 @@ class VitalAlertNotifier
             return;
         }
 
-        AppNotification::create([
+        $notification = AppNotification::create([
             'user_id' => $patient->id,
             'kind' => $kind,
             'title' => $payload['title'],
@@ -63,5 +69,7 @@ class VitalAlertNotifier
             'read' => false,
             'resolved' => false,
         ]);
+
+        VitalAlertBroadcast::dispatch($patient, $reading, $notification);
     }
 }

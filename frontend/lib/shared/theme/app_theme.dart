@@ -83,7 +83,8 @@ class AppTheme {
         contentTextStyle: TextStyle(color: Colors.white),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
+        modalBackgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
       ),
       dialogTheme: DialogThemeData(

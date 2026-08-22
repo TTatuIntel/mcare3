@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\SosEventResource;
 use App\Models\SosEvent;
 use App\Services\SosNotifier;
 use App\Support\ApiResponse;
@@ -29,7 +30,7 @@ class SosController extends Controller
             ->first();
         if ($existing) {
             return $this->success(
-                ['event' => $existing->toApiArray()],
+                ['event' => new SosEventResource($existing)],
                 'SOS is already active.',
             );
         }
@@ -42,7 +43,7 @@ class SosController extends Controller
 
         SosNotifier::onTriggered($event->load('user'));
 
-        return $this->success(['event' => $event->toApiArray()], 'SOS triggered.', 201);
+        return $this->success(['event' => new SosEventResource($event)], 'SOS triggered.', 201);
     }
 
     public function resolve(Request $request, SosEvent $event)
@@ -60,6 +61,6 @@ class SosController extends Controller
 
         SosNotifier::onResolved($event->fresh(), $data['status']);
 
-        return $this->success(['event' => $event->fresh()->toApiArray()], 'SOS updated.');
+        return $this->success(['event' => new SosEventResource($event->fresh())], 'SOS updated.');
     }
 }

@@ -58,7 +58,12 @@ class PatientAppHeader extends StatelessWidget implements PreferredSizeWidget {
                     padding: const EdgeInsets.only(right: AppSpacing.sm),
                     child: leading!)
               else if (showBack)
-                _BackButton(onTap: () => Navigator.maybePop(context))
+                _BackButton(
+                  onTap: () => NavigationRoots.smartBack(
+                    context,
+                    currentRoute: route,
+                  ),
+                )
               else
                 _Avatar(onTap: () => ProfileMenuSheet.show(context)),
               const SizedBox(width: AppSpacing.md),

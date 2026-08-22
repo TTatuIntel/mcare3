@@ -13,10 +13,15 @@ class PatientNavDestination {
     required this.icon,
     required this.label,
     required this.route,
+    this.activeRoutes = const <String>{},
   });
   final IconData icon;
   final String label;
   final String route;
+  final Set<String> activeRoutes;
+
+  bool isActive(String currentRoute) =>
+      route == currentRoute || activeRoutes.contains(currentRoute);
 }
 
 class PatientBottomNav extends StatelessWidget {
@@ -42,23 +47,45 @@ class PatientBottomNav extends StatelessWidget {
     ),
     PatientNavDestination(
       icon: AppIcons.vitals,
-      label: 'Vitals',
-      route: RouteNames.patientVitals,
+      label: 'Health',
+      route: RouteNames.patientHealth,
+      activeRoutes: {
+        RouteNames.patientHealth,
+        RouteNames.patientVitals,
+        RouteNames.patientVitalDetail,
+        RouteNames.patientVitalHistory,
+        RouteNames.patientVital7Day,
+        RouteNames.patientMedications,
+        RouteNames.patientMedicationDetail,
+        RouteNames.patientDocuments,
+      },
     ),
     PatientNavDestination(
-      icon: AppIcons.medication,
-      label: 'Meds',
-      route: RouteNames.patientMedications,
+      icon: AppIcons.careTeam,
+      label: 'Care',
+      route: RouteNames.patientCare,
+      activeRoutes: {
+        RouteNames.patientCare,
+        RouteNames.patientAppointments,
+        RouteNames.patientAppointmentDetail,
+        RouteNames.patientMessages,
+        RouteNames.patientChatThread,
+        RouteNames.patientCareTeam,
+        RouteNames.patientSupport,
+        RouteNames.patientTicketDetail,
+        RouteNames.patientSos,
+      },
     ),
     PatientNavDestination(
-      icon: AppIcons.appointment,
-      label: 'Visits',
-      route: RouteNames.patientAppointments,
-    ),
-    PatientNavDestination(
-      icon: AppIcons.chat,
-      label: 'Chat',
-      route: RouteNames.patientMessages,
+      icon: AppIcons.more,
+      label: 'More',
+      route: RouteNames.patientMore,
+      activeRoutes: {
+        RouteNames.patientMore,
+        RouteNames.patientNotifications,
+        RouteNames.patientProfile,
+        RouteNames.patientSettings,
+      },
     ),
   ];
 
@@ -85,7 +112,7 @@ class PatientBottomNav extends StatelessWidget {
                 .map(
                   (d) => _NavItem(
                     destination: d,
-                    selected: !detached && d.route == currentRoute,
+                    selected: !detached && d.isActive(currentRoute),
                     onTap: () {
                       if (!detached && d.route == currentRoute) return;
                       Navigator.of(context).pushNamedAndRemoveUntil(
@@ -119,33 +146,42 @@ class _NavItem extends StatelessWidget {
     final accent = theme.colorScheme.primary;
     final color = selected ? accent : AppPalette.textMuted(context);
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppMotion.micro,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: AppMotion.micro,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: selected ? accent.withOpacity(0.12) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      child: Semantics(
+        key: ValueKey('patient-bottom-nav:${destination.route}'),
+        button: true,
+        selected: selected,
+        label: '${destination.label} navigation tab',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.micro,
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: AppMotion.micro,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color:
+                        selected ? accent.withOpacity(0.12) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  ),
+                  child: Icon(destination.icon, color: color, size: 22),
                 ),
-                child: Icon(destination.icon, color: color, size: 22),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                destination.label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 4),
+                Text(
+                  destination.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -155,13 +191,18 @@ class _NavItem extends StatelessWidget {
 
 /// Desktop left rail rendered by `PatientScaffold`.
 class PatientSideRail extends StatelessWidget {
-  const PatientSideRail({super.key, required this.currentRoute});
+  const PatientSideRail({
+    super.key,
+    required this.currentRoute,
+    this.compact = false,
+  });
   final String currentRoute;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 240,
+      width: compact ? 80 : 232,
       decoration: BoxDecoration(
         color: AppPalette.surface(context),
         border: Border(right: BorderSide(color: AppPalette.border(context))),
@@ -171,42 +212,42 @@ class PatientSideRail extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.lg),
-              child: const BrandLogo(height: BrandLogo.railHeight, tappable: true),
+              padding: EdgeInsets.fromLTRB(
+                compact ? AppSpacing.lg : AppSpacing.xl,
+                AppSpacing.xl,
+                compact ? AppSpacing.lg : AppSpacing.xl,
+                AppSpacing.lg,
+              ),
+              child: compact
+                  ? Icon(
+                      AppIcons.heartRate,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 32,
+                      semanticLabel: 'mCare',
+                    )
+                  : const BrandLogo(
+                      height: BrandLogo.railHeight,
+                      tappable: true,
+                      animateHeartbeat: false,
+                      showLifeline: false,
+                    ),
             ),
             const SizedBox(height: AppSpacing.sm),
             ...PatientBottomNav.destinations.map(
               (d) => _RailItem(
                 destination: d,
-                selected: d.route == currentRoute,
-                onTap: () => Navigator.of(context).pushNamedAndRemoveUntil(
-                  d.route,
-                  (_) => false,
-                ),
+                selected: d.isActive(currentRoute),
+                compact: compact,
+                onTap: () {
+                  if (d.route == currentRoute) return;
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    d.route,
+                    (_) => false,
+                  );
+                },
               ),
             ),
             const Spacer(),
-            _RailItem(
-              destination: const PatientNavDestination(
-                icon: AppIcons.profile,
-                label: 'Profile',
-                route: RouteNames.patientProfile,
-              ),
-              selected: currentRoute == RouteNames.patientProfile,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(RouteNames.patientProfile),
-            ),
-            _RailItem(
-              destination: const PatientNavDestination(
-                icon: AppIcons.settings,
-                label: 'Settings',
-                route: RouteNames.patientSettings,
-              ),
-              selected: currentRoute == RouteNames.patientSettings,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(RouteNames.patientSettings),
-            ),
             const SizedBox(height: AppSpacing.lg),
           ],
         ),
@@ -219,10 +260,12 @@ class _RailItem extends StatelessWidget {
   const _RailItem({
     required this.destination,
     required this.selected,
+    required this.compact,
     required this.onTap,
   });
   final PatientNavDestination destination;
   final bool selected;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
@@ -230,7 +273,7 @@ class _RailItem extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
     final color = selected ? accent : AppPalette.textMuted(context);
-    return Padding(
+    final item = Padding(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: 2),
       child: Material(
@@ -243,22 +286,35 @@ class _RailItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md, vertical: AppSpacing.md),
             child: Row(
+              mainAxisAlignment:
+                  compact ? MainAxisAlignment.center : MainAxisAlignment.start,
               children: [
                 Icon(destination.icon, color: color, size: 20),
-                const SizedBox(width: AppSpacing.md),
-                Text(
-                  destination.label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: selected ? AppPalette.ink(context) : color,
-                    fontWeight:
-                        selected ? FontWeight.w700 : FontWeight.w500,
+                if (!compact) ...[
+                  const SizedBox(width: AppSpacing.md),
+                  Text(
+                    destination.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: selected ? AppPalette.ink(context) : color,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+    final semanticItem = Semantics(
+      key: ValueKey('patient-rail-nav:${destination.route}'),
+      button: true,
+      selected: selected,
+      label: '${destination.label} navigation tab',
+      child: item,
+    );
+    if (!compact) return semanticItem;
+    return Tooltip(message: destination.label, child: semanticItem);
   }
 }

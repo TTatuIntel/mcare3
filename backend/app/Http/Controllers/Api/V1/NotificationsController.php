@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AppNotificationResource;
 use App\Models\AppNotification;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -14,12 +15,12 @@ class NotificationsController extends Controller
     public function index(Request $request)
     {
         return $this->success([
-            'notifications' => $request->user()->appNotifications()
-                ->orderByDesc('created_at')
-                ->limit(200)
-                ->get()
-                ->map->toApiArray()
-                ->all(),
+            'notifications' => AppNotificationResource::collection(
+                $request->user()->appNotifications()
+                    ->orderByDesc('created_at')
+                    ->limit(200)
+                    ->get()
+            ),
         ]);
     }
 
@@ -27,7 +28,7 @@ class NotificationsController extends Controller
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
         $notification->update(['read' => true]);
-        return $this->success(['notification' => $notification->fresh()->toApiArray()]);
+        return $this->success(['notification' => new AppNotificationResource($notification->fresh())]);
     }
 
     public function resolve(Request $request, AppNotification $notification)
@@ -38,7 +39,7 @@ class NotificationsController extends Controller
             'resolved_at' => now(),
             'read' => true,
         ]);
-        return $this->success(['notification' => $notification->fresh()->toApiArray()]);
+        return $this->success(['notification' => new AppNotificationResource($notification->fresh())]);
     }
 
     public function markAllRead(Request $request)

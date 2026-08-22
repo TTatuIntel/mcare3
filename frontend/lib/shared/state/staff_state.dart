@@ -1927,11 +1927,20 @@ class StaffState extends ChangeNotifier {
     if (!AppEnv.backendEnabled) return true;
 
     try {
-      final keys = await DoctorApi.instance.updateAssignedVitals(
-        patientUserId: patientId,
-        vitalKeys: next.map((v) => v.name).toList(),
-        note: noteValue,
-      );
+      final role = AuthState.instance.user?.role;
+      final vitalKeys = next.map((v) => v.name).toList();
+      final keys = (role == UserRole.admin ||
+              role == UserRole.mcareAssistant)
+          ? await AdminApi.instance.updateAssignedVitals(
+              patientUserId: patientId,
+              vitalKeys: vitalKeys,
+              note: noteValue,
+            )
+          : await DoctorApi.instance.updateAssignedVitals(
+              patientUserId: patientId,
+              vitalKeys: vitalKeys,
+              note: noteValue,
+            );
       final synced = keys
           .map(PatientProfileMapper.vitalKeyFromApi)
           .toSet();
@@ -2627,13 +2636,15 @@ class StaffState extends ChangeNotifier {
   /// inserts the canonical row.
   Future<void> createAssignmentRemote({
     required String patientUserId,
-    required String providerId,
+    String? providerId,
+    String? providerUserId,
     String? role,
   }) async {
     if (!AppEnv.backendEnabled) return;
     final dto = await AdminApi.instance.createAssignment(
       patientUserId: patientUserId,
       providerId: providerId,
+      providerUserId: providerUserId,
       role: role,
     );
     if (dto == null) return;

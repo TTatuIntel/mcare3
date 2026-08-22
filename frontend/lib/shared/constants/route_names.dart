@@ -25,6 +25,9 @@ class RouteNames {
   // ---------- Patient ------------------------------------------------------
   static const patientOnboarding = '/patient/onboarding';
   static const patientDashboard = '/patient';
+  static const patientHealth = '/patient/health';
+  static const patientCare = '/patient/care';
+  static const patientMore = '/patient/more';
   static const patientVitals = '/patient/vitals';
   static const patientVitalDetail = '/patient/vitals/detail';
   static const patientVitalHistory = '/patient/vitals/history';
@@ -47,6 +50,7 @@ class RouteNames {
 
   // ---------- Doctor (§9.2) -----------------------------------------------
   static const doctorDashboard = '/doctor';
+  static const doctorMore = '/doctor/more';
   static const doctorOverview = '/doctor/overview';
   static const doctorVitals = '/doctor/vitals';
   static const doctorVitalTemplate = '/doctor/vitals/template';
@@ -71,6 +75,9 @@ class RouteNames {
 
   // ---------- Admin (§9.3) ------------------------------------------------
   static const adminDashboard = '/admin';
+  static const adminWork = '/admin/work';
+  static const adminPeople = '/admin/people';
+  static const adminMore = '/admin/more';
   static const adminSos = '/admin/sos';
   static const adminPatients = '/admin/patients';
   static const adminUsers = '/admin/users';
@@ -98,6 +105,9 @@ class RouteNames {
   // ---------- mCare Assistant (§9.4) --------------------------------------
   // Renders dynamically — items appear only when permission is granted.
   static const assistantDashboard = '/assistant';
+  static const assistantWork = '/assistant/work';
+  static const assistantPeople = '/assistant/people';
+  static const assistantMore = '/assistant/more';
   static const assistantPatients = '/assistant/patients';
   static const assistantApprovals = '/assistant/approvals';
   static const assistantCareRequests = '/assistant/care-requests';

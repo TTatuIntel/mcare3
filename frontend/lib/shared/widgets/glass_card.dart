@@ -1,13 +1,14 @@
-import 'dart:ui';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
 
-/// The one and only card surface. Use everywhere a panel is needed.
+/// The canonical application surface.
+///
+/// The class name is retained to avoid breaking existing feature code, but the
+/// approved v2 design no longer uses frosted glass or background blur. Every
+/// role now receives the same opaque, bordered, accessible clinical surface.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -36,75 +37,30 @@ class GlassCard extends StatelessWidget {
   final VoidCallback? onTap;
   final BoxConstraints? constraints;
 
-  /// Frosted glass — blurs content behind and uses a translucent fill.
+  /// Deprecated compatibility properties. They no longer enable blur.
   final bool frosted;
   final double blurSigma;
-
-  static double defaultBlurSigma(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? 14 : 10;
 
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ??
         BorderRadius.circular(AppSpacing.radiusLg);
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final defaultSurface =
-        isDark ? AppColors.darkSurface : AppPalette.surface(context);
-    final defaultBorder =
-        isDark ? AppColors.darkBorder : AppPalette.border(context);
-    final frostedFill = isDark
-        ? AppColors.darkSurface.withOpacity(0.82)
-        : AppPalette.surface(context).withOpacity(0.22);
-    final frostedBorder = isDark
-        ? AppColors.darkBorderStrong.withOpacity(0.65)
-        : Colors.white.withOpacity(0.45);
-    final sigma = blurSigma > 0 ? blurSigma : defaultBlurSigma(context);
-
-    // BackdropFilter is unreliable on Flutter web (blank panels on some
-    // mobile browsers). Use an opaque surface there instead.
-    final useBackdropBlur = frosted && !kIsWeb;
-
-    final Color? fillColor;
-    if (frosted) {
-      fillColor = background ??
-          (useBackdropBlur
-              ? frostedFill
-              : (isDark ? AppColors.darkSurface : AppPalette.surfaceAlt(context)));
-    } else if (gradient == null) {
-      fillColor = background ?? defaultSurface;
-    } else {
-      fillColor = null;
-    }
+    final defaultSurface = AppPalette.surface(context);
+    final defaultBorder = AppPalette.border(context);
+    final fillColor = gradient == null ? background ?? defaultSurface : null;
 
     Widget content = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: fillColor,
-        gradient: frosted ? null : gradient,
+        gradient: gradient,
         borderRadius: radius,
-        border: frosted
-            ? Border.all(
-                color: useBackdropBlur ? frostedBorder : defaultBorder,
-                width: 1,
-              )
-            : (border ?? Border.all(color: defaultBorder, width: 1)),
-        boxShadow: useBackdropBlur
-            ? AppShadows.none
-            : (shadow ?? AppShadows.card(context)),
+        border: border ?? Border.all(color: defaultBorder, width: 1),
+        boxShadow: shadow ?? AppShadows.card(context),
       ),
       child: child,
     );
-
-    if (useBackdropBlur) {
-      content = ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-          child: content,
-        ),
-      );
-    }
 
     if (constraints != null) {
       content = ConstrainedBox(constraints: constraints!, child: content);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AppointmentResource;
 use App\Models\Appointment;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class AppointmentsController extends Controller
             'duration_minutes' => $data['duration_minutes'] ?? 30,
             'status' => 'scheduled',
         ]);
-        return $this->success(['appointment' => $appt->toApiArray()], 'Appointment scheduled.', 201);
+        return $this->success(['appointment' => new AppointmentResource($appt)], 'Appointment scheduled.', 201);
     }
 
     public function update(Request $request, Appointment $appointment)
@@ -41,7 +42,7 @@ class AppointmentsController extends Controller
             'cancellation_reason' => 'nullable|string|max:200',
         ]);
         $appointment->update(array_filter($data, fn ($v) => $v !== null));
-        return $this->success(['appointment' => $appointment->fresh()->toApiArray()], 'Appointment updated.');
+        return $this->success(['appointment' => new AppointmentResource($appointment->fresh())], 'Appointment updated.');
     }
 
     public function destroy(Request $request, Appointment $appointment)

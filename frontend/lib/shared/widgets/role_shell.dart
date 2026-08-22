@@ -19,6 +19,21 @@ import '../utils/time_greeting.dart';
 import 'profile_menu_sheet.dart';
 import 'responsive.dart';
 
+/// A compact, semantic page action rendered in the staff header on narrow
+/// screens. Pages may keep their full [headerActions] for wide layouts while
+/// exposing the same command without sacrificing the back button on mobile.
+class RoleHeaderAction {
+  const RoleHeaderAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+}
+
 /// One scaffold every staff role renders into.
 ///
 /// Implements §5.3 of the documentation: avatar, role badge, back chip,
@@ -34,8 +49,9 @@ class RoleShell extends StatelessWidget {
     this.title,
     this.subtitle,
     this.headerActions,
+    this.headerMenuActions = const <RoleHeaderAction>[],
     this.floatingActionButton,
-    this.maxContentWidth = 1280,
+    this.maxContentWidth = 1360,
     this.scrollable = true,
     this.padding,
     this.bottomRailVisible = true,
@@ -57,6 +73,7 @@ class RoleShell extends StatelessWidget {
   final String? title;
   final String? subtitle;
   final List<Widget>? headerActions;
+  final List<RoleHeaderAction> headerMenuActions;
   final Widget? floatingActionButton;
   final double maxContentWidth;
   final bool scrollable;
@@ -81,17 +98,24 @@ class RoleShell extends StatelessWidget {
   Widget _buildShell(BuildContext context) {
     final tier = ResponsiveBuilder.of(context);
     final visible = _visibleDestinations();
-    // Block the system back gesture on dashboard home screens — those routes
-    // have no meaningful "previous" screen to return to.
+    // Block the system back gesture on dashboard home screens. When a
+    // drill-down was opened directly, intercept the gesture and use its
+    // declared parent hub instead of allowing the platform to close the app.
     final isHome = NavigationRoots.isPrimaryHome(currentRoute);
+    final hasHistory = Navigator.canPop(context);
+    final hasParentFallback =
+        NavigationRoots.parentFor(currentRoute) != null;
+    final platformCanPop =
+        !isHome && (hasHistory || !hasParentFallback);
 
-    final pad = padding ??
+    final pad =
+        padding ??
         EdgeInsets.symmetric(
           horizontal: tier.isMobile
               ? AppSpacing.pageInsetMobile
               : tier.isTablet
-                  ? AppSpacing.pageInsetTablet
-                  : AppSpacing.pageInsetDesktop,
+              ? AppSpacing.pageInsetTablet
+              : AppSpacing.pageInsetDesktop,
           vertical: AppSpacing.lg,
         );
 
@@ -113,12 +137,17 @@ class RoleShell extends StatelessWidget {
 
     final surface = AppPalette.scaffoldBg(context);
 
-    if (tier.isDesktop) {
+    if (!tier.isMobile) {
       return SessionPollerScope(
-        child: RootNavigationScope(
+        child: _StaffNavigationScope(
           route: currentRoute,
           child: PopScope(
-            canPop: !isHome,
+            canPop: platformCanPop,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop && !isHome && hasParentFallback) {
+                NavigationRoots.smartBack(context, currentRoute: currentRoute);
+              }
+            },
             child: CriticalEventOverlay(
               child: Scaffold(
                 backgroundColor: surface,
@@ -127,7 +156,7 @@ class RoleShell extends StatelessWidget {
                     _SideRail(
                       destinations: visible,
                       currentRoute: currentRoute,
-                      profileRoute: profileRoute,
+                      compact: tier.isTablet,
                     ),
                     Expanded(
                       child: Column(
@@ -136,6 +165,7 @@ class RoleShell extends StatelessWidget {
                             title: title,
                             subtitle: subtitle,
                             actions: headerActions,
+                            menuActions: headerMenuActions,
                             notificationsRoute: notificationsRoute,
                             subjectIdentity: subjectIdentity,
                             currentRoute: currentRoute,
@@ -161,10 +191,15 @@ class RoleShell extends StatelessWidget {
     }
 
     return SessionPollerScope(
-      child: RootNavigationScope(
+      child: _StaffNavigationScope(
         route: currentRoute,
         child: PopScope(
-          canPop: !isHome,
+          canPop: platformCanPop,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && !isHome && hasParentFallback) {
+              NavigationRoots.smartBack(context, currentRoute: currentRoute);
+            }
+          },
           child: CriticalEventOverlay(
             child: Scaffold(
               backgroundColor: surface,
@@ -172,6 +207,7 @@ class RoleShell extends StatelessWidget {
                 title: title,
                 subtitle: subtitle,
                 actions: headerActions,
+                menuActions: headerMenuActions,
                 notificationsRoute: notificationsRoute,
                 subjectIdentity: subjectIdentity,
                 currentRoute: currentRoute,
@@ -200,7 +236,9 @@ class RoleShell extends StatelessWidget {
     // signed-in user holds that grant. Admins pass every check; assistants are
     // filtered to their delegated grants (which refresh live via the poller).
     return destinations
-        .where((d) => d.permissionKey == null || _hasPermission(d.permissionKey!))
+        .where(
+          (d) => d.permissionKey == null || _hasPermission(d.permissionKey!),
+        )
         .toList();
   }
 
@@ -208,11 +246,29 @@ class RoleShell extends StatelessWidget {
       AuthState.instance.hasAssistantPermission(key);
 }
 
+/// Routes with an explicit parent are drill-downs even when retained in the
+/// legacy root-route set. Keeping their parent route in the stack preserves
+/// hub scroll/filter state and gives native Back the same result as header
+/// Back. True tab roots still receive the normal stack cleanup.
+class _StaffNavigationScope extends StatelessWidget {
+  const _StaffNavigationScope({required this.route, required this.child});
+
+  final String route;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (NavigationRoots.parentFor(route) != null) return child;
+    return RootNavigationScope(route: route, child: child);
+  }
+}
+
 class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
   const _StaffHeader({
     this.title,
     this.subtitle,
     this.actions,
+    this.menuActions = const <RoleHeaderAction>[],
     this.notificationsRoute,
     this.subjectIdentity,
     this.currentRoute,
@@ -221,6 +277,7 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
   final String? subtitle;
   final List<Widget>? actions;
+  final List<RoleHeaderAction> menuActions;
   final String? notificationsRoute;
   final RoleSubjectIdentity? subjectIdentity;
   final String? currentRoute;
@@ -234,15 +291,21 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
     final canPop = Navigator.canPop(context);
     final route = NavigationRoots.resolveRoute(context, currentRoute);
     final showBack = NavigationRoots.shouldShowBack(
-      canPop: canPop,
-      currentRoute: route,
-      context: context,
-    );
+          canPop: canPop,
+          currentRoute: route,
+          context: context,
+        ) ||
+        (!NavigationRoots.isPrimaryHome(route) &&
+            NavigationRoots.parentFor(route) != null);
     final onPrimaryHome = NavigationRoots.isPrimaryHome(route);
-    final effectiveSubject =
-        showBack || onPrimaryHome ? null : subjectIdentity;
-    final effectiveActions =
-        showBack || onPrimaryHome ? null : actions;
+    final compact = MediaQuery.sizeOf(context).width < 600;
+    final effectiveSubject = showBack || onPrimaryHome ? null : subjectIdentity;
+    final effectiveActions = onPrimaryHome || (compact && menuActions.isNotEmpty)
+        ? null
+        : actions;
+    final effectiveMenuActions = onPrimaryHome
+        ? const <RoleHeaderAction>[]
+        : menuActions;
     return Material(
       color: AppPalette.surface(context),
       elevation: 0,
@@ -251,11 +314,16 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
           child: Row(
             children: [
               if (showBack)
-                _BackButton(onTap: () => Navigator.maybePop(context))
+                _BackButton(
+                  onTap: () =>
+                      NavigationRoots.smartBack(context, currentRoute: route),
+                )
               else if (effectiveSubject != null)
                 _SubjectAvatar(identity: effectiveSubject)
               else
@@ -295,15 +363,57 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
               ...?effectiveActions,
+              if (compact && effectiveMenuActions.isNotEmpty)
+                _HeaderActionMenu(actions: effectiveMenuActions),
               NotificationBell(
                 onTap: notificationsRoute == null
                     ? null
-                    : () => Navigator.of(context).pushNamed(notificationsRoute!),
+                    : () =>
+                          Navigator.of(context).pushNamed(notificationsRoute!),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeaderActionMenu extends StatelessWidget {
+  const _HeaderActionMenu({required this.actions});
+
+  final List<RoleHeaderAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (actions.length == 1) {
+      final action = actions.single;
+      return IconButton(
+        tooltip: action.label,
+        onPressed: action.onPressed,
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        icon: Icon(action.icon, size: 21),
+      );
+    }
+
+    return PopupMenuButton<int>(
+      tooltip: 'Page actions',
+      icon: const Icon(AppIcons.more, size: 22),
+      onSelected: (index) => actions[index].onPressed?.call(),
+      itemBuilder: (context) => [
+        for (var index = 0; index < actions.length; index++)
+          PopupMenuItem<int>(
+            value: index,
+            enabled: actions[index].onPressed != null,
+            child: Row(
+              children: [
+                Icon(actions[index].icon, size: 19),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: Text(actions[index].label)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -324,7 +434,7 @@ class _Avatar extends StatelessWidget {
         width: 42,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [accent, accent.withOpacity(0.7)],
+            colors: [accent, accent.withValues(alpha: 0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -359,7 +469,7 @@ class _SubjectAvatar extends StatelessWidget {
         width: 42,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [accent, accent.withOpacity(0.7)],
+            colors: [accent, accent.withValues(alpha: 0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -385,21 +495,26 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      child: Container(
-        height: 42,
-        width: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppPalette.border(context).withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        ),
-        child: Icon(
-          AppIcons.backIos,
-          size: 18,
-          color: AppPalette.ink(context),
+    return Semantics(
+      key: const ValueKey('staff-header-back'),
+      button: true,
+      label: 'Back',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        child: Container(
+          height: 42,
+          width: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppPalette.border(context).withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          ),
+          child: Icon(
+            AppIcons.backIos,
+            size: 18,
+            color: AppPalette.ink(context),
+          ),
         ),
       ),
     );
@@ -410,18 +525,18 @@ class _SideRail extends StatelessWidget {
   const _SideRail({
     required this.destinations,
     required this.currentRoute,
-    required this.profileRoute,
+    required this.compact,
   });
 
   final List<RoleNavDestination> destinations;
   final String currentRoute;
-  final String? profileRoute;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final user = AuthState.instance.user;
     return Container(
-      width: 240,
+      width: compact ? 80 : 232,
       decoration: BoxDecoration(
         color: AppPalette.surface(context),
         border: Border(right: BorderSide(color: AppPalette.border(context))),
@@ -431,55 +546,56 @@ class _SideRail extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
+                compact ? AppSpacing.lg : AppSpacing.xl,
                 AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.xl,
+                compact ? AppSpacing.lg : AppSpacing.xl,
                 AppSpacing.md,
               ),
-              child: const BrandLogo(height: BrandLogo.railHeight),
+              child: compact
+                  ? Icon(
+                      AppIcons.heartRate,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 32,
+                      semanticLabel: 'mCare',
+                    )
+                  : const BrandLogo(
+                      height: BrandLogo.railHeight,
+                      animateHeartbeat: false,
+                      showLifeline: false,
+                    ),
             ),
-            if (user != null) _RoleBadge(role: user.role),
+            if (user != null && !compact) _RoleBadge(role: user.role),
             const SizedBox(height: AppSpacing.lg),
-            ...destinations.map(
-              (d) => _RailItem(
-                destination: d,
-                selected: d.route == currentRoute,
-                onTap: () => _go(context, d.route),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: destinations
+                    .map(
+                      (d) => _RailItem(
+                        destination: d,
+                        selected: d.isActive(currentRoute),
+                        compact: compact,
+                        onTap: () => _activateDestination(
+                          context,
+                          destination: d,
+                          currentRoute: currentRoute,
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
-            const Spacer(),
-            if (profileRoute != null)
-              _RailItem(
-                destination: RoleNavDestination(
-                  icon: AppIcons.profile,
-                  label: 'Profile',
-                  route: profileRoute!,
-                ),
-                selected: currentRoute == profileRoute,
-                onTap: () => _go(context, profileRoute!),
-              ),
             const SizedBox(height: AppSpacing.md),
           ],
         ),
       ),
     );
   }
-
-  void _go(BuildContext context, String route) {
-    if (route == currentRoute) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      route,
-      (_) => false,
-    );
-  }
 }
 
 class _BottomRail extends StatelessWidget {
-  const _BottomRail({
-    required this.destinations,
-    required this.currentRoute,
-  });
+  const _BottomRail({required this.destinations, required this.currentRoute});
 
   final List<RoleNavDestination> destinations;
   final String currentRoute;
@@ -491,12 +607,14 @@ class _BottomRail extends StatelessWidget {
     final allShown = destinations.where((d) => d.showInBottomNav).toList();
     final hasMore = allShown.length > _maxVisible;
     // When overflow exists reserve last slot for "More" button.
-    final primary =
-        hasMore ? allShown.take(_maxVisible - 1).toList() : allShown;
+    final primary = hasMore
+        ? allShown.take(_maxVisible - 1).toList()
+        : allShown;
     final primaryRoutes = primary.map((d) => d.route).toSet();
-    final overflowActive = hasMore &&
+    final overflowActive =
+        hasMore &&
         !primaryRoutes.contains(currentRoute) &&
-        allShown.any((d) => d.route == currentRoute);
+        allShown.any((d) => d.isActive(currentRoute));
 
     return Container(
       decoration: BoxDecoration(
@@ -507,21 +625,21 @@ class _BottomRail extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.sm,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               ...primary.map(
                 (d) => _BottomNavItem(
                   destination: d,
-                  selected: d.route == currentRoute,
-                  onTap: () {
-                    if (d.route == currentRoute) return;
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      d.route,
-                      (_) => false,
-                    );
-                  },
+                  selected: d.isActive(currentRoute),
+                  onTap: () => _activateDestination(
+                    context,
+                    destination: d,
+                    currentRoute: currentRoute,
+                  ),
                 ),
               ),
               if (hasMore)
@@ -558,11 +676,13 @@ class _BottomRail extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: AppMotion.micro,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? accent.withOpacity(0.12)
+                      ? accent.withValues(alpha: 0.12)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                 ),
@@ -598,7 +718,11 @@ class _BottomRail extends StatelessWidget {
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
           child: Material(
             color: AppPalette.surface(context),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -608,21 +732,26 @@ class _BottomRail extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
                   child: Text(
                     'Navigation',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const Divider(height: 1),
                 ...destinations.map((d) {
-                  final isActive = d.route == currentRoute;
+                  final isActive = d.isActive(currentRoute);
                   return InkWell(
                     onTap: () => Navigator.of(ctx).pop(d.route),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
                       child: Row(
                         children: [
                           Icon(
@@ -667,11 +796,39 @@ class _BottomRail extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      selectedRoute,
-      (_) => false,
-    );
+    Navigator.of(context).pushNamedAndRemoveUntil(selectedRoute, (_) => false);
   }
+}
+
+/// Activates one of the persistent staff navigation destinations.
+///
+/// Tapping the selected parent tab from one of its drill-down pages should
+/// return to the existing hub when that hub is in the stack. A directly opened
+/// deep link has no such parent route, so the search must stop safely at the
+/// first route and then install the requested hub as the new root. This keeps
+/// the bottom and side navigation responsive without risking an unbounded
+/// [Navigator.popUntil] search for a route that is not present.
+void _activateDestination(
+  BuildContext context, {
+  required RoleNavDestination destination,
+  required String currentRoute,
+}) {
+  if (destination.route == currentRoute) return;
+
+  final navigator = Navigator.of(context);
+  if (destination.isActive(currentRoute) && navigator.canPop()) {
+    var foundParent = false;
+    navigator.popUntil((route) {
+      if (route.settings.name == destination.route) {
+        foundParent = true;
+        return true;
+      }
+      return route.isFirst;
+    });
+    if (foundParent) return;
+  }
+
+  navigator.pushNamedAndRemoveUntil(destination.route, (_) => false);
 }
 
 class _BottomNavItem extends StatelessWidget {
@@ -691,48 +848,57 @@ class _BottomNavItem extends StatelessWidget {
     final accent = theme.colorScheme.primary;
     final color = selected ? accent : AppPalette.textMuted(context);
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: AppMotion.micro,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedContainer(
-                    duration: AppMotion.micro,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? accent.withOpacity(0.12)
-                          : Colors.transparent,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusPill),
+      child: Semantics(
+        key: ValueKey('staff-bottom-nav:${destination.route}'),
+        button: true,
+        selected: selected,
+        label: '${destination.label} navigation tab',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.micro,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedContainer(
+                      duration: AppMotion.micro,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? accent.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
+                      ),
+                      child: Icon(destination.icon, color: color, size: 22),
                     ),
-                    child: Icon(destination.icon, color: color, size: 22),
-                  ),
-                  if ((destination.badgeCount ?? 0) > 0)
-                    Positioned(
-                      top: -2,
-                      right: -2,
-                      child: _Badge(count: destination.badgeCount!),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                destination.label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    if ((destination.badgeCount ?? 0) > 0)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: _Badge(count: destination.badgeCount!),
+                      ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  destination.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -744,10 +910,12 @@ class _RailItem extends StatelessWidget {
   const _RailItem({
     required this.destination,
     required this.selected,
+    required this.compact,
     required this.onTap,
   });
   final RoleNavDestination destination;
   final bool selected;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
@@ -755,40 +923,52 @@ class _RailItem extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
     final color = selected ? accent : AppPalette.textMuted(context);
-    return Padding(
+    final item = Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: 2),
+        horizontal: AppSpacing.md,
+        vertical: 2,
+      ),
       child: Material(
-        color: selected ? accent.withOpacity(0.10) : Colors.transparent,
+        color: selected ? accent.withValues(alpha: 0.10) : Colors.transparent,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.md),
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
             child: Row(
+              mainAxisAlignment: compact
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
               children: [
                 Icon(destination.icon, color: color, size: 20),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    destination.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected ? AppPalette.ink(context) : color,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                if (!compact) ...[
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      destination.label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: selected ? AppPalette.ink(context) : color,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-                if ((destination.badgeCount ?? 0) > 0)
-                  _Badge(count: destination.badgeCount!),
+                  if ((destination.badgeCount ?? 0) > 0)
+                    _Badge(count: destination.badgeCount!),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+    if (!compact) return item;
+    return Tooltip(message: destination.label, child: item);
   }
 }
 
@@ -830,9 +1010,11 @@ class _RoleBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: 6),
+          horizontal: AppSpacing.md,
+          vertical: 6,
+        ),
         decoration: BoxDecoration(
-          color: role.accent.withOpacity(0.12),
+          color: role.accent.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
         ),
         child: Row(

@@ -52,9 +52,9 @@ use App\Http\Controllers\Api\V1\VitalsController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function () {
-    // Brute-force protection: unauthenticated credential endpoints are
-    // rate-limited per IP (on top of the per-account lockout).
-    Route::middleware('throttle:10,1')->group(function () {
+    // Brute-force protection per README §6.5: 5/min/IP + 5/15min/email.
+    // Defined as the named limiter `auth-login` in AppServiceProvider.
+    Route::middleware('throttle:auth-login')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
@@ -80,9 +80,11 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('external')->group(function () {
     // Code→token exchange is the brute-forceable surface: throttle hard.
+    // README §6.5: 6/min — named limiter `external-resolve`.
     Route::post('resolve-code', [ExternalDoctorController::class, 'resolveCode'])
-        ->middleware('throttle:6,1');
-    Route::middleware('throttle:60,1')->group(function () {
+        ->middleware('throttle:external-resolve');
+    // Writes via a leaked link — scope 30/min per token, not per IP.
+    Route::middleware('throttle:external-write')->group(function () {
         Route::get('{token}', [ExternalDoctorController::class, 'show']);
         Route::post('{token}/notes', [ExternalDoctorController::class, 'addNote']);
         Route::post('{token}/vitals', [ExternalDoctorController::class, 'addVital']);
@@ -91,7 +93,8 @@ Route::prefix('external')->group(function () {
     });
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+// README §6.5: general authenticated API — 120/min/user (named `api-general`).
+Route::middleware(['auth:sanctum', 'throttle:api-general'])->group(function () {
     Route::post('fcm-tokens', [FcmTokenController::class, 'store']);
     Route::delete('fcm-tokens', [FcmTokenController::class, 'destroy']);
 
@@ -105,7 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('me/notification-states/read-all', [StaffNotificationStateController::class, 'readAll']);
 });
 
-Route::middleware(['auth:sanctum', 'role:patient'])->prefix('patient')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api-general', 'role:patient'])->prefix('patient')->group(function () {
     Route::get('session', [PatientSessionController::class, 'show']);
 
     Route::get('profile', [PatientProfileController::class, 'show']);
@@ -164,7 +167,7 @@ Route::middleware(['auth:sanctum', 'role:patient'])->prefix('patient')->group(fu
 
 });
 
-Route::middleware(['auth:sanctum', 'role:doctor'])->prefix('doctor')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api-general', 'role:doctor'])->prefix('doctor')->group(function () {
     Route::get('session', [DoctorSessionController::class, 'show']);
 
     Route::get('patients/{patient}', [DoctorPatientController::class, 'show']);
@@ -216,7 +219,7 @@ Route::middleware(['auth:sanctum', 'role:doctor'])->prefix('doctor')->group(func
     Route::post('conversations/{conversation}/read', [DoctorMessagesController::class, 'markRead']);
 });
 
-Route::middleware(['auth:sanctum', 'role:admin,mcare_assistant'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api-general', 'role:admin,mcare_assistant'])->prefix('admin')->group(function () {
     Route::get('session', [AdminSessionController::class, 'show']);
 
     // System-wide vital alerts
@@ -260,8 +263,11 @@ Route::middleware(['auth:sanctum', 'role:admin,mcare_assistant'])->prefix('admin
     Route::delete('assignments/{assignment}',     [AdminAssignmentsController::class, 'destroy'])
         ->middleware('permission:can_assign_patients');
 
-    // Patient clinical profile (read-only)
+    // Patient clinical profile (read-only) + assist-only mutations
     Route::get('patients/{patient}', [AdminPatientsController::class, 'show'])
+        ->middleware('permission:can_create_users');
+    Route::patch('patients/{patient}/assigned-vitals',
+        [AdminPatientsController::class, 'updateAssignedVitals'])
         ->middleware('permission:can_create_users');
 
     // Users

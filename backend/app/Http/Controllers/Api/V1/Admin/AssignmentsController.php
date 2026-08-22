@@ -49,13 +49,31 @@ class AssignmentsController extends Controller
     {
         $data = $request->validate([
             'patient_user_id' => 'required|exists:users,id',
-            'provider_id' => 'required|exists:care_providers,id',
+            'provider_id' => 'nullable|exists:care_providers,id',
+            'provider_user_id' => 'nullable|exists:users,id',
             'role' => 'nullable|string|max:32',
         ]);
 
+        $providerId = $data['provider_id'] ?? null;
+
+        // Callers may identify the doctor by their user id (from the directory)
+        // rather than the care_providers row id. Resolve to a CareProvider so
+        // downstream gating (DoctorAccess) works uniformly.
+        if ($providerId === null && ! empty($data['provider_user_id'])) {
+            $provider = CareProvider::firstOrCreate(
+                ['user_id' => $data['provider_user_id']],
+                ['name' => optional(User::find($data['provider_user_id']))->fullName() ?? 'Care Provider'],
+            );
+            $providerId = $provider->id;
+        }
+
+        if ($providerId === null) {
+            return $this->error('Missing provider_id or provider_user_id.', 422);
+        }
+
         $existing = CareAssignment::query()
             ->where('patient_user_id', $data['patient_user_id'])
-            ->where('provider_id', $data['provider_id'])
+            ->where('provider_id', $providerId)
             ->whereNull('ended_at')
             ->first();
 
@@ -65,7 +83,7 @@ class AssignmentsController extends Controller
 
         $assignment = CareAssignment::create([
             'patient_user_id' => $data['patient_user_id'],
-            'provider_id' => $data['provider_id'],
+            'provider_id' => $providerId,
             'role' => $data['role'] ?? 'Primary',
             'assigned_at' => now(),
         ]);

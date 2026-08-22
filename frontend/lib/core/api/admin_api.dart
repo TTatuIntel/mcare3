@@ -104,15 +104,21 @@ class AdminApi {
 
   Future<JsonMap?> createAssignment({
     required String patientUserId,
-    required String providerId,
+    String? providerId,
+    String? providerUserId,
     String? role,
   }) async {
     if (!AppEnv.backendEnabled) return null;
+    assert(
+      providerId != null || providerUserId != null,
+      'createAssignment: provide providerId or providerUserId',
+    );
     final res = await ApiClient.instance.post(
       '/admin/assignments',
       body: {
         'patient_user_id': patientUserId,
-        'provider_id': providerId,
+        if (providerId != null) 'provider_id': providerId,
+        if (providerUserId != null) 'provider_user_id': providerUserId,
         if (role != null) 'role': role,
       },
     );
@@ -491,6 +497,28 @@ class AdminApi {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.get('/admin/session');
     return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  /// Admin-side assist: reassign the vitals a patient must track. Mirrors
+  /// the doctor endpoint so [StaffState.updateAssignedVitalsForPatient] can
+  /// route by role.
+  Future<List<String>> updateAssignedVitals({
+    required String patientUserId,
+    required List<String> vitalKeys,
+    String? note,
+  }) async {
+    if (!AppEnv.backendEnabled) return vitalKeys;
+    final res = await ApiClient.instance.patch(
+      '/admin/patients/$patientUserId/assigned-vitals',
+      body: {
+        'assigned_vitals': vitalKeys,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+    final data = (res['data'] as Map?)?.cast<String, dynamic>();
+    return (data?['assigned_vitals'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList();
   }
 
   // ---------------- System-wide alerts ----------------

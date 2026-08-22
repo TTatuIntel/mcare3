@@ -23,7 +23,7 @@ class PatientScaffold extends StatelessWidget {
     this.subtitle,
     this.headerActions,
     this.floatingActionButton,
-    this.maxContentWidth = 1180,
+    this.maxContentWidth = 1360,
     this.scrollable = true,
     this.padding,
     this.detachedNav = false,
@@ -72,7 +72,7 @@ class PatientScaffold extends StatelessWidget {
 
     final surface = AppPalette.scaffoldBg(context);
 
-    if (tier.isDesktop) {
+    if (!tier.isMobile) {
       return SessionPollerScope(
         child: RootNavigationScope(
           route: currentRoute,
@@ -82,7 +82,10 @@ class PatientScaffold extends StatelessWidget {
           backgroundColor: surface,
           body: Row(
             children: [
-              PatientSideRail(currentRoute: currentRoute),
+              PatientSideRail(
+                currentRoute: currentRoute,
+                compact: tier.isTablet,
+              ),
               Expanded(
                 child: Column(
                   children: [

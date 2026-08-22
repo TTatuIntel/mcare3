@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\VitalReadingResource;
 use App\Models\VitalCatalog;
 use App\Services\VitalAlertNotifier;
 use App\Support\ApiResponse;
@@ -28,7 +29,7 @@ class VitalsController extends Controller
             $query->where('recorded_at', '>=', now()->subDays((int) $request->integer('days')));
         }
         return $this->success([
-            'vitals' => $query->limit(1000)->get()->map->toApiArray()->all(),
+            'vitals' => VitalReadingResource::collection($query->limit(1000)->get()),
         ]);
     }
 
@@ -60,6 +61,6 @@ class VitalsController extends Controller
 
         VitalAlertNotifier::notify($request->user(), $reading);
 
-        return $this->success(['vital' => $reading->toApiArray()], 'Reading recorded.', 201);
+        return $this->success(['vital' => new VitalReadingResource($reading)], 'Reading recorded.', 201);
     }
 }

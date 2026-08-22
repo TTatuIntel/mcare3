@@ -13,7 +13,7 @@ import 'admin/care_requests/admin_care_requests_view.dart';
 import 'shared/navigation/staff_route_config.dart';
 import 'shared/navigation/staff_route_factory.dart';
 import 'shared/sos/staff_sos_hub_view.dart';
-import 'admin/dashboard/admin_dashboard_view.dart';
+import 'admin/guided_hub/admin_guided_operations_view.dart';
 import 'admin/notifications/admin_notifications_view.dart';
 import 'admin/patients/admin_patients_view.dart';
 import 'admin/permissions/admin_permissions_view.dart';
@@ -49,7 +49,7 @@ import 'doctors/reports/doctor_reports_view.dart';
 import 'doctors/settings/doctor_settings_view.dart';
 import 'mcare_assistant/assistant_settings_view.dart';
 import 'mcare_assistant/assistant_views.dart';
-import 'mcare_assistant/dashboard/assistant_dashboard_view.dart';
+import 'mcare_assistant/guided_hub/assistant_guided_operations_view.dart';
 import 'patients/appointments/appointment_detail_view.dart';
 import 'patients/appointments/appointments_view.dart';
 import 'patients/care_team/care_team_view.dart';
@@ -88,6 +88,7 @@ import 'shared/models/vital.dart';
 import 'shared/models/vital_detail_args.dart';
 import 'shared/state/settings_state.dart';
 import 'shared/navigation/sos_navigation.dart';
+import 'shared/staff_hub/staff_hub.dart';
 import 'shared/bootstrap/app_bootstrap.dart';
 import 'shared/navigation/root_navigator.dart';
 import 'l10n/app_localizations.dart';
@@ -484,11 +485,35 @@ class _McareAppState extends State<McareApp> {
 
       // ----- Admin -----------------------------------------------------
       case RouteNames.adminDashboard:
-        page = const _AdminGuarded(child: AdminDashboardView());
+        page = const _AdminGuarded(child: AdminGuidedOperationsView());
+        break;
+      case RouteNames.adminWork:
+        page = const _AdminGuarded(
+          child: AdminGuidedOperationsView(
+            initialSection: StaffHubSection.work,
+            currentRoute: RouteNames.adminWork,
+          ),
+        );
+        break;
+      case RouteNames.adminPeople:
+        page = const _AdminGuarded(
+          child: AdminGuidedOperationsView(
+            initialSection: StaffHubSection.people,
+            currentRoute: RouteNames.adminPeople,
+          ),
+        );
+        break;
+      case RouteNames.adminMore:
+        page = const _AdminGuarded(
+          child: AdminGuidedOperationsView(
+            initialSection: StaffHubSection.more,
+            currentRoute: RouteNames.adminMore,
+          ),
+        );
         break;
       case RouteNames.adminSos:
         final adminSosArgs = SosNavigation.parseArgs(settings.arguments);
-        page = _AdminStaffGuarded(
+        page = _AdminGuarded(
           child: StaffSosHubView(
             initialPatientId: adminSosArgs.patientId,
             initialEventId: adminSosArgs.eventId,
@@ -503,7 +528,7 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.adminUserDetail:
         final uid = settings.arguments as String? ?? '';
-        page = _AdminStaffGuarded(child: AdminUserDetailView(userId: uid));
+        page = _AdminGuarded(child: AdminUserDetailView(userId: uid));
         break;
       case RouteNames.adminApprovals:
         page = const _AdminGuarded(child: AdminApprovalsView());
@@ -585,7 +610,31 @@ class _McareAppState extends State<McareApp> {
 
       // ----- mCare Assistant -------------------------------------------
       case RouteNames.assistantDashboard:
-        page = const _AssistantGuarded(child: AssistantDashboardView());
+        page = const _AssistantGuarded(child: AssistantGuidedOperationsView());
+        break;
+      case RouteNames.assistantWork:
+        page = const _AssistantGuarded(
+          child: AssistantGuidedOperationsView(
+            initialSection: StaffHubSection.work,
+            currentRoute: RouteNames.assistantWork,
+          ),
+        );
+        break;
+      case RouteNames.assistantPeople:
+        page = const _AssistantGuarded(
+          child: AssistantGuidedOperationsView(
+            initialSection: StaffHubSection.people,
+            currentRoute: RouteNames.assistantPeople,
+          ),
+        );
+        break;
+      case RouteNames.assistantMore:
+        page = const _AssistantGuarded(
+          child: AssistantGuidedOperationsView(
+            initialSection: StaffHubSection.more,
+            currentRoute: RouteNames.assistantMore,
+          ),
+        );
         break;
       case RouteNames.assistantApprovals:
         page = const _AssistantGuarded(child: AssistantApprovalsView());
@@ -741,23 +790,6 @@ class _AssistantGuarded extends StatelessWidget {
           child: child,
         ),
       );
-}
-
-class _AdminStaffGuarded extends StatelessWidget {
-  const _AdminStaffGuarded({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) {
-    final role = AuthState.instance.user?.role ?? UserRole.admin;
-    return RoleGuard(
-      allowed: const [UserRole.admin, UserRole.mcareAssistant],
-      child: StaffProfileGate(
-        completeProfileRoute: StaffProfileGate.completeRouteFor(role),
-        forcePasswordRoute: StaffProfileGate.forcePasswordRouteFor(role),
-        child: child,
-      ),
-    );
-  }
 }
 
 class _NotFoundView extends StatelessWidget {

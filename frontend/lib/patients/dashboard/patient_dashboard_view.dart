@@ -15,7 +15,6 @@ import '../../shared/state/appointments_state.dart';
 import '../../shared/state/medications_state.dart';
 import '../../shared/state/notification_state.dart';
 import '../../shared/state/vitals_state.dart';
-import '../../shared/theme/app_motion.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
@@ -24,34 +23,15 @@ import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/app_page_route.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
-import '../../shared/widgets/glass_floating_button.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/patient_scaffold.dart';
-import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/risk_badge.dart';
 import '../../shared/widgets/section_label.dart';
 import '../vitals/submit_vital_sheet.dart';
 import '../medications/log_dose_sheet.dart';
 
-part 'patient_dashboard_hero.dart';
+part 'patient_dashboard_home_sections.dart';
 part 'patient_dashboard_vitals.dart';
-
-List<Color> _logVitalDynamicColors() {
-  var hasCritical = false;
-  var hasWarning = false;
-  for (final key in VitalsState.instance.tracked) {
-    final risk = VitalsState.instance.latestOf(key)?.risk;
-    if (risk == RiskLevel.critical) hasCritical = true;
-    if (risk == RiskLevel.warning) hasWarning = true;
-  }
-  if (hasCritical) {
-    return [AppColors.critical, AppColors.warning];
-  }
-  if (hasWarning) {
-    return [AppColors.warning, AppColors.brandIndigo];
-  }
-  return [AppColors.brandIndigo, const Color(0xFF8B5CF6)];
-}
 
 class PatientDashboardView extends StatelessWidget {
   const PatientDashboardView({super.key});
@@ -68,132 +48,17 @@ class PatientDashboardView extends StatelessWidget {
           NotificationState.instance,
         ]),
         builder: (context, _) {
-          final tier = ResponsiveBuilder.of(context);
           final appointments = AppointmentsState.instance.upcoming;
           final doses = MedicationsState.instance.dosesForToday();
           final unread = NotificationState.instance.unreadCount;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              StaggeredEntry(
-                index: 0,
-                child: PatientDateHeader(),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              StaggeredEntry(
-                index: 1,
-                child: _HeroInsightCard(
-                  doses: doses,
-                  appointments: appointments,
-                  unreadNotifications: unread,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              StaggeredEntry(
-                index: 2,
-                child: GlassCard(
-                  frosted: true,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                    vertical: AppSpacing.xs,
-                  ),
-                  child: PatientQuickActionsBar(
-                    children: [
-                      PatientQuickAction(
-                        icon: AppIcons.document,
-                        label: 'Documents',
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.patientDocuments),
-                      ),
-                      PatientQuickAction(
-                        icon: AppIcons.bell,
-                        label: 'Alerts',
-                        badge: unread > 0 ? '$unread' : null,
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.patientNotifications),
-                      ),
-                      PatientQuickAction(
-                        icon: AppIcons.support,
-                        label: 'Support',
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.patientSupport),
-                      ),
-                      PatientQuickAction(
-                        icon: AppIcons.sos,
-                        label: 'SOS',
-                        badgeColor: AppColors.critical,
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.patientSos),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              StaggeredEntry(
-                index: 3,
-                child: const _RecentVitalsPanel(),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              StaggeredEntry(
-                index: 4,
-                child: const SectionLabel(
-                  title: 'Activities',
-                  icon: AppIcons.trend,
-                ),
-              ),
-              StaggeredEntry(
-                index: 5,
-                child: const _CareActivityFeed(),
-              ),
-              if (!tier.isHandheld) ...[
-                const SizedBox(height: AppSpacing.xl),
-                if (tier.isDesktop)
-                  StaggeredEntry(
-                    index: 6,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 7,
-                          child: _UpcomingAppointments(
-                              appointments: appointments),
-                        ),
-                        const SizedBox(width: AppSpacing.lg),
-                        Expanded(
-                          flex: 5,
-                          child: _TodayMeds(doses: doses),
-                        ),
-                      ],
-                    ),
-                  )
-                else ...[
-                  StaggeredEntry(
-                      index: 6,
-                      child:
-                          _UpcomingAppointments(appointments: appointments)),
-                  const SizedBox(height: AppSpacing.xl),
-                  StaggeredEntry(index: 7, child: _TodayMeds(doses: doses)),
-                ],
-              ],
-
-              const SizedBox(height: AppSpacing.huge),
-            ],
+          return _PatientHomeLayout(
+            appointments: appointments,
+            doses: doses,
+            unreadNotifications: unread,
           );
         },
       ),
-      floatingActionButton: ResponsiveBuilder.of(context).isHandheld
-          ? ListenableBuilder(
-              listenable: VitalsState.instance,
-              builder: (context, _) => GlassFloatingButton(
-                icon: AppIcons.add,
-                label: 'Log vital',
-                dynamicColors: _logVitalDynamicColors(),
-                onPressed: () => SubmitVitalSheet.show(context),
-              ),
-            )
-          : null,
     );
   }
 }
@@ -220,28 +85,34 @@ class _CareActivityFeedState extends State<_CareActivityFeed> {
 
     for (final dose in MedicationsState.instance.dosesForToday()) {
       final isPending = dose.status == DoseStatus.pending;
-      items.add(_ActivityEntry(
-        sortAt: dose.takenAt ?? dose.scheduledAt,
-        priority: isPending ? 90 : 35,
-        dose: dose,
-      ));
+      items.add(
+        _ActivityEntry(
+          sortAt: dose.takenAt ?? dose.scheduledAt,
+          priority: isPending ? 90 : 35,
+          dose: dose,
+        ),
+      );
     }
 
     for (final appt in AppointmentsState.instance.upcoming.take(3)) {
       final isToday = DateUtils.isSameDay(appt.scheduledAt, DateTime.now());
-      items.add(_ActivityEntry(
-        sortAt: appt.scheduledAt,
-        priority: isToday ? 85 : 70,
-        appointment: appt,
-      ));
+      items.add(
+        _ActivityEntry(
+          sortAt: appt.scheduledAt,
+          priority: isToday ? 85 : 70,
+          appointment: appt,
+        ),
+      );
     }
 
     for (final n in NotificationState.instance.activeItems.take(4)) {
-      items.add(_ActivityEntry(
-        sortAt: n.createdAt,
-        priority: n.read ? 25 : 75,
-        notification: n,
-      ));
+      items.add(
+        _ActivityEntry(
+          sortAt: n.createdAt,
+          priority: n.read ? 25 : 75,
+          notification: n,
+        ),
+      );
     }
 
     items.sort((a, b) {
@@ -320,7 +191,7 @@ class _CareActivityFeedState extends State<_CareActivityFeed> {
       shrinkWrap: !scrollable,
       padding: EdgeInsets.zero,
       itemCount: entries.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           Divider(height: 1, color: AppPalette.border(context)),
       itemBuilder: (_, i) => _ActivityFeedRow(entry: entries[i]),
     );
@@ -426,7 +297,7 @@ class _MedicationFeedRow extends StatelessWidget {
               height: 32,
               width: 32,
               decoration: BoxDecoration(
-                color: AppColors.glucoseAmber.withOpacity(0.12),
+                color: AppColors.glucoseAmber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               child: const Icon(
@@ -462,10 +333,7 @@ class _MedicationFeedRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            _FeedStatusChip(
-              label: dose.status.label,
-              color: dose.status.color,
-            ),
+            _FeedStatusChip(label: dose.status.label, color: dose.status.color),
           ],
         ),
       ),
@@ -480,7 +348,10 @@ class _AppointmentFeedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isToday = DateUtils.isSameDay(appointment.scheduledAt, DateTime.now());
+    final isToday = DateUtils.isSameDay(
+      appointment.scheduledAt,
+      DateTime.now(),
+    );
     final isTomorrow = DateUtils.isSameDay(
       appointment.scheduledAt,
       DateTime.now().add(const Duration(days: 1)),
@@ -488,8 +359,8 @@ class _AppointmentFeedRow extends StatelessWidget {
     final dayLabel = isToday
         ? 'Today'
         : isTomorrow
-            ? 'Tomorrow'
-            : DateFormat.MMMd().format(appointment.scheduledAt);
+        ? 'Tomorrow'
+        : DateFormat.MMMd().format(appointment.scheduledAt);
     final time = DateFormat.jm().format(appointment.scheduledAt);
 
     return InkWell(
@@ -505,7 +376,7 @@ class _AppointmentFeedRow extends StatelessWidget {
               height: 32,
               width: 32,
               decoration: BoxDecoration(
-                color: AppColors.bpPurple.withOpacity(0.12),
+                color: AppColors.bpPurple.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               child: const Icon(
@@ -572,7 +443,7 @@ class _NotificationFeedRow extends StatelessWidget {
               height: 32,
               width: 32,
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.12),
+                color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               child: Icon(notification.kind.icon, color: accent, size: 16),
@@ -585,8 +456,9 @@ class _NotificationFeedRow extends StatelessWidget {
                   Text(
                     notification.title,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight:
-                          notification.read ? FontWeight.w600 : FontWeight.w700,
+                      fontWeight: notification.read
+                          ? FontWeight.w600
+                          : FontWeight.w700,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -640,7 +512,7 @@ class _FeedStatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
       ),
       child: Text(
@@ -662,229 +534,4 @@ String _relativeTime(DateTime at) {
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   if (diff.inDays == 1) return 'Yesterday';
   return DateFormat.MMMd().format(at);
-}
-
-class _UpcomingAppointments extends StatelessWidget {
-  const _UpcomingAppointments({required this.appointments});
-  final List<Appointment> appointments;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionLabel(
-          title: 'Upcoming appointments',
-          icon: AppIcons.appointment,
-          actionLabel: 'See all',
-          onAction: () => Navigator.of(context)
-              .pushNamed(RouteNames.patientAppointments),
-        ),
-        if (appointments.isEmpty)
-          EmptyStateView(
-            icon: AppIcons.appointment,
-            title: 'No appointments',
-            message: 'Book a visit with your care team.',
-            actionLabel: 'Book appointment',
-            onAction: () => Navigator.of(context)
-                .pushNamed(RouteNames.patientAppointments),
-            compact: true,
-          )
-        else
-          Column(
-            children: [
-              for (var i = 0; i < appointments.take(3).length; i++) ...[
-                if (i > 0)
-                  Divider(height: 1, color: AppPalette.border(context)),
-                _AppointmentCard(a: appointments[i]),
-              ],
-            ],
-          ),
-      ],
-    );
-  }
-}
-
-class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.a});
-  final Appointment a;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isToday = DateUtils.isSameDay(a.scheduledAt, DateTime.now());
-    final isTomorrow = DateUtils.isSameDay(
-        a.scheduledAt, DateTime.now().add(const Duration(days: 1)));
-    final dayLabel = isToday
-        ? 'Today'
-        : isTomorrow
-            ? 'Tomorrow'
-            : DateFormat.MMMEd().format(a.scheduledAt);
-    final time = DateFormat.jm().format(a.scheduledAt);
-
-    return InkWell(
-      onTap: () => Navigator.of(context).pushNamed(
-        RouteNames.patientAppointmentDetail,
-        arguments: a.id,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.bpPurple.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    DateFormat.d().format(a.scheduledAt),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: AppColors.bpPurple,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    DateFormat.MMM().format(a.scheduledAt).toUpperCase(),
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: AppColors.bpPurple),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(a.doctorName,
-                      style: theme.textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis),
-                  Text(a.doctorSpecialty,
-                      style: theme.textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(_typeIcon(a.type),
-                          size: 14, color: AppPalette.textMuted(context)),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${a.type.label} Â· $dayLabel at $time',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: a.status == AppointmentStatus.confirmed
-                    ? AppPalette.successSoft(context)
-                    : AppPalette.infoSoft(context),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              ),
-              child: Text(
-                a.status.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: a.status == AppointmentStatus.confirmed
-                      ? AppColors.success
-                      : AppColors.info,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _typeIcon(AppointmentType t) => switch (t) {
-        AppointmentType.inPerson => AppIcons.location,
-        AppointmentType.virtual => AppIcons.videocam,
-        AppointmentType.phone => AppIcons.phone,
-      };
-}
-
-class _TodayMeds extends StatelessWidget {
-  const _TodayMeds({required this.doses});
-  final List<MedicationDose> doses;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionLabel(
-          title: 'Today\'s medications',
-          icon: AppIcons.medication,
-          actionLabel: 'View all',
-          onAction: () => Navigator.of(context)
-              .pushNamed(RouteNames.patientMedications),
-        ),
-        Column(
-          children: [
-            for (var i = 0; i < doses.length; i++) ...[
-              if (i > 0) Divider(height: 20, color: AppPalette.border(context)),
-              _DoseRow(dose: doses[i]),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _DoseRow extends StatelessWidget {
-  const _DoseRow({required this.dose});
-  final MedicationDose dose;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = DateFormat.jm().format(dose.scheduledAt);
-    final isTaken = dose.status == DoseStatus.taken;
-    return Row(
-      children: [
-        Container(
-          height: 38,
-          width: 38,
-          decoration: BoxDecoration(
-            color: AppColors.glucoseAmber.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          ),
-          child: const Icon(AppIcons.medication,
-              color: AppColors.glucoseAmber, size: 18),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(dose.name,
-                  style: Theme.of(context).textTheme.titleMedium),
-              Text('${dose.dosage} Â· $time',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ),
-        if (isTaken)
-          const RiskBadge(risk: RiskLevel.normal, label: 'Taken', dense: true)
-        else
-          AppButton(
-            label: 'Log dose',
-            size: AppButtonSize.sm,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => LogDoseSheet.show(context, dose),
-          ),
-      ],
-    );
-  }
 }

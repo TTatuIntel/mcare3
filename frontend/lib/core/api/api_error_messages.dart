@@ -19,8 +19,10 @@ class ApiErrorMessages {
     }
 
     if (_looksLikeNetworkFailure(lower)) {
-      return 'Cannot reach the mCare server. '
-          'Check that the API is running at ${AppEnv.apiBaseUrl}.';
+      return 'Cannot reach the mCare server at ${AppEnv.apiBaseUrl}. '
+          'Start Laravel with `php artisan serve --host=0.0.0.0 --port=8000`. '
+          'On a physical device, pass '
+          '--dart-define=MCARE_API_URL=http://<host-LAN-IP>:8000/api/v1.';
     }
 
     if (message.length > 160 ||

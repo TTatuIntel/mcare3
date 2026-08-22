@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\MedicalDocumentResource;
 use App\Models\MedicalDocument;
 use App\Support\ApiResponse;
 use App\Support\MedicalDocumentFiles;
@@ -29,7 +30,7 @@ class DocumentsController extends Controller
             'uploaded_at' => now(),
         ]);
 
-        return $this->success(['document' => $doc->toApiArray()], 'Document uploaded.', 201);
+        return $this->success(['document' => new MedicalDocumentResource($doc)], 'Document uploaded.', 201);
     }
 
     public function update(Request $request, MedicalDocument $document)
@@ -38,7 +39,7 @@ class DocumentsController extends Controller
         $data = MedicalDocumentFiles::validateUpdate($request);
         MedicalDocumentFiles::applyUpdate($document, $data, $request, $request->user()->id);
 
-        return $this->success(['document' => $document->fresh()->toApiArray()], 'Document updated.');
+        return $this->success(['document' => new MedicalDocumentResource($document->fresh())], 'Document updated.');
     }
 
     public function destroy(Request $request, MedicalDocument $document)

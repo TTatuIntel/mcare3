@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/admin_api.dart';
 import '../../core/api/staff_mapper.dart';
+import '../../core/env/app_env.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/user_role.dart';
@@ -21,8 +24,10 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
+import '../../shared/widgets/staff_directory_controls.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/glass_sheet.dart';
+import '../../shared/widgets/staff_credential_dialog.dart';
 import '../../shared/widgets/staff_patient_profile_sheet.dart';
 
 /// Role options shown in create/change flows — respects assistant grants.
@@ -32,19 +37,19 @@ List<DropdownMenuItem<String>> _creatableRoleItems({String? includeRole}) {
   final items = <DropdownMenuItem<String>>[
     const DropdownMenuItem(value: 'patient', child: Text('Patient')),
     const DropdownMenuItem(
-        value: 'doctor', child: Text('Doctor / Healthworker')),
+      value: 'doctor',
+      child: Text('Doctor / Healthworker'),
+    ),
     if (isAdmin || has(AssistantPermissions.canRegisterAssistant))
       const DropdownMenuItem(
-          value: 'mcareAssistant', child: Text('mCare Assistant')),
+        value: 'mcareAssistant',
+        child: Text('mCare Assistant'),
+      ),
     if (isAdmin || has(AssistantPermissions.canRegisterAdmin))
       const DropdownMenuItem(value: 'admin', child: Text('Admin')),
   ];
-  if (includeRole != null &&
-      !items.any((i) => i.value == includeRole)) {
-    items.add(DropdownMenuItem(
-      value: includeRole,
-      child: Text(includeRole),
-    ));
+  if (includeRole != null && !items.any((i) => i.value == includeRole)) {
+    items.add(DropdownMenuItem(value: includeRole, child: Text(includeRole)));
   }
   return items;
 }
@@ -81,9 +86,8 @@ class _UsersNavConfig {
   final String notificationsRoute;
   final bool isAssistant;
 
-  List<RoleNavDestination> get destinations => isAssistant
-      ? StaffDestinations.assistant()
-      : StaffDestinations.admin();
+  List<RoleNavDestination> get destinations =>
+      isAssistant ? StaffDestinations.assistant() : StaffDestinations.admin();
 }
 
 class AdminUsersView extends StatefulWidget {
@@ -93,21 +97,68 @@ class AdminUsersView extends StatefulWidget {
   State<AdminUsersView> createState() => _AdminUsersViewState();
 }
 
+/// Sort options for the Users directory.
+enum _UserSort {
+  nameAsc('Name (A → Z)'),
+  nameDesc('Name (Z → A)'),
+  newest('Recently joined'),
+  oldest('Oldest first'),
+  mcareId('mCare ID'),
+  roleAsc('Role');
+
+  const _UserSort(this.label);
+  final String label;
+}
+
 class _AdminUsersViewState extends State<AdminUsersView> {
-  UserRole? _filter;
+  // Persisted filter state — restored when the user returns to the page.
+  static UserRole? _persistedFilter;
+  static bool _persistedAssistOnly = false;
+  static _UserSort _persistedSort = _UserSort.nameAsc;
+
+  late UserRole? _filter = _persistedFilter;
+
   /// When true, show locked or temp-password accounts that need staff help.
-  bool _passwordAssistOnly = false;
+  late bool _passwordAssistOnly = _persistedAssistOnly;
+  late _UserSort _sort = _persistedSort;
+
   final _q = TextEditingController();
   bool _loading = false;
   String? _error;
+  DateTime? _lastSyncedAt;
+  Timer? _syncedTicker;
+
+  bool get _hasActiveFilters =>
+      _filter != null ||
+      _passwordAssistOnly ||
+      _sort != _UserSort.nameAsc ||
+      _q.text.trim().isNotEmpty;
+
+  void _clearAllFilters() {
+    setState(() {
+      _filter = null;
+      _passwordAssistOnly = false;
+      _sort = _UserSort.nameAsc;
+      _q.clear();
+      _persistedFilter = null;
+      _persistedAssistOnly = false;
+      _persistedSort = _UserSort.nameAsc;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadUsers());
+    _syncedTicker = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted && _lastSyncedAt != null) setState(() {});
+    });
   }
 
   Future<void> _loadUsers() async {
+    // Preserve StaffState.seedDemo() fixtures when networking is disabled.
+    // The disabled API response is transport-shaped but intentionally empty.
+    if (!AppEnv.backendEnabled) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -116,11 +167,14 @@ class _AdminUsersViewState extends State<AdminUsersView> {
       final data = await AdminApi.instance.listUsers(perPage: 100);
       final rawList = data['users'] as List? ?? const [];
       final users = rawList
-          .map((e) => StaffMapper.directoryUserFromApiFull(
-                (e as Map).cast<String, dynamic>(),
-              ))
+          .map(
+            (e) => StaffMapper.directoryUserFromApiFull(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList();
       StaffState.instance.mergeUsers(users);
+      if (mounted) _lastSyncedAt = DateTime.now();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -143,10 +197,19 @@ class _AdminUsersViewState extends State<AdminUsersView> {
       title: 'Create user',
       subtitle: 'New account — a welcome email will be sent',
       child: StatefulBuilder(
-        builder: (ctx, setSt) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl, AppSpacing.md, AppSpacing.xl, AppSpacing.xl),
-          child: Column(
+        builder: (ctx, setSt) {
+          final first = firstCtrl.text.trim();
+          final last = lastCtrl.text.trim();
+          final email = emailCtrl.text.trim();
+          final specialtyReq = selectedRole == 'doctor' &&
+              specialtyCtrl.text.trim().isEmpty;
+          final canSubmit = first.isNotEmpty &&
+              last.isNotEmpty &&
+              _looksLikeEmail(email) &&
+              !specialtyReq &&
+              !creating;
+
+          return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -157,6 +220,7 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                       controller: firstCtrl,
                       label: 'First name',
                       hint: 'e.g. Amara',
+                      onChanged: (_) => setSt(() {}),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -165,6 +229,7 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                       controller: lastCtrl,
                       label: 'Last name',
                       hint: 'e.g. Okonkwo',
+                      onChanged: (_) => setSt(() {}),
                     ),
                   ),
                 ],
@@ -175,6 +240,10 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                 label: 'Email address',
                 hint: 'user@example.com',
                 keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setSt(() {}),
+                errorText: email.isEmpty || _looksLikeEmail(email)
+                    ? null
+                    : 'Enter a valid email address',
               ),
               const SizedBox(height: AppSpacing.sm),
               AppTextField(
@@ -194,12 +263,15 @@ class _AdminUsersViewState extends State<AdminUsersView> {
               GlassCard(
                 frosted: true,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: 4),
+                  horizontal: AppSpacing.md,
+                  vertical: 4,
+                ),
                 child: DropdownButton<String>(
                   value: selectedRole,
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
-                  onChanged: (v) => setSt(() => selectedRole = v ?? 'patient'),
+                  onChanged: (v) =>
+                      setSt(() => selectedRole = v ?? 'patient'),
                   items: _creatableRoleItems(includeRole: selectedRole),
                 ),
               ),
@@ -209,6 +281,7 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                   controller: specialtyCtrl,
                   label: 'Specialty / profession',
                   hint: 'e.g. General Practitioner, Nurse, Cardiologist',
+                  onChanged: (_) => setSt(() {}),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 AppTextField(
@@ -223,114 +296,174 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                 icon: AppIcons.user,
                 expand: true,
                 loading: creating,
-                onPressed: () async {
-                  final first = firstCtrl.text.trim();
-                  final last = lastCtrl.text.trim();
-                  final email = emailCtrl.text.trim();
-                  if (first.isEmpty || last.isEmpty || email.isEmpty) {
-                    AppToast.warn(
-                        ctx, 'First name, last name and email are required.');
-                    return;
-                  }
-                  setSt(() => creating = true);
-                  try {
-                    final data = await AdminApi.instance.createUser(
-                      firstName: first,
-                      lastName: last,
-                      email: email,
-                      phone: phoneCtrl.text.trim().isEmpty
-                          ? null
-                          : phoneCtrl.text.trim(),
-                      role: selectedRole,
-                      specialty: specialtyCtrl.text.trim(),
-                      licenseNumber: licenseCtrl.text.trim(),
-                    );
-                    if (ctx.mounted) {
-                      Navigator.of(ctx).pop();
-                      final temp = data?['temp_password'] as String?;
-                      final invite = data?['invite_token'] as String?;
-                      final emailSent = data?['email_sent'] as bool? ?? false;
-                      if (temp != null || invite != null) {
-                        await showDialog<void>(
-                          context: context,
-                          builder: (dCtx) => AlertDialog(
-                            title: const Text('Account created'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('$first $last is ready.'),
-                                if (temp != null) ...[
-                                  const SizedBox(height: 12),
-                                  const Text('Temporary password',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w700)),
-                                  SelectableText(
-                                    temp,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ],
-                                if (invite != null) ...[
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    emailSent
-                                        ? 'Invite email sent to $email.'
-                                        : 'Invite token issued (7-day expiry). Share securely or resend from user detail.',
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    'Invite token',
-                                    style: TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                  SelectableText(
-                                    invite,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ],
+                onPressed: !canSubmit ? null : () async {
+                setSt(() => creating = true);
+                try {
+                  final data = await AdminApi.instance.createUser(
+                    firstName: first,
+                    lastName: last,
+                    email: email,
+                    phone: phoneCtrl.text.trim().isEmpty
+                        ? null
+                        : phoneCtrl.text.trim(),
+                    role: selectedRole,
+                    specialty: specialtyCtrl.text.trim(),
+                    licenseNumber: licenseCtrl.text.trim(),
+                  );
+                  if (ctx.mounted) {
+                    Navigator.of(ctx).pop();
+                    final temp = data?['temp_password'] as String?;
+                    final invite = data?['invite_token'] as String?;
+                    final emailSent = data?['email_sent'] as bool? ?? false;
+                    if (temp != null || invite != null) {
+                      await showStaffCredentialDialog(
+                        context,
+                        title: 'Account created',
+                        message:
+                            '$first $last is ready. Share credentials only through a secure channel.',
+                        icon: AppIcons.check,
+                        statusMessage: invite != null && emailSent
+                            ? 'Invite email sent to $email.'
+                            : null,
+                        values: [
+                          if (temp != null)
+                            StaffCredentialValue(
+                              label: 'Temporary password',
+                              value: temp,
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(dCtx).pop(),
-                                child: const Text('Done'),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        AppToast.success(
-                            context, '$first $last created successfully.');
-                      }
-                      _loadUsers();
+                          if (invite != null)
+                            StaffCredentialValue(
+                              label: 'Invite token · expires in 7 days',
+                              value: invite,
+                            ),
+                        ],
+                      );
+                    } else {
+                      AppToast.success(
+                        context,
+                        '$first $last created successfully.',
+                      );
                     }
-                  } catch (e) {
-                    if (ctx.mounted) {
-                      AppToast.error(ctx, 'Could not create user: $e');
-                    }
-                  } finally {
-                    setSt(() => creating = false);
+                    _loadUsers();
                   }
-                },
+                } catch (e) {
+                  if (ctx.mounted) {
+                    AppToast.error(ctx, 'Could not create user: $e');
+                  }
+                } finally {
+                  if (ctx.mounted) setSt(() => creating = false);
+                }
+              },
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
+    firstCtrl.dispose();
+    lastCtrl.dispose();
+    emailCtrl.dispose();
+    phoneCtrl.dispose();
+    specialtyCtrl.dispose();
+    licenseCtrl.dispose();
   }
 
   @override
   void dispose() {
+    _syncedTicker?.cancel();
     _q.dispose();
     super.dispose();
+  }
+
+  bool _looksLikeEmail(String s) {
+    final re = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return re.hasMatch(s);
+  }
+
+  String? _syncedCaption() {
+    final synced = _lastSyncedAt;
+    if (synced == null) return null;
+    final delta = DateTime.now().difference(synced);
+    if (delta.inSeconds < 60) return 'Synced just now · ${_sort.label}';
+    if (delta.inMinutes < 60) {
+      return 'Synced ${delta.inMinutes}m ago · ${_sort.label}';
+    }
+    if (delta.inHours < 24) {
+      return 'Synced ${delta.inHours}h ago · ${_sort.label}';
+    }
+    return 'Synced ${DateFormat.MMMd().format(synced)} · ${_sort.label}';
+  }
+
+  int get _activeFilterCount {
+    var n = 0;
+    if (_filter != null) n++;
+    if (_passwordAssistOnly) n++;
+    if (_sort != _UserSort.nameAsc) n++;
+    return n;
+  }
+
+  List<({String label, VoidCallback onRemove})> _activeFilterPills() {
+    final pills = <({String label, VoidCallback onRemove})>[];
+    if (_filter != null) {
+      pills.add((
+        label: _filter!.label,
+        onRemove: () => setState(() {
+          _filter = null;
+          _persistedFilter = null;
+        }),
+      ));
+    }
+    if (_passwordAssistOnly) {
+      pills.add((
+        label: 'Password assist',
+        onRemove: () => setState(() {
+          _passwordAssistOnly = false;
+          _persistedAssistOnly = false;
+        }),
+      ));
+    }
+    if (_sort != _UserSort.nameAsc) {
+      pills.add((
+        label: _sort.label,
+        onRemove: () => setState(() {
+          _sort = _UserSort.nameAsc;
+          _persistedSort = _UserSort.nameAsc;
+        }),
+      ));
+    }
+    return pills;
+  }
+
+  List<DirectoryUser> _sortedList(List<DirectoryUser> input) {
+    final list = [...input];
+    switch (_sort) {
+      case _UserSort.nameAsc:
+        list.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case _UserSort.nameDesc:
+        list.sort(
+            (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case _UserSort.newest:
+        list.sort((a, b) => b.joinedAt.compareTo(a.joinedAt));
+        break;
+      case _UserSort.oldest:
+        list.sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
+        break;
+      case _UserSort.mcareId:
+        list.sort((a, b) =>
+            a.uniqueId.toLowerCase().compareTo(b.uniqueId.toLowerCase()));
+        break;
+      case _UserSort.roleAsc:
+        list.sort((a, b) {
+          final byRole = a.role.label.compareTo(b.role.label);
+          if (byRole != 0) return byRole;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+    }
+    return list;
   }
 
   @override
@@ -344,21 +477,24 @@ class _AdminUsersViewState extends State<AdminUsersView> {
       title: 'Users & passwords',
       subtitle: 'Accounts · temp passwords · unlocks',
       headerActions: [
-        AppButton(
-          label: 'Create',
-          icon: AppIcons.add,
-          size: AppButtonSize.sm,
-          onPressed: () => _openCreateSheet(context),
+        Tooltip(
+          message: 'Create a new user account',
+          child: AppButton(
+            label: 'Create',
+            icon: AppIcons.add,
+            size: AppButtonSize.sm,
+            onPressed: () => _openCreateSheet(context),
+          ),
         ),
         const SizedBox(width: 8),
       ],
       body: AnimatedBuilder(
         animation: StaffState.instance,
         builder: (context, _) {
-          if (_loading) {
+          if (_loading && StaffState.instance.users.isEmpty) {
             return const AppLoadingView();
           }
-          if (_error != null) {
+          if (_error != null && StaffState.instance.users.isEmpty) {
             return GlassCard(
               frosted: true,
               child: Column(
@@ -381,7 +517,8 @@ class _AdminUsersViewState extends State<AdminUsersView> {
             );
           }
 
-          var list = StaffState.instance.users;
+          final all = StaffState.instance.users;
+          var list = all;
           if (_filter != null) {
             list = list.where((u) => u.role == _filter).toList();
           }
@@ -393,103 +530,85 @@ class _AdminUsersViewState extends State<AdminUsersView> {
           final q = _q.text.trim().toLowerCase();
           if (q.isNotEmpty) {
             list = list
-                .where((u) =>
-                    u.name.toLowerCase().contains(q) ||
-                    u.email.toLowerCase().contains(q) ||
-                    u.uniqueId.toLowerCase().contains(q))
+                .where(
+                  (u) =>
+                      u.name.toLowerCase().contains(q) ||
+                      u.email.toLowerCase().contains(q) ||
+                      u.uniqueId.toLowerCase().contains(q),
+                )
                 .toList();
           }
-          final assistCount = StaffState.instance.users
-              .where((u) => u.isLocked || u.mustChangePassword)
-              .length;
+          list = _sortedList(list);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              GlassCard(
-                frosted: true,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Icon(AppIcons.search,
-                        size: 18, color: AppPalette.textMuted(context)),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: TextField(
-                        controller: _q,
-                        decoration: const InputDecoration(
-                          hintText: 'Search users…',
-                          border: InputBorder.none,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    child: StaffDirectorySearch(
+                      controller: _q,
+                      hintText: 'Search name, email or mCare ID…',
+                      semanticLabel: 'Search users and passwords directory',
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  _filterIconButton(context, all),
+                ],
               ),
-              const SizedBox(height: AppSpacing.sm),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _filterChip(context, null, 'All'),
-                    _filterChip(context, UserRole.patient, 'Patients'),
-                    _filterChip(context, UserRole.doctor, 'Doctors'),
-                    _filterChip(context, UserRole.mcareAssistant, 'Assistants'),
-                    _filterChip(context, UserRole.admin, 'Admins'),
-                    _assistFilterChip(context, assistCount),
-                  ],
-                ),
-              ),
+              if (_activeFilterPills().isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _activeFilterStrip(),
+              ],
               const SizedBox(height: AppSpacing.md),
+              SectionLabel(
+                title: 'User directory',
+                icon: AppIcons.users,
+                trailing: '${list.length}/${all.length}',
+                actionLabel: _loading ? null : 'Refresh',
+                onAction: _loading ? null : _loadUsers,
+              ),
+              if (_syncedCaption() != null)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.xs,
+                    bottom: AppSpacing.sm,
+                  ),
+                  child: Text(
+                    _syncedCaption()!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                        ),
+                  ),
+                ),
               if (list.isEmpty)
                 GlassCard(
                   frosted: true,
-                  child: EmptyStateView(
-                    icon: AppIcons.users,
-                    title: 'No users match',
-                    compact: true,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      EmptyStateView(
+                        icon: AppIcons.users,
+                        title: 'No users match',
+                        message: _hasActiveFilters
+                            ? 'Adjust or clear filters to see more accounts.'
+                            : 'No user accounts to show yet.',
+                        compact: true,
+                      ),
+                      if (_hasActiveFilters) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        AppButton(
+                          label: 'Clear all filters',
+                          icon: AppIcons.close,
+                          onPressed: _clearAllFilters,
+                        ),
+                      ],
+                    ],
                   ),
                 )
               else
                 StaffListCard(
-                  children: list
-                      .map((u) => StaffListRow(
-                            icon: AppIcons.user,
-                            iconColor: u.role.accent,
-                            title: u.name,
-                            subtitle: [
-                              u.email,
-                              u.uniqueId,
-                              if (u.specialty?.trim().isNotEmpty == true)
-                                u.specialty!.trim(),
-                              if (u.licenseNumber?.trim().isNotEmpty == true)
-                                u.licenseNumber!.trim(),
-                            ].join(' · '),
-                            pill: u.isLocked
-                                ? 'LOCKED'
-                                : u.mustChangePassword
-                                    ? 'TEMP PWD'
-                                    : u.status.toUpperCase(),
-                            pillColor: u.isLocked
-                                ? AppColors.critical
-                                : u.mustChangePassword
-                                    ? AppColors.warning
-                                    : switch (u.status) {
-                                        'active' => AppColors.success,
-                                        'suspended' => AppColors.critical,
-                                        _ => AppColors.warning,
-                                      },
-                            onTap: () => Navigator.of(context).pushNamed(
-                              nav.isAssistant
-                                  ? RouteNames.assistantUserDetail
-                                  : RouteNames.adminUserDetail,
-                              arguments: u.id,
-                            ),
-                          ))
-                      .toList(),
+                  children: list.map((u) => _userRow(context, u, nav)).toList(),
                 ),
             ],
           );
@@ -498,64 +617,397 @@ class _AdminUsersViewState extends State<AdminUsersView> {
     );
   }
 
-  Widget _assistFilterChip(BuildContext context, int count) {
-    final selected = _passwordAssistOnly;
-    final accent = AppColors.warning;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.sm),
+  Widget _filterIconButton(BuildContext context, List<DirectoryUser> all) {
+    final active = _activeFilterCount;
+    return Semantics(
+      button: true,
+      label: active == 0 ? 'Open filters' : '$active filters active',
       child: InkWell(
-        onTap: () => setState(() {
-          _passwordAssistOnly = !_passwordAssistOnly;
-          if (_passwordAssistOnly) _filter = null;
-        }),
+        onTap: () => _openFilterSheet(context, all),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? accent.withOpacity(0.14) : AppPalette.surfaceAlt(context),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-            border: Border.all(color: selected ? accent : AppPalette.border(context)),
-          ),
-          child: Text(
-            count > 0 ? 'Password assist ($count)' : 'Password assist',
-            style: TextStyle(
-              color: selected ? accent : AppPalette.textMuted(context),
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              height: 44,
+              width: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active > 0
+                    ? AppColors.brandIndigo.withValues(alpha: 0.12)
+                    : AppPalette.surfaceAlt(context),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                border: Border.all(color: AppPalette.border(context)),
+              ),
+              child: Icon(
+                AppIcons.filter,
+                size: 20,
+                color: active > 0
+                    ? AppColors.brandIndigo
+                    : AppPalette.textMuted(context),
+              ),
             ),
-          ),
+            if (active > 0)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
+                  constraints:
+                      const BoxConstraints(minWidth: 18, minHeight: 18),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandIndigo,
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusPill),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$active',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _filterChip(BuildContext context, UserRole? r, String label) {
-    final selected = !_passwordAssistOnly && _filter == r;
-    final accent = r?.accent ?? Theme.of(context).colorScheme.primary;
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.sm),
+  Widget _activeFilterStrip() {
+    final pills = _activeFilterPills();
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final pill in pills)
+          _UsersRemovablePill(label: pill.label, onRemove: pill.onRemove),
+        TextButton.icon(
+          onPressed: _clearAllFilters,
+          icon: const Icon(AppIcons.close, size: 14),
+          label: const Text('Clear all'),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: AppColors.critical,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openFilterSheet(
+    BuildContext context,
+    List<DirectoryUser> all,
+  ) async {
+    var draftRole = _filter;
+    var draftAssist = _passwordAssistOnly;
+    var draftSort = _sort;
+
+    int roleCount(UserRole? r) => r == null
+        ? all.length
+        : all.where((u) => u.role == r).length;
+    final assistCount =
+        all.where((u) => u.isLocked || u.mustChangePassword).length;
+
+    final applied = await showModalBottomSheet<bool>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            Widget section(String title, List<Widget> children) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: AppSpacing.xs,
+                      bottom: AppSpacing.sm,
+                    ),
+                    child: Text(
+                      title,
+                      style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.textMuted(ctx),
+                            letterSpacing: 0.4,
+                          ),
+                    ),
+                  ),
+                  Wrap(runSpacing: AppSpacing.xs, children: children),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+              );
+            }
+
+            Widget roleChip(UserRole? r, String label) {
+              return StaffDirectoryFilterChip(
+                label: '$label · ${roleCount(r)}',
+                selected: draftRole == r,
+                accent: r?.accent ?? AppColors.brandIndigo,
+                onTap: () => setSt(() => draftRole = r),
+              );
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: AppSpacing.lg,
+                  right: AppSpacing.lg,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.md,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Filter users',
+                            style: Theme.of(ctx).textTheme.titleMedium,
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => setSt(() {
+                              draftRole = null;
+                              draftAssist = false;
+                              draftSort = _UserSort.nameAsc;
+                            }),
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    section('ROLE', [
+                      roleChip(null, 'All'),
+                      roleChip(UserRole.patient, 'Patients'),
+                      roleChip(UserRole.doctor, 'Doctors'),
+                      roleChip(UserRole.mcareAssistant, 'Assistants'),
+                      roleChip(UserRole.admin, 'Admins'),
+                    ]),
+                    section('ATTENTION', [
+                      StaffDirectoryFilterChip(
+                        label: 'Password assist · $assistCount',
+                        selected: draftAssist,
+                        accent: AppColors.warning,
+                        onTap: () => setSt(() => draftAssist = !draftAssist),
+                      ),
+                    ]),
+                    section('SORT BY', [
+                      for (final s in _UserSort.values)
+                        StaffDirectoryFilterChip(
+                          label: s.label,
+                          selected: draftSort == s,
+                          accent: AppColors.doctorGreen,
+                          onTap: () => setSt(() => draftSort = s),
+                        ),
+                    ]),
+                    AppButton(
+                      label: 'Apply filters',
+                      icon: AppIcons.check,
+                      expand: true,
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (applied == true && mounted) {
+      setState(() {
+        _filter = draftRole;
+        _passwordAssistOnly = draftAssist;
+        _sort = draftSort;
+        _persistedFilter = draftRole;
+        _persistedAssistOnly = draftAssist;
+        _persistedSort = draftSort;
+      });
+    }
+  }
+
+  Widget _userRow(BuildContext context, DirectoryUser u, _UsersNavConfig nav) {
+    final detailRoute = nav.isAssistant
+        ? RouteNames.assistantUserDetail
+        : RouteNames.adminUserDetail;
+    return GestureDetector(
+      onLongPress: () => _showRowActions(context, u, detailRoute),
+      behavior: HitTestBehavior.opaque,
+      child: StaffListRow(
+        icon: AppIcons.user,
+        iconColor: u.role.accent,
+        title: u.name,
+        subtitle: [
+          u.email,
+          u.uniqueId,
+          if (u.specialty?.trim().isNotEmpty == true) u.specialty!.trim(),
+          if (u.licenseNumber?.trim().isNotEmpty == true)
+            u.licenseNumber!.trim(),
+        ].join(' · '),
+        pill: u.isLocked
+            ? 'LOCKED'
+            : u.mustChangePassword
+                ? 'TEMP PWD'
+                : u.status.toUpperCase(),
+        pillColor: u.isLocked
+            ? AppColors.critical
+            : u.mustChangePassword
+                ? AppColors.warning
+                : switch (u.status) {
+                    'active' => AppColors.success,
+                    'suspended' => AppColors.critical,
+                    _ => AppColors.warning,
+                  },
+        onTap: () =>
+            Navigator.of(context).pushNamed(detailRoute, arguments: u.id),
+      ),
+    );
+  }
+
+  Future<void> _showRowActions(
+    BuildContext context,
+    DirectoryUser u,
+    String detailRoute,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Icon(AppIcons.user, color: u.role.accent, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          u.name,
+                          style: Theme.of(ctx).textTheme.titleSmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          '${u.role.label} · ${u.uniqueId}',
+                          style: Theme.of(ctx).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: const Text('Open details'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context)
+                    .pushNamed(detailRoute, arguments: u.id);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.email_outlined),
+              title: const Text('Copy email'),
+              subtitle: Text(u.email),
+              onTap: () async {
+                await Clipboard.setData(ClipboardData(text: u.email));
+                if (!ctx.mounted) return;
+                Navigator.of(ctx).pop();
+                if (!context.mounted) return;
+                AppToast.success(context, 'Email copied');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('Copy mCare ID'),
+              subtitle: Text(u.uniqueId),
+              onTap: () async {
+                await Clipboard.setData(ClipboardData(text: u.uniqueId));
+                if (!ctx.mounted) return;
+                Navigator.of(ctx).pop();
+                if (!context.mounted) return;
+                AppToast.success(context, 'mCare ID copied');
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UsersRemovablePill extends StatelessWidget {
+  const _UsersRemovablePill({required this.label, required this.onRemove});
+
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        onTap: () => setState(() {
-          _filter = r;
-          _passwordAssistOnly = false;
-        }),
+        onTap: onRemove,
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? accent.withOpacity(0.14) : AppPalette.surfaceAlt(context),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-            border: Border.all(color: selected ? accent : AppPalette.border(context)),
+          padding: const EdgeInsets.only(
+            left: AppSpacing.md,
+            right: AppSpacing.sm,
+            top: 6,
+            bottom: 6,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? accent : AppPalette.textMuted(context),
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+          decoration: BoxDecoration(
+            color: AppColors.brandIndigo.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            border: Border.all(
+              color: AppColors.brandIndigo.withValues(alpha: 0.35),
             ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.brandIndigo,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                AppIcons.close,
+                size: 14,
+                color: AppColors.brandIndigo,
+              ),
+            ],
           ),
         ),
       ),
@@ -573,10 +1025,13 @@ class AdminUserDetailView extends StatelessWidget {
       animation: StaffState.instance,
       builder: (context, _) {
         final nav = _navConfig();
+        final detailRoute = nav.isAssistant
+            ? RouteNames.assistantUserDetail
+            : RouteNames.adminUserDetail;
         final user = StaffState.instance.userById(userId);
         if (user == null) {
           return RoleShell(
-            currentRoute: nav.currentRoute,
+            currentRoute: detailRoute,
             destinations: nav.destinations,
             profileRoute: nav.profileRoute,
             notificationsRoute: nav.notificationsRoute,
@@ -592,7 +1047,7 @@ class AdminUserDetailView extends StatelessWidget {
           );
         }
         return RoleShell(
-          currentRoute: nav.currentRoute,
+          currentRoute: detailRoute,
           destinations: nav.destinations,
           profileRoute: nav.profileRoute,
           notificationsRoute: nav.notificationsRoute,
@@ -622,23 +1077,23 @@ class AdminUserDetailView extends StatelessWidget {
                     InkWell(
                       onTap: user.role == UserRole.patient
                           ? () => StaffPatientProfileSheet.show(
-                                context,
-                                patientId: user.id,
-                                patientName: user.name,
-                                loadFromAdmin: true,
-                              )
+                              context,
+                              patientId: user.id,
+                              patientName: user.name,
+                              loadFromAdmin: true,
+                            )
                           : null,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusSm),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                       child: Row(
                         children: [
                           Container(
                             height: 48,
                             width: 48,
                             decoration: BoxDecoration(
-                              color: user.role.accent.withOpacity(0.14),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.radiusPill),
+                              color: user.role.accent.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
                             ),
                             alignment: Alignment.center,
                             child: Text(
@@ -654,13 +1109,16 @@ class AdminUserDetailView extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(user.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                                Text(user.email,
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall),
+                                Text(
+                                  user.name,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                Text(
+                                  user.email,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
                                 if (user.role == UserRole.patient)
                                   Text(
                                     'Tap for full clinical profile',
@@ -692,8 +1150,10 @@ class AdminUserDetailView extends StatelessWidget {
                       'Joined ${DateFormat.yMMMd().format(user.joinedAt)}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    Text('Status: ${user.status}',
-                        style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      'Status: ${user.status}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                     if (user.isLocked)
                       Padding(
                         padding: const EdgeInsets.only(top: AppSpacing.xs),
@@ -701,7 +1161,8 @@ class AdminUserDetailView extends StatelessWidget {
                           user.lockedUntil != null
                               ? 'Locked until ${DateFormat.yMMMd().add_jm().format(user.lockedUntil!.toLocal())}'
                               : 'Account locked after failed sign-ins',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
                                 color: AppColors.critical,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -712,7 +1173,8 @@ class AdminUserDetailView extends StatelessWidget {
                         padding: const EdgeInsets.only(top: AppSpacing.xs),
                         child: Text(
                           'Must change temporary password on next sign-in',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
                                 color: AppColors.warning,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -720,12 +1182,16 @@ class AdminUserDetailView extends StatelessWidget {
                       ),
                     if (user.role == UserRole.doctor &&
                         user.specialty?.trim().isNotEmpty == true)
-                      Text('Specialty: ${user.specialty!.trim()}',
-                          style: Theme.of(context).textTheme.bodyMedium),
+                      Text(
+                        'Specialty: ${user.specialty!.trim()}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     if (user.role == UserRole.doctor &&
                         user.licenseNumber?.trim().isNotEmpty == true)
-                      Text('License: ${user.licenseNumber!.trim()}',
-                          style: Theme.of(context).textTheme.bodyMedium),
+                      Text(
+                        'License: ${user.licenseNumber!.trim()}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                   ],
                 ),
               ),
@@ -758,20 +1224,19 @@ class AdminUserDetailView extends StatelessWidget {
                           final ok = await AppDialog.confirm(
                             context,
                             title: 'Approve ${user.name}?',
-                            message:
-                                'They will gain access immediately.',
+                            message: 'They will gain access immediately.',
                             icon: AppIcons.approval,
                           );
                           if (ok != true) return;
                           try {
-                            await StaffState.instance
-                                .approveApplicationRemote(user.id);
+                            await StaffState.instance.approveApplicationRemote(
+                              user.id,
+                            );
                             if (!context.mounted) return;
                             AppToast.success(context, '${user.name} approved.');
                           } catch (e) {
                             if (!context.mounted) return;
-                            AppToast.error(
-                                context, 'Could not approve: $e');
+                            AppToast.error(context, 'Could not approve: $e');
                           }
                         },
                       ),
@@ -795,19 +1260,19 @@ class AdminUserDetailView extends StatelessWidget {
                               reason: 'Application rejected by staff.',
                             );
                             if (!context.mounted) return;
-                            AppToast.info(
-                                context, '${user.name} rejected.');
+                            AppToast.info(context, '${user.name} rejected.');
                           } catch (e) {
                             if (!context.mounted) return;
-                            AppToast.error(
-                                context, 'Could not reject: $e');
+                            AppToast.error(context, 'Could not reject: $e');
                           }
                         },
                       ),
                       const SizedBox(height: AppSpacing.sm),
                     ],
                     AppButton(
-                      label: user.status == 'active' ? 'Suspend account' : 'Reactivate',
+                      label: user.status == 'active'
+                          ? 'Suspend account'
+                          : 'Reactivate',
                       icon: user.status == 'active'
                           ? AppIcons.lock
                           : AppIcons.check,
@@ -815,11 +1280,14 @@ class AdminUserDetailView extends StatelessWidget {
                           ? AppButtonVariant.danger
                           : AppButtonVariant.primary,
                       onPressed: () async {
-                        final next = user.status == 'active' ? 'suspended' : 'active';
+                        final next = user.status == 'active'
+                            ? 'suspended'
+                            : 'active';
                         final ok = await AppDialog.confirm(
                           context,
-                          title:
-                              user.status == 'active' ? 'Suspend account?' : 'Reactivate?',
+                          title: user.status == 'active'
+                              ? 'Suspend account?'
+                              : 'Reactivate?',
                           message: user.status == 'active'
                               ? 'User will lose access immediately.'
                               : 'User will regain access immediately.',
@@ -827,7 +1295,10 @@ class AdminUserDetailView extends StatelessWidget {
                         );
                         if (ok != true) return;
                         try {
-                          await StaffState.instance.setUserStatusRemote(user.id, next);
+                          await StaffState.instance.setUserStatusRemote(
+                            user.id,
+                            next,
+                          );
                           if (!context.mounted) return;
                           AppToast.success(context, 'Status updated.');
                         } catch (_) {
@@ -838,7 +1309,8 @@ class AdminUserDetailView extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     if (AuthState.instance.hasAssistantPermission(
-                        AssistantPermissions.canChangeUserTypes))
+                      AssistantPermissions.canChangeUserTypes,
+                    ))
                       AppButton(
                         label: 'Change role',
                         icon: AppIcons.permissions,
@@ -846,7 +1318,8 @@ class AdminUserDetailView extends StatelessWidget {
                         onPressed: () => _changeRole(context, user),
                       ),
                     if (AuthState.instance.hasAssistantPermission(
-                        AssistantPermissions.canChangeUserTypes))
+                      AssistantPermissions.canChangeUserTypes,
+                    ))
                       const SizedBox(height: AppSpacing.sm),
                     if (_usesInvite(user.role)) ...[
                       AppButton(
@@ -863,8 +1336,9 @@ class AdminUserDetailView extends StatelessWidget {
                         label: 'Manage permissions',
                         icon: AppIcons.permissions,
                         variant: AppButtonVariant.secondary,
-                        onPressed: () => Navigator.of(context)
-                            .pushNamed(RouteNames.adminPermissions),
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pushNamed(RouteNames.adminPermissions),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                     ],
@@ -872,10 +1346,7 @@ class AdminUserDetailView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const SectionLabel(
-                title: 'Password assist',
-                icon: AppIcons.lock,
-              ),
+              const SectionLabel(title: 'Password assist', icon: AppIcons.lock),
               const SizedBox(height: AppSpacing.sm),
               GlassCard(
                 frosted: true,
@@ -886,11 +1357,11 @@ class AdminUserDetailView extends StatelessWidget {
                       user.isLocked
                           ? 'This account is locked. Unlock it, or issue a temporary password if they lost access.'
                           : user.mustChangePassword
-                              ? 'A temporary password is still active. Re-issue one if they lost it before signing in.'
-                              : 'Help with lockouts or forgotten passwords. Temporary passwords must be changed on next sign-in.',
+                          ? 'A temporary password is still active. Re-issue one if they lost it before signing in.'
+                          : 'Help with lockouts or forgotten passwords. Temporary passwords must be changed on next sign-in.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                          ),
+                        color: AppPalette.textMuted(context),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     AppButton(
@@ -943,51 +1414,14 @@ class AdminUserDetailView extends StatelessWidget {
         ..mustChangePassword = true;
       StaffState.instance.notifyDirectoryChanged();
       final password = temp ?? '';
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Temporary password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Share this securely with ${user.name}. It is shown only once.',
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Temporary password',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              SelectableText(
-                password.isEmpty ? '(not returned — retry)' : password,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            if (password.isNotEmpty)
-              TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: password));
-                  if (ctx.mounted) {
-                    AppToast.success(ctx, 'Copied to clipboard');
-                  }
-                },
-                icon: const Icon(AppIcons.copy, size: 16),
-                label: const Text('Copy'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
+      await showStaffCredentialDialog(
+        context,
+        title: 'Temporary password',
+        message:
+            'Share this securely with ${user.name}. It is shown only once and must be changed at the next sign-in.',
+        values: [
+          StaffCredentialValue(label: 'Temporary password', value: password),
+        ],
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -1038,55 +1472,25 @@ class AdminUserDetailView extends StatelessWidget {
       final token = data?['invite_token'] as String?;
       final emailSent = data?['email_sent'] as bool? ?? false;
       if (token == null) {
-        AppToast.warn(context, 'Invite was not returned — user may have already accepted.');
+        AppToast.warn(
+          context,
+          'Invite was not returned — user may have already accepted.',
+        );
         return;
       }
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Invite reissued'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('New invite for ${user.email} (expires in 7 days).'),
-              if (emailSent) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Invite email sent to ${user.email}.',
-                  style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w600),
-                ),
-              ],
-              const SizedBox(height: 12),
-              const Text(
-                'Invite token',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              SelectableText(
-                token,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Direct them to Accept invite in the app and paste this token.',
-                style: TextStyle(
-                  color: AppPalette.textMuted(context),
-                  fontSize: 12,
-                ),
-              ),
-            ],
+      await showStaffCredentialDialog(
+        context,
+        title: 'Invite reissued',
+        message:
+            'New invite for ${user.email}. Ask them to open Accept invite and paste this token.',
+        icon: AppIcons.email,
+        statusMessage: emailSent ? 'Invite email sent to ${user.email}.' : null,
+        values: [
+          StaffCredentialValue(
+            label: 'Invite token · expires in 7 days',
+            value: token,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Done'),
-            ),
-          ],
-        ),
+        ],
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -1103,62 +1507,61 @@ class AdminUserDetailView extends StatelessWidget {
       title: 'Change role',
       subtitle: 'Update ${user.name}\'s system role',
       child: StatefulBuilder(
-        builder: (ctx, setSt) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl, AppSpacing.md, AppSpacing.xl, AppSpacing.xl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'New role',
-                style: Theme.of(ctx)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(color: AppPalette.textMuted(context)),
+        builder: (ctx, setSt) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'New role',
+              style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                color: AppPalette.textMuted(context),
               ),
-              const SizedBox(height: 4),
-              GlassCard(
-                frosted: true,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: 4),
-                child: DropdownButton<String>(
-                  value: selectedRole,
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  onChanged: (v) => setSt(() => selectedRole = v ?? selectedRole),
-                  items: _creatableRoleItems(includeRole: selectedRole),
-                ),
+            ),
+            const SizedBox(height: 4),
+            GlassCard(
+              frosted: true,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 4,
               ),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: reasonCtrl,
-                label: 'Reason (required for audit)',
-                hint: 'e.g. Promoted to admin role',
-                maxLines: 2,
-                onChanged: (_) => setSt(() {}),
+              child: DropdownButton<String>(
+                value: selectedRole,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                onChanged: (v) => setSt(() => selectedRole = v ?? selectedRole),
+                items: _creatableRoleItems(includeRole: selectedRole),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              AppButton(
-                label: 'Confirm change',
-                icon: AppIcons.check,
-                expand: true,
-                onPressed: reasonCtrl.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.of(ctx).pop(true),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            AppTextField(
+              controller: reasonCtrl,
+              label: 'Reason (required for audit)',
+              hint: 'e.g. Promoted to admin role',
+              maxLines: 2,
+              onChanged: (_) => setSt(() {}),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppButton(
+              label: 'Confirm change',
+              icon: AppIcons.check,
+              expand: true,
+              onPressed: reasonCtrl.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.of(ctx).pop(true),
+            ),
+          ],
         ),
       ),
     );
 
+    final reason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
     if (ok != true || !context.mounted) return;
     try {
       await StaffState.instance.changeUserRoleRemote(
         userId,
         newRole: selectedRole,
-        reason: reasonCtrl.text.trim(),
+        reason: reason,
       );
       if (!context.mounted) return;
       AppToast.success(context, 'Role updated to $selectedRole.');

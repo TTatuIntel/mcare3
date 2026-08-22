@@ -16,13 +16,13 @@ abstract final class AppLayout {
   static const double logoSplash = 104;
 
   // --- Form controls --------------------------------------------------------
-  static const double controlHeight = 40;
-  static const double controlIconSize = 17;
+  static const double controlHeight = 48;
+  static const double controlIconSize = 18;
   static const EdgeInsets controlPadding =
-      EdgeInsets.symmetric(horizontal: 12, vertical: 10);
+      EdgeInsets.symmetric(horizontal: 14, vertical: 12);
   static const BoxConstraints controlConstraints =
-      BoxConstraints(minHeight: 40, maxHeight: 42);
-  static const double controlPrefixWidth = 40;
+      BoxConstraints(minHeight: 48, maxHeight: 56);
+  static const double controlPrefixWidth = 48;
 
   // --- Spacing rhythm -------------------------------------------------------
   static const double fieldGap = AppSpacing.lg;

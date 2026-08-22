@@ -11,6 +11,7 @@ import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/sos_alert_popup.dart';
 import '../env/app_env.dart';
 import 'background_session_sync.dart';
+import 'realtime_channel.dart';
 
 /// Standard background refresh for all signed-in roles.
 ///
@@ -18,6 +19,12 @@ import 'background_session_sync.dart';
 /// - Skips overlapping requests
 /// - Only rebuilds UI when session data actually changed
 /// - Surfaces toasts only for new critical alerts / SOS events
+///
+/// README §7.1 target end-state: once Reverb WebSockets are the primary
+/// delivery channel, this poller drops to [fallbackInterval] and becomes a
+/// reconciliation sweep for missed events after reconnect — not a delivery
+/// mechanism. The [fallbackInterval] constant is defined now so the switch
+/// is a one-line change in [_scheduleNext] once the WS client lands.
 class SessionPoller {
   SessionPoller._();
   static final SessionPoller instance = SessionPoller._();
@@ -25,6 +32,10 @@ class SessionPoller {
   static const Duration normalInterval = Duration(seconds: 30);
   static const Duration urgentInterval = Duration(seconds: 8);
   static const Duration initialDelay = Duration(seconds: 3);
+
+  /// Post-Reverb reconciliation sweep interval (§7.1). Not yet active —
+  /// see class doc.
+  static const Duration fallbackInterval = Duration(minutes: 5);
 
   Timer? _timer;
   Timer? _initialTimer;
@@ -201,13 +212,19 @@ class _SessionPollerScopeState extends State<SessionPollerScope> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) SessionPoller.instance.attach(context);
+      if (mounted) {
+        SessionPoller.instance.attach(context);
+        // Opt-in WebSocket channel (§7.1). No-op unless MCARE_WS_URL +
+        // MCARE_WS_APP_KEY are set — REST polling continues either way.
+        RealtimeChannel.instance.attach();
+      }
     });
   }
 
   @override
   void dispose() {
     SessionPoller.instance.detach();
+    RealtimeChannel.instance.detach();
     super.dispose();
   }
 

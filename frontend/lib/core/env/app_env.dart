@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Environment flags — flip [backendEnabled] when the Laravel API is live.
 class AppEnv {
   AppEnv._();
@@ -9,10 +11,50 @@ class AppEnv {
     defaultValue: true,
   );
 
-  static const String apiBaseUrl = String.fromEnvironment(
+  static const String _rawApiBaseUrl = String.fromEnvironment(
     'MCARE_API_URL',
-    defaultValue: 'http://127.0.0.1:9090/api/v1',
+    defaultValue: 'http://127.0.0.1:8000/api/v1',
   );
+
+  /// True when the caller explicitly passed `--dart-define=MCARE_API_URL=...`.
+  /// If so, we respect the URL verbatim and skip the Android loopback rewrite.
+  static const bool _apiUrlOverridden = bool.hasEnvironment('MCARE_API_URL');
+
+  /// Base URL of the Laravel API. On the Android emulator, `127.0.0.1` refers
+  /// to the emulator itself — `10.0.2.2` is the alias for the host machine's
+  /// loopback. We rewrite it here so a fresh clone runs against a local
+  /// backend without extra configuration. Physical devices still need a LAN
+  /// IP via `--dart-define=MCARE_API_URL=http://<host>:8000/api/v1`.
+  static final String apiBaseUrl = _resolveApiBaseUrl();
+
+  static String _resolveApiBaseUrl() {
+    if (_apiUrlOverridden || kIsWeb) return _rawApiBaseUrl;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return _rawApiBaseUrl
+          .replaceFirst('://127.0.0.1', '://10.0.2.2')
+          .replaceFirst('://localhost', '://10.0.2.2');
+    }
+    return _rawApiBaseUrl;
+  }
+
+  /// Reverb (WebSocket) endpoint — set via
+  ///   `--dart-define=MCARE_WS_URL=ws://127.0.0.1:8080`
+  /// Empty by default so realtime is opt-in; when empty the app falls back
+  /// to REST polling only (§7.1 fallback strategy).
+  static const String wsUrl = String.fromEnvironment(
+    'MCARE_WS_URL',
+    defaultValue: '',
+  );
+
+  /// The Reverb `app_key` from backend/.env `REVERB_APP_KEY`. Required to
+  /// establish a Pusher-protocol handshake with the Reverb server.
+  static const String wsAppKey = String.fromEnvironment(
+    'MCARE_WS_APP_KEY',
+    defaultValue: '',
+  );
+
+  static bool get realtimeEnabled =>
+      backendEnabled && wsUrl.isNotEmpty && wsAppKey.isNotEmpty;
 
   /// Google OAuth web client ID — set via `--dart-define=MCARE_GOOGLE_CLIENT_ID=...`
   /// or use the default mCare web client for local development.

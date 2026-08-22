@@ -43,6 +43,7 @@ class AppIcons {
   static const IconData report = Icons.assignment_rounded;
   static const IconData chat = Icons.chat_bubble_rounded;
   static const IconData support = Icons.support_agent_rounded;
+  static const IconData ticket = Icons.confirmation_number_rounded;
   static const IconData meals = Icons.restaurant_rounded;
   static const IconData sos = Icons.emergency_rounded;
 
