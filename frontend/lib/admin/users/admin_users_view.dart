@@ -28,7 +28,9 @@ import '../../shared/widgets/staff_directory_controls.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/staff_credential_dialog.dart';
-import '../../shared/widgets/staff_patient_profile_sheet.dart';
+import '../../shared/widgets/dossier/user_dossier_sheet.dart';
+import '../reports/patient_report_builder_sheet.dart';
+import '../reports/patient_report_status_sheet.dart';
 
 /// Role options shown in create/change flows — respects assistant grants.
 List<DropdownMenuItem<String>> _creatableRoleItems({String? includeRole}) {
@@ -1053,19 +1055,13 @@ class AdminUserDetailView extends StatelessWidget {
           notificationsRoute: nav.notificationsRoute,
           title: user.name,
           subtitle: '${user.role.label} · ${user.uniqueId}',
-          subjectIdentity: user.role == UserRole.patient
-              ? RoleSubjectIdentity(
-                  name: user.name,
-                  initials: _initials(user.name),
-                  accent: user.role.accent,
-                  onTap: () => StaffPatientProfileSheet.show(
-                    context,
-                    patientId: user.id,
-                    patientName: user.name,
-                    loadFromAdmin: true,
-                  ),
-                )
-              : null,
+          // Every role now opens the same full dossier, not just patients.
+          subjectIdentity: RoleSubjectIdentity(
+            name: user.name,
+            initials: _initials(user.name),
+            accent: user.role.accent,
+            onTap: () => _openDossier(context, user),
+          ),
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1075,14 +1071,7 @@ class AdminUserDetailView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     InkWell(
-                      onTap: user.role == UserRole.patient
-                          ? () => StaffPatientProfileSheet.show(
-                              context,
-                              patientId: user.id,
-                              patientName: user.name,
-                              loadFromAdmin: true,
-                            )
-                          : null,
+                      onTap: () => _openDossier(context, user),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                       child: Row(
                         children: [
@@ -1119,27 +1108,27 @@ class AdminUserDetailView extends StatelessWidget {
                                   user.email,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                                if (user.role == UserRole.patient)
-                                  Text(
-                                    'Tap for full clinical profile',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: AppColors.info,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 10,
-                                        ),
-                                  ),
+                                Text(
+                                  user.role == UserRole.patient
+                                      ? 'Tap for full clinical profile'
+                                      : 'Tap for full account record',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: AppColors.info,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 10,
+                                      ),
+                                ),
                               ],
                             ),
                           ),
-                          if (user.role == UserRole.patient)
-                            Icon(
-                              AppIcons.chevronRight,
-                              size: 16,
-                              color: AppPalette.textMuted(context),
-                            ),
+                          Icon(
+                            AppIcons.chevronRight,
+                            size: 16,
+                            color: AppPalette.textMuted(context),
+                          ),
                         ],
                       ),
                     ),
@@ -1195,19 +1184,22 @@ class AdminUserDetailView extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+              AppButton(
+                label: 'View full profile',
+                icon: AppIcons.profile,
+                variant: AppButtonVariant.secondary,
+                expand: true,
+                onPressed: () => _openDossier(context, user),
+              ),
               if (user.role == UserRole.patient) ...[
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 AppButton(
-                  label: 'View full profile',
-                  icon: AppIcons.profile,
+                  label: 'Issue patient report',
+                  icon: AppIcons.report,
                   variant: AppButtonVariant.secondary,
                   expand: true,
-                  onPressed: () => StaffPatientProfileSheet.show(
-                    context,
-                    patientId: user.id,
-                    patientName: user.name,
-                    loadFromAdmin: true,
-                  ),
+                  onPressed: () => _issueReport(context, user),
                 ),
               ],
               const SizedBox(height: AppSpacing.md),
@@ -1456,6 +1448,33 @@ class AdminUserDetailView extends StatelessWidget {
       role == UserRole.doctor ||
       role == UserRole.mcareAssistant ||
       role == UserRole.admin;
+
+  /// Full account record — identical shape for every role, so an admin sees
+  /// a doctor's caseload and approval trail as readily as a patient's chart.
+  void _openDossier(BuildContext context, DirectoryUser user) {
+    UserDossierSheet.show(
+      context,
+      userId: user.id,
+      name: user.name,
+      subtitle: '${user.role.label} · ${user.uniqueId}',
+      onIssueReport: user.role == UserRole.patient
+          ? () => _issueReport(context, user)
+          : null,
+    );
+  }
+
+  /// Tick-list report builder, then straight into the consent / signature
+  /// tracker so the admin can drive the request to completion in one pass.
+  Future<void> _issueReport(BuildContext context, DirectoryUser user) async {
+    final request = await PatientReportBuilderSheet.show(
+      context,
+      patientId: user.id,
+      patientName: user.name,
+    );
+    if (request == null || !context.mounted) return;
+
+    await PatientReportStatusSheet.show(context, request: request);
+  }
 
   Future<void> _resendInvite(BuildContext context, DirectoryUser user) async {
     final ok = await AppDialog.confirm(

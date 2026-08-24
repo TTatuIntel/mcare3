@@ -99,24 +99,19 @@ class AdminWorkspaceCatalog {
       color: AppColors.adminPurple,
       category: AdminWorkspaceCategory.people,
     ),
+    // Requests and assignments are one workflow on one screen — approving a
+    // request is what creates the assignment. The former 'assignments' area
+    // was folded in here; `/admin/assignments` redirects to this route.
     AdminWorkspaceArea(
       id: 'care_requests',
       label: 'Care requests',
-      subtitle: 'Approve or reject patient provider changes',
+      subtitle: 'Approve, re-route or decline — and manage assignments',
       icon: AppIcons.careRequest,
       route: RouteNames.adminCareRequests,
       color: AppColors.info,
       category: AdminWorkspaceCategory.operations,
       badgeKey: 'care_requests',
-    ),
-    AdminWorkspaceArea(
-      id: 'assignments',
-      label: 'Assignments',
-      subtitle: 'Patient ↔ provider care team pairings',
-      icon: AppIcons.assignments,
-      route: RouteNames.adminAssignments,
-      color: AppColors.brandIndigo,
-      category: AdminWorkspaceCategory.operations,
+      featured: true,
     ),
     AdminWorkspaceArea(
       id: 'alerts',
@@ -253,7 +248,6 @@ class AdminWorkspaceCatalog {
         areaById('approvals')!,
         areaById('permissions')!,
         areaById('care_requests')!,
-        areaById('assignments')!,
         areaById('support')!,
       ];
 
@@ -270,7 +264,8 @@ class AdminWorkspaceCatalog {
         'patients' => RouteNames.assistantPatients,
         'approvals' => RouteNames.assistantApprovals,
         'care_requests' => RouteNames.assistantCareRequests,
-        'assignments' => RouteNames.assistantAssignments,
+        // Retired id — still mapped so stored shortcuts land on the merged page.
+        'assignments' => RouteNames.assistantCareRequests,
         'support' => RouteNames.assistantSupport,
         'alerts' => RouteNames.assistantAlerts,
         'sos' => RouteNames.assistantSos,
@@ -290,10 +285,12 @@ class AdminWorkspaceCatalog {
             hasPermission(AssistantPermissions.canCreateUsers),
           'approvals' =>
             hasPermission(AssistantPermissions.canApproveHealthworkers),
+          // The merged screen serves both grants: request triage needs
+          // can_manage_care_requests, the assignments tab needs
+          // can_assign_patients. Either one earns the entry.
           'care_requests' =>
-            hasPermission(AssistantPermissions.canManageCareRequests),
-          'assignments' =>
-            hasPermission(AssistantPermissions.canAssignPatients),
+            hasPermission(AssistantPermissions.canManageCareRequests) ||
+                hasPermission(AssistantPermissions.canAssignPatients),
           'audit' =>
             hasPermission(AssistantPermissions.canViewActivityLogs),
           'announcements' =>

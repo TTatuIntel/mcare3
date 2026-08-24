@@ -14,6 +14,7 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
+import 'doctor_report_signatures_view.dart';
 
 class DoctorReportsView extends StatelessWidget {
   const DoctorReportsView({super.key});
@@ -45,8 +46,15 @@ class DoctorReportsView extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                StaggeredEntry(
+                // Sign-off queue comes first — it is other people's blocked
+                // work, so it outranks this doctor's own drafts.
+                const StaggeredEntry(
                   index: 0,
+                  child: DoctorReportSignaturesList(),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                StaggeredEntry(
+                  index: 1,
                   child: GlassCard(
                     frosted: true,
                     child: EmptyStateView(
@@ -66,8 +74,13 @@ class DoctorReportsView extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              StaggeredEntry(
+              const StaggeredEntry(
                 index: 0,
+                child: DoctorReportSignaturesList(),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              StaggeredEntry(
+                index: 1,
                 child: SectionLabel(
                   title: 'All reports',
                   icon: AppIcons.report,

@@ -54,34 +54,28 @@ class AdminSessionController extends Controller
         );
 
         $careRequests = $this->whenPermitted($actor, 'can_manage_care_requests', fn () =>
-            CareRequest::with(['user', 'provider'])
+            CareRequest::with(['user', 'provider', 'assignedProvider', 'decider'])
                 ->orderByDesc('created_at')
                 ->limit(200)
                 ->get()
-                ->map(fn (CareRequest $r) => [
-                    'id' => (string) $r->id,
-                    'patient_id' => (string) $r->user_id,
-                    'patient_name' => $r->user?->fullName() ?? '',
-                    'provider_name' => $r->provider_name ?? $r->provider?->name ?? '',
-                    'reason' => $r->reason ?? '',
-                    'status' => $r->status,
-                    'created_at' => $r->created_at?->toIso8601String(),
-                ])->all()
+                ->map(function (CareRequest $r) {
+                    $arr = $r->toApiArray();
+                    $arr['patient_name'] = $r->user?->fullName() ?? '';
+                    $arr['provider_name'] = $r->provider_name ?? $r->provider?->name ?? '';
+                    $arr['reason'] = $r->reason ?? '';
+
+                    return $arr;
+                })->all()
         );
 
         $assignments = $this->whenPermitted($actor, 'can_assign_patients', fn () =>
-            CareAssignment::with(['patient', 'provider'])
+            CareAssignment::with(['patient', 'provider', 'assigner'])
                 ->whereNull('ended_at')
                 ->orderByDesc('assigned_at')
                 ->limit(500)
                 ->get()
-                ->map(function (CareAssignment $a) {
-                    $arr = $a->toApiArray();
-                    $arr['patient_name'] = $a->patient?->fullName();
-                    $arr['provider_name'] = $a->provider?->name;
-
-                    return $arr;
-                })->all()
+                ->map->toAdminArray()
+                ->all()
         );
 
         $audit = $this->whenPermitted($actor, 'can_view_activity_logs', fn () =>

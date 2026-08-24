@@ -18,6 +18,7 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/section_label.dart';
 import 'app_button.dart';
+import 'dossier/user_dossier_sheet.dart';
 import 'glass_sheet.dart';
 
 /// Read-only full patient profile for doctors and admin assistants.
@@ -144,6 +145,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
             else
               _ProfileContent(
                 name: name,
+                patientId: widget.patientId,
                 detail: detail,
                 patient: patient,
                 assigned: assigned,
@@ -191,6 +193,7 @@ class _ErrorState extends StatelessWidget {
 class _ProfileContent extends StatelessWidget {
   const _ProfileContent({
     required this.name,
+    required this.patientId,
     required this.detail,
     required this.patient,
     required this.assigned,
@@ -200,6 +203,7 @@ class _ProfileContent extends StatelessWidget {
   });
 
   final String name;
+  final String patientId;
   final StaffPatientClinicalDetail? detail;
   final StaffPatient? patient;
   final Set<VitalKey> assigned;
@@ -415,6 +419,35 @@ class _ProfileContent extends StatelessWidget {
                   assigned.map((v) => _VitalChip(vital: v)).toList(),
             ),
           ),
+        // Admin staff can step up from this clinical snapshot to the complete
+        // record — meals, progress, account dates, and login history. The
+        // dossier endpoint is admin-scoped, so doctors keep this view as-is.
+        Builder(
+          builder: (ctx) {
+            final role = AuthState.instance.user?.role;
+            if (role != UserRole.admin && role != UserRole.mcareAssistant) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
+              child: AppButton(
+                label: 'Open complete record',
+                icon: AppIcons.profile,
+                variant: AppButtonVariant.secondary,
+                expand: true,
+                onPressed: () {
+                  Navigator.of(ctx, rootNavigator: true).pop();
+                  UserDossierSheet.show(
+                    ctx,
+                    userId: patientId,
+                    name: name,
+                    subtitle: 'Patient · complete record',
+                  );
+                },
+              ),
+            );
+          },
+        ),
         if (detail?.emergencyContacts.isNotEmpty == true) ...[
           const SizedBox(height: AppSpacing.md),
           SectionLabel(

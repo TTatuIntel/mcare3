@@ -31,7 +31,9 @@ import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../../shared/widgets/staff_credential_dialog.dart';
 import '../../shared/widgets/staff_filter_chip.dart';
-import '../../shared/widgets/staff_patient_profile_sheet.dart';
+import '../../shared/widgets/dossier/user_dossier_sheet.dart';
+import '../reports/patient_report_builder_sheet.dart';
+import '../reports/patient_report_status_sheet.dart';
 
 /// Admin / Assistant patient directory. Composition matches the marked People
 /// pages (Users, Health-worker approvals, Care assignments):
@@ -928,11 +930,14 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
   ) async {
     FocusManager.instance.primaryFocus?.unfocus();
     try {
-      await StaffPatientProfileSheet.show(
+      // Admin staff get the complete dossier, not just the clinical sheet —
+      // meals, progress, account trail, and login history included.
+      await UserDossierSheet.show(
         context,
-        patientId: patient.id,
-        patientName: patient.name,
-        loadFromAdmin: true,
+        userId: patient.id,
+        name: patient.name,
+        subtitle: 'Patient · ${patient.uniqueId}',
+        onIssueReport: () => _issuePatientReport(context, patient),
       );
     } catch (_) {
       if (context.mounted) {
@@ -942,6 +947,22 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
         );
       }
     }
+  }
+
+  /// Tick the sections needed, then track the request through the patient's
+  /// consent and the doctor's signature to issue.
+  Future<void> _issuePatientReport(
+    BuildContext context,
+    DirectoryUser patient,
+  ) async {
+    final request = await PatientReportBuilderSheet.show(
+      context,
+      patientId: patient.id,
+      patientName: patient.name,
+    );
+    if (request == null || !context.mounted) return;
+
+    await PatientReportStatusSheet.show(context, request: request);
   }
 
   // --------------------------------------------------- management ops ----

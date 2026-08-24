@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -37,6 +38,14 @@ class User extends Authenticatable
         'failed_login_attempts',
         'locked_until',
         'must_change_password',
+        'last_login_at',
+        'last_login_ip',
+        'login_count',
+        'approved_at',
+        'approved_by',
+        'approval_note',
+        'rejected_at',
+        'rejection_reason',
     ];
 
     protected $hidden = [
@@ -51,7 +60,38 @@ class User extends Authenticatable
             'locked_until' => 'datetime',
             'must_change_password' => 'boolean',
             'password' => 'hashed',
+            'last_login_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Staff member who approved this account's application. Null for
+     * self-serve patient registrations and for accounts approved before the
+     * decision trail existed (audit log remains the fallback there).
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Record a successful sign-in. Called from the single auth funnel so
+     * password, OTP, Google, and Apple sign-ins all update the same trail.
+     */
+    public function recordLogin(?string $ip = null): void
+    {
+        $this->forceFill([
+            'last_login_at' => now(),
+            'last_login_ip' => $ip,
+            'login_count' => (int) $this->login_count + 1,
+        ])->save();
+    }
+
+    public function reportRequests(): HasMany
+    {
+        return $this->hasMany(PatientReportRequest::class, 'patient_user_id');
     }
 
     public function isLocked(): bool
@@ -216,6 +256,13 @@ class User extends Authenticatable
             'locked_until' => $this->locked_until?->toIso8601String(),
             'failed_login_attempts' => (int) $this->failed_login_attempts,
             'created_at' => $this->created_at?->toIso8601String(),
+            // Lifecycle trail — additive, so existing consumers are unaffected.
+            'email_verified_at' => $this->email_verified_at?->toIso8601String(),
+            'last_login_at' => $this->last_login_at?->toIso8601String(),
+            'login_count' => (int) $this->login_count,
+            'approved_at' => $this->approved_at?->toIso8601String(),
+            'rejected_at' => $this->rejected_at?->toIso8601String(),
+            'has_credential_document' => $this->credential_document_path !== null,
         ];
     }
 

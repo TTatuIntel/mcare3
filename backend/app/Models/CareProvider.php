@@ -35,6 +35,24 @@ class CareProvider extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Resolve the care_providers row for a directory user id, creating it on
+     * first use. Admin screens identify doctors by their user id, while every
+     * caseload gate (DoctorAccess) keys off care_providers.
+     */
+    public static function resolveForUser(int|string $userId): self
+    {
+        $user = User::find($userId);
+
+        return static::firstOrCreate(
+            ['user_id' => $userId],
+            [
+                'name' => $user?->fullName() ?? 'Care Provider',
+                'specialty' => $user?->specialty,
+            ],
+        );
+    }
+
     public function requests(): HasMany
     {
         return $this->hasMany(CareRequest::class, 'provider_id');

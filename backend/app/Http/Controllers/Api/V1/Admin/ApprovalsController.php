@@ -107,7 +107,16 @@ class ApprovalsController extends Controller
             return $this->error('Application is not pending.', 422);
         }
 
-        $user->update(['approval_status' => 'active']);
+        // Persist the decision on the account itself, not just in the audit
+        // log, so the dossier can show who approved this person and when.
+        $user->update([
+            'approval_status' => 'active',
+            'approved_at' => now(),
+            'approved_by' => $request->user()->id,
+            'approval_note' => $data['note'] ?? null,
+            'rejected_at' => null,
+            'rejection_reason' => null,
+        ]);
 
         AppNotification::create([
             'user_id' => $user->id,
@@ -139,7 +148,11 @@ class ApprovalsController extends Controller
             return $this->error('Application is not pending.', 422);
         }
 
-        $user->update(['approval_status' => 'rejected']);
+        $user->update([
+            'approval_status' => 'rejected',
+            'rejected_at' => now(),
+            'rejection_reason' => $data['reason'],
+        ]);
 
         AppNotification::create([
             'user_id' => $user->id,

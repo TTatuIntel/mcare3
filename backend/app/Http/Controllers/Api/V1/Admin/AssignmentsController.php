@@ -13,34 +13,50 @@ use Illuminate\Http\Request;
 /**
  * Bind patients to care providers (doctors / healthworkers). The
  * `care_assignments` row drives DoctorAccess caseload gating.
+ *
+ * Approving a care request writes the same rows via
+ * {@see CareRequestsController::route()} — this controller covers the
+ * admin-initiated pairings made directly from the merged admin screen.
  */
 class AssignmentsController extends Controller
 {
     use ApiResponse;
+
+    private const ROLES = ['Primary', 'Consulting', 'Specialist'];
 
     public function __construct(private readonly AuditService $audit) {}
 
     public function index(Request $request)
     {
         $query = CareAssignment::query()
-            ->with(['patient', 'provider'])
-            ->whereNull('ended_at')
+            ->with(['patient', 'provider', 'assigner'])
             ->orderByDesc('assigned_at');
 
+        if (! $request->boolean('include_ended')) {
+            $query->whereNull('ended_at');
+        }
         if ($patientId = $request->query('patient_id')) {
             $query->where('patient_user_id', $patientId);
         }
         if ($providerId = $request->query('provider_id')) {
             $query->where('provider_id', $providerId);
         }
+        if ($role = $request->query('role')) {
+            $query->where('role', $role);
+        }
+        if ($term = trim((string) $request->query('query', ''))) {
+            $query->where(function ($q) use ($term) {
+                $q->whereHas('patient', function ($p) use ($term) {
+                    $p->where('first_name', 'like', "%{$term}%")
+                        ->orWhere('last_name', 'like', "%{$term}%");
+                })->orWhereHas('provider', function ($p) use ($term) {
+                    $p->where('name', 'like', "%{$term}%")
+                        ->orWhere('specialty', 'like', "%{$term}%");
+                });
+            });
+        }
 
-        $assignments = $query->limit(500)->get()->map(function (CareAssignment $a) {
-            $arr = $a->toApiArray();
-            $arr['patient_name'] = $a->patient?->fullName();
-            $arr['provider_name'] = $a->provider?->name;
-            $arr['provider_specialty'] = $a->provider?->specialty;
-            return $arr;
-        });
+        $assignments = $query->limit(500)->get()->map->toAdminArray();
 
         return $this->success(['assignments' => $assignments]);
     }
@@ -51,7 +67,8 @@ class AssignmentsController extends Controller
             'patient_user_id' => 'required|exists:users,id',
             'provider_id' => 'nullable|exists:care_providers,id',
             'provider_user_id' => 'nullable|exists:users,id',
-            'role' => 'nullable|string|max:32',
+            'role' => 'nullable|string|in:'.implode(',', self::ROLES),
+            'reason' => 'nullable|string|max:280',
         ]);
 
         $providerId = $data['provider_id'] ?? null;
@@ -60,11 +77,7 @@ class AssignmentsController extends Controller
         // rather than the care_providers row id. Resolve to a CareProvider so
         // downstream gating (DoctorAccess) works uniformly.
         if ($providerId === null && ! empty($data['provider_user_id'])) {
-            $provider = CareProvider::firstOrCreate(
-                ['user_id' => $data['provider_user_id']],
-                ['name' => optional(User::find($data['provider_user_id']))->fullName() ?? 'Care Provider'],
-            );
-            $providerId = $provider->id;
+            $providerId = CareProvider::resolveForUser($data['provider_user_id'])->id;
         }
 
         if ($providerId === null) {
@@ -86,32 +99,51 @@ class AssignmentsController extends Controller
             'provider_id' => $providerId,
             'role' => $data['role'] ?? 'Primary',
             'assigned_at' => now(),
+            'assigned_reason' => trim((string) ($data['reason'] ?? '')) ?: null,
+            'assigned_by' => $request->user()?->id,
         ]);
 
         $patient = User::find($data['patient_user_id']);
-        $provider = CareProvider::find($data['provider_id']);
+        $provider = CareProvider::find($providerId);
 
         $this->audit->record(
             $request->user(),
             'assignment.created',
             ($patient?->fullName() ?? 'Patient').' ↔ '.($provider?->name ?? 'Provider'),
             'activity',
-            ['assignment_id' => $assignment->id],
+            [
+                'assignment_id' => $assignment->id,
+                'provider_id' => $providerId,
+                'role' => $assignment->role,
+                'reason' => $assignment->assigned_reason,
+            ],
         );
 
-        return $this->success(['assignment' => $assignment->toApiArray()], 'Assigned.', 201);
+        return $this->success(
+            ['assignment' => $assignment->load(['patient', 'provider', 'assigner'])->toAdminArray()],
+            'Assigned.',
+            201,
+        );
     }
 
     public function destroy(Request $request, CareAssignment $assignment)
     {
-        $assignment->update(['ended_at' => now()]);
+        $data = $request->validate([
+            'reason' => 'nullable|string|max:280',
+        ]);
+
+        $assignment->update([
+            'ended_at' => now(),
+            'ended_reason' => trim((string) ($data['reason'] ?? '')) ?: null,
+            'ended_by' => $request->user()?->id,
+        ]);
 
         $this->audit->record(
             $request->user(),
             'assignment.removed',
             ($assignment->patient?->fullName() ?? 'Patient').' ↔ '.($assignment->provider?->name ?? 'Provider'),
             'activity',
-            ['assignment_id' => $assignment->id],
+            ['assignment_id' => $assignment->id, 'reason' => $assignment->ended_reason],
         );
 
         return $this->success(['id' => (string) $assignment->id], 'Removed.');

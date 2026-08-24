@@ -256,6 +256,46 @@ class DoctorApi {
     await ApiClient.instance.delete('/doctor/vital-catalog/$id');
   }
 
+  // Patient reports awaiting this doctor's signature.
+  Future<List<Map<String, dynamic>>> listReportRequests() async {
+    final res = await ApiClient.instance.get('/doctor/report-requests');
+    final list = res['data']?['report_requests'] as List? ?? const [];
+    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  /// Full preview of what will be disclosed — a signature is given against
+  /// real content, not a list of section names.
+  Future<Map<String, dynamic>?> previewReportRequest(String id) async {
+    final res = await ApiClient.instance.get('/doctor/report-requests/$id');
+    return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  Future<Map<String, dynamic>?> signReportRequest(
+    String id, {
+    required String signatureName,
+    String? note,
+  }) async {
+    final res = await ApiClient.instance.post(
+      '/doctor/report-requests/$id/sign',
+      body: {
+        'signature_name': signatureName,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
+    );
+    return (res['data']?['report_request'] as Map?)?.cast<String, dynamic>();
+  }
+
+  Future<Map<String, dynamic>?> declineReportRequest(
+    String id, {
+    required String reason,
+  }) async {
+    final res = await ApiClient.instance.post(
+      '/doctor/report-requests/$id/decline',
+      body: {'reason': reason},
+    );
+    return (res['data']?['report_request'] as Map?)?.cast<String, dynamic>();
+  }
+
   // ---------------------------------------------------------------------------
   Future<void> _patch(String path, {Map<String, dynamic>? body}) async {
     await ApiClient.instance.patch('/doctor/$path', body: body);

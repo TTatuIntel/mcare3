@@ -145,12 +145,24 @@ class StaffMapper {
         providerRequested: (j['provider_name'] ?? '') as String,
         reason: (j['reason'] ?? '') as String,
         createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-        patientId: j['patient_id']?.toString(),
+        // The admin list endpoint sends patient_user_id; session sends patient_id.
+        patientId:
+            (j['patient_id'] ?? j['patient_user_id'])?.toString(),
         status: _normalizeCareRequestStatus((j['status'] as String?) ?? 'pending'),
+        providerId: j['provider_id']?.toString(),
+        providerSpecialty: j['provider_specialty'] as String?,
+        assignedProviderId: j['assigned_provider_id']?.toString(),
+        assignedProviderName: j['assigned_provider_name'] as String?,
+        assignmentRole: j['assignment_role'] as String?,
+        decisionNote: j['decision_note'] as String?,
+        decidedAt: _parseDate(j['decided_at']),
+        decidedByName: j['decided_by_name'] as String?,
+        reassigned: j['reassigned'] as bool? ?? false,
       );
 
   static String _normalizeCareRequestStatus(String s) {
-    if (s == 'cancelled' || s == 'canceled') return 'rejected';
+    if (s == 'cancelled' || s == 'canceled' || s == 'declined') return 'rejected';
+    if (s == 'accepted') return 'approved';
     return s;
   }
 
@@ -237,6 +249,12 @@ class StaffMapper {
         provider: (j['provider_name'] ?? '') as String,
         role: (j['role'] as String?) ?? 'Primary',
         assignedAt: _parseDate(j['assigned_at']) ?? DateTime.now(),
+        patientId: (j['patient_user_id'] ?? j['patient_id'])?.toString(),
+        providerId: j['provider_id']?.toString(),
+        providerUserId: j['provider_user_id']?.toString(),
+        providerSpecialty: j['provider_specialty'] as String?,
+        assignedReason: j['assigned_reason'] as String?,
+        assignedByName: j['assigned_by_name'] as String?,
       );
 
   static AuditEntry auditFromApi(Map<String, dynamic> j) => AuditEntry(

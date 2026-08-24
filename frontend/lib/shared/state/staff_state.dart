@@ -2639,6 +2639,7 @@ class StaffState extends ChangeNotifier {
     String? providerId,
     String? providerUserId,
     String? role,
+    String? reason,
   }) async {
     if (!AppEnv.backendEnabled) return;
     final dto = await AdminApi.instance.createAssignment(
@@ -2646,25 +2647,16 @@ class StaffState extends ChangeNotifier {
       providerId: providerId,
       providerUserId: providerUserId,
       role: role,
+      reason: reason,
     );
     if (dto == null) return;
-    _assignments.insert(
-      0,
-      CareAssignment(
-        id: dto['id']?.toString() ?? '',
-        patient: dto['patient_name']?.toString() ?? '',
-        provider: dto['provider_name']?.toString() ?? '',
-        role: dto['role']?.toString() ?? 'Primary',
-        assignedAt: DateTime.tryParse(dto['assigned_at']?.toString() ?? '') ??
-            DateTime.now(),
-      ),
-    );
+    _assignments.insert(0, StaffMapper.assignmentFromApi(dto));
     notifyListeners();
   }
 
   /// Persisting variant of [removeAssignment]. Calls the admin API first;
   /// on success drops the local row. Reverts on API failure.
-  Future<void> removeAssignmentRemote(String id) async {
+  Future<void> removeAssignmentRemote(String id, {String? reason}) async {
     final index = _assignments.indexWhere((a) => a.id == id);
     if (index == -1) return;
     final original = _assignments[index];
@@ -2672,7 +2664,7 @@ class StaffState extends ChangeNotifier {
     notifyListeners();
     if (!AppEnv.backendEnabled) return;
     try {
-      await AdminApi.instance.removeAssignment(id);
+      await AdminApi.instance.removeAssignment(id, reason: reason);
     } catch (e) {
       _assignments.insert(index, original);
       notifyListeners();
@@ -2826,55 +2818,148 @@ class StaffState extends ChangeNotifier {
     await AdminApi.instance.routeCareRequest(requestId, providerId: providerId);
   }
 
-  /// Admin: approve a pending care request (optimistic + API).
-  Future<bool> approveCareRequestAdminRemote(String id) {
-    final before = _careRequests.firstWhere(
-      (r) => r.id == id,
-      orElse: () => CareRequestItem(
-        id: id, patient: '', providerRequested: '', reason: '',
-        createdAt: DateTime.now(), status: 'pending',
-      ),
-    ).status;
-    return _adminMutation(
-      apply: () => setCareRequest(id, 'approved'),
-      revert: () => setCareRequest(id, before),
-      apiCall: () => AdminApi.instance.routeCareRequest(id),
-    );
-  }
-
-  /// Admin: reject / cancel a care request (optimistic + API).
-  Future<bool> rejectCareRequestAdminRemote(String id, {String reason = 'Rejected by admin'}) {
-    final before = _careRequests.firstWhere(
-      (r) => r.id == id,
-      orElse: () => CareRequestItem(
-        id: id, patient: '', providerRequested: '', reason: '',
-        createdAt: DateTime.now(), status: 'pending',
-      ),
-    ).status;
-    return _adminMutation(
-      apply: () => setCareRequest(id, 'rejected'),
-      revert: () => setCareRequest(id, before),
-      apiCall: () => AdminApi.instance.cancelCareRequest(id, reason: reason),
-    );
-  }
-
-  /// Optimistic mutation helper for admin actions (mirrors [_doctorMutation]).
-  Future<bool> _adminMutation({
-    required void Function() apply,
-    required void Function() revert,
-    required Future<dynamic> Function() apiCall,
-  }) async {
-    apply();
-    notifyListeners();
-    if (!AppEnv.backendEnabled) return true;
-    try {
-      await apiCall();
-      return true;
-    } catch (_) {
-      revert();
-      notifyListeners();
-      return false;
+  CareRequestItem? careRequestById(String id) {
+    for (final r in _careRequests) {
+      if (r.id == id) return r;
     }
+    return null;
+  }
+
+  /// Overwrites one care request with the server's canonical row.
+  void _replaceCareRequest(CareRequestItem updated) {
+    final i = _careRequests.indexWhere((r) => r.id == updated.id);
+    if (i == -1) {
+      _careRequests.insert(0, updated);
+    } else {
+      _careRequests[i] = updated;
+    }
+    notifyListeners();
+  }
+
+  /// Applies a decision locally — the mock-mode path, and the optimistic
+  /// stand-in until the server row arrives.
+  void _applyCareRequestDecision(
+    String id,
+    String status, {
+    String? note,
+    String? assignedProviderId,
+    String? assignedProviderName,
+    String? role,
+  }) {
+    final request = careRequestById(id);
+    if (request == null) return;
+    request.status = status;
+    request.decisionNote = note;
+    request.decidedAt = DateTime.now();
+    request.decidedByName = AuthState.instance.user?.fullName;
+    if (assignedProviderId != null) {
+      request.assignedProviderId = assignedProviderId;
+    }
+    if (assignedProviderName != null) {
+      request.assignedProviderName = assignedProviderName;
+      request.reassigned =
+          assignedProviderName.trim() != request.providerRequested.trim();
+    }
+    if (role != null) request.assignmentRole = role;
+    notifyListeners();
+  }
+
+  /// Admin: approve a pending care request. Passing a provider other than the
+  /// requested one re-routes the patient — the backend then requires [note].
+  ///
+  /// On success the matching care assignment exists server-side, so the local
+  /// assignment list is refreshed too. Throws on API failure so the caller can
+  /// surface the server's message.
+  Future<void> approveCareRequestAdminRemote(
+    String id, {
+    String? providerId,
+    String? providerUserId,
+    String? role,
+    String? note,
+    String? providerName,
+  }) async {
+    if (!AppEnv.backendEnabled) {
+      _applyCareRequestDecision(
+        id,
+        'approved',
+        note: note,
+        assignedProviderId: providerId,
+        assignedProviderName: providerName,
+        role: role,
+      );
+      _addLocalAssignmentForRequest(id, role: role, note: note);
+      return;
+    }
+
+    final dto = await AdminApi.instance.routeCareRequest(
+      id,
+      providerId: providerId,
+      providerUserId: providerUserId,
+      role: role,
+      note: note,
+    );
+    if (dto != null) {
+      _replaceCareRequest(StaffMapper.careRequestFromApi(dto));
+    } else {
+      _applyCareRequestDecision(id, 'approved', note: note, role: role);
+    }
+    await refreshAssignments();
+  }
+
+  /// Admin: decline a pending care request. The reason reaches the patient.
+  Future<void> rejectCareRequestAdminRemote(
+    String id, {
+    required String reason,
+  }) async {
+    if (!AppEnv.backendEnabled) {
+      _applyCareRequestDecision(id, 'rejected', note: reason);
+      return;
+    }
+    final dto = await AdminApi.instance.cancelCareRequest(id, reason: reason);
+    if (dto != null) {
+      _replaceCareRequest(StaffMapper.careRequestFromApi(dto));
+    } else {
+      _applyCareRequestDecision(id, 'rejected', note: reason);
+    }
+  }
+
+  /// Re-reads the assignment list from the API. No-op in mock mode, where the
+  /// seeded rows are the source of truth.
+  Future<void> refreshAssignments() async {
+    if (!AppEnv.backendEnabled) return;
+    final rows = await AdminApi.instance.listAssignments();
+    mergeAssignments(
+      rows.map((e) => StaffMapper.assignmentFromApi(e)).toList(),
+    );
+  }
+
+  /// Mock-mode mirror of the server-side "approve ⇒ assign" rule.
+  void _addLocalAssignmentForRequest(
+    String requestId, {
+    String? role,
+    String? note,
+  }) {
+    final request = careRequestById(requestId);
+    if (request == null) return;
+    final provider = request.effectiveProvider;
+    final already = _assignments.any(
+      (a) => a.patient == request.patient && a.provider == provider,
+    );
+    if (already) return;
+    _assignments.insert(
+      0,
+      CareAssignment(
+        id: 'as_${DateTime.now().millisecondsSinceEpoch}',
+        patient: request.patient,
+        provider: provider,
+        assignedAt: DateTime.now(),
+        role: role ?? 'Primary',
+        patientId: request.patientId,
+        providerId: request.assignedProviderId ?? request.providerId,
+        assignedReason: note,
+      ),
+    );
+    notifyListeners();
   }
 
   void toggleSystem(int index, bool value) {

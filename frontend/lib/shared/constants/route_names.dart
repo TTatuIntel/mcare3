@@ -45,6 +45,9 @@ class RouteNames {
   static const patientForcePassword = '/patient/force-password';
   static const patientSettings = '/patient/settings';
   static const patientSupport = '/patient/support';
+
+  /// Consent requests for reports drawn from this patient's record.
+  static const patientReportConsents = '/patient/report-consents';
   static const patientTicketDetail = '/patient/support/detail';
   static const patientSos = '/patient/sos';
 
@@ -83,7 +86,11 @@ class RouteNames {
   static const adminUsers = '/admin/users';
   static const adminUserDetail = '/admin/users/detail';
   static const adminApprovals = '/admin/approvals';
+  /// Care-request triage **and** care assignments — one merged workspace.
   static const adminCareRequests = '/admin/care-requests';
+
+  /// PAGE REMOVED — kept alive as a redirect to [adminCareRequests] so old
+  /// bookmarks and deep links still resolve. Do not link to it.
   static const adminAssignments = '/admin/assignments';
   static const adminVitalCatalog = '/admin/vital-catalog';
   static const adminPermissions = '/admin/permissions';
@@ -111,6 +118,8 @@ class RouteNames {
   static const assistantPatients = '/assistant/patients';
   static const assistantApprovals = '/assistant/approvals';
   static const assistantCareRequests = '/assistant/care-requests';
+
+  /// PAGE REMOVED — redirects to [assistantCareRequests].
   static const assistantAssignments = '/assistant/assignments';
   static const assistantUsers = '/assistant/users';
   static const assistantUserDetail = '/assistant/users/detail';

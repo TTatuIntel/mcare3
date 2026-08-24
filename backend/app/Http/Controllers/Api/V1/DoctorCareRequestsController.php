@@ -19,13 +19,26 @@ class DoctorCareRequestsController extends Controller
         $provider = $this->myProvider($request);
         abort_unless($careRequest->provider_id === $provider->id, 403, 'Not your request.');
 
-        $careRequest->update(['status' => 'accepted']);
-        CareAssignment::create([
-            'patient_user_id' => $careRequest->user_id,
-            'provider_id' => $provider->id,
-            'role' => 'Primary',
-            'assigned_at' => now(),
+        $careRequest->update([
+            'status' => 'accepted',
+            'assigned_provider_id' => $provider->id,
+            'assignment_role' => 'Primary',
+            'decided_by' => $request->user()->id,
+            'decided_at' => now(),
         ]);
+        // Doctors may accept a request the admin already routed to them.
+        CareAssignment::firstOrCreate(
+            [
+                'patient_user_id' => $careRequest->user_id,
+                'provider_id' => $provider->id,
+                'ended_at' => null,
+            ],
+            [
+                'role' => 'Primary',
+                'assigned_at' => now(),
+                'assigned_by' => $request->user()->id,
+            ],
+        );
         AppNotification::create([
             'user_id' => $careRequest->user_id,
             'kind' => 'careRequest',
@@ -48,7 +61,12 @@ class DoctorCareRequestsController extends Controller
         abort_unless($careRequest->provider_id === $provider->id, 403, 'Not your request.');
 
         $data = $request->validate(['reason' => 'nullable|string|max:200']);
-        $careRequest->update(['status' => 'declined']);
+        $careRequest->update([
+            'status' => 'declined',
+            'decision_note' => $data['reason'] ?? null,
+            'decided_by' => $request->user()->id,
+            'decided_at' => now(),
+        ]);
         AppNotification::create([
             'user_id' => $careRequest->user_id,
             'kind' => 'careRequest',

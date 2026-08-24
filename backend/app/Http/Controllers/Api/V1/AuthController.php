@@ -763,6 +763,10 @@ class AuthController extends Controller
     {
         $token = $user->createToken('mcare-web')->plainTextToken;
 
+        // Single funnel for password, OTP, invite, Google, and Apple sign-ins,
+        // so the account dossier's login trail is complete however they got in.
+        $user->recordLogin(request()->ip());
+
         $payload = [
             'token' => $token,
             'user' => $user->toApiArray(),

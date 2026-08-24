@@ -64,18 +64,42 @@ class AdminApi {
   }
 
   // ---------------- Care requests ----------------
-  Future<List<JsonMap>> listCareRequests({String? status}) async {
+  Future<List<JsonMap>> listCareRequests({
+    String? status,
+    String? patientId,
+    String? providerId,
+    String? query,
+  }) async {
     if (!AppEnv.backendEnabled) return [];
-    final q = status != null ? '?status=$status' : '';
-    final res = await ApiClient.instance.get('/admin/care-requests$q');
+    final params = <String, String>{};
+    if (status != null) params['status'] = status;
+    if (patientId != null) params['patient_id'] = patientId;
+    if (providerId != null) params['provider_id'] = providerId;
+    if (query != null && query.isNotEmpty) params['query'] = query;
+    final res =
+        await ApiClient.instance.get('/admin/care-requests${_query(params)}');
     return _list(res, 'care_requests');
   }
 
-  Future<JsonMap?> routeCareRequest(String id, {String? providerId}) async {
+  /// Approve a care request. Passing a [providerId] / [providerUserId] other
+  /// than the requested one re-routes the patient — the backend then requires
+  /// a [note] explaining the change.
+  Future<JsonMap?> routeCareRequest(
+    String id, {
+    String? providerId,
+    String? providerUserId,
+    String? role,
+    String? note,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.patch(
       '/admin/care-requests/$id/route',
-      body: providerId == null ? {} : {'provider_id': providerId},
+      body: {
+        if (providerId != null) 'provider_id': providerId,
+        if (providerUserId != null) 'provider_user_id': providerUserId,
+        if (role != null) 'role': role,
+        if (note != null && note.isNotEmpty) 'note': note,
+      },
     );
     return _obj(res, 'care_request');
   }
@@ -90,15 +114,22 @@ class AdminApi {
   }
 
   // ---------------- Assignments ----------------
-  Future<List<JsonMap>> listAssignments({String? patientId, String? providerId}) async {
+  Future<List<JsonMap>> listAssignments({
+    String? patientId,
+    String? providerId,
+    String? role,
+    String? query,
+    bool includeEnded = false,
+  }) async {
     if (!AppEnv.backendEnabled) return [];
     final params = <String, String>{};
     if (patientId != null) params['patient_id'] = patientId;
     if (providerId != null) params['provider_id'] = providerId;
-    final q = params.isEmpty
-        ? ''
-        : '?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
-    final res = await ApiClient.instance.get('/admin/assignments$q');
+    if (role != null) params['role'] = role;
+    if (query != null && query.isNotEmpty) params['query'] = query;
+    if (includeEnded) params['include_ended'] = '1';
+    final res =
+        await ApiClient.instance.get('/admin/assignments${_query(params)}');
     return _list(res, 'assignments');
   }
 
@@ -107,6 +138,7 @@ class AdminApi {
     String? providerId,
     String? providerUserId,
     String? role,
+    String? reason,
   }) async {
     if (!AppEnv.backendEnabled) return null;
     assert(
@@ -120,14 +152,18 @@ class AdminApi {
         if (providerId != null) 'provider_id': providerId,
         if (providerUserId != null) 'provider_user_id': providerUserId,
         if (role != null) 'role': role,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
       },
     );
     return _obj(res, 'assignment');
   }
 
-  Future<void> removeAssignment(String id) async {
+  Future<void> removeAssignment(String id, {String? reason}) async {
     if (!AppEnv.backendEnabled) return;
-    await ApiClient.instance.delete('/admin/assignments/$id');
+    await ApiClient.instance.delete(
+      '/admin/assignments/$id',
+      body: reason == null || reason.isEmpty ? null : {'reason': reason},
+    );
   }
 
   // ---------------- Users ----------------
@@ -250,6 +286,102 @@ class AdminApi {
     final res =
         await ApiClient.instance.get('/admin/patients/$patientUserId');
     return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  /// Complete dossier for ANY account — patient, doctor, assistant, or admin.
+  /// One uniform envelope; role-specific blocks are simply absent for roles
+  /// they do not apply to.
+  Future<JsonMap?> userDossier(String userId) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.get('/admin/users/$userId/profile');
+    return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  // ---------------- Patient reports (consent-gated) ----------------
+
+  /// Tick-list catalogue. Sensitivity is server-decided — never hardcode it.
+  Future<List<JsonMap>> reportSections() async {
+    if (!AppEnv.backendEnabled) return [];
+    final res = await ApiClient.instance.get('/admin/report-sections');
+    return _list(res, 'sections');
+  }
+
+  Future<List<JsonMap>> listReportRequests({
+    String? patientId,
+    String? status,
+    bool openOnly = false,
+  }) async {
+    if (!AppEnv.backendEnabled) return [];
+    final params = <String, String>{};
+    if (patientId != null) params['patient_id'] = patientId;
+    if (status != null) params['status'] = status;
+    if (openOnly) params['open_only'] = '1';
+    final res =
+        await ApiClient.instance.get('/admin/report-requests${_query(params)}');
+    return _list(res, 'report_requests');
+  }
+
+  /// Create a report request. The backend decides from [sections] whether the
+  /// patient must consent and whether a doctor must sign.
+  Future<JsonMap?> createReportRequest({
+    required String patientUserId,
+    required List<String> sections,
+    required String title,
+    required String purpose,
+    String? recipient,
+    String? doctorUserId,
+  }) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.post(
+      '/admin/patients/$patientUserId/report-requests',
+      body: {
+        'sections': sections,
+        'title': title,
+        'purpose': purpose,
+        if (recipient != null && recipient.isNotEmpty) 'recipient': recipient,
+        if (doctorUserId != null) 'doctor_user_id': doctorUserId,
+      },
+    );
+    return _obj(res, 'report_request');
+  }
+
+  Future<JsonMap?> reportRequest(String id) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.get('/admin/report-requests/$id');
+    return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  Future<JsonMap?> resendReportConsent(String id) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance
+        .post('/admin/report-requests/$id/resend-consent');
+    return _obj(res, 'report_request');
+  }
+
+  /// Staff-assisted consent — the patient reads their code back by phone.
+  Future<JsonMap?> verifyReportConsent(String id, {required String code}) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.post(
+      '/admin/report-requests/$id/verify-consent',
+      body: {'code': code},
+    );
+    return _obj(res, 'report_request');
+  }
+
+  Future<JsonMap?> issueReport(String id) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res =
+        await ApiClient.instance.post('/admin/report-requests/$id/issue');
+    return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  Future<JsonMap?> revokeReportRequest(String id, {required String reason}) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.post(
+      '/admin/report-requests/$id/revoke',
+      body: {'reason': reason},
+    );
+    return _obj(res, 'report_request');
   }
 
   // ---------------- Permissions (admin-only) ----------------
@@ -583,5 +715,14 @@ class AdminApi {
     final obj = res['data']?[key];
     if (obj is Map) return obj.cast<String, dynamic>();
     return null;
+  }
+
+  /// Builds `?a=1&b=2` (empty string when there is nothing to send).
+  String _query(Map<String, String> params) {
+    if (params.isEmpty) return '';
+    final pairs = params.entries
+        .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
+    return '?$pairs';
   }
 }

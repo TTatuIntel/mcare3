@@ -53,22 +53,42 @@ class AssistantApprovalsView extends StatelessWidget {
       );
 }
 
+/// The merged care workspace. Each half carries its own grant, so this gates
+/// on whichever the assistant holds and hides the other side.
 class AssistantCareRequestsView extends StatelessWidget {
   const AssistantCareRequestsView({super.key});
+
   @override
-  Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canManageCareRequests,
-        currentRoute: RouteNames.assistantCareRequests,
-        title: 'Care requests',
-        child: CareRequestsScreen(
-          currentRoute: RouteNames.assistantCareRequests,
-          destinations: StaffDestinations.assistant(),
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        ),
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: AuthState.instance,
+        builder: (context, _) {
+          final has = AuthState.instance.hasAssistantPermission;
+          final canTriage = has(AssistantPermissions.canManageCareRequests);
+          final canAssign = has(AssistantPermissions.canAssignPatients);
+
+          return _gate(
+            // With only can_assign_patients the assignments tab is still
+            // reachable, so gate against the grant they actually hold.
+            permissionKey: canTriage
+                ? AssistantPermissions.canManageCareRequests
+                : AssistantPermissions.canAssignPatients,
+            currentRoute: RouteNames.assistantCareRequests,
+            title: canTriage ? 'Care requests' : 'Care assignments',
+            child: CareRequestsScreen(
+              currentRoute: RouteNames.assistantCareRequests,
+              destinations: StaffDestinations.assistant(),
+              profileRoute: RouteNames.assistantProfile,
+              notificationsRoute: RouteNames.assistantNotifications,
+              canTriage: canTriage,
+              canAssign: canAssign,
+            ),
+          );
+        },
       );
 }
 
+/// PAGE REMOVED — assignments now live inside [AssistantCareRequestsView].
+/// The route survives only to redirect existing links.
 class AssistantAssignmentsView extends StatelessWidget {
   const AssistantAssignmentsView({super.key});
   @override
@@ -76,11 +96,14 @@ class AssistantAssignmentsView extends StatelessWidget {
         permissionKey: AssistantPermissions.canAssignPatients,
         currentRoute: RouteNames.assistantAssignments,
         title: 'Assignments',
-        child: AssignmentsScreen(
+        child: MergedAssignmentsRedirect(
+          target: RouteNames.assistantCareRequests,
           currentRoute: RouteNames.assistantAssignments,
-          destinations: StaffDestinations.assistant(),
           profileRoute: RouteNames.assistantProfile,
           notificationsRoute: RouteNames.assistantNotifications,
+          canTriage: AuthState.instance.hasAssistantPermission(
+            AssistantPermissions.canManageCareRequests,
+          ),
         ),
       );
 }

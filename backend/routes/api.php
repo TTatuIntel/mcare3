@@ -11,10 +11,12 @@ use App\Http\Controllers\Api\V1\Admin\CareRequestsController as AdminCareRequest
 use App\Http\Controllers\Api\V1\Admin\ConversationsController as AdminConversationsController;
 use App\Http\Controllers\Api\V1\Admin\NotificationsController as AdminNotificationsController;
 use App\Http\Controllers\Api\V1\Admin\PatientsController as AdminPatientsController;
+use App\Http\Controllers\Api\V1\Admin\PatientReportsController as AdminPatientReportsController;
 use App\Http\Controllers\Api\V1\Admin\PermissionsController as AdminPermissionsController;
 use App\Http\Controllers\Api\V1\Admin\SecurityIncidentsController as AdminSecurityIncidentsController;
 use App\Http\Controllers\Api\V1\Admin\SupportTicketsController as AdminSupportTicketsController;
 use App\Http\Controllers\Api\V1\Admin\SystemSettingsController as AdminSystemSettingsController;
+use App\Http\Controllers\Api\V1\Admin\UserProfileController as AdminUserProfileController;
 use App\Http\Controllers\Api\V1\Admin\UsersController as AdminUsersController;
 use App\Http\Controllers\Api\V1\Admin\VitalCatalogController as AdminVitalCatalogController;
 use App\Http\Controllers\Api\V1\AdminSosController;
@@ -28,6 +30,7 @@ use App\Http\Controllers\Api\V1\DoctorMealPlansController;
 use App\Http\Controllers\Api\V1\DoctorMessagesController;
 use App\Http\Controllers\Api\V1\DoctorPatientController;
 use App\Http\Controllers\Api\V1\DoctorPrescriptionsController;
+use App\Http\Controllers\Api\V1\DoctorReportSignaturesController;
 use App\Http\Controllers\Api\V1\DoctorReportsController;
 use App\Http\Controllers\Api\V1\DoctorSessionController;
 use App\Http\Controllers\Api\V1\DoctorSosController;
@@ -41,6 +44,7 @@ use App\Http\Controllers\Api\V1\MessagesController;
 use App\Http\Controllers\Api\V1\NotificationsController;
 use App\Http\Controllers\Api\V1\PatientExternalAccessController;
 use App\Http\Controllers\Api\V1\PatientProfileController;
+use App\Http\Controllers\Api\V1\PatientReportConsentsController;
 use App\Http\Controllers\Api\V1\PatientTrackedVitalsController;
 use App\Http\Controllers\Api\V1\PatientSessionController;
 use App\Http\Controllers\Api\V1\SosController;
@@ -160,6 +164,11 @@ Route::middleware(['auth:sanctum', 'throttle:api-general', 'role:patient'])->pre
     Route::post('vital-report-requests', [VitalReportRequestsController::class, 'store']);
     Route::patch('vital-report-requests/{vitalReportRequest}', [VitalReportRequestsController::class, 'cancel']);
 
+    // Consent requests for customised reports drawn from this patient's record.
+    Route::get('report-consents', [PatientReportConsentsController::class, 'index']);
+    Route::post('report-consents/{reportRequest}/approve', [PatientReportConsentsController::class, 'approve']);
+    Route::post('report-consents/{reportRequest}/decline', [PatientReportConsentsController::class, 'decline']);
+
     // Patient-managed external access links/codes (emergency consults).
     Route::get('external-access', [PatientExternalAccessController::class, 'index']);
     Route::post('external-access', [PatientExternalAccessController::class, 'store']);
@@ -207,6 +216,12 @@ Route::middleware(['auth:sanctum', 'throttle:api-general', 'role:doctor'])->pref
     Route::get('vital-report-requests', [DoctorVitalReportRequestsController::class, 'index']);
     Route::patch('vital-report-requests/{vitalReportRequest}/fulfill', [DoctorVitalReportRequestsController::class, 'fulfill']);
     Route::patch('vital-report-requests/{vitalReportRequest}/escalate', [DoctorVitalReportRequestsController::class, 'escalate']);
+
+    // Sign-off on customised patient reports the doctor was nominated for.
+    Route::get('report-requests', [DoctorReportSignaturesController::class, 'index']);
+    Route::get('report-requests/{reportRequest}', [DoctorReportSignaturesController::class, 'preview']);
+    Route::post('report-requests/{reportRequest}/sign', [DoctorReportSignaturesController::class, 'sign']);
+    Route::post('report-requests/{reportRequest}/decline', [DoctorReportSignaturesController::class, 'decline']);
 
     Route::patch('care-requests/{careRequest}/accept', [DoctorCareRequestsController::class, 'accept']);
     Route::patch('care-requests/{careRequest}/decline', [DoctorCareRequestsController::class, 'decline']);
@@ -270,8 +285,29 @@ Route::middleware(['auth:sanctum', 'throttle:api-general', 'role:admin,mcare_ass
         [AdminPatientsController::class, 'updateAssignedVitals'])
         ->middleware('permission:can_create_users');
 
+    // Customised patient reports — tick-list, consent, signature, issue.
+    Route::get ('report-sections', [AdminPatientReportsController::class, 'sections'])
+        ->middleware('permission:can_create_users');
+    Route::get ('report-requests', [AdminPatientReportsController::class, 'index'])
+        ->middleware('permission:can_create_users');
+    Route::post('patients/{patient}/report-requests', [AdminPatientReportsController::class, 'store'])
+        ->middleware('permission:can_create_users');
+    Route::get ('report-requests/{reportRequest}', [AdminPatientReportsController::class, 'show'])
+        ->middleware('permission:can_create_users');
+    Route::post('report-requests/{reportRequest}/resend-consent', [AdminPatientReportsController::class, 'resendConsent'])
+        ->middleware('permission:can_create_users');
+    Route::post('report-requests/{reportRequest}/verify-consent', [AdminPatientReportsController::class, 'verifyConsent'])
+        ->middleware('permission:can_create_users');
+    Route::post('report-requests/{reportRequest}/issue', [AdminPatientReportsController::class, 'issue'])
+        ->middleware('permission:can_create_users');
+    Route::post('report-requests/{reportRequest}/revoke', [AdminPatientReportsController::class, 'revoke'])
+        ->middleware('permission:can_create_users');
+
     // Users
     Route::get   ('users',                        [AdminUsersController::class, 'index'])
+        ->middleware('permission:can_create_users');
+    // Complete dossier for ANY role — patient, doctor, assistant, admin.
+    Route::get   ('users/{user}/profile',         [AdminUserProfileController::class, 'show'])
         ->middleware('permission:can_create_users');
     Route::post  ('users',                        [AdminUsersController::class, 'store'])
         ->middleware('permission:can_create_users');

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AppNotification;
 use App\Models\AuditEntry;
+use App\Models\CareAssignment;
 use App\Models\CareProvider;
 use App\Models\CareRequest;
 use App\Models\SosEvent;
@@ -129,34 +130,64 @@ class AdminDemoSeeder extends Seeder
         ], $now);
 
         // ── Care requests (patient → provider) ───────────────────────────
+        // Covers every state the merged admin workspace renders: pending
+        // triage, approved as requested, approved after a re-route to a more
+        // suitable doctor, and declined with a reason.
         $mensahProvider  = $mensah  ? CareProvider::where('user_id', $mensah->id)->first()  : null;
         $adeyemiProvider = $adeyemi ? CareProvider::where('user_id', $adeyemi->id)->first() : null;
 
-        if ($daniel && $mensahProvider) {
-            CareRequest::updateOrCreate(
-                ['user_id' => $daniel->id, 'provider_id' => $mensahProvider->id, 'reason' => 'Wellness check-up before travel'],
-                [
-                    'provider_name'      => $mensahProvider->name,
-                    'provider_specialty' => $mensahProvider->specialty,
-                    'status'             => 'pending',
-                    'created_at'         => $now->copy()->subMinutes(35),
-                    'updated_at'         => $now->copy()->subMinutes(35),
-                ],
-            );
-        }
+        $this->seedCareRequest($daniel, $mensahProvider, [
+            'reason'  => 'Wellness check-up before travel',
+            'status'  => 'pending',
+            'created' => $now->copy()->subMinutes(35),
+        ]);
 
-        if ($brian && $adeyemiProvider) {
-            CareRequest::updateOrCreate(
-                ['user_id' => $brian->id, 'provider_id' => $adeyemiProvider->id, 'reason' => 'Second opinion — endocrine referral'],
-                [
-                    'provider_name'      => $adeyemiProvider->name,
-                    'provider_specialty' => $adeyemiProvider->specialty,
-                    'status'             => 'pending',
-                    'created_at'         => $now->copy()->subHours(1),
-                    'updated_at'         => $now->copy()->subHours(1),
-                ],
-            );
-        }
+        $this->seedCareRequest($brian, $adeyemiProvider, [
+            'reason'  => 'Second opinion — endocrine referral',
+            'status'  => 'pending',
+            'created' => $now->copy()->subHours(1),
+        ]);
+
+        $this->seedCareRequest($wangari, $adeyemiProvider, [
+            'reason'  => 'Ongoing hypertension needs a specialist review',
+            'status'  => 'pending',
+            'created' => $now->copy()->subHours(5),
+        ]);
+
+        // Approved exactly as the patient asked.
+        $this->seedCareRequest($esther, $mensahProvider, [
+            'reason'   => 'Routine follow-up after discharge',
+            'status'   => 'approved',
+            'created'  => $now->copy()->subDays(2),
+            'assigned' => $mensahProvider,
+            'role'     => 'Primary',
+            'note'     => 'Doctor confirmed availability for the follow-up.',
+            'decider'  => $admin,
+            'decided'  => $now->copy()->subDays(2)->addHours(3),
+        ]);
+
+        // Approved, but routed to a more suitable doctor — reason required.
+        $this->seedCareRequest($amara, $mensahProvider, [
+            'reason'   => 'Insulin dose keeps drifting',
+            'status'   => 'approved',
+            'created'  => $now->copy()->subDays(4),
+            'assigned' => $adeyemiProvider,
+            'role'     => 'Specialist',
+            'note'     => 'Endocrinology is the better fit for insulin titration.',
+            'decider'  => $assistant,
+            'decided'  => $now->copy()->subDays(4)->addHours(1),
+            'assignment_at' => $now->copy()->subDays(4)->addHours(1),
+        ]);
+
+        // Declined — the reason is what the patient was notified with.
+        $this->seedCareRequest($daniel, $adeyemiProvider, [
+            'reason'  => 'Would like to switch to Dr. Adeyemi',
+            'status'  => 'cancelled',
+            'created' => $now->copy()->subDays(3),
+            'note'    => 'Dr. Adeyemi is not accepting new patients this quarter.',
+            'decider' => $admin,
+            'decided' => $now->copy()->subDays(3)->addHours(2),
+        ]);
 
         // ── Additional SOS events across statuses ────────────────────────
         if ($daniel) {
@@ -321,6 +352,59 @@ class AdminDemoSeeder extends Seeder
                 ],
             );
         }
+    }
+
+    /**
+     * Idempotent care-request upsert, keyed on (patient, provider, reason).
+     *
+     * A decided request also gets its decision trail — and, when approved, the
+     * care assignment that approval would have created, so the seeded data
+     * obeys the same "approve ⇒ assigned" rule the API enforces.
+     */
+    private function seedCareRequest(
+        ?User $patient,
+        ?CareProvider $requested,
+        array $spec,
+    ): void {
+        if (! $patient || ! $requested) return;
+
+        $assigned = $spec['assigned'] ?? null;
+
+        CareRequest::updateOrCreate(
+            [
+                'user_id' => $patient->id,
+                'provider_id' => $requested->id,
+                'reason' => $spec['reason'],
+            ],
+            [
+                'provider_name' => $requested->name,
+                'provider_specialty' => $requested->specialty,
+                'status' => $spec['status'],
+                'assigned_provider_id' => $assigned?->id,
+                'assignment_role' => $assigned ? ($spec['role'] ?? 'Primary') : null,
+                'decision_note' => $spec['note'] ?? null,
+                'decided_by' => ($spec['decider'] ?? null)?->id,
+                'decided_at' => $spec['decided'] ?? null,
+                'created_at' => $spec['created'],
+                'updated_at' => $spec['decided'] ?? $spec['created'],
+            ],
+        );
+
+        if ($assigned === null) return;
+
+        CareAssignment::updateOrCreate(
+            [
+                'patient_user_id' => $patient->id,
+                'provider_id' => $assigned->id,
+                'ended_at' => null,
+            ],
+            [
+                'role' => $spec['role'] ?? 'Primary',
+                'assigned_reason' => $spec['note'] ?? null,
+                'assigned_by' => ($spec['decider'] ?? null)?->id,
+                'assigned_at' => $spec['assignment_at'] ?? $spec['decided'] ?? $spec['created'],
+            ],
+        );
     }
 
     /**

@@ -16,6 +16,8 @@ enum NotificationKind {
   sos,
   assignment,
   profile,
+  /// Request for the patient to approve disclosure of part of their record.
+  consent,
   system,
 }
 
@@ -32,6 +34,7 @@ extension NotificationKindX on NotificationKind {
         NotificationKind.sos => AppIcons.sos,
         NotificationKind.assignment => AppIcons.careTeam,
         NotificationKind.profile => AppIcons.user,
+        NotificationKind.consent => AppIcons.lock,
         NotificationKind.system => AppIcons.info,
       };
 
@@ -47,6 +50,7 @@ extension NotificationKindX on NotificationKind {
         NotificationKind.sos => AppColors.critical,
         NotificationKind.assignment => AppColors.brandIndigo,
         NotificationKind.profile => AppColors.brandIndigo,
+        NotificationKind.consent => AppColors.warning,
         NotificationKind.system => AppColors.textMutedAA,
       };
 }

@@ -232,15 +232,23 @@ class StaffHubData {
       color: AppColors.adminPurple,
     );
 
+    // Requests and assignments share one screen — approving a request is what
+    // creates the assignment — so they share one work item too.
     add(
-      visible: canCareRequests,
+      visible: canCareRequests || canAssignments,
       type: StaffWorkItemType.careRequest,
       urgency: StaffWorkUrgency.attention,
-      title: 'Review care requests',
-      description: 'Provider change requests need a decision',
-      count: staff.careRequests
-          .where((request) => request.status == 'pending')
-          .length,
+      title: canCareRequests
+          ? 'Review care requests'
+          : 'Manage care assignments',
+      description: canCareRequests
+          ? 'Approve, re-route or decline — then the assignment is automatic'
+          : 'Connect patients with their care providers',
+      count: canCareRequests
+          ? staff.careRequests
+              .where((request) => request.status == 'pending')
+              .length
+          : staff.assignments.length,
       route: _route(
         role,
         RouteNames.adminCareRequests,
@@ -248,25 +256,6 @@ class StaffHubData {
       ),
       icon: AppIcons.careRequest,
       color: AppColors.info,
-    );
-
-    add(
-      visible: canAssignments,
-      type: StaffWorkItemType.assignment,
-      urgency: StaffWorkUrgency.routine,
-      title: 'Manage care assignments',
-      description: 'Open the existing patient and provider assignment flow',
-      count: staff.careRequests
-          .where((request) => request.status == 'approved')
-          .length,
-      route: _route(
-        role,
-        RouteNames.adminAssignments,
-        RouteNames.assistantAssignments,
-      ),
-      icon: AppIcons.assignments,
-      color: AppColors.brandIndigo,
-      actionLabel: 'Open',
     );
 
     add(
@@ -348,10 +337,12 @@ class StaffHubData {
           id: 'assignments',
           title: 'Care assignments',
           description: 'Connect patients with their care providers',
+          // Merged into the care-requests workspace, which opens on the
+          // assignments tab for staff who only hold can_assign_patients.
           route: _route(
             role,
-            RouteNames.adminAssignments,
-            RouteNames.assistantAssignments,
+            RouteNames.adminCareRequests,
+            RouteNames.assistantCareRequests,
           ),
           icon: AppIcons.assignments,
           color: AppColors.info,

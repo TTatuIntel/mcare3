@@ -52,6 +52,7 @@ class NotificationRouter {
         NotificationKind.approval => RouteNames.pendingApproval,
         NotificationKind.assignment => RouteNames.patientCareTeam,
         NotificationKind.profile => RouteNames.patientProfile,
+        NotificationKind.consent => RouteNames.patientReportConsents,
         NotificationKind.system => RouteNames.patientNotifications,
       };
 
@@ -67,6 +68,7 @@ class NotificationRouter {
         NotificationKind.approval => RouteNames.pendingApproval,
         NotificationKind.assignment => RouteNames.doctorPatients,
         NotificationKind.profile => RouteNames.doctorProfile,
+        NotificationKind.consent => RouteNames.doctorReports,
         NotificationKind.system => RouteNames.doctorNotifications,
       };
 
@@ -80,8 +82,10 @@ class NotificationRouter {
         NotificationKind.careRequest => RouteNames.adminCareRequests,
         NotificationKind.sos => RouteNames.adminSos,
         NotificationKind.approval => RouteNames.adminApprovals,
-        NotificationKind.assignment => RouteNames.adminAssignments,
+        // Assignments live on the merged care-requests screen.
+        NotificationKind.assignment => RouteNames.adminCareRequests,
         NotificationKind.profile => RouteNames.adminProfile,
+        NotificationKind.consent => RouteNames.adminPatients,
         NotificationKind.system => RouteNames.adminNotifications,
       };
 
@@ -95,8 +99,9 @@ class NotificationRouter {
         NotificationKind.careRequest => RouteNames.assistantCareRequests,
         NotificationKind.sos => RouteNames.assistantSos,
         NotificationKind.approval => RouteNames.assistantApprovals,
-        NotificationKind.assignment => RouteNames.assistantAssignments,
+        NotificationKind.assignment => RouteNames.assistantCareRequests,
         NotificationKind.profile => RouteNames.assistantProfile,
+        NotificationKind.consent => RouteNames.assistantPatients,
         NotificationKind.system => RouteNames.assistantNotifications,
       };
 

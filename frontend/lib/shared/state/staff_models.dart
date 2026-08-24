@@ -411,6 +411,12 @@ class CareAssignment {
     required this.provider,
     required this.assignedAt,
     this.role = 'Primary',
+    this.patientId,
+    this.providerId,
+    this.providerUserId,
+    this.providerSpecialty,
+    this.assignedReason,
+    this.assignedByName,
   });
 
   final String id;
@@ -418,6 +424,21 @@ class CareAssignment {
   String provider;
   String role;
   final DateTime assignedAt;
+
+  /// Backend ids — null when seeded from demo data.
+  final String? patientId;
+
+  /// `care_providers` row id.
+  final String? providerId;
+
+  /// Directory (`users`) id of the provider, when the row is linked.
+  final String? providerUserId;
+
+  final String? providerSpecialty;
+
+  /// Why this pairing was made — captured on approval or manual assignment.
+  final String? assignedReason;
+  final String? assignedByName;
 }
 
 class CareRequestItem {
@@ -429,6 +450,15 @@ class CareRequestItem {
     required this.createdAt,
     this.patientId,
     this.status = 'pending',
+    this.providerId,
+    this.providerSpecialty,
+    this.assignedProviderId,
+    this.assignedProviderName,
+    this.assignmentRole,
+    this.decisionNote,
+    this.decidedAt,
+    this.decidedByName,
+    this.reassigned = false,
   });
 
   final String id;
@@ -436,9 +466,37 @@ class CareRequestItem {
   final String providerRequested;
   final String reason;
   final DateTime createdAt;
+
   /// Backend patient user-ID — null when seeded from demo data.
   final String? patientId;
   String status;
+
+  /// `care_providers` row id the patient asked for.
+  final String? providerId;
+  final String? providerSpecialty;
+
+  /// Provider actually assigned — differs from [providerId] after a re-route.
+  String? assignedProviderId;
+  String? assignedProviderName;
+  String? assignmentRole;
+
+  /// Staff reason attached to the approval, re-route, or decline.
+  String? decisionNote;
+  DateTime? decidedAt;
+  String? decidedByName;
+
+  /// True when staff approved with a provider other than the requested one.
+  bool reassigned;
+
+  /// Name of the provider the patient ends up with — the assigned one when
+  /// the request was re-routed, otherwise the requested one.
+  String get effectiveProvider =>
+      (assignedProviderName?.isNotEmpty ?? false)
+          ? assignedProviderName!
+          : providerRequested;
+
+  bool get isPending => status == 'pending';
+  bool get isDecided => !isPending;
 }
 
 /// A single entry in the global vital catalog. Built-in vitals carry a

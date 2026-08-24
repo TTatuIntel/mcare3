@@ -53,6 +53,7 @@ import 'mcare_assistant/guided_hub/assistant_guided_operations_view.dart';
 import 'patients/appointments/appointment_detail_view.dart';
 import 'patients/appointments/appointments_view.dart';
 import 'patients/care_team/care_team_view.dart';
+import 'patients/consents/patient_report_consents_view.dart';
 import 'patients/dashboard/patient_dashboard_view.dart';
 import 'patients/documents/documents_view.dart';
 import 'patients/medications/medication_detail_view.dart';
@@ -354,6 +355,9 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.patientSos:
         page = const _PatientGuarded(child: SosView());
+        break;
+      case RouteNames.patientReportConsents:
+        page = const _PatientGuarded(child: PatientReportConsentsView());
         break;
 
       // ----- Doctor ----------------------------------------------------
