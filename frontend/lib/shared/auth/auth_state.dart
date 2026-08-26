@@ -11,6 +11,7 @@ import '../../core/mock/mock_otp_service.dart';
 import '../services/auth_storage.dart';
 import '../../core/push/push_notification_service.dart';
 import '../services/sos_ring_service.dart';
+import '../alerts/alert_center.dart';
 import '../widgets/sos_alert_popup.dart';
 
 /// Canonical mCare Assistant permission keys (§9.4 of documentation).
@@ -164,6 +165,9 @@ class AuthState extends ChangeNotifier {
       cleanup();
     }
     SosAlertPopup.reset();
+    // Drop escalation history too, or the next user inherits this one's
+    // snoozes and "already shown" state.
+    AlertCenter.instance.reset();
     SosRingService.instance.stop();
     MockBootstrap.clearPatientSession();
     notifyListeners();

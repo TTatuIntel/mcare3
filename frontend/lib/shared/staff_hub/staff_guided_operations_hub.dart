@@ -106,9 +106,10 @@ class _StaffGuidedOperationsHubState extends State<StaffGuidedOperationsHub> {
   }
 }
 
-/// The existing overlay is platform-wide for staff. Until it accepts a
-/// capability predicate, keep it on the unrestricted Admin hub only so a
-/// delegated Assistant cannot receive SOS details outside their grants.
+/// Every staff role now gets the overlay. The grant check that previously
+/// forced this to admin-only moved into [AlertCenter], which filters SOS
+/// items by `can_access_emergency_location` — so a delegated Assistant
+/// receives vital alerts without gaining emergency-location detail.
 class _PermissionSafeEventOverlay extends StatelessWidget {
   const _PermissionSafeEventOverlay({required this.role, required this.child});
 
@@ -117,7 +118,10 @@ class _PermissionSafeEventOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (role == UserRole.admin) return CriticalEventOverlay(child: child);
+    final isStaff = role == UserRole.admin ||
+        role == UserRole.mcareAssistant ||
+        role == UserRole.doctor;
+    if (isStaff) return CriticalEventOverlay(child: child);
     return child;
   }
 }

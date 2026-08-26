@@ -8,7 +8,7 @@ import '../../shared/models/vital.dart';
 import '../../shared/state/sos_state.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/widgets/app_toast.dart';
-import '../../shared/widgets/sos_alert_popup.dart';
+import '../../shared/alerts/urgent_alert_dialog.dart';
 import '../env/app_env.dart';
 import 'background_session_sync.dart';
 import 'realtime_channel.dart';
@@ -174,11 +174,7 @@ class SessionPoller {
       if (role == UserRole.doctor ||
           role == UserRole.admin ||
           role == UserRole.mcareAssistant) {
-        SosAlertPopup.maybeShow(
-          ctx,
-          scopePatientIds: scope,
-          routeFor: role,
-        );
+        UrgentAlertDialog.maybeShow(ctx);
       }
     }
   }

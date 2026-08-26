@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../alerts/urgent_alerts_card.dart';
 import '../models/user_role.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -44,6 +45,9 @@ class StaffHubHomePage extends StatelessWidget {
         StaffHubPermissionNotice(role: role),
         if (role == UserRole.mcareAssistant)
           const SizedBox(height: AppSpacing.lg),
+        // The urgent queue leads the dashboard: what is outstanding, who has
+        // owned it, and the actions to clear it — without leaving this page.
+        const UrgentAlertsCard(),
         const StaffHubSectionHeading(
           title: 'Choose a task',
           subtitle: 'A short path to the work that needs attention.',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'core/web/html_splash_bridge.dart';
 import 'shared/bootstrap/launch_readiness.dart';
 import 'package:flutter/foundation.dart';
@@ -76,6 +78,7 @@ import 'core/web/url_strategy.dart';
 import 'doctors/dashboard/critical_alert_popup.dart';
 import 'shared/auth/auth_state.dart';
 import 'shared/services/auth_service.dart';
+import 'shared/widgets/loading/loading.dart';
 import 'shared/widgets/app_toast.dart';
 import 'shared/auth/patient_onboarding_gate.dart';
 import 'shared/auth/staff_profile_gate.dart';
@@ -96,12 +99,19 @@ import 'l10n/app_localizations.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_icons.dart';
+import 'shared/widgets/app_error_fallback.dart';
 import 'shared/widgets/app_page_route.dart';
 import 'shared/widgets/bubble_background.dart';
 import 'shared/widgets/pre_login_top_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Flutter's stock error box is an unstyled grey rectangle — full-screen it
+  // is indistinguishable from a blank page. Debug keeps the red screen so
+  // real failures stay loud during development.
+  if (kReleaseMode) {
+    ErrorWidget.builder = (details) => AppErrorFallback(details: details);
+  }
   // Clean path URLs on web so `/reset-password?token=...` deep links resolve.
   configureWebUrlStrategy();
   if (kIsWeb) {
@@ -121,45 +131,79 @@ class McareApp extends StatefulWidget {
 }
 
 class _McareAppState extends State<McareApp> {
+  /// Hard ceiling on startup work. Session restore and the Google redirect
+  /// probe both touch the network; if either hangs we still want the app on
+  /// screen. Landing is safe to show — an unrestored session just means the
+  /// user signs in again.
+  static const Duration _bootstrapWatchdog = Duration(seconds: 8);
+
+  /// Absolute last resort: the HTML splash comes down after this no matter
+  /// what state bootstrap is in, so the app can never sit behind it forever.
+  static const Duration _splashWatchdog = Duration(seconds: 12);
+
+  Timer? _splashGuard;
+
   @override
   void initState() {
     super.initState();
+    _splashGuard = Timer(_splashWatchdog, HtmlSplashBridge.dismiss);
     _runBootstrap();
   }
 
-  Future<void> _runBootstrap() async {
-    final result = await AppBootstrap.run();
-    if (!mounted) return;
-    final ctx = rootNavigatorKey.currentContext;
-    if (ctx == null || !ctx.mounted) return;
+  @override
+  void dispose() {
+    _splashGuard?.cancel();
+    super.dispose();
+  }
 
-    if (kIsWeb) {
-      final gr = result.googleAuthResult;
-      if (gr != null) {
-        if (gr.isSuccess) {
-          AuthService.instance.completeNavigation(ctx, gr);
-          // Dismiss HTML splash after navigation frame is painted.
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              HtmlSplashBridge.dismiss();
-            });
-          });
-          return;
-        } else if (!gr.cancelled) {
-          AppToast.error(ctx, gr.errorMessage ?? 'Google sign-in failed.');
+  Future<void> _runBootstrap() async {
+    // Every exit below — success, early return, throw, or timeout — falls
+    // through to the `finally`, which is the only place that takes the splash
+    // down. Previously a null context or a throw out of session restore left
+    // the splash up and the app stranded on an empty frame.
+    try {
+      final result = await AppBootstrap.run().timeout(_bootstrapWatchdog);
+      if (!mounted) return;
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+
+      if (kIsWeb) {
+        final gr = result.googleAuthResult;
+        if (gr != null) {
+          if (gr.isSuccess) {
+            AuthService.instance.completeNavigation(ctx, gr);
+            return;
+          } else if (!gr.cancelled) {
+            AppToast.error(ctx, gr.errorMessage ?? 'Google sign-in failed.');
+          }
         }
       }
+
+      final target = result.initialRoute;
+      // Already on LandingView; only navigate if a saved session was restored.
+      if (target != RouteNames.home) {
+        Navigator.of(ctx).pushReplacementNamed(target);
+      }
+    } catch (error, stack) {
+      // Startup must never be fatal. Landing is always reachable, so log and
+      // let the user in rather than holding an empty screen.
+      debugPrint('mCare bootstrap failed, continuing to landing: $error');
+      debugPrintStack(stackTrace: stack);
+    } finally {
+      LaunchReadiness.instance.markBootstrapComplete();
+      _dismissSplashAfterPaint();
     }
+  }
 
-    LaunchReadiness.instance.markBootstrapComplete();
-
-    final target = result.initialRoute;
-    // Already on LandingView; only navigate if a saved session was restored.
-    if (target != RouteNames.home) {
-      Navigator.of(ctx).pushReplacementNamed(target);
+  /// Waits two frames so the first real screen is on the canvas before the
+  /// HTML splash is removed — without the wait the handoff shows a blank gap.
+  void _dismissSplashAfterPaint() {
+    _splashGuard?.cancel();
+    _splashGuard = null;
+    if (!mounted) {
+      HtmlSplashBridge.dismiss();
+      return;
     }
-
-    // Dismiss HTML splash only after bootstrap is done and content is painted.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         HtmlSplashBridge.dismiss();
@@ -197,7 +241,10 @@ class _McareAppState extends State<McareApp> {
           },
           builder: (context, child) => ColoredBox(
             color: AppPalette.scaffoldBg(context),
-            child: child ?? const SizedBox.shrink(),
+            // Surfaces a slim top bar when an API call outlives
+            // AppMotion.loaderDelay, so a slow network reads as "working"
+            // rather than "frozen". Silent for fast calls.
+            child: AppBusyBar(child: child ?? const SizedBox.shrink()),
           ),
           initialRoute: RouteNames.landing,
           // Produce a single-route stack so home screens never have a "/" route

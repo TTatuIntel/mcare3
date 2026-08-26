@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../async/app_busy.dart';
 import '../env/app_env.dart';
 import 'api_error_messages.dart';
 
@@ -74,9 +75,14 @@ class ApiClient {
     }
     req.fields.addAll(fields);
     req.files.addAll(files);
-    final streamed = await req.send().timeout(AppEnv.apiTimeout);
-    final response = await http.Response.fromStream(streamed);
-    return _decode(response);
+    AppBusy.instance.begin();
+    try {
+      final streamed = await req.send().timeout(AppEnv.apiTimeout);
+      final response = await http.Response.fromStream(streamed);
+      return _decode(response);
+    } finally {
+      AppBusy.instance.end();
+    }
   }
 
   /// Multipart PATCH for document updates with optional file replacement.
@@ -95,9 +101,14 @@ class ApiClient {
     }
     req.fields.addAll(fields);
     req.files.addAll(files);
-    final streamed = await req.send().timeout(AppEnv.apiTimeout);
-    final response = await http.Response.fromStream(streamed);
-    return _decode(response);
+    AppBusy.instance.begin();
+    try {
+      final streamed = await req.send().timeout(AppEnv.apiTimeout);
+      final response = await http.Response.fromStream(streamed);
+      return _decode(response);
+    } finally {
+      AppBusy.instance.end();
+    }
   }
 
   /// Authenticated binary GET (document stream, exports, etc.).
@@ -105,6 +116,7 @@ class ApiClient {
     if (!AppEnv.backendEnabled) {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
+    AppBusy.instance.begin();
     try {
       final response = await http
           .get(
@@ -132,6 +144,8 @@ class ApiClient {
       rethrow;
     } catch (e) {
       throw ApiException(ApiErrorMessages.sanitize(e.toString()), 0);
+    } finally {
+      AppBusy.instance.end();
     }
   }
 
@@ -184,6 +198,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> _send(Future<http.Response> request) async {
+    AppBusy.instance.begin();
     try {
       final response = await request;
       return _decode(response);
@@ -191,6 +206,8 @@ class ApiClient {
       rethrow;
     } catch (e) {
       throw ApiException(ApiErrorMessages.sanitize(e.toString()), 0);
+    } finally {
+      AppBusy.instance.end();
     }
   }
 

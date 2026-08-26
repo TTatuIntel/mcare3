@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../shared/widgets/admin_screens/admin_screens.dart';
 import '../admin/analytics/admin_analytics_view.dart';
+// The shared barrel deliberately re-exports only AssignmentsScreen, so the
+// redirect widget has to come from its defining library directly.
+import '../admin/assignments/admin_assignments_view.dart';
 import '../admin/users/admin_users_view.dart';
 import '../admin/patients/admin_patients_view.dart';
 import '../shared/vitals/vital_catalog_screen.dart';

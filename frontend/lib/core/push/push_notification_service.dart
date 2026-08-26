@@ -8,10 +8,8 @@ import '../../shared/models/user_role.dart';
 import '../../shared/navigation/root_navigator.dart';
 import '../../shared/services/admin_sos_service.dart';
 import '../../shared/services/doctor_session_service.dart';
-import '../../shared/services/sos_ring_service.dart';
-import '../../shared/state/staff_state.dart';
+import '../../shared/alerts/urgent_alert_dialog.dart';
 import '../../shared/widgets/app_toast.dart';
-import '../../shared/widgets/sos_alert_popup.dart';
 import '../api/api_client.dart';
 import '../api/fcm_api.dart';
 import '../env/app_env.dart';
@@ -186,19 +184,9 @@ class PushNotificationService {
     if (ctx == null || !ctx.mounted) return;
 
     if (data['kind'] == 'sos') {
-      SosRingService.instance.start();
-      final scope = user.role == UserRole.doctor
-          ? StaffState.instance
-              .assignedPatientsForDoctor()
-              .map((p) => p.id)
-              .toSet()
-          : StaffState.instance.patients.map((p) => p.id).toSet();
-
-      SosAlertPopup.maybeShow(
-        ctx,
-        scopePatientIds: scope,
-        routeFor: user.role,
-      );
+      // AlertCenter owns scope, ring policy, and de-duplication now, so a
+      // push and a poll arriving together cannot stack two dialogs.
+      UrgentAlertDialog.maybeShow(ctx);
     }
   }
 
