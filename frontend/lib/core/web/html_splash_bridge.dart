@@ -17,6 +17,18 @@ class HtmlSplashBridge {
     impl.dismissHtmlSplash();
   }
 
+  /// Re-reveal the splash while the app boots.
+  ///
+  /// A hot restart re-runs `main()` without reloading the page, so the Dart
+  /// side starts fresh while the DOM keeps whatever state the previous run
+  /// left behind. Without this the splash stayed dismissed and the restart
+  /// showed a blank page until Flutter finished rebuilding its canvas.
+  static void show() {
+    if (!kIsWeb) return;
+    _dismissed = false;
+    impl.showHtmlSplash();
+  }
+
   /// True when the page was opened fresh (hard refresh, new tab, browser
   /// close+reopen) — i.e. the JS sessionStorage flag was absent.
   /// Always false on non-web platforms.

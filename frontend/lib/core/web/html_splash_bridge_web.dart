@@ -15,4 +15,10 @@ void dismissHtmlSplash() {
   _jsDispatchEvent(_JsCustomEvent('mcare-ready'));
 }
 
+/// Brings the HTML splash back. The page is not reloaded on a hot restart,
+/// so this is what covers the gap while Flutter rebuilds its canvas.
+void showHtmlSplash() {
+  _jsDispatchEvent(_JsCustomEvent('mcare-loading'));
+}
+
 bool isNewBrowserSession() => _mcareNewSession.toDart;

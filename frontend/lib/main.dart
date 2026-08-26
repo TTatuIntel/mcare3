@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'core/web/html_splash_bridge.dart';
+import 'shared/bootstrap/boot_splash_gate.dart';
 import 'shared/bootstrap/launch_readiness.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -107,6 +108,12 @@ import 'shared/widgets/pre_login_top_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // A hot restart re-runs main() without reloading the page, so the splash
+  // from the previous run is still dismissed. Bring it back before any async
+  // work starts — otherwise the restart shows a blank page while Flutter
+  // rebuilds its canvas. No-op on a cold start (already visible) and on
+  // non-web platforms (BootSplashGate covers those).
+  HtmlSplashBridge.show();
   // Flutter's stock error box is an unstyled grey rectangle — full-screen it
   // is indistinguishable from a blank page. Debug keeps the red screen so
   // real failures stay loud during development.
@@ -248,8 +255,14 @@ class _McareAppState extends State<McareApp> {
             // rather than "frozen". Silent for fast calls.
             // Two layers, two jobs: the bar is ambient feedback for reads,
             // the overlay is the visible "working on it" for user actions.
-            child: AppBusyBar(
-              child: McareBusyOverlay(child: child ?? const SizedBox.shrink()),
+            // BootSplashGate is outermost of the three so the loading mark
+            // covers the app on every start and hot restart, on all platforms.
+            child: BootSplashGate(
+              child: AppBusyBar(
+                child: McareBusyOverlay(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
             ),
           ),
           initialRoute: RouteNames.landing,

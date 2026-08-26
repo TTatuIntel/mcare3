@@ -133,17 +133,33 @@
           async data-mcare-apple="true"></script>
 
   <script>
-  /* ── Dismiss — only when Dart confirms Flutter splash/content is painted ── */
+  /* ── Show / dismiss — driven by Dart, reusable across hot restarts ──────
+     The splash is HIDDEN, never removed. A hot restart re-runs Dart main()
+     without reloading the page, so a destroyed splash could never come back
+     and the restart showed a blank screen while Flutter rebuilt its canvas.
+     Keeping the node lets `mcare-loading` bring it straight back.          */
   (function () {
-    var splash = document.getElementById('mc-splash');
-    var done   = false;
-    function dismiss() {
-      if (done) return;
-      done = true;
-      if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+    var splash   = document.getElementById('mc-splash');
+    var failsafe = null;
+
+    function arm() {
+      if (failsafe) clearTimeout(failsafe);
+      /* Never let the splash strand the app if Dart never signals ready. */
+      failsafe = setTimeout(dismiss, 30000);
     }
-    window.addEventListener('mcare-ready', dismiss, { once: true });
-    setTimeout(dismiss, 30000);
+    function dismiss() {
+      if (failsafe) { clearTimeout(failsafe); failsafe = null; }
+      if (splash) splash.classList.add('out');
+    }
+    function reveal() {
+      if (splash) splash.classList.remove('out');
+      arm();
+    }
+
+    /* Not { once: true } — both events must keep working on every restart. */
+    window.addEventListener('mcare-ready', dismiss);
+    window.addEventListener('mcare-loading', reveal);
+    arm();
   }());
 
   /* ── BrandLogo animation — mirrors brand_logo.dart exactly ─────────── */
