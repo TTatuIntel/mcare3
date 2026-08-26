@@ -27,6 +27,7 @@ import '../alerts/doctor_alert_resolve_sheet.dart';
 import '../patients/doctor_patient_section.dart';
 import 'doctor_vital_flows.dart';
 import '../../shared/vitals/doctor_vital_threshold_form.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// One vitals control surface: readings, filters, and global defaults on a
 /// single scroll — no tab switching.
@@ -695,10 +696,9 @@ class _VitalsSummaryBar extends StatelessWidget {
           ),
           const Spacer(),
           if (refreshing)
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            const McarePulse(
+              size: McarePulseSize.micro,
+              semanticLabel: null,
             )
           else
             _ToolbarIcon(

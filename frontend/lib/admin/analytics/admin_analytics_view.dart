@@ -14,6 +14,7 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 class AdminAnalyticsView extends StatefulWidget {
   const AdminAnalyticsView({
@@ -67,10 +68,9 @@ class _AdminAnalyticsViewState extends State<AdminAnalyticsView> {
           tooltip: 'Refresh analytics',
           onPressed: _refreshing ? null : _refresh,
           icon: _refreshing
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+              ? const McarePulse(
+                  size: McarePulseSize.micro,
+                  semanticLabel: null,
                 )
               : const Icon(Icons.refresh),
         ),
@@ -292,7 +292,7 @@ class _LiveTrendSectionState extends State<_LiveTrendSection> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.all(AppSpacing.lg),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
       );
     }
 

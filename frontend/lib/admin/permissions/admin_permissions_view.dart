@@ -14,6 +14,7 @@ import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// Admin view for managing mCare Assistant delegated permissions.
 /// Loads each assistant's grant set from the API, lets admin toggle in-place,
@@ -352,10 +353,9 @@ class _AssistantPermissionCard extends StatelessWidget {
                 ),
                 if (isSyncing) ...[
                   const SizedBox(width: AppSpacing.sm),
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  const McarePulse(
+                    size: McarePulseSize.micro,
+                    semanticLabel: null,
                   ),
                 ],
                 const Spacer(),

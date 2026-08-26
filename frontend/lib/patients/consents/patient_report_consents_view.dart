@@ -16,6 +16,7 @@ import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../admin/reports/report_reason_prompt.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// Where a patient sees, and decides on, every request to share their record.
 ///
@@ -87,7 +88,7 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView> {
       body: _loading
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
             )
           : _items.isEmpty
               ? GlassCard(

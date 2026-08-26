@@ -12,6 +12,7 @@ import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 class AdminSystemView extends StatefulWidget {
   const AdminSystemView({super.key});
@@ -205,13 +206,10 @@ class _SettingTile extends StatelessWidget {
           if (saving)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: activeColor,
-                ),
+              child: McarePulse(
+                size: McarePulseSize.micro,
+                color: activeColor,
+                semanticLabel: null,
               ),
             )
           else

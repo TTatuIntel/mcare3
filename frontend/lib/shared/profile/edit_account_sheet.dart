@@ -15,6 +15,7 @@ import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_sheet.dart';
 import 'change_email_sheet.dart';
+import '../widgets/loading/loading.dart';
 
 /// Role-agnostic account editor: photo, name, phone, email, and — for
 /// clinicians — specialty and licence number.
@@ -242,10 +243,9 @@ class _AvatarEditor extends StatelessWidget {
                         ),
                 ),
                 if (busy)
-                  const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  const McarePulse(
+                    size: McarePulseSize.inline,
+                    semanticLabel: null,
                   ),
               ],
             ),

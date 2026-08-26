@@ -10,6 +10,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/glass_card.dart';
 import 'alert_center.dart';
 import 'urgent_alert_dialog.dart';
+import '../widgets/loading/loading.dart';
 
 /// The urgent queue rendered inline on the dashboard.
 ///
@@ -321,10 +322,9 @@ class _UrgentRowState extends State<_UrgentRow> {
           ),
           const SizedBox(width: AppSpacing.sm),
           if (_busy)
-            const SizedBox(
-              height: 16,
-              width: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            const McarePulse(
+              size: McarePulseSize.micro,
+              semanticLabel: null,
             )
           else ...[
             if (!item.acknowledged)

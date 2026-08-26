@@ -24,6 +24,7 @@ import '../../shared/state/staff_state.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/staff_filter_chip.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 class SupportQueueScreen extends StatefulWidget {
   const SupportQueueScreen({
@@ -659,10 +660,9 @@ class _AssignmentCard extends StatelessWidget {
                 ),
               ),
               if (assigning)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                const McarePulse(
+                  size: McarePulseSize.micro,
+                  semanticLabel: null,
                 ),
             ],
           ),

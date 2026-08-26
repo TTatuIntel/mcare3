@@ -13,6 +13,7 @@ import '../../shared/widgets/dossier/dossier_blocks.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// Build a patient report by ticking exactly the sections needed.
 ///
@@ -165,7 +166,7 @@ class _BuilderBodyState extends State<_BuilderBody> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
       );
     }
     if (_catalog.isEmpty) {

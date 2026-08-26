@@ -13,6 +13,7 @@ import '../../shared/widgets/app_icons.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/glass_sheet.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// Patient-managed external access links & codes.
 class ExternalAccessSheet {
@@ -340,7 +341,7 @@ class _BodyState extends State<_Body> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
       );
     }
 

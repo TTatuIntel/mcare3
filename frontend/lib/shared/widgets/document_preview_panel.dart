@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
 import 'document_pdf_view_stub.dart'
+import 'loading/loading.dart';
     if (dart.library.html) 'document_pdf_view_web.dart' as pdf_view;
 
 /// In-app preview for PDFs and images — authenticated, no public storage URL.
@@ -133,11 +134,7 @@ class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
   Widget _buildBody(BuildContext context) {
     if (_loading) {
       return const Center(
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+        child: McareLoadingMark(size: McareMarkSize.small),
       );
     }
     if (_error != null) {

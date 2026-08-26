@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
+import 'loading/mcare_loading_mark.dart';
+import 'loading/mcare_pulse.dart';
 
 enum AppButtonVariant { primary, secondary, ghost, danger, icon }
 
@@ -105,14 +107,19 @@ class _AppButtonState extends State<AppButton> {
     }
 
     if (widget.loading) {
-      child = SizedBox(
-        height: 18,
-        width: 18,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.2,
-          valueColor: AlwaysStoppedAnimation(style.fg),
-        ),
-      );
+      // An icon button is too narrow for the wordmark, so it gets the
+      // lifeline on its own; every other variant shows the full mCare mark.
+      child = widget.variant == AppButtonVariant.icon
+          ? McarePulse(
+              size: McarePulseSize.inline,
+              color: style.fg,
+              semanticLabel: null,
+            )
+          : McareLoadingMark(
+              size: McareMarkSize.button,
+              color: style.fg,
+              semanticLabel: null,
+            );
     }
 
     final radius = widget.variant == AppButtonVariant.icon

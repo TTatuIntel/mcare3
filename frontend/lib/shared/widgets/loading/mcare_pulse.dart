@@ -5,6 +5,10 @@ import 'mcare_ecg_path.dart';
 
 /// Preset footprints for [McarePulse].
 enum McarePulseSize {
+  /// Smallest legible trace — for an icon-button slot or a 14–20px indicator
+  /// slot where even the inline size would overflow.
+  micro(20, 8, 1.3),
+
   /// Sits inside a button or a table row without changing its height.
   inline(26, 10, 1.6),
 
@@ -78,7 +82,7 @@ class _McarePulseState extends State<McarePulse>
   @override
   Widget build(BuildContext context) {
     final color = widget.color ?? Theme.of(context).colorScheme.primary;
-    final painter = _McarePulsePainter(
+    final painter = McarePulsePainter(
       progress: _ctrl,
       color: color,
       stroke: widget.size.stroke,
@@ -100,8 +104,8 @@ class _McarePulseState extends State<McarePulse>
   }
 }
 
-class _McarePulsePainter extends CustomPainter {
-  _McarePulsePainter({
+class McarePulsePainter extends CustomPainter {
+  McarePulsePainter({
     required this.progress,
     required this.color,
     required this.stroke,
@@ -189,6 +193,6 @@ class _McarePulsePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _McarePulsePainter old) =>
+  bool shouldRepaint(covariant McarePulsePainter old) =>
       old.color != color || old.stroke != stroke || old.isStatic != isStatic;
 }

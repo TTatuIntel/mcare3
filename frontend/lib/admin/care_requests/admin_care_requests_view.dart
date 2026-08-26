@@ -26,6 +26,7 @@ import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../../shared/widgets/staff_filter_chip.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// Admin entry point for the merged care workspace.
 class AdminCareRequestsView extends StatelessWidget {
@@ -1294,11 +1295,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                   trailing: !request.isPending
                       ? null
                       : _busyRequests.contains(request.id)
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                          ? const McarePulse(
+                              size: McarePulseSize.micro,
+                              semanticLabel: null,
                             )
                           : handheld
                               ? AppButton(

@@ -12,6 +12,7 @@ import 'app_text_field.dart';
 import 'app_toast.dart';
 import 'glass_sheet.dart';
 import 'staff_blocks.dart';
+import 'loading/loading.dart';
 
 /// Pick a patient or staff member to start (or reopen) a conversation.
 class NewConversationSheet {
@@ -136,7 +137,7 @@ class _NewConversationBodyState extends State<_NewConversationBody> {
         if (_loading)
           const Padding(
             padding: EdgeInsets.all(AppSpacing.lg),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
           )
         else if (users.isEmpty)
           Text(

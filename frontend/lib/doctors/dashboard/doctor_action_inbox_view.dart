@@ -21,6 +21,7 @@ import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../../shared/widgets/staff_stat_cards.dart';
 import 'doctor_action_queue.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 class DoctorActionInboxView extends StatefulWidget {
   const DoctorActionInboxView({super.key});
@@ -474,10 +475,9 @@ class _CareRequestActionsState extends State<_CareRequestActions> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      return const McarePulse(
+        size: McarePulseSize.micro,
+        semanticLabel: null,
       );
     }
     return Row(
@@ -631,10 +631,9 @@ class _VitalReportActionsState extends State<_VitalReportActions> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      return const McarePulse(
+        size: McarePulseSize.micro,
+        semanticLabel: null,
       );
     }
     return Row(

@@ -17,6 +17,7 @@ import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/section_label.dart';
+import '../../shared/widgets/loading/loading.dart';
 
 /// Reports nominated to this doctor for sign-off.
 ///
@@ -75,7 +76,7 @@ class _DoctorReportSignaturesListState
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
       );
     }
 

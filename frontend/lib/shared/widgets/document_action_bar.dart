@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
 import 'glass_card.dart';
+import 'loading/loading.dart';
 
 /// Compact row of document actions — View, Download, Delete on one line.
 class DocumentActionBar extends StatelessWidget {
@@ -139,13 +140,10 @@ class _ActionTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (loading)
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(accent),
-                  ),
+                McarePulse(
+                  size: McarePulseSize.micro,
+                  color: accent,
+                  semanticLabel: null,
                 )
               else
                 Icon(icon, size: 20, color: fg),
