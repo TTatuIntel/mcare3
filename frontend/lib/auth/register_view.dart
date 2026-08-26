@@ -115,7 +115,7 @@ class _RegisterViewState extends State<RegisterView> {
         password: password ?? _password.text,
       ),
       blocking: true,
-      message: 'Creating your account…',
+      message: 'Creating account…',
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -306,7 +306,7 @@ class _RegisterViewState extends State<RegisterView> {
           SizedBox(height: compact ? AppSpacing.sm : AppSpacing.lg),
           AppButton(
             label: compact ? 'Create account' : 'Create patient account',
-            loadingLabel: 'Creating your account…',
+            loadingLabel: 'Creating account…',
             size: btnSize,
             expand: true,
             loading: _loading,

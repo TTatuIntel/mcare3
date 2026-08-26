@@ -45,7 +45,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
           }
         },
         blocking: true,
-        message: 'Sending reset instructions…',
+        message: 'Sending instructions…',
       );
       if (!mounted) return;
       setState(() => _sent = true);
@@ -82,7 +82,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
         const SizedBox(height: AppSpacing.lg),
         AppButton(
           label: 'Send reset link',
-          loadingLabel: 'Sending reset instructions…',
+          loadingLabel: 'Sending instructions…',
           size: AppButtonSize.lg,
           expand: true,
           loading: _loading,

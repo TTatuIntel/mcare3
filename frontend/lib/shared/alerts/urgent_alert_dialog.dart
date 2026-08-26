@@ -10,6 +10,7 @@ import '../theme/app_spacing.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_icons.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/patient_three_day_summary.dart';
 import '../widgets/staff_patient_profile_sheet.dart';
 import 'alert_center.dart';
 
@@ -231,12 +232,11 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
                   decoration: BoxDecoration(
                     color: AppPalette.surface(context),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                    border: Border.all(color: accent, width: 2),
+                    border: Border.all(color: accent.withValues(alpha: 0.35)),
                     boxShadow: [
                       BoxShadow(
-                        color: accent.withValues(alpha: 0.4),
-                        blurRadius: 34,
-                        spreadRadius: 2,
+                        color: AppPalette.ink(context).withValues(alpha: 0.18),
+                        blurRadius: 32,
                         offset: const Offset(0, 14),
                       ),
                     ],
@@ -247,11 +247,31 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppPalette.borderStrong(context),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
                         _Header(
                           item: item,
                           accent: accent,
                           remaining: remaining,
                           shownTimes: shownTimes,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _UrgentCareTeam(item: item),
+                        const SizedBox(height: AppSpacing.md),
+                        PatientThreeDaySummary(
+                          patientId: item.patientId,
+                          highlightedVital: item.alert?.vital,
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         _Actions(
@@ -431,6 +451,134 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _UrgentCareTeam extends StatelessWidget {
+  const _UrgentCareTeam({required this.item});
+
+  final UrgentItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final patient = StaffState.instance.patientById(item.patientId);
+    final target = item.patientName.trim().toLowerCase();
+    final assignments =
+        StaffState.instance.assignments
+            .where((entry) => entry.patient.trim().toLowerCase() == target)
+            .toList()
+          ..sort((a, b) => b.assignedAt.compareTo(a.assignedAt));
+    final provider = assignments.isNotEmpty
+        ? assignments.first.provider
+        : patient?.assignedDoctor;
+    final role = assignments.isNotEmpty ? assignments.first.role : 'Primary';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text(
+              'CARE TEAM',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              provider == null || provider.trim().isEmpty
+                  ? 'Unassigned'
+                  : '${assignments.isEmpty ? 1 : assignments.length} assigned',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.brandIndigo.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            border: Border.all(
+              color: AppColors.brandIndigo.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.brandIndigo.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  AppIcons.careTeam,
+                  size: 16,
+                  color: AppColors.brandIndigo,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      provider == null || provider.trim().isEmpty
+                          ? 'No care provider assigned'
+                          : provider,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      provider == null || provider.trim().isEmpty
+                          ? 'Assign a responder from the alert workspace'
+                          : '$role care',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (provider != null && provider.trim().isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  ),
+                  child: const Text(
+                    'ACTIVE',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.item,
@@ -455,22 +603,14 @@ class _Actions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppButton(
-          label: item.isSos ? 'Respond now' : 'Resolve…',
-          icon: item.isSos ? AppIcons.sos : AppIcons.check,
-          variant: AppButtonVariant.danger,
-          expand: true,
-          loading: busy,
-          onPressed: onResolve,
-        ),
-        const SizedBox(height: AppSpacing.sm),
         Row(
           children: [
             if (!item.acknowledged) ...[
               Expanded(
                 child: AppButton(
                   label: 'Acknowledge',
-                  icon: AppIcons.checkMark,
+                  icon: AppIcons.check,
+                  size: AppButtonSize.sm,
                   variant: AppButtonVariant.secondary,
                   onPressed: busy ? null : onAcknowledge,
                 ),
@@ -479,33 +619,45 @@ class _Actions extends StatelessWidget {
             ],
             Expanded(
               child: AppButton(
-                label: 'Open patient',
-                icon: AppIcons.profile,
-                variant: AppButtonVariant.secondary,
-                onPressed: busy ? null : onOpen,
+                label: item.isSos ? 'Respond now' : 'Resolve',
+                icon: item.isSos ? AppIcons.sos : AppIcons.checkMark,
+                size: AppButtonSize.sm,
+                variant: AppButtonVariant.danger,
+                loading: busy,
+                onPressed: onResolve,
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
               child: AppButton(
-                label:
-                    'Remind me in '
-                    '${AlertCenter.defaultSnooze.inMinutes} min',
+                label: 'Profile',
+                icon: AppIcons.profile,
+                size: AppButtonSize.sm,
+                variant: AppButtonVariant.ghost,
+                onPressed: busy ? null : onOpen,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: AppButton(
+                label: '${AlertCenter.defaultSnooze.inMinutes}m reminder',
                 icon: AppIcons.time,
+                size: AppButtonSize.sm,
                 variant: AppButtonVariant.ghost,
                 onPressed: busy ? null : onSnooze,
               ),
             ),
             if (onSkip != null) ...[
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: AppButton(
                   label: 'Next',
                   icon: AppIcons.chevronRight,
+                  size: AppButtonSize.sm,
                   variant: AppButtonVariant.ghost,
                   onPressed: busy ? null : onSkip,
                 ),

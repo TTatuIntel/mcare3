@@ -107,7 +107,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
           }
         },
         blocking: true,
-        message: 'Updating your password…',
+        message: 'Updating password…',
       );
       if (!mounted) return;
       setState(() => _done = true);
@@ -176,7 +176,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
         const SizedBox(height: AppSpacing.xl),
         AppButton(
           label: 'Update password',
-          loadingLabel: 'Updating your password…',
+          loadingLabel: 'Updating password…',
           size: AppButtonSize.lg,
           expand: true,
           loading: _loading,

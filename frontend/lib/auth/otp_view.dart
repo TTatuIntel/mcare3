@@ -79,7 +79,7 @@ class _OtpViewState extends State<OtpView> {
           }
         },
         blocking: true,
-        message: 'Verifying your account…',
+        message: 'Verifying account…',
       );
       if (!mounted) return;
       if (verifiedByApi) {

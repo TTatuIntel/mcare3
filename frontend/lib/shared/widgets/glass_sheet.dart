@@ -22,6 +22,10 @@ class GlassSheet {
     BuildContext context, {
     required String title,
     String? subtitle,
+    IconData? leadingIcon,
+    Color? leadingColor,
+    String? statusLabel,
+    Color? statusColor,
     required Widget child,
     bool isDismissible = true,
     double? maxWidth,
@@ -45,6 +49,10 @@ class GlassSheet {
             animation: animation,
             title: title,
             subtitle: subtitle,
+            leadingIcon: leadingIcon,
+            leadingColor: leadingColor,
+            statusLabel: statusLabel,
+            statusColor: statusColor,
             maxWidth: maxWidth ?? 640,
             maxHeightFactor: maxHeightFactor,
             isDismissible: isDismissible,
@@ -61,6 +69,10 @@ class _SheetRoute<T> extends StatelessWidget {
     required this.animation,
     required this.title,
     required this.subtitle,
+    required this.leadingIcon,
+    required this.leadingColor,
+    required this.statusLabel,
+    required this.statusColor,
     required this.maxWidth,
     required this.maxHeightFactor,
     required this.isDismissible,
@@ -70,6 +82,10 @@ class _SheetRoute<T> extends StatelessWidget {
   final Animation<double> animation;
   final String title;
   final String? subtitle;
+  final IconData? leadingIcon;
+  final Color? leadingColor;
+  final String? statusLabel;
+  final Color? statusColor;
   final double maxWidth;
   final double maxHeightFactor;
   final bool isDismissible;
@@ -124,6 +140,10 @@ class _SheetRoute<T> extends StatelessWidget {
                     child: _SheetPanel(
                       title: title,
                       subtitle: subtitle,
+                      leadingIcon: leadingIcon,
+                      leadingColor: leadingColor,
+                      statusLabel: statusLabel,
+                      statusColor: statusColor,
                       maxWidth: maxWidth,
                       maxHeightFactor: maxHeightFactor,
                       onClose: () => _dismiss(context),
@@ -144,6 +164,10 @@ class _SheetPanel extends StatelessWidget {
   const _SheetPanel({
     required this.title,
     required this.subtitle,
+    required this.leadingIcon,
+    required this.leadingColor,
+    required this.statusLabel,
+    required this.statusColor,
     required this.maxWidth,
     required this.maxHeightFactor,
     required this.onClose,
@@ -152,6 +176,10 @@ class _SheetPanel extends StatelessWidget {
 
   final String title;
   final String? subtitle;
+  final IconData? leadingIcon;
+  final Color? leadingColor;
+  final String? statusLabel;
+  final Color? statusColor;
   final double maxWidth;
   final double maxHeightFactor;
   final VoidCallback onClose;
@@ -209,6 +237,26 @@ class _SheetPanel extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (leadingIcon != null) ...[
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: (leadingColor ?? AppColors.brandIndigo)
+                                  .withValues(alpha: 0.11),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusSm,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              leadingIcon,
+                              size: 20,
+                              color: leadingColor ?? AppColors.brandIndigo,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                        ],
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,6 +286,35 @@ class _SheetPanel extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (statusLabel != null) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (statusColor ?? AppColors.brandIndigo)
+                                  .withValues(alpha: 0.11),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
+                            ),
+                            child: Text(
+                              statusLabel!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color:
+                                        statusColor ?? AppColors.brandIndigo,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 10,
+                                  ),
+                            ),
+                          ),
+                        ],
                         IconButton(
                           tooltip: 'Close',
                           onPressed: onClose,

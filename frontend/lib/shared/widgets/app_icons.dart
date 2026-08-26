@@ -39,6 +39,10 @@ class AppIcons {
   // Care features
   static const IconData appointment = Icons.event_available_rounded;
   static const IconData medication = Icons.medication_rounded;
+  static const IconData hydration = Icons.water_drop_outlined;
+  static const IconData activity = Icons.directions_walk_rounded;
+  static const IconData notes = Icons.sticky_note_2_outlined;
+  static const IconData history = Icons.history_rounded;
   static const IconData document = Icons.description_rounded;
   static const IconData report = Icons.assignment_rounded;
   static const IconData chat = Icons.chat_bubble_rounded;

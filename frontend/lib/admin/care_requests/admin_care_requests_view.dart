@@ -342,6 +342,10 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
       pageContext,
       title: 'Review care request',
       subtitle: '${request.patient} → ${request.providerRequested}',
+      leadingIcon: AppIcons.careRequest,
+      leadingColor: _statusColor(request.status),
+      statusLabel: request.status.toUpperCase(),
+      statusColor: _statusColor(request.status),
       child: StatefulBuilder(
         builder: (sheetContext, setSheet) {
           final visibleProviders = providers.where((p) {
@@ -860,63 +864,59 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
       pageContext,
       title: 'Care request',
       subtitle: '${request.patient} → ${request.providerRequested}',
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          AppSpacing.md,
-          AppSpacing.xl,
-          AppSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _RequestSummaryCard(request: request),
+      leadingIcon: AppIcons.careRequest,
+      leadingColor: _statusColor(request.status),
+      statusLabel: request.status.toUpperCase(),
+      statusColor: _statusColor(request.status),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _RequestSummaryCard(request: request),
+          const SizedBox(height: AppSpacing.md),
+          _DetailRow(label: 'Status', value: request.status.toUpperCase()),
+          _DetailRow(
+            label: 'Patient reason',
+            value: request.reason.isEmpty ? '—' : request.reason,
+          ),
+          _DetailRow(
+            label: 'Submitted',
+            value: DateFormat.MMMd().add_jm().format(request.createdAt),
+          ),
+          if (request.assignedProviderName != null)
+            _DetailRow(
+              label: request.reassigned
+                  ? 'Assigned instead'
+                  : 'Assigned provider',
+              value: request.assignedProviderName!,
+            ),
+          if (request.assignmentRole != null)
+            _DetailRow(
+              label: 'Relationship',
+              value: _normaliseRole(request.assignmentRole!),
+            ),
+          if ((request.decisionNote ?? '').isNotEmpty)
+            _DetailRow(label: 'Staff reason', value: request.decisionNote!),
+          if (request.decidedAt != null)
+            _DetailRow(
+              label: 'Decided',
+              value:
+                  '${DateFormat.MMMd().add_jm().format(request.decidedAt!)}'
+                  '${request.decidedByName == null ? '' : ' · ${request.decidedByName}'}',
+            ),
+          if (request.isPending) ...[
             const SizedBox(height: AppSpacing.md),
-            _DetailRow(label: 'Status', value: request.status.toUpperCase()),
-            _DetailRow(
-              label: 'Patient reason',
-              value: request.reason.isEmpty ? '—' : request.reason,
+            AppButton(
+              label: 'Review & decide',
+              icon: AppIcons.careRequest,
+              expand: true,
+              onPressed: () {
+                Navigator.of(pageContext, rootNavigator: true).pop();
+                _openReviewSheet(pageContext, request);
+              },
             ),
-            _DetailRow(
-              label: 'Submitted',
-              value: DateFormat.MMMd().add_jm().format(request.createdAt),
-            ),
-            if (request.assignedProviderName != null)
-              _DetailRow(
-                label: request.reassigned
-                    ? 'Assigned instead'
-                    : 'Assigned provider',
-                value: request.assignedProviderName!,
-              ),
-            if (request.assignmentRole != null)
-              _DetailRow(
-                label: 'Relationship',
-                value: _normaliseRole(request.assignmentRole!),
-              ),
-            if ((request.decisionNote ?? '').isNotEmpty)
-              _DetailRow(label: 'Staff reason', value: request.decisionNote!),
-            if (request.decidedAt != null)
-              _DetailRow(
-                label: 'Decided',
-                value:
-                    '${DateFormat.MMMd().add_jm().format(request.decidedAt!)}'
-                    '${request.decidedByName == null ? '' : ' · ${request.decidedByName}'}',
-              ),
-            if (request.isPending) ...[
-              const SizedBox(height: AppSpacing.md),
-              AppButton(
-                label: 'Review & decide',
-                icon: AppIcons.careRequest,
-                expand: true,
-                onPressed: () {
-                  Navigator.of(pageContext, rootNavigator: true).pop();
-                  _openReviewSheet(pageContext, request);
-                },
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }

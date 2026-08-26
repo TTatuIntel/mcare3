@@ -8,7 +8,6 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import 'mcare_loading_mark.dart';
-import 'mcare_pulse.dart';
 
 /// Full-screen mCare loading treatment for genuinely critical work.
 ///
@@ -67,12 +66,12 @@ class _BusyScrim extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final status = message ?? 'Loading information…';
+    final status = message ?? 'Loading…';
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = math.min(
-          184.0,
+          196.0,
           math.max(0.0, constraints.maxWidth - AppSpacing.huge),
         );
 
@@ -102,7 +101,7 @@ class _BusyScrim extends StatelessWidget {
                 child: SizedBox(
                   key: const ValueKey('mcare-busy-glass'),
                   width: cardWidth,
-                  height: 142,
+                  height: 116,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
@@ -147,25 +146,21 @@ class _BusyScrim extends StatelessWidget {
                                   size: McareMarkSize.medium,
                                   semanticLabel: null,
                                 ),
-                                const SizedBox(height: AppSpacing.sm),
-                                const McarePulse(
-                                  size: McarePulseSize.small,
-                                  semanticLabel: null,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
+                                const SizedBox(height: AppSpacing.md),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: AppSpacing.md,
                                   ),
                                   child: Text(
                                     status,
-                                    maxLines: 2,
+                                    maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.center,
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: AppPalette.ink(context),
                                           fontWeight: FontWeight.w600,
+                                          fontSize: 11.5,
                                         ),
                                   ),
                                 ),

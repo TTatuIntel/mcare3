@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mcare/core/async/app_busy.dart';
 import 'package:mcare/shared/widgets/loading/mcare_busy_overlay.dart';
 import 'package:mcare/shared/widgets/loading/mcare_loading_mark.dart';
-import 'package:mcare/shared/widgets/loading/mcare_pulse.dart';
 
 Widget _host() => MaterialApp(
   builder: (context, child) =>
@@ -34,7 +33,6 @@ void main() {
     await tester.pump();
 
     expect(find.byType(McareLoadingMark), findsOneWidget);
-    expect(find.byType(McarePulse), findsOneWidget);
     expect(find.text('Preparing your dashboard…'), findsOneWidget);
 
     AppBusy.instance.end(blocking: true);
@@ -47,7 +45,8 @@ void main() {
   ) async {
     await tester.pumpWidget(_host());
     AppBusy.instance.begin(blocking: true);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
     final glass = tester.getRect(
@@ -55,8 +54,8 @@ void main() {
     );
     expect(glass.center.dx, closeTo(screen.width / 2, 0.1));
     expect(glass.center.dy, closeTo(screen.height / 2, 0.1));
-    expect(glass.width, lessThanOrEqualTo(184));
-    expect(glass.height, 142);
+    expect(glass.width, lessThanOrEqualTo(196));
+    expect(glass.height, 116);
     expect(find.byType(BackdropFilter), findsNWidgets(2));
 
     AppBusy.instance.end(blocking: true);

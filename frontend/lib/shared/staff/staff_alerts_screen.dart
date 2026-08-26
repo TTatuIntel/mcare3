@@ -21,6 +21,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/glass_sheet.dart';
+import '../widgets/patient_three_day_summary.dart';
 import '../widgets/risk_badge.dart';
 import '../widgets/role_shell.dart';
 import '../widgets/section_label.dart';
@@ -359,7 +360,20 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
     return GlassSheet.show<void>(
       pageContext,
       title: '${alert.vital.label} alert',
-      subtitle: alert.patientName,
+      subtitle:
+          '${alert.patientName} · ${DateFormat.MMMd().add_jm().format(alert.createdAt)}',
+      leadingIcon: alert.vital.icon,
+      leadingColor: alert.severity.color,
+      statusLabel: alert.resolved
+          ? 'Resolved'
+          : alert.acknowledged
+          ? 'Acknowledged'
+          : alert.severity.label,
+      statusColor: alert.resolved
+          ? AppColors.success
+          : alert.acknowledged
+          ? AppColors.info
+          : alert.severity.color,
       child: _AlertDetailBody(
         alertId: alert.id,
         pageContext: pageContext,
@@ -498,77 +512,79 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
         final parsed = _splitReading(alert.value);
         final isResolved = alert.resolved;
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.xs,
-            AppSpacing.lg,
-            AppSpacing.md,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _AlertHeaderCard(alert: alert, parsed: parsed),
-              if (isResolved &&
-                  (alert.resolutionNote?.isNotEmpty ?? false)) ...[
-                const SizedBox(height: AppSpacing.sm),
-                _ResolutionCard(alert: alert),
-              ],
-              const SizedBox(height: AppSpacing.md),
-
-              _SectionCaption(
-                label: 'CARE TEAM',
-                trailing: assignees.isEmpty
-                    ? 'Unassigned'
-                    : '${assignees.length} assigned',
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              if (assignees.isEmpty)
-                _EmptyAssignees()
-              else
-                for (final a in assignees) _AssigneeChip(assignment: a),
-
-              const SizedBox(height: AppSpacing.md),
-              _ActionsPanel(
-                busy: _busy,
-                isResolved: isResolved,
-                acknowledged: alert.acknowledged,
-                assigneesCount: assignees.length,
-                onAcknowledge: () async {
-                  setState(() => _busy = true);
-                  await widget.onAcknowledge(alert);
-                  if (mounted) setState(() => _busy = false);
-                },
-                onResolve: () async {
-                  setState(() => _busy = true);
-                  await widget.onResolve(alert);
-                  if (mounted) setState(() => _busy = false);
-                },
-                onAssign: () => _openAssignSheet(widget.pageContext, alert),
-                onProfile: () async {
-                  Navigator.of(context, rootNavigator: true).pop();
-                  await StaffPatientProfileSheet.show(
-                    widget.pageContext,
-                    patientId: alert.patientId,
-                    patientName: alert.patientName,
-                    loadFromAdmin: true,
-                  );
-                },
-                onCopy: () async {
-                  await Clipboard.setData(
-                    ClipboardData(
-                      text:
-                          '${alert.patientName} · ${alert.vital.label} ${alert.value} '
-                          'at ${DateFormat.yMd().add_jm().format(alert.createdAt)}',
-                    ),
-                  );
-                  if (!context.mounted) return;
-                  AppToast.success(context, 'Copied.');
-                },
-              ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AlertHeaderCard(alert: alert, parsed: parsed),
+            if (isResolved && (alert.resolutionNote?.isNotEmpty ?? false)) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _ResolutionCard(alert: alert),
             ],
-          ),
+            const SizedBox(height: AppSpacing.md),
+
+            _SectionCaption(
+              label: 'CARE TEAM',
+              trailing: assignees.isEmpty
+                  ? 'Unassigned'
+                  : '${assignees.length} assigned',
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            if (assignees.isEmpty)
+              _EmptyAssignees()
+            else
+              for (final a in assignees) _AssigneeChip(assignment: a),
+
+            const SizedBox(height: AppSpacing.md),
+            const _SectionCaption(
+              label: 'PATIENT CONTEXT',
+              trailing: 'Past 3 days',
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            PatientThreeDaySummary(
+              patientId: alert.patientId,
+              highlightedVital: alert.vital,
+            ),
+
+            const SizedBox(height: AppSpacing.md),
+            _ActionsPanel(
+              busy: _busy,
+              isResolved: isResolved,
+              acknowledged: alert.acknowledged,
+              assigneesCount: assignees.length,
+              onAcknowledge: () async {
+                setState(() => _busy = true);
+                await widget.onAcknowledge(alert);
+                if (mounted) setState(() => _busy = false);
+              },
+              onResolve: () async {
+                setState(() => _busy = true);
+                await widget.onResolve(alert);
+                if (mounted) setState(() => _busy = false);
+              },
+              onAssign: () => _openAssignSheet(widget.pageContext, alert),
+              onProfile: () async {
+                Navigator.of(context, rootNavigator: true).pop();
+                await StaffPatientProfileSheet.show(
+                  widget.pageContext,
+                  patientId: alert.patientId,
+                  patientName: alert.patientName,
+                  loadFromAdmin: true,
+                );
+              },
+              onCopy: () async {
+                await Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        '${alert.patientName} · ${alert.vital.label} ${alert.value} '
+                        'at ${DateFormat.yMd().add_jm().format(alert.createdAt)}',
+                  ),
+                );
+                if (!context.mounted) return;
+                AppToast.success(context, 'Copied.');
+              },
+            ),
+          ],
         );
       },
     );
@@ -892,25 +908,31 @@ class _ActionsPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
 
           if (!isResolved) ...[
-            AppButton(
-              label: acknowledged ? 'Acknowledged' : 'Acknowledge',
-              icon: AppIcons.check,
-              expand: true,
-              variant: acknowledged
-                  ? AppButtonVariant.secondary
-                  : AppButtonVariant.primary,
-              loading: busy && !acknowledged,
-              onPressed: acknowledged || busy ? null : onAcknowledge,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppButton(
-              label: 'Resolve alert',
-              icon: AppIcons.check,
-              expand: true,
-              variant: acknowledged
-                  ? AppButtonVariant.primary
-                  : AppButtonVariant.secondary,
-              onPressed: busy ? null : onResolve,
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton(
+                    label: acknowledged ? 'Acknowledged' : 'Acknowledge',
+                    icon: AppIcons.checkMark,
+                    size: AppButtonSize.sm,
+                    expand: true,
+                    variant: AppButtonVariant.secondary,
+                    loading: busy && !acknowledged,
+                    onPressed: acknowledged || busy ? null : onAcknowledge,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: AppButton(
+                    label: 'Resolve',
+                    icon: AppIcons.check,
+                    size: AppButtonSize.sm,
+                    expand: true,
+                    variant: AppButtonVariant.primary,
+                    onPressed: busy ? null : onResolve,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             Divider(
@@ -940,7 +962,7 @@ class _ActionsPanel extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _ActionTile(
-                  icon: Icons.copy_all_rounded,
+                  icon: AppIcons.copy,
                   label: 'Copy',
                   onTap: onCopy,
                 ),
