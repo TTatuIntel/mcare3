@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
-import 'loading/mcare_loading_mark.dart';
-import 'loading/mcare_pulse.dart';
 
 enum AppButtonVariant { primary, secondary, ghost, danger, icon }
 
@@ -106,21 +104,10 @@ class _AppButtonState extends State<AppButton> {
       );
     }
 
-    if (widget.loading) {
-      // An icon button is too narrow for the wordmark, so it gets the
-      // lifeline on its own; every other variant shows the full mCare mark.
-      child = widget.variant == AppButtonVariant.icon
-          ? McarePulse(
-              size: McarePulseSize.inline,
-              color: style.fg,
-              semanticLabel: null,
-            )
-          : McareLoadingMark(
-              size: McareMarkSize.button,
-              color: style.fg,
-              semanticLabel: null,
-            );
-    }
+    // A button in flight keeps its label and simply stops responding. The
+    // "something is happening" signal belongs on the screen (McareBusyOverlay),
+    // not swapped into the control the user just pressed — replacing the label
+    // loses the affordance and makes the button look broken.
 
     final radius = widget.variant == AppButtonVariant.icon
         ? BorderRadius.circular(AppSpacing.radiusPill)

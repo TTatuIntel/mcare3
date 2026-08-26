@@ -246,7 +246,11 @@ class _McareAppState extends State<McareApp> {
             // Surfaces a slim top bar when an API call outlives
             // AppMotion.loaderDelay, so a slow network reads as "working"
             // rather than "frozen". Silent for fast calls.
-            child: AppBusyBar(child: child ?? const SizedBox.shrink()),
+            // Two layers, two jobs: the bar is ambient feedback for reads,
+            // the overlay is the visible "working on it" for user actions.
+            child: AppBusyBar(
+              child: McareBusyOverlay(child: child ?? const SizedBox.shrink()),
+            ),
           ),
           initialRoute: RouteNames.landing,
           // Produce a single-route stack so home screens never have a "/" route

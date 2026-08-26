@@ -76,13 +76,16 @@ class ApiClient {
     if (!AppEnv.backendEnabled && !allowWhenBackendDisabled) {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
-    return _send(http
-        .post(
-          Uri.parse(_url(path)),
-          headers: _headers,
-          body: body == null ? null : jsonEncode(body),
-        )
-        .timeout(AppEnv.apiTimeout));
+    return _send(
+      http
+          .post(
+            Uri.parse(_url(path)),
+            headers: _headers,
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(AppEnv.apiTimeout),
+      mutation: true,
+    );
   }
 
   /// Multipart POST for file uploads. Omits JSON Content-Type.
@@ -102,13 +105,13 @@ class ApiClient {
     }
     req.fields.addAll(fields);
     req.files.addAll(files);
-    AppBusy.instance.begin();
+    AppBusy.instance.begin(mutation: true);
     try {
       final streamed = await req.send().timeout(AppEnv.apiTimeout);
       final response = await http.Response.fromStream(streamed);
       return _decode(response);
     } finally {
-      AppBusy.instance.end();
+      AppBusy.instance.end(mutation: true);
     }
   }
 
@@ -128,13 +131,13 @@ class ApiClient {
     }
     req.fields.addAll(fields);
     req.files.addAll(files);
-    AppBusy.instance.begin();
+    AppBusy.instance.begin(mutation: true);
     try {
       final streamed = await req.send().timeout(AppEnv.apiTimeout);
       final response = await http.Response.fromStream(streamed);
       return _decode(response);
     } finally {
-      AppBusy.instance.end();
+      AppBusy.instance.end(mutation: true);
     }
   }
 
@@ -183,13 +186,16 @@ class ApiClient {
     if (!AppEnv.backendEnabled) {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
-    return _send(http
-        .put(
-          Uri.parse(_url(path)),
-          headers: _headers,
-          body: body == null ? null : jsonEncode(body),
-        )
-        .timeout(AppEnv.apiTimeout));
+    return _send(
+      http
+          .put(
+            Uri.parse(_url(path)),
+            headers: _headers,
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(AppEnv.apiTimeout),
+      mutation: true,
+    );
   }
 
   Future<Map<String, dynamic>> patch(
@@ -199,13 +205,16 @@ class ApiClient {
     if (!AppEnv.backendEnabled) {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
-    return _send(http
-        .patch(
-          Uri.parse(_url(path)),
-          headers: _headers,
-          body: body == null ? null : jsonEncode(body),
-        )
-        .timeout(AppEnv.apiTimeout));
+    return _send(
+      http
+          .patch(
+            Uri.parse(_url(path)),
+            headers: _headers,
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(AppEnv.apiTimeout),
+      mutation: true,
+    );
   }
 
   Future<Map<String, dynamic>> delete(
@@ -215,17 +224,25 @@ class ApiClient {
     if (!AppEnv.backendEnabled) {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
-    return _send(http
-        .delete(
-          Uri.parse(_url(path)),
-          headers: _headers,
-          body: body == null ? null : jsonEncode(body),
-        )
-        .timeout(AppEnv.apiTimeout));
+    return _send(
+      http
+          .delete(
+            Uri.parse(_url(path)),
+            headers: _headers,
+            body: body == null ? null : jsonEncode(body),
+          )
+          .timeout(AppEnv.apiTimeout),
+      mutation: true,
+    );
   }
 
-  Future<Map<String, dynamic>> _send(Future<http.Response> request) async {
-    AppBusy.instance.begin();
+  /// [mutation] marks a write the user is waiting on, which is what raises the
+  /// on-screen indicator. Reads only feed the slim top bar.
+  Future<Map<String, dynamic>> _send(
+    Future<http.Response> request, {
+    bool mutation = false,
+  }) async {
+    AppBusy.instance.begin(mutation: mutation);
     try {
       final response = await request;
       return _decode(response);
@@ -234,7 +251,7 @@ class ApiClient {
     } catch (e) {
       throw ApiException(ApiErrorMessages.sanitize(e.toString()), 0);
     } finally {
-      AppBusy.instance.end();
+      AppBusy.instance.end(mutation: mutation);
     }
   }
 

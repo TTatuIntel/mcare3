@@ -102,44 +102,83 @@ void main() {
     setUp(AppBusy.instance.reset);
     tearDown(AppBusy.instance.reset);
 
-    test('tracks concurrent operations and only flips at the edges', () {
+    test('reads drive the bar but never the on-screen indicator', () {
+      AppBusy.instance.begin();
+      expect(AppBusy.instance.isBusy, isTrue);
+      expect(AppBusy.instance.isMutating, isFalse,
+          reason: 'a screen read must not raise the overlay');
+      AppBusy.instance.end();
+      expect(AppBusy.instance.isBusy, isFalse);
+    });
+
+    test('mutations drive both', () {
+      AppBusy.instance.begin(mutation: true);
+      expect(AppBusy.instance.isBusy, isTrue);
+      expect(AppBusy.instance.isMutating, isTrue);
+      AppBusy.instance.end(mutation: true);
+      expect(AppBusy.instance.isMutating, isFalse);
+    });
+
+    test('only edges notify', () {
       var notifications = 0;
       void listener() => notifications++;
       AppBusy.instance.addListener(listener);
       addTearDown(() => AppBusy.instance.removeListener(listener));
 
-      expect(AppBusy.instance.isBusy, isFalse);
-
       AppBusy.instance.begin();
       AppBusy.instance.begin();
-      expect(AppBusy.instance.count, 2);
-      expect(AppBusy.instance.isBusy, isTrue);
-      expect(notifications, 1, reason: 'only the 0 -> 1 edge notifies');
+      expect(notifications, 1, reason: 'idle -> busy is one edge');
 
       AppBusy.instance.end();
-      expect(AppBusy.instance.isBusy, isTrue);
-      expect(notifications, 1);
+      expect(notifications, 1, reason: 'still busy');
 
       AppBusy.instance.end();
+      expect(notifications, 2, reason: 'busy -> idle');
+    });
+
+    test('background work is invisible to the UI', () async {
+      await AppBusy.runBackground(() async {
+        AppBusy.instance.begin();
+        AppBusy.instance.begin(mutation: true);
+        expect(AppBusy.instance.isBusy, isFalse,
+            reason: 'an unattended poll must not surface anywhere');
+        expect(AppBusy.instance.isMutating, isFalse);
+        AppBusy.instance.end();
+        AppBusy.instance.end(mutation: true);
+      });
       expect(AppBusy.instance.isBusy, isFalse);
-      expect(notifications, 2, reason: 'the 1 -> 0 edge notifies');
+    });
+
+    test('the background marking survives an await', () async {
+      await AppBusy.runBackground(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(AppBusy.isBackgroundWork, isTrue,
+            reason: 'zone value must cross async gaps');
+        AppBusy.instance.begin(mutation: true);
+        expect(AppBusy.instance.isMutating, isFalse);
+        AppBusy.instance.end(mutation: true);
+      });
+      expect(AppBusy.isBackgroundWork, isFalse);
     });
 
     test('end() below zero is a no-op', () {
       AppBusy.instance.end();
-      expect(AppBusy.instance.count, 0);
+      AppBusy.instance.end(mutation: true);
       expect(AppBusy.instance.isBusy, isFalse);
     });
 
     test('track releases the counter on success and on failure', () async {
-      await AppBusy.instance.track(Future<int>.value(1));
-      expect(AppBusy.instance.count, 0);
+      await AppBusy.instance.track(Future<int>.value(1), mutation: true);
+      expect(AppBusy.instance.isMutating, isFalse);
 
       await expectLater(
-        AppBusy.instance.track(Future<int>.error(StateError('boom'))),
+        AppBusy.instance.track(
+          Future<int>.error(StateError('boom')),
+          mutation: true,
+        ),
         throwsStateError,
       );
-      expect(AppBusy.instance.count, 0);
+      expect(AppBusy.instance.isMutating, isFalse);
     });
   });
 }
