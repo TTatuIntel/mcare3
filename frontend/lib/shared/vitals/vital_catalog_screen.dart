@@ -34,23 +34,23 @@ class VitalCatalogScreen extends StatelessWidget {
   });
 
   const VitalCatalogScreen.admin({Key? key})
-      : this(key: key, role: VitalCatalogRole.admin);
+    : this(key: key, role: VitalCatalogRole.admin);
 
   const VitalCatalogScreen.doctor({Key? key})
-      : this(
-          key: key,
-          role: VitalCatalogRole.doctor,
-          profileRoute: RouteNames.doctorProfile,
-          notificationsRoute: RouteNames.doctorNotifications,
-        );
+    : this(
+        key: key,
+        role: VitalCatalogRole.doctor,
+        profileRoute: RouteNames.doctorProfile,
+        notificationsRoute: RouteNames.doctorNotifications,
+      );
 
   const VitalCatalogScreen.assistant({Key? key})
-      : this(
-          key: key,
-          role: VitalCatalogRole.assistant,
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        );
+    : this(
+        key: key,
+        role: VitalCatalogRole.assistant,
+        profileRoute: RouteNames.assistantProfile,
+        notificationsRoute: RouteNames.assistantNotifications,
+      );
 
   final VitalCatalogRole role;
   final String? currentRoute;
@@ -61,8 +61,7 @@ class VitalCatalogScreen extends StatelessWidget {
   bool get _isDoctor => role == VitalCatalogRole.doctor;
   bool get _canToggle => !_isDoctor;
 
-  String get _title =>
-      _isDoctor ? 'Global vitals' : 'Vital catalog';
+  String get _title => _isDoctor ? 'Global vitals' : 'Vital catalog';
 
   String get _subtitle => _isDoctor
       ? 'Default vitals, thresholds, and alert ranges'
@@ -351,10 +350,10 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
+              color: color,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),

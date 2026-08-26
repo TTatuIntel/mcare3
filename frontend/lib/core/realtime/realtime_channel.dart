@@ -69,7 +69,8 @@ class RealtimeChannel {
   }
 
   Future<void> _connect() async {
-    final endpoint = '${AppEnv.wsUrl}/app/${AppEnv.wsAppKey}'
+    final endpoint =
+        '${AppEnv.wsUrl}/app/${AppEnv.wsAppKey}'
         '?protocol=7&client=mcare&version=1.0.0&flash=false';
     try {
       _socket = WebSocketChannel.connect(Uri.parse(endpoint));
@@ -128,13 +129,12 @@ class RealtimeChannel {
   Future<void> _subscribe(String channelName) async {
     final auth = await _authorizeChannel(channelName);
     if (auth == null || _socket == null) return;
-    _socket!.sink.add(jsonEncode({
-      'event': 'pusher:subscribe',
-      'data': {
-        'auth': auth,
-        'channel': channelName,
-      },
-    }));
+    _socket!.sink.add(
+      jsonEncode({
+        'event': 'pusher:subscribe',
+        'data': {'auth': auth, 'channel': channelName},
+      }),
+    );
   }
 
   /// Fetches a per-channel auth signature from Laravel's
@@ -148,17 +148,16 @@ class RealtimeChannel {
     if (authUrl == null) return null;
 
     try {
-      final resp = await http.post(
-        Uri.parse(authUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-        body: {
-          'socket_id': _socketId!,
-          'channel_name': channelName,
-        },
-      ).timeout(const Duration(seconds: 5));
+      final resp = await http
+          .post(
+            Uri.parse(authUrl),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+            body: {'socket_id': _socketId!, 'channel_name': channelName},
+          )
+          .timeout(const Duration(seconds: 5));
       if (resp.statusCode != 200) return null;
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       return body['auth'] as String?;
@@ -189,7 +188,9 @@ class RealtimeChannel {
     _socketId = null;
 
     if (kDebugMode) {
-      debugPrint('[RealtimeChannel] reconnecting in ${_backoffSeconds}s ($error)');
+      debugPrint(
+        '[RealtimeChannel] reconnecting in ${_backoffSeconds}s ($error)',
+      );
     }
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(seconds: _backoffSeconds), _connect);

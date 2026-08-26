@@ -63,7 +63,9 @@ GoogleRedirectAuthResult? tryConsumeRedirectAuth() {
   if (!hash.startsWith('#mcare_google=')) return null;
 
   try {
-    final encoded = Uri.decodeComponent(hash.substring('#mcare_google='.length));
+    final encoded = Uri.decodeComponent(
+      hash.substring('#mcare_google='.length),
+    );
     final json = jsonDecode(utf8.decode(base64Decode(encoded)));
     if (json is! Map) return null;
     final data = Map<String, dynamic>.from(json);
@@ -71,9 +73,7 @@ GoogleRedirectAuthResult? tryConsumeRedirectAuth() {
     _clearUrlHash();
 
     if (data['error'] != null) {
-      return GoogleRedirectAuthResult(
-        error: data['error'].toString(),
-      );
+      return GoogleRedirectAuthResult(error: data['error'].toString());
     }
 
     final user = data['user'];
@@ -127,21 +127,25 @@ Future<String?> promptGoogleIdToken(
     }
   }).toJS;
 
-  final config = <String, Object?>{
-    'client_id': clientId,
-    'callback': callback,
-    'auto_select': false,
-    'cancel_on_tap_outside': true,
-    'context': 'signin',
-    'itp_support': true,
-    if (selectAccount) 'prompt_parent_id': 'mcare-gsi-overlay',
-  }.jsify()! as JSObject;
+  final config =
+      <String, Object?>{
+            'client_id': clientId,
+            'callback': callback,
+            'auto_select': false,
+            'cancel_on_tap_outside': true,
+            'context': 'signin',
+            'itp_support': true,
+            if (selectAccount) 'prompt_parent_id': 'mcare-gsi-overlay',
+          }.jsify()!
+          as JSObject;
 
   gsi.initialize(config);
 
   final viewportW = web.window.innerWidth;
   final isNarrow = viewportW < 420;
-  final btnWidth = (viewportW - (isNarrow ? 28 : 48) * 2).clamp(260, 360).toInt();
+  final btnWidth = (viewportW - (isNarrow ? 28 : 48) * 2)
+      .clamp(260, 360)
+      .toInt();
 
   final btnHost = web.HTMLDivElement()
     ..id = 'mcare-gsi-button-host'
@@ -150,20 +154,19 @@ Future<String?> promptGoogleIdToken(
     ..style.justifyContent = 'center'
     ..style.minHeight = '44px';
 
-  _showChooserOverlay(
-    extraChild: btnHost,
-    onCancel: () => finish(null),
-  );
+  _showChooserOverlay(extraChild: btnHost, onCancel: () => finish(null));
 
-  final buttonOptions = <String, Object?>{
-    'type': 'standard',
-    'theme': 'outline',
-    'size': 'large',
-    'text': 'continue_with',
-    'shape': 'pill',
-    'width': btnWidth,
-    'logo_alignment': 'left',
-  }.jsify()! as JSObject;
+  final buttonOptions =
+      <String, Object?>{
+            'type': 'standard',
+            'theme': 'outline',
+            'size': 'large',
+            'text': 'continue_with',
+            'shape': 'pill',
+            'width': btnWidth,
+            'logo_alignment': 'left',
+          }.jsify()!
+          as JSObject;
 
   gsi.renderButton(btnHost, buttonOptions);
 
@@ -191,7 +194,8 @@ Future<void> beginRedirectSignIn({
     onContinue: () {
       final returnTo = _currentReturnUrl();
       final base = apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
-      final url = '$base/auth/google/redirect?'
+      final url =
+          '$base/auth/google/redirect?'
           'return_to=${Uri.encodeComponent(returnTo)}'
           '&create_account=${createAccount ? 1 : 0}';
       web.window.location.href = url;
@@ -244,8 +248,9 @@ void _showChooserOverlay({
   final card = web.HTMLDivElement()
     ..style.backgroundColor = '#ffffff'
     ..style.borderRadius = isNarrow ? '16px' : '20px'
-    ..style.padding =
-        isNarrow ? '20px ${innerPadH}px 18px' : '24px ${innerPadH}px 22px'
+    ..style.padding = isNarrow
+        ? '20px ${innerPadH}px 18px'
+        : '24px ${innerPadH}px 22px'
     ..style.maxWidth = '${cardMaxW}px'
     ..style.width = '100%'
     ..style.boxShadow = '0 24px 48px rgba(15, 23, 42, 0.18)'
@@ -264,14 +269,16 @@ void _showChooserOverlay({
 
   final title = web.HTMLHeadingElement.h2()
     ..textContent = 'Sign in with Google'
-    ..style.cssText = '''
+    ..style.cssText =
+        '''
       margin:0 28px 6px 0;font-size:${isNarrow ? '18px' : '20px'};
       font-weight:700;color:#0F172A;line-height:1.25;
     ''';
 
   final subtitle = web.HTMLParagraphElement()
     ..textContent = 'Choose your Google account to continue to mCare'
-    ..style.cssText = '''
+    ..style.cssText =
+        '''
       margin:0 0 16px 0;font-size:${isNarrow ? '13px' : '14px'};
       line-height:1.45;color:#64748B;
     ''';

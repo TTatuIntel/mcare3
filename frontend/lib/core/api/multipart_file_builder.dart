@@ -34,10 +34,7 @@ class MultipartFileBuilder {
     Uint8List bytes, {
     required String filename,
     String fieldName = 'file',
-  }) =>
-      Future.value(http.MultipartFile.fromBytes(
-        fieldName,
-        bytes,
-        filename: filename,
-      ));
+  }) => Future.value(
+    http.MultipartFile.fromBytes(fieldName, bytes, filename: filename),
+  );
 }

@@ -161,14 +161,10 @@ class _StaffHubSectionHeadingState extends State<StaffHubSectionHeading> {
                     opacity: _showSubtitle ? 1 : 0,
                     child: _showSubtitle
                         ? Padding(
-                            padding: const EdgeInsets.only(
-                              top: AppSpacing.xs,
-                            ),
+                            padding: const EdgeInsets.only(top: AppSpacing.xs),
                             child: Text(
                               subtitle,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
+                              style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     color: AppPalette.textMuted(context),
                                   ),

@@ -42,13 +42,14 @@ class NotificationHero extends StatelessWidget {
     final theme = Theme.of(context);
     final isUnread = unread > 0;
     final accent = isUnread ? AppColors.warning : AppColors.brandIndigo;
-    final iconBg =
-        isUnread ? AppPalette.warningSoft(context) : AppPalette.infoSoft(context);
+    final iconBg = isUnread
+        ? AppPalette.warningSoft(context)
+        : AppPalette.infoSoft(context);
     final headline = isUnread
         ? '$unread notification${unread == 1 ? '' : 's'} need attention'
         : activeCount == 0
-            ? 'You\'re all caught up'
-            : 'No unread notifications';
+        ? 'You\'re all caught up'
+        : 'No unread notifications';
 
     final sub = vitalResolvedCount != null
         ? '$activeCount active · $resolvedCount resolved · $vitalResolvedCount vitals cleared'
@@ -184,11 +185,9 @@ class _SegmentChip extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: selected
-                    ? Colors.white
-                    : AppPalette.textMuted(context),
-                fontWeight: FontWeight.w700,
-              ),
+            color: selected ? Colors.white : AppPalette.textMuted(context),
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -209,9 +208,7 @@ class NotificationListRow extends StatelessWidget {
       iconColor: item.kind.tint,
       title: item.title,
       subtitle: '${item.body}\n$time',
-      pill: item.resolved
-          ? 'Resolved'
-          : (item.read ? null : 'New'),
+      pill: item.resolved ? 'Resolved' : (item.read ? null : 'New'),
       pillColor: item.resolved ? AppColors.success : AppColors.info,
       onTap: () => NotificationRouter.handleTap(context, item),
       trailing: item.resolved
@@ -303,8 +300,7 @@ class _NotificationsPanelState extends State<NotificationsPanel> {
             child: EmptyStateView(
               icon: AppIcons.bell,
               title: 'You\'re all caught up',
-              message:
-                  'New alerts and updates will appear here.',
+              message: 'New alerts and updates will appear here.',
               compact: true,
             ),
           );
@@ -329,7 +325,8 @@ class _NotificationsPanelState extends State<NotificationsPanel> {
               unread: unread,
               onSelectActive: () => setState(() => _showResolved = false),
               onSelectResolved: () => setState(() => _showResolved = true),
-              onMarkAllRead: () => NotificationState.instance.markAllReadRemote(),
+              onMarkAllRead: () =>
+                  NotificationState.instance.markAllReadRemote(),
             ),
             const SizedBox(height: AppSpacing.md),
             SectionLabel(

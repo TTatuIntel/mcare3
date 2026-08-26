@@ -32,9 +32,8 @@ class StaffProfileGate extends StatelessWidget {
         final user = AuthState.instance.user;
         final isStaff = user != null && _isStaff(user.role);
         final needsProfile = isStaff && !user.isProfileComplete;
-        final needsPassword = isStaff &&
-            user.mustChangePassword &&
-            forcePasswordRoute != null;
+        final needsPassword =
+            isStaff && user.mustChangePassword && forcePasswordRoute != null;
 
         final routeName = ModalRoute.of(context)?.settings.name;
 
@@ -69,16 +68,16 @@ class StaffProfileGate extends StatelessWidget {
   }
 
   static String completeRouteFor(UserRole role) => switch (role) {
-        UserRole.admin => RouteNames.adminCompleteProfile,
-        UserRole.doctor => RouteNames.doctorCompleteProfile,
-        UserRole.mcareAssistant => RouteNames.assistantCompleteProfile,
-        _ => RouteNames.login,
-      };
+    UserRole.admin => RouteNames.adminCompleteProfile,
+    UserRole.doctor => RouteNames.doctorCompleteProfile,
+    UserRole.mcareAssistant => RouteNames.assistantCompleteProfile,
+    _ => RouteNames.login,
+  };
 
   static String forcePasswordRouteFor(UserRole role) => switch (role) {
-        UserRole.admin => RouteNames.adminForcePassword,
-        UserRole.doctor => RouteNames.doctorForcePassword,
-        UserRole.mcareAssistant => RouteNames.assistantForcePassword,
-        _ => RouteNames.login,
-      };
+    UserRole.admin => RouteNames.adminForcePassword,
+    UserRole.doctor => RouteNames.doctorForcePassword,
+    UserRole.mcareAssistant => RouteNames.assistantForcePassword,
+    _ => RouteNames.login,
+  };
 }

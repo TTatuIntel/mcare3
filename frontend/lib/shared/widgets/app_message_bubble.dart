@@ -46,32 +46,30 @@ class AppMessageBubble extends StatelessWidget {
           border: isMine ? null : Border.all(color: AppPalette.border(context)),
         ),
         child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (author != null && !isMine) ...[
-              Text(
-                author!,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
+              Text(author!, style: Theme.of(context).textTheme.labelSmall),
               const SizedBox(height: 2),
             ],
             Text(
               body,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isMine ? Colors.white : AppPalette.ink(context),
-                    fontSize: 14,
-                  ),
+                color: isMine ? Colors.white : AppPalette.ink(context),
+                fontSize: 14,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               time,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 10,
-                    color: isMine
-                        ? Colors.white.withOpacity(0.75)
-                        : AppPalette.textMuted(context),
-                  ),
+                fontSize: 10,
+                color: isMine
+                    ? Colors.white.withOpacity(0.75)
+                    : AppPalette.textMuted(context),
+              ),
             ),
           ],
         ),

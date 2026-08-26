@@ -110,10 +110,7 @@ class AppLanguage {
   static AppLanguage byCode(String? code) {
     if (code == null || code.isEmpty) return all.first;
     final normalized = _normalizeLegacyCode(code);
-    return all.firstWhere(
-      (l) => l.code == normalized,
-      orElse: () => all.first,
-    );
+    return all.firstWhere((l) => l.code == normalized, orElse: () => all.first);
   }
 
   static String _normalizeLegacyCode(String raw) {

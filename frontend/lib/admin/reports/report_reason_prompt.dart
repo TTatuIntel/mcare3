@@ -43,8 +43,10 @@ Future<String?> promptReason(
               label: confirmLabel,
               expand: true,
               onPressed: valid
-                  ? () => Navigator.of(context, rootNavigator: true)
-                      .pop(controller.text.trim())
+                  ? () => Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pop(controller.text.trim())
                   : null,
             ),
           ],

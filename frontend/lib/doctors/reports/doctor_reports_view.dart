@@ -61,8 +61,9 @@ class DoctorReportsView extends StatelessWidget {
                       icon: AppIcons.report,
                       title: 'No reports yet',
                       actionLabel: 'Create report',
-                      onAction: () => Navigator.of(context)
-                          .pushNamed(RouteNames.doctorReportEditor),
+                      onAction: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorReportEditor),
                       compact: true,
                     ),
                   ),
@@ -92,21 +93,23 @@ class DoctorReportsView extends StatelessWidget {
                 index: 1,
                 child: StaffListCard(
                   children: reports
-                      .map((r) => StaffListRow(
-                            icon: AppIcons.report,
-                            iconColor: AppColors.doctorGreen,
-                            title: r.title,
-                            subtitle:
-                                '${r.patientName} · ${DateFormat.MMMd().format(r.createdAt)}',
-                            pill: r.published ? 'Published' : 'Draft',
-                            pillColor: r.published
-                                ? AppColors.success
-                                : AppColors.warning,
-                            onTap: () => Navigator.of(context).pushNamed(
-                              RouteNames.doctorReportEditor,
-                              arguments: r.id,
-                            ),
-                          ))
+                      .map(
+                        (r) => StaffListRow(
+                          icon: AppIcons.report,
+                          iconColor: AppColors.doctorGreen,
+                          title: r.title,
+                          subtitle:
+                              '${r.patientName} · ${DateFormat.MMMd().format(r.createdAt)}',
+                          pill: r.published ? 'Published' : 'Draft',
+                          pillColor: r.published
+                              ? AppColors.success
+                              : AppColors.warning,
+                          onTap: () => Navigator.of(context).pushNamed(
+                            RouteNames.doctorReportEditor,
+                            arguments: r.id,
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),

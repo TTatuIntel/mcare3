@@ -34,8 +34,10 @@ class RiskBadge extends StatelessWidget {
           Container(
             height: 6,
             width: 6,
-            decoration:
-                BoxDecoration(color: risk.color, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: risk.color,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Text(

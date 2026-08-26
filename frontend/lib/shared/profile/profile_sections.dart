@@ -20,11 +20,7 @@ import 'change_password_sheet.dart';
 /// user provided at sign-up, with a single Edit entry point. Shared by every
 /// role so patient / doctor / admin / assistant profiles look identical.
 class ProfileAccountSection extends StatelessWidget {
-  const ProfileAccountSection({
-    super.key,
-    required this.user,
-    this.onEdit,
-  });
+  const ProfileAccountSection({super.key, required this.user, this.onEdit});
 
   final AppUser user;
   final VoidCallback? onEdit;

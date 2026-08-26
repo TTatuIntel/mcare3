@@ -75,17 +75,15 @@ class _SosViewState extends State<SosView> {
       title: 'Emergency SOS',
       subtitle: 'One tap notifies contacts and your care team',
       body: AnimatedBuilder(
-        animation: Listenable.merge([
-          SosState.instance,
-          ProfileState.instance,
-        ]),
+        animation: Listenable.merge([SosState.instance, ProfileState.instance]),
         builder: (context, _) {
-    final active = SosState.instance.hasActiveSos;
-    final activeEvent = SosState.instance.activeEvent;
-    final history = SosState.instance.history;
+          final active = SosState.instance.hasActiveSos;
+          final activeEvent = SosState.instance.activeEvent;
+          final history = SosState.instance.history;
           final contacts = SosState.instance.contacts;
-          final resolvedCount =
-              history.where((e) => e.status == SosStatus.resolved).length;
+          final resolvedCount = history
+              .where((e) => e.status == SosStatus.resolved)
+              .length;
           final lastEvent = history.isEmpty ? null : history.first;
           final tier = ResponsiveBuilder.of(context);
 
@@ -131,15 +129,17 @@ class _SosViewState extends State<SosView> {
                         label: 'Trigger',
                         onTap: active
                             ? () => AppToast.info(
-                                  context,
-                                  'SOS is active. Mark resolved from the card above.',
-                                )
+                                context,
+                                'SOS is active. Mark resolved from the card above.',
+                              )
                             : () => _TriggerSheet.show(context),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.phone,
                         label: 'Contacts',
-                        badge: contacts.isNotEmpty ? '${contacts.length}' : null,
+                        badge: contacts.isNotEmpty
+                            ? '${contacts.length}'
+                            : null,
                         onTap: () => ManageContactsSheet.show(context),
                       ),
                       PatientQuickAction(
@@ -151,8 +151,9 @@ class _SosViewState extends State<SosView> {
                       PatientQuickAction(
                         icon: AppIcons.user,
                         label: 'Profile',
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.patientProfile),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(RouteNames.patientProfile),
                       ),
                     ],
                   ),
@@ -281,24 +282,26 @@ class _SosHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = active ? AppColors.critical : AppColors.critical;
-    final iconBg = active ? AppPalette.criticalSoft(context) : AppPalette.criticalSoft(context);
+    final iconBg = active
+        ? AppPalette.criticalSoft(context)
+        : AppPalette.criticalSoft(context);
 
     final headline = !active
         ? 'Need help now?'
         : activeEvent?.status == SosStatus.acknowledged
-            ? 'Help is on the way'
-            : 'SOS active';
+        ? 'Help is on the way'
+        : 'SOS active';
     final subline = !active
         ? (contactCount == 0
-            ? 'Add a contact before triggering SOS.'
-            : lastEventAt == null
-                ? 'Alerts $contactCount contact${contactCount == 1 ? '' : 's'} + care team.'
-                : 'Last event ${DateFormat.MMMd().add_jm().format(lastEventAt!)}')
+              ? 'Add a contact before triggering SOS.'
+              : lastEventAt == null
+              ? 'Alerts $contactCount contact${contactCount == 1 ? '' : 's'} + care team.'
+              : 'Last event ${DateFormat.MMMd().add_jm().format(lastEventAt!)}')
         : activeEvent?.status == SosStatus.acknowledged
-            ? (activeEvent?.respondedBy != null
-                ? '${activeEvent!.respondedBy} acknowledged your SOS.'
-                : 'Your care team acknowledged — stay calm, help is coming.')
-            : 'Contacts and care team have been notified.';
+        ? (activeEvent?.respondedBy != null
+              ? '${activeEvent!.respondedBy} acknowledged your SOS.'
+              : 'Your care team acknowledged — stay calm, help is coming.')
+        : 'Contacts and care team have been notified.';
 
     return GlassCard(
       frosted: true,
@@ -402,7 +405,10 @@ class _ContactRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: AppPalette.criticalSoft(context).withOpacity(0.35),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -465,7 +471,10 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: event.status.color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -589,8 +598,8 @@ class _TriggerFormState extends State<_TriggerForm> {
     final locationLabel = location != null
         ? location.label
         : locationConsent
-            ? 'Location unavailable — check GPS permissions'
-            : 'Location not shared — enable in Settings';
+        ? 'Location unavailable — check GPS permissions'
+        : 'Location not shared — enable in Settings';
 
     final sent = await SosState.instance.triggerWithApi(
       kind: _kind,
@@ -641,8 +650,8 @@ class _TriggerFormState extends State<_TriggerForm> {
         AppButton(
           label: _sending
               ? (ProfileState.instance.health?.locationConsent == true
-                  ? 'Locating & sending…'
-                  : 'Sending…')
+                    ? 'Locating & sending…'
+                    : 'Sending…')
               : 'Send SOS',
           variant: AppButtonVariant.danger,
           icon: AppIcons.sos,
@@ -674,9 +683,9 @@ class ManageContactsSheet {
                   child: Text(
                     'No contacts yet. Add them from your profile.',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                          fontSize: 11,
-                        ),
+                      color: AppPalette.textMuted(context),
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               for (final c in contacts)
@@ -690,9 +699,7 @@ class ManageContactsSheet {
                           children: [
                             Text(
                               c.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
+                              style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 13,
@@ -700,9 +707,7 @@ class ManageContactsSheet {
                             ),
                             Text(
                               c.phone,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
+                              style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: AppPalette.textMuted(context),
                                     fontSize: 10,

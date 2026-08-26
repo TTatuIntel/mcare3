@@ -30,11 +30,15 @@ class PendingApprovalView extends StatelessWidget {
                     width: 76,
                     decoration: BoxDecoration(
                       color: AppPalette.warningSoft(context),
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusPill),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.radiusPill,
+                      ),
                     ),
-                    child: const Icon(AppIcons.time,
-                        size: 34, color: AppColors.warning),
+                    child: const Icon(
+                      AppIcons.time,
+                      size: 34,
+                      color: AppColors.warning,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   Text(
@@ -49,17 +53,16 @@ class PendingApprovalView extends StatelessWidget {
                     'your account is approved.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppPalette.textMuted(context),
-                          height: 1.55,
-                        ),
+                      color: AppPalette.textMuted(context),
+                      height: 1.55,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.lg),
                     decoration: BoxDecoration(
                       color: AppPalette.surfaceAlt(context),
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusMd),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     ),
                     child: Column(
                       children: const [
@@ -80,8 +83,9 @@ class PendingApprovalView extends StatelessWidget {
                     expand: true,
                     onPressed: () {
                       AuthState.instance.signOut();
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                          RouteNames.login, (_) => false);
+                      Navigator.of(
+                        context,
+                      ).pushNamedAndRemoveUntil(RouteNames.login, (_) => false);
                     },
                   ),
                 ],
@@ -110,7 +114,9 @@ class _Step extends StatelessWidget {
             color: done ? AppColors.success : AppPalette.surfaceMuted(context),
             shape: BoxShape.circle,
             border: Border.all(
-              color: done ? AppColors.success : AppPalette.borderStrong(context),
+              color: done
+                  ? AppColors.success
+                  : AppPalette.borderStrong(context),
             ),
           ),
           child: done
@@ -122,7 +128,9 @@ class _Step extends StatelessWidget {
           label,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: done ? AppPalette.ink(context) : AppPalette.textMuted(context),
+            color: done
+                ? AppPalette.ink(context)
+                : AppPalette.textMuted(context),
           ),
         ),
       ],

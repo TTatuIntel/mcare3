@@ -51,8 +51,8 @@ class _DocumentBody extends StatelessWidget {
           Text(
             'This report contains no sections.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           ),
         const SizedBox(height: AppSpacing.sm),
         _Footer(document: document),
@@ -84,8 +84,11 @@ class _Provenance extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(AppIcons.report,
-                  size: 18, color: AppColors.doctorGreen),
+              const Icon(
+                AppIcons.report,
+                size: 18,
+                color: AppColors.doctorGreen,
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
@@ -159,12 +162,12 @@ class _Block extends StatelessWidget {
                   'table' => _Table(block: block),
                   'notes' => _Notes(block: block),
                   _ => Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final f in block.fields)
-                          DossierRow(label: f.label, value: f.value),
-                      ],
-                    ),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final f in block.fields)
+                        DossierRow(label: f.label, value: f.value),
+                    ],
+                  ),
                 },
         ),
       ],
@@ -200,9 +203,7 @@ class _Table extends StatelessWidget {
           fontSize: 11,
           color: AppPalette.ink(context),
         ),
-        columns: [
-          for (final c in block.columns) DataColumn(label: Text(c)),
-        ],
+        columns: [for (final c in block.columns) DataColumn(label: Text(c))],
         rows: [
           for (final row in block.rows)
             DataRow(
@@ -314,7 +315,7 @@ class _Footer extends StatelessWidget {
             value: document.consentGrantedAt == null
                 ? 'Not required for these sections'
                 : '${dossierDateTime(document.consentGrantedAt)} '
-                    '(${dossierHumanize(document.consentMethod)})',
+                      '(${dossierHumanize(document.consentMethod)})',
             valueColor: document.consentGrantedAt == null
                 ? null
                 : AppColors.success,
@@ -322,8 +323,9 @@ class _Footer extends StatelessWidget {
           DossierRow(
             label: 'Signed by',
             value: document.signatureName ?? 'Not required',
-            valueColor:
-                document.signatureName == null ? null : AppColors.success,
+            valueColor: document.signatureName == null
+                ? null
+                : AppColors.success,
             emphasise: document.signatureName != null,
           ),
           DossierRow(

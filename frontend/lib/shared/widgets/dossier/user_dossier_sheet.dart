@@ -125,11 +125,7 @@ class _DossierBodyState extends State<_DossierBody> {
             compact: true,
           ),
           const SizedBox(height: AppSpacing.md),
-          AppButton(
-            label: 'Retry',
-            icon: AppIcons.refresh,
-            onPressed: _load,
-          ),
+          AppButton(label: 'Retry', icon: AppIcons.refresh, onPressed: _load),
         ],
       );
     }
@@ -178,10 +174,10 @@ class _DossierBodyState extends State<_DossierBody> {
             'need the patient\'s approval and a doctor\'s signature.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                  fontSize: 10,
-                  height: 1.4,
-                ),
+              color: AppPalette.textMuted(context),
+              fontSize: 10,
+              height: 1.4,
+            ),
           ),
         ],
         if (_error != null) ...[
@@ -204,9 +200,10 @@ class _DossierBodyState extends State<_DossierBody> {
       'Work' => buildStaffWorkSections(context, d),
       'Account' => buildAccountSections(context, d),
       'Activity' => buildActivitySections(context, d),
-      _ => d.isPatient
-          ? buildPatientOverviewSections(context, d)
-          : buildStaffOverviewSections(context, d),
+      _ =>
+        d.isPatient
+            ? buildPatientOverviewSections(context, d)
+            : buildStaffOverviewSections(context, d),
     };
   }
 }
@@ -229,8 +226,11 @@ class _StaleNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_off_outlined,
-              size: 16, color: AppColors.warning),
+          const Icon(
+            Icons.cloud_off_outlined,
+            size: 16,
+            color: AppColors.warning,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(

@@ -58,10 +58,7 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
 
   Future<void> _openExternal() async {
     if (!widget.hasFile) {
-      AppToast.warn(
-        context,
-        'No file attached. Use Edit to upload a file.',
-      );
+      AppToast.warn(context, 'No file attached. Use Edit to upload a file.');
       return;
     }
     setState(() => _viewing = true);
@@ -85,10 +82,7 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
 
   Future<void> _download() async {
     if (!widget.hasFile) {
-      AppToast.warn(
-        context,
-        'No file attached. Use Edit to upload a file.',
-      );
+      AppToast.warn(context, 'No file attached. Use Edit to upload a file.');
       return;
     }
     setState(() => _downloading = true);
@@ -187,8 +181,8 @@ class DocumentMetaRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                  ),
+                color: AppPalette.textMuted(context),
+              ),
             ),
           ),
           Expanded(child: Text(value)),

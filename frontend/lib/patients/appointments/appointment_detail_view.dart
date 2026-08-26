@@ -37,7 +37,8 @@ class _AppointmentDetailViewState extends State<AppointmentDetailView> {
     final confirmed = await AppDialog.confirm(
       context,
       title: 'Cancel appointment?',
-      message: 'This will notify ${a.doctorName}. You can book a new time anytime.',
+      message:
+          'This will notify ${a.doctorName}. You can book a new time anytime.',
       confirmLabel: 'Cancel visit',
       danger: true,
       icon: AppIcons.appointment,
@@ -216,11 +217,7 @@ class _AppointmentDetailViewState extends State<AppointmentDetailView> {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({
-    required this.icon,
-    required this.label,
-    this.valueColor,
-  });
+  const _Row({required this.icon, required this.label, this.valueColor});
   final IconData icon;
   final String label;
   final Color? valueColor;
@@ -237,9 +234,9 @@ class _Row extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: valueColor,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: valueColor),
             ),
           ),
         ],

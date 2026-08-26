@@ -146,8 +146,8 @@ class _ProgressCard extends StatelessWidget {
     final color = score >= 70
         ? AppColors.success
         : score >= 40
-            ? AppColors.warning
-            : AppColors.critical;
+        ? AppColors.warning
+        : AppColors.critical;
 
     final stale = (progress.daysSinceLastReading ?? 0) >= 3;
 
@@ -209,14 +209,13 @@ class _ProgressCard extends StatelessWidget {
                         progress.lastReadingAt == null
                             ? 'No readings logged yet.'
                             : 'Last reading '
-                                '${dossierRelative(progress.lastReadingAt!)}'
-                                '${stale ? ' — falling behind' : ''}',
+                                  '${dossierRelative(progress.lastReadingAt!)}'
+                                  '${stale ? ' — falling behind' : ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: stale
                               ? AppColors.critical
                               : AppPalette.ink(context),
-                          fontWeight:
-                              stale ? FontWeight.w700 : FontWeight.w600,
+                          fontWeight: stale ? FontWeight.w700 : FontWeight.w600,
                           height: 1.3,
                         ),
                       ),
@@ -233,27 +232,31 @@ class _ProgressCard extends StatelessWidget {
               value: progress.adherencePercent == null
                   ? 'No scheduled doses'
                   : '${progress.adherencePercent}%  '
-                      '(${progress.dosesTaken30d}/${progress.dosesDue30d} taken)',
+                        '(${progress.dosesTaken30d}/${progress.dosesDue30d} taken)',
             ),
             DossierRow(
               label: 'Doses missed',
               value: '${progress.dosesMissed30d}',
-              valueColor:
-                  progress.dosesMissed30d > 0 ? AppColors.critical : null,
+              valueColor: progress.dosesMissed30d > 0
+                  ? AppColors.critical
+                  : null,
             ),
             DossierRow(
               label: 'Readings',
-              value: '${progress.readings7d} in 7d · '
+              value:
+                  '${progress.readings7d} in 7d · '
                   '${progress.readings30d} in 30d',
             ),
             DossierRow(
               label: 'Logging streak',
-              value: '${progress.loggingStreakDays} '
+              value:
+                  '${progress.loggingStreakDays} '
                   'day${progress.loggingStreakDays == 1 ? '' : 's'}',
             ),
             DossierRow(
               label: 'Appointments',
-              value: '${progress.appointmentsKept} kept · '
+              value:
+                  '${progress.appointmentsKept} kept · '
                   '${progress.appointmentsMissed} missed',
             ),
           ],
@@ -292,14 +295,14 @@ List<Widget> buildClinicalSections(BuildContext context, UserDossier d) {
             icon: v.trend == 'up'
                 ? AppIcons.trendUp
                 : v.trend == 'down'
-                    ? AppIcons.trendDown
-                    : AppIcons.trend,
+                ? AppIcons.trendDown
+                : AppIcons.trend,
             iconColor: dossierRiskColor(v.latestRisk),
             title: '${v.label}${v.assigned ? '' : '  (not assigned)'}',
             subtitle: v.latestAt == null
                 ? '${v.readingsTotal} reading(s) on file'
                 : 'Last ${dossierRelative(v.latestAt!)} · '
-                    '${v.readings30d} in 30d',
+                      '${v.readings30d} in 30d',
             badge: v.latestValue ?? '—',
             badgeColor: dossierRiskColor(v.latestRisk),
           ),
@@ -476,7 +479,8 @@ List<Widget> buildClinicalSections(BuildContext context, UserDossier d) {
           DossierRecordRow(
             icon: AppIcons.careRequest,
             iconColor: AppColors.info,
-            title: _s(r['assigned_provider_name']) ??
+            title:
+                _s(r['assigned_provider_name']) ??
                 _s(r['provider_name']) ??
                 'Provider request',
             subtitle: [
@@ -522,10 +526,10 @@ List<Widget> buildClinicalSections(BuildContext context, UserDossier d) {
 // ---------------------------------------------------------------------------
 
 Color _appointmentColor(String? status) => switch (status) {
-      'completed' => AppColors.success,
-      'cancelled' || 'missed' || 'no_show' => AppColors.critical,
-      _ => AppColors.info,
-    };
+  'completed' => AppColors.success,
+  'cancelled' || 'missed' || 'no_show' => AppColors.critical,
+  _ => AppColors.info,
+};
 
 String _macros(Map<String, dynamic> m) {
   final parts = <String>[
@@ -542,8 +546,7 @@ String? _dobLine(dynamic raw) {
   if (dob == null) return null;
   final now = DateTime.now();
   var age = now.year - dob.year;
-  if (now.month < dob.month ||
-      (now.month == dob.month && now.day < dob.day)) {
+  if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
     age--;
   }
   return '${dossierDate(dob)}  ($age years)';
@@ -569,10 +572,10 @@ String? _bmi(Map<String, dynamic> h) {
   final band = bmi < 18.5
       ? 'Underweight'
       : bmi < 25
-          ? 'Healthy'
-          : bmi < 30
-              ? 'Overweight'
-              : 'Obese';
+      ? 'Healthy'
+      : bmi < 30
+      ? 'Overweight'
+      : 'Obese';
   return '${bmi.toStringAsFixed(1)} ($band)';
 }
 

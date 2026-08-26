@@ -7,11 +7,7 @@ import '../theme/app_colors.dart';
 
 /// Full-screen modal scrim with blur on native and tinted gradient on web.
 class ModalScrim extends StatelessWidget {
-  const ModalScrim({
-    super.key,
-    this.color,
-    this.onTap,
-  });
+  const ModalScrim({super.key, this.color, this.onTap});
 
   final Color? color;
   final VoidCallback? onTap;
@@ -19,8 +15,7 @@ class ModalScrim extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scrim = color ??
-        (isDark ? AppColors.darkOverlay : AppColors.overlay);
+    final scrim = color ?? (isDark ? AppColors.darkOverlay : AppColors.overlay);
 
     Widget layer;
     if (kIsWeb) {

@@ -13,56 +13,54 @@ class StaffDestinations {
   StaffDestinations._();
 
   static List<RoleNavDestination> doctor() => const [
-        RoleNavDestination(
-          icon: AppIcons.home,
-          label: 'Home',
-          route: RouteNames.doctorDashboard,
-        ),
-        RoleNavDestination(
-          icon: AppIcons.assignments,
-          label: 'Work',
-          route: RouteNames.doctorInbox,
-          activeRoutes: {
-            RouteNames.doctorInbox,
-            RouteNames.doctorAlerts,
-            RouteNames.doctorAlertDetail,
-            RouteNames.doctorVisits,
-            RouteNames.doctorAppointments,
-            RouteNames.doctorPrescriptions,
-            RouteNames.doctorReports,
-            RouteNames.doctorReportEditor,
-            RouteNames.doctorMessages,
-            RouteNames.doctorChatThread,
-            RouteNames.doctorSos,
-          },
-        ),
-        RoleNavDestination(
-          icon: AppIcons.patients,
-          label: 'Patients',
-          route: RouteNames.doctorPatients,
-          activeRoutes: {
-            RouteNames.doctorPatients,
-            RouteNames.doctorPatientChart,
-          },
-        ),
-        RoleNavDestination(
-          icon: AppIcons.more,
-          label: 'More',
-          route: RouteNames.doctorMore,
-          activeRoutes: {
-            RouteNames.doctorMore,
-            RouteNames.doctorOverview,
-            RouteNames.doctorVitals,
-            RouteNames.doctorVitalTemplate,
-            RouteNames.doctorNotifications,
-            RouteNames.doctorProfile,
-            RouteNames.doctorSettings,
-          },
-        ),
-      ];
+    RoleNavDestination(
+      icon: AppIcons.home,
+      label: 'Home',
+      route: RouteNames.doctorDashboard,
+    ),
+    RoleNavDestination(
+      icon: AppIcons.assignments,
+      label: 'Work',
+      route: RouteNames.doctorInbox,
+      activeRoutes: {
+        RouteNames.doctorInbox,
+        RouteNames.doctorAlerts,
+        RouteNames.doctorAlertDetail,
+        RouteNames.doctorVisits,
+        RouteNames.doctorAppointments,
+        RouteNames.doctorPrescriptions,
+        RouteNames.doctorReports,
+        RouteNames.doctorReportEditor,
+        RouteNames.doctorMessages,
+        RouteNames.doctorChatThread,
+        RouteNames.doctorSos,
+      },
+    ),
+    RoleNavDestination(
+      icon: AppIcons.patients,
+      label: 'Patients',
+      route: RouteNames.doctorPatients,
+      activeRoutes: {RouteNames.doctorPatients, RouteNames.doctorPatientChart},
+    ),
+    RoleNavDestination(
+      icon: AppIcons.more,
+      label: 'More',
+      route: RouteNames.doctorMore,
+      activeRoutes: {
+        RouteNames.doctorMore,
+        RouteNames.doctorOverview,
+        RouteNames.doctorVitals,
+        RouteNames.doctorVitalTemplate,
+        RouteNames.doctorNotifications,
+        RouteNames.doctorProfile,
+        RouteNames.doctorSettings,
+      },
+    ),
+  ];
 
   static List<RoleNavDestination> admin() {
-    final workCount = AdminWorkspaceCounts.openAlerts +
+    final workCount =
+        AdminWorkspaceCounts.openAlerts +
         AdminWorkspaceCounts.openSupport +
         AdminWorkspaceCounts.pendingApprovals +
         AdminWorkspaceCounts.pendingCareRequests +
@@ -125,9 +123,11 @@ class StaffDestinations {
 
   static List<RoleNavDestination> assistant() {
     final has = AuthState.instance.hasAssistantPermission;
-    final canSeePeople = has(AssistantPermissions.canCreateUsers) ||
+    final canSeePeople =
+        has(AssistantPermissions.canCreateUsers) ||
         has(AssistantPermissions.canAssignPatients);
-    final workCount = AdminWorkspaceCounts.openAlerts +
+    final workCount =
+        AdminWorkspaceCounts.openAlerts +
         AdminWorkspaceCounts.openSupport +
         (has(AssistantPermissions.canApproveHealthworkers)
             ? AdminWorkspaceCounts.pendingApprovals

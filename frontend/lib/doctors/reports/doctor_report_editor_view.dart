@@ -99,9 +99,17 @@ class _DoctorReportEditorViewState extends State<DoctorReportEditorView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppTextField(controller: _patient, label: 'Patient', hint: 'Patient name'),
+            AppTextField(
+              controller: _patient,
+              label: 'Patient',
+              hint: 'Patient name',
+            ),
             const SizedBox(height: AppSpacing.sm),
-            AppTextField(controller: _title, label: 'Title', hint: 'Report title'),
+            AppTextField(
+              controller: _title,
+              label: 'Title',
+              hint: 'Report title',
+            ),
             const SizedBox(height: AppSpacing.sm),
             AppTextField(
               controller: _body,

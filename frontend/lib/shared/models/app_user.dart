@@ -56,22 +56,21 @@ class AppUser {
     ApprovalStatus? approvalStatus,
     bool? emailVerified,
     bool? mustChangePassword,
-  }) =>
-      AppUser(
-        id: id,
-        uniqueId: uniqueId,
-        firstName: firstName ?? this.firstName,
-        lastName: lastName ?? this.lastName,
-        email: email ?? this.email,
-        role: role,
-        phone: phone ?? this.phone,
-        avatarUrl: avatarUrl ?? this.avatarUrl,
-        specialty: specialty ?? this.specialty,
-        licenseNumber: licenseNumber ?? this.licenseNumber,
-        approvalStatus: approvalStatus ?? this.approvalStatus,
-        emailVerified: emailVerified ?? this.emailVerified,
-        mustChangePassword: mustChangePassword ?? this.mustChangePassword,
-      );
+  }) => AppUser(
+    id: id,
+    uniqueId: uniqueId,
+    firstName: firstName ?? this.firstName,
+    lastName: lastName ?? this.lastName,
+    email: email ?? this.email,
+    role: role,
+    phone: phone ?? this.phone,
+    avatarUrl: avatarUrl ?? this.avatarUrl,
+    specialty: specialty ?? this.specialty,
+    licenseNumber: licenseNumber ?? this.licenseNumber,
+    approvalStatus: approvalStatus ?? this.approvalStatus,
+    emailVerified: emailVerified ?? this.emailVerified,
+    mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+  );
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
     final roleRaw = json['role'] as String? ?? 'patient';

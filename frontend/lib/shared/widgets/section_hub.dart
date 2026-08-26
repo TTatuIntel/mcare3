@@ -59,9 +59,9 @@ class SectionHub extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         Text(
           description,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppPalette.textMuted(context),
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: AppPalette.textMuted(context)),
         ),
         const SizedBox(height: AppSpacing.xxl),
         for (var index = 0; index < groups.length; index++) ...[
@@ -89,8 +89,8 @@ class _SectionGroupView extends StatelessWidget {
         Text(
           group.description,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppPalette.textMuted(context),
-              ),
+            color: AppPalette.textMuted(context),
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         LayoutBuilder(
@@ -99,10 +99,10 @@ class _SectionGroupView extends StatelessWidget {
             final columns = scaler > 1.3
                 ? 1
                 : constraints.maxWidth >= 980
-                    ? 3
-                    : constraints.maxWidth >= 560
-                        ? 2
-                        : 1;
+                ? 3
+                : constraints.maxWidth >= 560
+                ? 2
+                : 1;
             final gap = constraints.maxWidth < 520
                 ? AppSpacing.md
                 : AppSpacing.lg;
@@ -163,8 +163,8 @@ class _SectionLinkCard extends StatelessWidget {
                 Text(
                   link.description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                    color: AppPalette.textMuted(context),
+                  ),
                 ),
               ],
             ),

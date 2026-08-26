@@ -68,21 +68,19 @@ class GoogleAccountPickerSheet {
           Text(
             'Choose an account to continue to mCare',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           if (kIsWeb && AppEnv.hasGoogleClientId) ...[
-            _RealGoogleTile(
-              onTap: () => _pickRealGoogleAccount(context),
-            ),
+            _RealGoogleTile(onTap: () => _pickRealGoogleAccount(context)),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Demo shortcuts (offline preview)',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textFaint(context),
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppPalette.textFaint(context),
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
           ],
@@ -112,9 +110,9 @@ class GoogleAccountPickerSheet {
             Text(
               'Demo mode: pick Amara for a full profile, or another account for onboarding.',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textFaint(context),
-                    fontSize: 10,
-                  ),
+                color: AppPalette.textFaint(context),
+                fontSize: 10,
+              ),
             ),
           ],
         ],
@@ -128,13 +126,10 @@ class GoogleAccountPickerSheet {
   }) async {
     try {
       if (AppEnv.backendEnabled) {
-        final creds =
-            await GoogleSignInService.instance.requestCredentials();
+        final creds = await GoogleSignInService.instance.requestCredentials();
         if (!context.mounted) return;
         if (creds == null) return;
-        Navigator.of(context).pop(
-          MockGoogleAccount.fromCredentials(creds),
-        );
+        Navigator.of(context).pop(MockGoogleAccount.fromCredentials(creds));
         return;
       }
       await GoogleSignInService.instance.beginRedirectSignIn(
@@ -193,14 +188,14 @@ class _RealGoogleTile extends StatelessWidget {
                     Text(
                       'Continue with Google',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     Text(
                       'Sign in or create an account with your Gmail',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                          ),
+                        color: AppPalette.textMuted(context),
+                      ),
                     ),
                   ],
                 ),
@@ -298,10 +293,10 @@ class _AccountTile extends StatelessWidget {
               child: Text(
                 'Demo profile',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 9,
-                    ),
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 9,
+                ),
               ),
             )
           : null,

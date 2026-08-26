@@ -88,7 +88,9 @@ class _NewConversationBodyState extends State<_NewConversationBody> {
         return;
       }
       Navigator.of(context).pop(convId);
-      Navigator.of(context).pushNamed(widget.threadRouteName, arguments: convId);
+      Navigator.of(
+        context,
+      ).pushNamed(widget.threadRouteName, arguments: convId);
     } catch (_) {
       if (!mounted) return;
       AppToast.error(context, 'Could not start conversation.');
@@ -143,8 +145,8 @@ class _NewConversationBodyState extends State<_NewConversationBody> {
           Text(
             'No matching users. Sync the directory from Users or Patients.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           )
         else
           ConstrainedBox(

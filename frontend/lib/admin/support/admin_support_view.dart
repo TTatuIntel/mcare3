@@ -64,8 +64,9 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
   Future<void> _refresh() async {
     try {
       final rows = await AdminApi.instance.listSupportTickets();
-      final tickets =
-          rows.map((e) => PatientDomainMapper.supportTicketFromApi(e)).toList();
+      final tickets = rows
+          .map((e) => PatientDomainMapper.supportTicketFromApi(e))
+          .toList();
       SupportState.instance.seed(tickets);
     } catch (_) {
       // Cached tickets from login sync remain visible.
@@ -107,9 +108,11 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
         builder: (context, _) {
           final all = SupportState.instance.all;
           final openCount = all
-              .where((t) =>
-                  t.status == TicketStatus.open ||
-                  t.status == TicketStatus.inProgress)
+              .where(
+                (t) =>
+                    t.status == TicketStatus.open ||
+                    t.status == TicketStatus.inProgress,
+              )
               .length;
           final items = _filtered(all);
 
@@ -124,8 +127,11 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Row(
                     children: [
-                      Icon(AppIcons.support,
-                          size: 20, color: AppColors.adminPurple),
+                      Icon(
+                        AppIcons.support,
+                        size: 20,
+                        color: AppColors.adminPurple,
+                      ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Column(
@@ -133,17 +139,15 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
                           children: [
                             Text(
                               '$openCount open ticket${openCount == 1 ? '' : 's'}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
+                              style: Theme.of(context).textTheme.titleSmall
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                             Text(
                               'Assign, reply, and resolve from ticket details',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: AppPalette.textMuted(context)),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: AppPalette.textMuted(context),
+                                  ),
                             ),
                           ],
                         ),
@@ -190,22 +194,24 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
               else
                 StaffListCard(
                   children: items
-                      .map((t) => StaffListRow(
-                            icon: AppIcons.support,
-                            iconColor: t.status.color,
-                            title: t.subject,
-                            subtitle: [
-                              if (t.patientName != null) t.patientName!,
-                              t.category.label,
-                              DateFormat.MMMd().format(t.createdAt),
-                            ].join(' · '),
-                            pill: t.status.label,
-                            pillColor: t.status.color,
-                            trailing: t.replies.isNotEmpty
-                                ? _ReplyBadge(count: t.replies.length)
-                                : null,
-                            onTap: () => _openDetail(context, t),
-                          ))
+                      .map(
+                        (t) => StaffListRow(
+                          icon: AppIcons.support,
+                          iconColor: t.status.color,
+                          title: t.subject,
+                          subtitle: [
+                            if (t.patientName != null) t.patientName!,
+                            t.category.label,
+                            DateFormat.MMMd().format(t.createdAt),
+                          ].join(' · '),
+                          pill: t.status.label,
+                          pillColor: t.status.color,
+                          trailing: t.replies.isNotEmpty
+                              ? _ReplyBadge(count: t.replies.length)
+                              : null,
+                          onTap: () => _openDetail(context, t),
+                        ),
+                      )
                       .toList(),
                 ),
               const SizedBox(height: AppSpacing.lg),
@@ -244,7 +250,10 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) => _pollTicket());
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _pollTicket(),
+    );
   }
 
   @override
@@ -284,8 +293,11 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
     if (body.isEmpty) return;
     setState(() => _sending = true);
     try {
-      await SupportState.instance
-          .addReplyRemote(_current.id, body, isStaff: true);
+      await SupportState.instance.addReplyRemote(
+        _current.id,
+        body,
+        isStaff: true,
+      );
       _ctrl.clear();
     } catch (_) {
       if (mounted) AppToast.error(context, 'Could not send reply.');
@@ -331,9 +343,11 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
 
   List<DirectoryUser> get _assignableStaff {
     return StaffState.instance.users
-        .where((u) =>
-            (u.role == UserRole.admin || u.role == UserRole.mcareAssistant) &&
-            u.status == 'active')
+        .where(
+          (u) =>
+              (u.role == UserRole.admin || u.role == UserRole.mcareAssistant) &&
+              u.status == 'active',
+        )
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
@@ -364,13 +378,17 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
       animation: SupportState.instance,
       builder: (context, _) {
         final t = _current;
-        final isClosed = t.status == TicketStatus.closed ||
+        final isClosed =
+            t.status == TicketStatus.closed ||
             t.status == TicketStatus.resolved;
 
         final theme = Theme.of(context);
         return Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl,
+            AppSpacing.xl,
+            0,
+            AppSpacing.xl,
+            AppSpacing.xl,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -382,11 +400,11 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                 runSpacing: AppSpacing.xs,
                 children: [
                   _StatusChip(label: t.status.label, color: t.status.color),
+                  _StatusChip(label: t.priority.label, color: t.priority.color),
                   _StatusChip(
-                      label: t.priority.label, color: t.priority.color),
-                  _StatusChip(
-                      label: t.category.label,
-                      color: AppColors.brandIndigo),
+                    label: t.category.label,
+                    color: AppColors.brandIndigo,
+                  ),
                   if (t.assignedTo != null && t.assignedTo!.isNotEmpty)
                     _StatusChip(
                       label: t.assignedToName ?? 'Assigned',
@@ -398,8 +416,11 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    Icon(AppIcons.user,
-                        size: 14, color: AppPalette.textMuted(context)),
+                    Icon(
+                      AppIcons.user,
+                      size: 14,
+                      color: AppPalette.textMuted(context),
+                    ),
                     const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: Text(
@@ -464,8 +485,7 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                 Container(
                   decoration: BoxDecoration(
                     color: AppPalette.surface(context),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusLg),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                     border: Border.all(color: AppPalette.border(context)),
                   ),
                   padding: const EdgeInsets.fromLTRB(
@@ -486,7 +506,8 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                           border: InputBorder.none,
                           isCollapsed: true,
                           hintStyle: TextStyle(
-                              color: AppPalette.textMuted(context)),
+                            color: AppPalette.textMuted(context),
+                          ),
                         ),
                         textCapitalization: TextCapitalization.sentences,
                         onSubmitted: (_) => _send(),
@@ -549,8 +570,10 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet> {
                     children: [
                       Icon(AppIcons.check, color: AppColors.success, size: 28),
                       const SizedBox(height: AppSpacing.xs),
-                      Text('This ticket is ${t.status.label.toLowerCase()}.',
-                          style: theme.textTheme.bodyMedium),
+                      Text(
+                        'This ticket is ${t.status.label.toLowerCase()}.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
                       const SizedBox(height: AppSpacing.sm),
                       AppButton(
                         label: 'Reopen',
@@ -591,10 +614,10 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
+              color: color,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
           ),
         ],
       ),
@@ -634,8 +657,11 @@ class _AssignmentCard extends StatelessWidget {
                   color: AppColors.mcareAmber.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                child: Icon(AppIcons.users,
-                    size: 14, color: AppColors.mcareAmber),
+                child: Icon(
+                  AppIcons.users,
+                  size: 14,
+                  color: AppColors.mcareAmber,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -681,8 +707,10 @@ class _AssignmentCard extends StatelessWidget {
               child: DropdownButton<String?>(
                 isExpanded: true,
                 value: assignedTo,
-                icon: Icon(AppIcons.expandMore,
-                    color: AppPalette.textMuted(context)),
+                icon: Icon(
+                  AppIcons.expandMore,
+                  color: AppPalette.textMuted(context),
+                ),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppPalette.ink(context),
                   fontWeight: FontWeight.w600,
@@ -734,8 +762,9 @@ class _ReplyBubble extends StatelessWidget {
           border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Column(
-          crossAxisAlignment:
-              isStaff ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isStaff
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Text(
               reply.author,
@@ -746,14 +775,14 @@ class _ReplyBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              reply.body,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text(reply.body, style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 2),
             Text(
               DateFormat.jm().format(reply.sentAt),
-              style: TextStyle(color: AppPalette.textMuted(context), fontSize: 9),
+              style: TextStyle(
+                color: AppPalette.textMuted(context),
+                fontSize: 9,
+              ),
             ),
           ],
         ),
@@ -770,8 +799,10 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
@@ -795,8 +826,10 @@ class _ReplyBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 2,
+      ),
       decoration: BoxDecoration(
         color: AppColors.brandIndigo.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),

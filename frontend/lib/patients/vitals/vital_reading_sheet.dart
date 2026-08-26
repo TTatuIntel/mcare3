@@ -62,7 +62,9 @@ class _Body extends StatelessWidget {
       animation: NotificationState.instance,
       builder: (context, _) {
         final alert = NotificationState.instance.vitalAlertFor(vital);
-        final resolved = NotificationState.instance.resolvedVitalAlertFor(vital);
+        final resolved = NotificationState.instance.resolvedVitalAlertFor(
+          vital,
+        );
         final isResolved =
             alert == null &&
             resolved != null &&
@@ -116,7 +118,9 @@ class _Body extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          DateFormat.MMMEd().add_jm().format(reading.recordedAt),
+                          DateFormat.MMMEd().add_jm().format(
+                            reading.recordedAt,
+                          ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: AppPalette.textMuted(context),
                           ),
@@ -169,7 +173,9 @@ class _Body extends StatelessWidget {
                 resolvedAt: resolved.resolvedAt,
               ),
             ],
-            if (alert == null && resolved == null && reading.risk == RiskLevel.normal) ...[
+            if (alert == null &&
+                resolved == null &&
+                reading.risk == RiskLevel.normal) ...[
               const SizedBox(height: AppSpacing.lg),
               _StatusBanner(
                 icon: AppIcons.check,
@@ -252,16 +258,16 @@ class _InfoRow extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: AppPalette.textMuted(context),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 value,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: valueColor ?? AppPalette.ink(context),
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: valueColor ?? AppPalette.ink(context),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -371,9 +377,9 @@ class _StatusBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

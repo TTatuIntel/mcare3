@@ -80,8 +80,9 @@ class _AppTextFieldState extends State<AppTextField> {
     final suffix = widget.canRevealObscured
         ? IconButton(
             splashRadius: compact ? 14 : 18,
-            visualDensity:
-                compact ? VisualDensity.compact : VisualDensity.standard,
+            visualDensity: compact
+                ? VisualDensity.compact
+                : VisualDensity.standard,
             onPressed: () => setState(() => _obscure = !_obscure),
             icon: Icon(
               _obscure ? AppIcons.visibility : AppIcons.visibilityOff,
@@ -90,19 +91,19 @@ class _AppTextFieldState extends State<AppTextField> {
             ),
           )
         : (widget.suffixIcon != null
-            ? IconButton(
-                splashRadius: compact ? 14 : 18,
-                visualDensity: compact
-                    ? VisualDensity.compact
-                    : VisualDensity.standard,
-                onPressed: widget.onSuffixTap,
-                icon: Icon(
-                  widget.suffixIcon,
-                  size: compact ? AppLayout.controlIconSize : 20,
-                  color: AppPalette.textMuted(context),
-                ),
-              )
-            : null);
+              ? IconButton(
+                  splashRadius: compact ? 14 : 18,
+                  visualDensity: compact
+                      ? VisualDensity.compact
+                      : VisualDensity.standard,
+                  onPressed: widget.onSuffixTap,
+                  icon: Icon(
+                    widget.suffixIcon,
+                    size: compact ? AppLayout.controlIconSize : 20,
+                    color: AppPalette.textMuted(context),
+                  ),
+                )
+              : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,10 +140,8 @@ class _AppTextFieldState extends State<AppTextField> {
             helperText: widget.helperText,
             counterText: '',
             isDense: compact,
-            contentPadding:
-                compact ? AppLayout.controlPadding : null,
-            constraints:
-                compact ? AppLayout.controlConstraints : null,
+            contentPadding: compact ? AppLayout.controlPadding : null,
+            constraints: compact ? AppLayout.controlConstraints : null,
             prefixIcon: widget.prefixIcon == null
                 ? null
                 : Icon(

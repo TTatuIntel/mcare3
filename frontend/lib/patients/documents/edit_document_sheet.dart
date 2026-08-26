@@ -119,8 +119,9 @@ class _FormState extends State<_Form> {
           description: description.isEmpty ? '' : description,
           file: _pickedFile,
         );
-        await DoctorPatientDetailService.instance
-            .loadPatient(widget.patientUserId!);
+        await DoctorPatientDetailService.instance.loadPatient(
+          widget.patientUserId!,
+        );
       } else {
         await DocumentsState.instance.updateDocument(
           id: widget.doc.id,
@@ -174,10 +175,7 @@ class _FormState extends State<_Form> {
           ),
           const SizedBox(height: AppSpacing.lg),
         ],
-        AppTextField(
-          label: 'Title',
-          controller: _title,
-        ),
+        AppTextField(label: 'Title', controller: _title),
         const SizedBox(height: AppSpacing.lg),
         Text('Category', style: theme.textTheme.labelLarge),
         const SizedBox(height: AppSpacing.sm),
@@ -212,14 +210,18 @@ class _FormState extends State<_Form> {
                   : AppPalette.surfaceMuted(context).withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               border: Border.all(
-                color: hasNewFile ? AppColors.success : AppPalette.border(context),
+                color: hasNewFile
+                    ? AppColors.success
+                    : AppPalette.border(context),
               ),
             ),
             child: Row(
               children: [
                 Icon(
                   hasNewFile ? AppIcons.check : AppIcons.upload,
-                  color: hasNewFile ? AppColors.success : AppPalette.textMuted(context),
+                  color: hasNewFile
+                      ? AppColors.success
+                      : AppPalette.textMuted(context),
                   size: 20,
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -231,12 +233,13 @@ class _FormState extends State<_Form> {
                         hasNewFile
                             ? _selectedFileName!
                             : widget.doc.hasFile
-                                ? 'Replace file (optional)'
-                                : 'Attach file (required)',
+                            ? 'Replace file (optional)'
+                            : 'Attach file (required)',
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color:
-                              hasNewFile ? AppColors.success : AppPalette.ink(context),
+                          color: hasNewFile
+                              ? AppColors.success
+                              : AppPalette.ink(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

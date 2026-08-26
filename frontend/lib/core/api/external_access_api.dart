@@ -33,7 +33,8 @@ class ExternalAccessLink {
       accessCode: json['access_code'] as String?,
       url: json['url'] as String?,
       token: json['token'] as String? ?? '',
-      expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? '') ??
+      expiresAt:
+          DateTime.tryParse(json['expires_at'] as String? ?? '') ??
           DateTime.now(),
       active: json['active'] as bool? ?? false,
       revokedAt: json['revoked_at'] != null
@@ -54,8 +55,9 @@ class ExternalAccessApi {
     final res = await ApiClient.instance.get('/patient/external-access');
     final items = res['data']?['links'] as List? ?? [];
     return items
-        .map((e) =>
-            ExternalAccessLink.fromApi((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => ExternalAccessLink.fromApi((e as Map).cast<String, dynamic>()),
+        )
         .toList();
   }
 

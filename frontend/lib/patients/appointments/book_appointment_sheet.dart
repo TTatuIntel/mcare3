@@ -92,8 +92,8 @@ class _FormState extends State<_Form> {
           locationOrLink: _type == AppointmentType.virtual
               ? 'https://meet.mcare.app/new'
               : _type == AppointmentType.inPerson
-                  ? doctor.facility
-                  : null,
+              ? doctor.facility
+              : null,
         ),
       );
     } catch (e) {
@@ -124,10 +124,12 @@ class _FormState extends State<_Form> {
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
           items: doctors
-              .map((d) => DropdownMenuItem(
-                    value: d,
-                    child: Text('${d.name} · ${d.specialty}'),
-                  ))
+              .map(
+                (d) => DropdownMenuItem(
+                  value: d,
+                  child: Text('${d.name} · ${d.specialty}'),
+                ),
+              )
               .toList(),
           onChanged: (v) => setState(() => _doctor = v),
         ),
@@ -153,8 +155,7 @@ class _FormState extends State<_Form> {
               child: OutlinedButton.icon(
                 onPressed: _pickDate,
                 icon: const Icon(AppIcons.calendar, size: 18),
-                label: Text(
-                    '${_date.month}/${_date.day}/${_date.year}'),
+                label: Text('${_date.month}/${_date.day}/${_date.year}'),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),

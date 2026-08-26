@@ -6,7 +6,8 @@ import '../auth/auth_state.dart';
 import '../models/document.dart';
 import '../models/user_role.dart';
 import 'document_blob_url_stub.dart'
-    if (dart.library.html) 'document_blob_url_web.dart' as blob_url;
+    if (dart.library.html) 'document_blob_url_web.dart'
+    as blob_url;
 
 /// Resolved preview payload for in-app document viewing.
 class DocumentPreviewContent {
@@ -28,12 +29,12 @@ class DocumentPreviewService {
   DocumentPreviewService._();
 
   static String mimeFor(DocumentFileType type) => switch (type) {
-        DocumentFileType.pdf => 'application/pdf',
-        DocumentFileType.image => 'image/jpeg',
-        DocumentFileType.doc =>
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        DocumentFileType.other => 'application/octet-stream',
-      };
+    DocumentFileType.pdf => 'application/pdf',
+    DocumentFileType.image => 'image/jpeg',
+    DocumentFileType.doc =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    DocumentFileType.other => 'application/octet-stream',
+  };
 
   static Future<DocumentPreviewContent> resolveContent({
     required String documentId,
@@ -42,7 +43,8 @@ class DocumentPreviewService {
   }) async {
     if (AppEnv.backendEnabled) {
       final role = AuthState.instance.user?.role;
-      final useDoctorPath = patientUserId != null &&
+      final useDoctorPath =
+          patientUserId != null &&
           (role == UserRole.doctor ||
               role == UserRole.admin ||
               role == UserRole.mcareAssistant);
@@ -55,10 +57,7 @@ class DocumentPreviewService {
     }
 
     final url = _demoUrl(documentId, fileType);
-    return DocumentPreviewContent(
-      demoUrl: url,
-      mimeType: mimeFor(fileType),
-    );
+    return DocumentPreviewContent(demoUrl: url, mimeType: mimeFor(fileType));
   }
 
   /// Legacy URL resolver — prefer [resolveContent] for authenticated previews.

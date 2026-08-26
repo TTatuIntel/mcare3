@@ -57,8 +57,11 @@ class _BodyState extends State<_Body> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _expiresOn = DateTime(now.year, now.month, now.day)
-        .add(const Duration(days: 1));
+    _expiresOn = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(const Duration(days: 1));
     _load();
   }
 
@@ -110,9 +113,9 @@ class _BodyState extends State<_Body> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: AppColors.info,
-                ),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: AppColors.info),
           ),
           child: child!,
         );
@@ -212,7 +215,8 @@ class _BodyState extends State<_Body> {
     }
     buffer.writeln('mCare — temporary access to my health record.');
     buffer.writeln(
-        'Open the link to review my chart, record vitals, assign medication, and upload documents.');
+      'Open the link to review my chart, record vitals, assign medication, and upload documents.',
+    );
     if (link.accessCode != null && link.accessCode!.isNotEmpty) {
       buffer.writeln();
       buffer.writeln('Access code: ${link.accessCode}');
@@ -335,8 +339,9 @@ class _BodyState extends State<_Body> {
     final active = _links.where((l) => l.active).toList();
     final inactive = _links.where((l) => !l.active).toList();
     final primary = active.isNotEmpty ? active.first : null;
-    final olderActive =
-        active.length > 1 ? active.skip(1).toList() : const <ExternalAccessLink>[];
+    final olderActive = active.length > 1
+        ? active.skip(1).toList()
+        : const <ExternalAccessLink>[];
 
     if (_loading) {
       return const Padding(
@@ -357,8 +362,9 @@ class _BodyState extends State<_Body> {
             onCopyCode: primary.accessCode == null
                 ? null
                 : () => _copy(primary.accessCode!, 'Access code'),
-            onCopyUrl:
-                primary.url == null ? null : () => _copy(primary.url!, 'Link'),
+            onCopyUrl: primary.url == null
+                ? null
+                : () => _copy(primary.url!, 'Link'),
             onRevoke: () => _revoke(primary),
             onHelp: _showHelp,
           ),
@@ -384,8 +390,9 @@ class _BodyState extends State<_Body> {
                 onCopyCode: link.accessCode == null
                     ? null
                     : () => _copy(link.accessCode!, 'Access code'),
-                onCopyUrl:
-                    link.url == null ? null : () => _copy(link.url!, 'Link'),
+                onCopyUrl: link.url == null
+                    ? null
+                    : () => _copy(link.url!, 'Link'),
                 onRevoke: () => _revoke(link),
               ),
           ],
@@ -418,8 +425,7 @@ class _BodyState extends State<_Body> {
             ),
           ),
           if (_showExpired)
-            for (final link in inactive)
-              _LinkCard(link: link, compact: true),
+            for (final link in inactive) _LinkCard(link: link, compact: true),
         ],
       ],
     );
@@ -449,8 +455,9 @@ class _LinkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color =
-        link.active ? AppColors.success : AppPalette.textMuted(context);
+    final color = link.active
+        ? AppColors.success
+        : AppPalette.textMuted(context);
     final expires = DateFormat.MMMd().add_jm().format(link.expiresAt);
     final canAct = link.active && onShare != null;
 
@@ -472,8 +479,9 @@ class _LinkCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   link.label,
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -482,8 +490,10 @@ class _LinkCard extends StatelessWidget {
                   tooltip: 'How it works',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                   icon: Icon(AppIcons.info, size: 18, color: AppColors.info),
                   onPressed: onHelp,
                 ),
@@ -491,10 +501,11 @@ class _LinkCard extends StatelessWidget {
                 link.active
                     ? expires
                     : link.revokedAt != null
-                        ? 'Revoked'
-                        : 'Expired',
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: AppPalette.textMuted(context)),
+                    ? 'Revoked'
+                    : 'Expired',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textMuted(context),
+                ),
               ),
             ],
           ),
@@ -549,8 +560,11 @@ class _LinkCard extends StatelessWidget {
                   IconButton(
                     tooltip: 'Revoke',
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(AppIcons.close,
-                        size: 18, color: AppColors.critical),
+                    icon: Icon(
+                      AppIcons.close,
+                      size: 18,
+                      color: AppColors.critical,
+                    ),
                     onPressed: onRevoke,
                   ),
                 ],

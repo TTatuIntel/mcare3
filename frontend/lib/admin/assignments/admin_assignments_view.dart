@@ -27,11 +27,11 @@ class AdminAssignmentsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const MergedAssignmentsRedirect(
-        target: RouteNames.adminCareRequests,
-        currentRoute: RouteNames.adminAssignments,
-        profileRoute: RouteNames.adminProfile,
-        notificationsRoute: RouteNames.adminNotifications,
-      );
+    target: RouteNames.adminCareRequests,
+    currentRoute: RouteNames.adminAssignments,
+    profileRoute: RouteNames.adminProfile,
+    notificationsRoute: RouteNames.adminNotifications,
+  );
 }
 
 /// Renders the merged workspace on its Assignments tab, then swaps the route
@@ -114,11 +114,11 @@ class AssignmentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CareRequestsScreen(
-        currentRoute: currentRoute,
-        destinations: destinations,
-        profileRoute: profileRoute,
-        notificationsRoute: notificationsRoute,
-        canAssign: canAssign,
-        initialTab: CareTab.assignments,
-      );
+    currentRoute: currentRoute,
+    destinations: destinations,
+    profileRoute: profileRoute,
+    notificationsRoute: notificationsRoute,
+    canAssign: canAssign,
+    initialTab: CareTab.assignments,
+  );
 }

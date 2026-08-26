@@ -21,30 +21,29 @@ class NotificationSettingsSection extends StatelessWidget {
   final SettingsNotificationRole role;
   final List<NotificationToggleDef>? toggles;
 
-  List<NotificationToggleDef> get _toggles => toggles ?? switch (role) {
+  List<NotificationToggleDef> get _toggles =>
+      toggles ??
+      switch (role) {
         SettingsNotificationRole.patient => SettingsNotificationPresets.patient,
-        SettingsNotificationRole.doctor ||
-        SettingsNotificationRole.assistant =>
+        SettingsNotificationRole.doctor || SettingsNotificationRole.assistant =>
           SettingsNotificationPresets.doctor,
         SettingsNotificationRole.admin => SettingsNotificationPresets.admin,
       };
 
   NotificationToggleDef get _master => switch (role) {
-        SettingsNotificationRole.patient =>
-          SettingsNotificationPresets.patientMaster,
-        SettingsNotificationRole.doctor ||
-        SettingsNotificationRole.assistant =>
-          SettingsNotificationPresets.doctorMaster,
-        SettingsNotificationRole.admin => SettingsNotificationPresets.adminMaster,
-      };
+    SettingsNotificationRole.patient =>
+      SettingsNotificationPresets.patientMaster,
+    SettingsNotificationRole.doctor || SettingsNotificationRole.assistant =>
+      SettingsNotificationPresets.doctorMaster,
+    SettingsNotificationRole.admin => SettingsNotificationPresets.adminMaster,
+  };
 
   bool _masterValue(SettingsState s) => switch (role) {
-        SettingsNotificationRole.patient => s.allPatientNotificationsOn,
-        SettingsNotificationRole.doctor ||
-        SettingsNotificationRole.assistant =>
-          s.allDoctorNotificationsOn,
-        SettingsNotificationRole.admin => s.allAdminNotificationsOn,
-      };
+    SettingsNotificationRole.patient => s.allPatientNotificationsOn,
+    SettingsNotificationRole.doctor ||
+    SettingsNotificationRole.assistant => s.allDoctorNotificationsOn,
+    SettingsNotificationRole.admin => s.allAdminNotificationsOn,
+  };
 
   void _setMaster(SettingsState s, bool v) {
     switch (role) {

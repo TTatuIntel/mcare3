@@ -14,49 +14,49 @@ enum DocumentCategory {
 
 extension DocumentCategoryX on DocumentCategory {
   String get label => switch (this) {
-        DocumentCategory.labResult => 'Lab result',
-        DocumentCategory.prescription => 'Prescription',
-        DocumentCategory.imaging => 'Imaging',
-        DocumentCategory.discharge => 'Discharge',
-        DocumentCategory.consultationNote => 'Consultation note',
-        DocumentCategory.other => 'Other',
-      };
+    DocumentCategory.labResult => 'Lab result',
+    DocumentCategory.prescription => 'Prescription',
+    DocumentCategory.imaging => 'Imaging',
+    DocumentCategory.discharge => 'Discharge',
+    DocumentCategory.consultationNote => 'Consultation note',
+    DocumentCategory.other => 'Other',
+  };
 
   Color get color => switch (this) {
-        DocumentCategory.labResult => AppColors.spo2Blue,
-        DocumentCategory.prescription => AppColors.glucoseAmber,
-        DocumentCategory.imaging => AppColors.bpPurple,
-        DocumentCategory.discharge => AppColors.doctorGreen,
-        DocumentCategory.consultationNote => AppColors.info,
-        DocumentCategory.other => AppColors.weightSlate,
-      };
+    DocumentCategory.labResult => AppColors.spo2Blue,
+    DocumentCategory.prescription => AppColors.glucoseAmber,
+    DocumentCategory.imaging => AppColors.bpPurple,
+    DocumentCategory.discharge => AppColors.doctorGreen,
+    DocumentCategory.consultationNote => AppColors.info,
+    DocumentCategory.other => AppColors.weightSlate,
+  };
 
   IconData get icon => switch (this) {
-        DocumentCategory.labResult => AppIcons.lab,
-        DocumentCategory.prescription => AppIcons.medication,
-        DocumentCategory.imaging => AppIcons.image,
-        DocumentCategory.discharge => AppIcons.nurse,
-        DocumentCategory.consultationNote => AppIcons.report,
-        DocumentCategory.other => AppIcons.document,
-      };
+    DocumentCategory.labResult => AppIcons.lab,
+    DocumentCategory.prescription => AppIcons.medication,
+    DocumentCategory.imaging => AppIcons.image,
+    DocumentCategory.discharge => AppIcons.nurse,
+    DocumentCategory.consultationNote => AppIcons.report,
+    DocumentCategory.other => AppIcons.document,
+  };
 }
 
 enum DocumentFileType { pdf, image, doc, other }
 
 extension DocumentFileTypeX on DocumentFileType {
   String get label => switch (this) {
-        DocumentFileType.pdf => 'PDF',
-        DocumentFileType.image => 'Image',
-        DocumentFileType.doc => 'DOC',
-        DocumentFileType.other => 'File',
-      };
+    DocumentFileType.pdf => 'PDF',
+    DocumentFileType.image => 'Image',
+    DocumentFileType.doc => 'DOC',
+    DocumentFileType.other => 'File',
+  };
 
   IconData get icon => switch (this) {
-        DocumentFileType.pdf => AppIcons.pdf,
-        DocumentFileType.image => AppIcons.image,
-        DocumentFileType.doc => AppIcons.document,
-        DocumentFileType.other => AppIcons.file,
-      };
+    DocumentFileType.pdf => AppIcons.pdf,
+    DocumentFileType.image => AppIcons.image,
+    DocumentFileType.doc => AppIcons.document,
+    DocumentFileType.other => AppIcons.file,
+  };
 }
 
 class MedicalDocument {

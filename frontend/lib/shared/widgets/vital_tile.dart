@@ -86,8 +86,9 @@ class VitalTile extends StatelessWidget {
     final risk = reading?.risk ?? RiskLevel.unknown;
     final accent = vital.accent;
     final value = reading?.formatValue() ?? '—';
-    final when =
-        reading == null ? 'Not logged' : _relative(reading!.recordedAt);
+    final when = reading == null
+        ? 'Not logged'
+        : _relative(reading!.recordedAt);
     final compact = variant == VitalTileVariant.compact;
 
     final iconBox = Container(
@@ -117,14 +118,16 @@ class VitalTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       vital.label,
-                      style: (compact
-                              ? theme.textTheme.labelMedium
-                              : theme.textTheme.labelLarge)
-                          ?.copyWith(
-                        fontWeight:
-                            compact ? FontWeight.w700 : FontWeight.w800,
-                        height: 1.1,
-                      ),
+                      style:
+                          (compact
+                                  ? theme.textTheme.labelMedium
+                                  : theme.textTheme.labelLarge)
+                              ?.copyWith(
+                                fontWeight: compact
+                                    ? FontWeight.w700
+                                    : FontWeight.w800,
+                                height: 1.1,
+                              ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -138,8 +141,9 @@ class VitalTile extends StatelessWidget {
                       margin: const EdgeInsets.only(right: 6),
                       decoration: BoxDecoration(
                         color: AppColors.brandIndigo.withOpacity(0.1),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusPill),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
                         border: Border.all(
                           color: AppColors.brandIndigo.withOpacity(0.22),
                         ),
@@ -174,14 +178,15 @@ class VitalTile extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: value,
-                      style: (compact
-                              ? theme.textTheme.titleSmall
-                              : theme.textTheme.titleMedium)
-                          ?.copyWith(
-                        color: accent,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
-                      ),
+                      style:
+                          (compact
+                                  ? theme.textTheme.titleSmall
+                                  : theme.textTheme.titleMedium)
+                              ?.copyWith(
+                                color: accent,
+                                fontWeight: FontWeight.w800,
+                                height: 1.1,
+                              ),
                     ),
                     TextSpan(
                       text: reading == null ? '' : ' ${vital.unit}',
@@ -217,7 +222,11 @@ class VitalTile extends StatelessWidget {
         ),
         if (alert != null) ...[
           const SizedBox(width: 4),
-          Icon(AppIcons.alert, size: compact ? 14 : 16, color: alert!.kind.tint),
+          Icon(
+            AppIcons.alert,
+            size: compact ? 14 : 16,
+            color: alert!.kind.tint,
+          ),
         ] else if (_isResolved) ...[
           const SizedBox(width: 4),
           Icon(
@@ -261,19 +270,19 @@ class VitalTile extends StatelessWidget {
                 color: _isResolved
                     ? AppPalette.successSoft(context).withOpacity(0.45)
                     : risk == RiskLevel.normal
-                        ? (AppPalette.isDark(context)
-                            ? AppColors.darkSurfaceAlt.withOpacity(0.65)
-                            : Colors.white.withOpacity(0.28))
-                        : risk.softBg(context).withOpacity(0.55),
+                    ? (AppPalette.isDark(context)
+                          ? AppColors.darkSurfaceAlt.withOpacity(0.65)
+                          : Colors.white.withOpacity(0.28))
+                    : risk.softBg(context).withOpacity(0.55),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 border: Border.all(
                   color: _isResolved
                       ? AppColors.success.withOpacity(0.35)
                       : alertTint != null
-                          ? alertTint.withOpacity(0.4)
-                          : risk.color.withOpacity(
-                              risk == RiskLevel.normal ? 0.14 : 0.24,
-                            ),
+                      ? alertTint.withOpacity(0.4)
+                      : risk.color.withOpacity(
+                          risk == RiskLevel.normal ? 0.14 : 0.24,
+                        ),
                 ),
               ),
               child: _tileBody(context),

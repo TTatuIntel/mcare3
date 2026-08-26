@@ -103,8 +103,9 @@ class ProfileView extends StatelessWidget {
                       ),
                       ProfileHeaderStat(
                         label: 'BMI',
-                        value:
-                            health != null ? health.bmi.toStringAsFixed(1) : '—',
+                        value: health != null
+                            ? health.bmi.toStringAsFixed(1)
+                            : '—',
                       ),
                       ProfileHeaderStat(
                         label: 'Contacts',
@@ -159,15 +160,17 @@ class ProfileView extends StatelessWidget {
                       PatientQuickAction(
                         icon: AppIcons.sos,
                         label: 'Contacts',
-                        badge:
-                            contacts.isNotEmpty ? '${contacts.length}' : null,
+                        badge: contacts.isNotEmpty
+                            ? '${contacts.length}'
+                            : null,
                         onTap: () => _AddContactSheet.show(context),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.settings,
                         label: 'Settings',
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.patientSettings),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(RouteNames.patientSettings),
                       ),
                     ],
                   ),
@@ -245,16 +248,16 @@ class ProfileView extends StatelessWidget {
                           value: health.noKnownAllergies
                               ? 'None known'
                               : health.allergies.isEmpty
-                                  ? 'Not recorded'
-                                  : health.allergies.join(', '),
+                              ? 'Not recorded'
+                              : health.allergies.join(', '),
                         ),
                         PatientCompactInfoRow(
                           label: 'Medications',
                           value: health.noCurrentMedications
                               ? 'None'
                               : health.currentMedications.isEmpty
-                                  ? 'Not recorded'
-                                  : health.currentMedications.join(', '),
+                              ? 'Not recorded'
+                              : health.currentMedications.join(', '),
                         ),
                         Divider(height: 1, color: AppPalette.border(context)),
                         PatientCompactToggleRow(
@@ -335,10 +338,7 @@ class ProfileView extends StatelessWidget {
                       ),
               ),
               const SizedBox(height: AppSpacing.md),
-              StaggeredEntry(
-                index: 10,
-                child: const ProfileSecuritySection(),
-              ),
+              StaggeredEntry(index: 10, child: const ProfileSecuritySection()),
               SizedBox(height: tier.isHandheld ? 24 : AppSpacing.huge),
             ],
           );
@@ -578,20 +578,20 @@ class _CompletionSheet {
                     child: Text(
                       item.label,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   Text(
                     item.complete ? 'Done' : '${item.weight}%',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: item.complete
-                              ? AppColors.success
-                              : AppPalette.textMuted(context),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 10,
-                        ),
+                      color: item.complete
+                          ? AppColors.success
+                          : AppPalette.textMuted(context),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),

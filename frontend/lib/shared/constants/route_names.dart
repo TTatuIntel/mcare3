@@ -86,6 +86,7 @@ class RouteNames {
   static const adminUsers = '/admin/users';
   static const adminUserDetail = '/admin/users/detail';
   static const adminApprovals = '/admin/approvals';
+
   /// Care-request triage **and** care assignments — one merged workspace.
   static const adminCareRequests = '/admin/care-requests';
 

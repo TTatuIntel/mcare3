@@ -50,19 +50,20 @@ class PatientAppHeader extends StatelessWidget implements PreferredSizeWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
           child: Row(
             children: [
               if (leading != null)
                 Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.sm),
-                    child: leading!)
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: leading!,
+                )
               else if (showBack)
                 _BackButton(
-                  onTap: () => NavigationRoots.smartBack(
-                    context,
-                    currentRoute: route,
-                  ),
+                  onTap: () =>
+                      NavigationRoots.smartBack(context, currentRoute: route),
                 )
               else
                 _Avatar(onTap: () => ProfileMenuSheet.show(context)),
@@ -120,11 +121,7 @@ class _BackButton extends StatelessWidget {
           color: AppPalette.border(context).withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
         ),
-        child: Icon(
-          AppIcons.backIos,
-          size: 18,
-          color: AppPalette.ink(context),
-        ),
+        child: Icon(AppIcons.backIos, size: 18, color: AppPalette.ink(context)),
       ),
     );
   }

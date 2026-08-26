@@ -12,16 +12,19 @@ class NotificationsApi {
     final res = await ApiClient.instance.get('/patient/notifications');
     final list = res['data']?['notifications'] as List? ?? [];
     return list
-        .map((e) => PatientDomainMapper.notificationFromApi(
-              e as Map<String, dynamic>,
-            ))
+        .map(
+          (e) => PatientDomainMapper.notificationFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
   Future<AppNotification?> markRead(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res =
-        await ApiClient.instance.patch('/patient/notifications/$id/read');
+    final res = await ApiClient.instance.patch(
+      '/patient/notifications/$id/read',
+    );
     final json = res['data']?['notification'] as Map<String, dynamic>?;
     if (json == null) return null;
     return PatientDomainMapper.notificationFromApi(json);
@@ -29,8 +32,9 @@ class NotificationsApi {
 
   Future<AppNotification?> resolve(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res =
-        await ApiClient.instance.patch('/patient/notifications/$id/resolve');
+    final res = await ApiClient.instance.patch(
+      '/patient/notifications/$id/resolve',
+    );
     final json = res['data']?['notification'] as Map<String, dynamic>?;
     if (json == null) return null;
     return PatientDomainMapper.notificationFromApi(json);

@@ -16,18 +16,20 @@ class AppointmentsState extends ChangeNotifier {
       _items.where((a) => a.isUpcoming).toList()
         ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
-  List<Appointment> get past => _items
-      .where((a) =>
-          !a.isUpcoming &&
-          (a.status == AppointmentStatus.completed ||
-              a.scheduledAt.isBefore(DateTime.now())))
-      .toList()
-    ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+  List<Appointment> get past =>
+      _items
+          .where(
+            (a) =>
+                !a.isUpcoming &&
+                (a.status == AppointmentStatus.completed ||
+                    a.scheduledAt.isBefore(DateTime.now())),
+          )
+          .toList()
+        ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
 
-  List<Appointment> get cancelled => _items
-      .where((a) => a.status == AppointmentStatus.cancelled)
-      .toList()
-    ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+  List<Appointment> get cancelled =>
+      _items.where((a) => a.status == AppointmentStatus.cancelled).toList()
+        ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
 
   void seed(List<Appointment> items) {
     _items

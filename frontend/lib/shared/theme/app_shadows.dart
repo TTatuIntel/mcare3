@@ -37,11 +37,7 @@ class AppShadows {
       offset: Offset(0, 12),
       spreadRadius: -6,
     ),
-    BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 6,
-      offset: Offset(0, 2),
-    ),
+    BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
   static const List<BoxShadow> raised = [
@@ -51,19 +47,15 @@ class AppShadows {
       offset: Offset(0, 20),
       spreadRadius: -12,
     ),
-    BoxShadow(
-      color: Color(0x0F000000),
-      blurRadius: 10,
-      offset: Offset(0, 4),
-    ),
+    BoxShadow(color: Color(0x0F000000), blurRadius: 10, offset: Offset(0, 4)),
   ];
 
   static List<BoxShadow> tintedFloating(Color color) => [
-        BoxShadow(
-          color: color.withOpacity(0.18),
-          blurRadius: 24,
-          offset: const Offset(0, 14),
-          spreadRadius: -6,
-        ),
-      ];
+    BoxShadow(
+      color: color.withOpacity(0.18),
+      blurRadius: 24,
+      offset: const Offset(0, 14),
+      spreadRadius: -6,
+    ),
+  ];
 }

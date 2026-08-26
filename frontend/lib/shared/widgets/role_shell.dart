@@ -103,10 +103,8 @@ class RoleShell extends StatelessWidget {
     // declared parent hub instead of allowing the platform to close the app.
     final isHome = NavigationRoots.isPrimaryHome(currentRoute);
     final hasHistory = Navigator.canPop(context);
-    final hasParentFallback =
-        NavigationRoots.parentFor(currentRoute) != null;
-    final platformCanPop =
-        !isHome && (hasHistory || !hasParentFallback);
+    final hasParentFallback = NavigationRoots.parentFor(currentRoute) != null;
+    final platformCanPop = !isHome && (hasHistory || !hasParentFallback);
 
     final pad =
         padding ??
@@ -290,7 +288,8 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
     final user = AuthState.instance.user;
     final canPop = Navigator.canPop(context);
     final route = NavigationRoots.resolveRoute(context, currentRoute);
-    final showBack = NavigationRoots.shouldShowBack(
+    final showBack =
+        NavigationRoots.shouldShowBack(
           canPop: canPop,
           currentRoute: route,
           context: context,
@@ -300,9 +299,8 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
     final onPrimaryHome = NavigationRoots.isPrimaryHome(route);
     final compact = MediaQuery.sizeOf(context).width < 600;
     final effectiveSubject = showBack || onPrimaryHome ? null : subjectIdentity;
-    final effectiveActions = onPrimaryHome || (compact && menuActions.isNotEmpty)
-        ? null
-        : actions;
+    final effectiveActions =
+        onPrimaryHome || (compact && menuActions.isNotEmpty) ? null : actions;
     final effectiveMenuActions = onPrimaryHome
         ? const <RoleHeaderAction>[]
         : menuActions;

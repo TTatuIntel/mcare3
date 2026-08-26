@@ -12,35 +12,30 @@ class SosNavigation {
 
   /// Emergency command-center route for the signed-in staff role.
   static String hubRouteFor(UserRole role) => switch (role) {
-        UserRole.doctor => RouteNames.doctorSos,
-        UserRole.admin => RouteNames.adminSos,
-        UserRole.mcareAssistant => RouteNames.assistantSos,
-        UserRole.patient => RouteNames.patientSos,
-        _ => RouteNames.patientSos,
-      };
+    UserRole.doctor => RouteNames.doctorSos,
+    UserRole.admin => RouteNames.adminSos,
+    UserRole.mcareAssistant => RouteNames.assistantSos,
+    UserRole.patient => RouteNames.patientSos,
+    _ => RouteNames.patientSos,
+  };
 
-  static Map<String, String> hubArgs({
-    String? patientId,
-    String? eventId,
-  }) =>
-      {
-        if (patientId != null) 'patientId': patientId,
-        if (eventId != null) 'eventId': eventId,
-      };
+  static Map<String, String> hubArgs({String? patientId, String? eventId}) => {
+    if (patientId != null) 'patientId': patientId,
+    if (eventId != null) 'eventId': eventId,
+  };
 
   static Map<String, dynamic> doctorChartArgs(
     String patientId, {
     bool respond = false,
     String? eventId,
-  }) =>
-      {
-        'patientId': patientId,
-        // Matches DoctorPatientSection.sos.name; kept as a literal so shared
-        // navigation does not depend on the doctor module's enum.
-        'section': 'sos',
-        if (respond) 'sosRespond': true,
-        if (eventId != null) 'eventId': eventId,
-      };
+  }) => {
+    'patientId': patientId,
+    // Matches DoctorPatientSection.sos.name; kept as a literal so shared
+    // navigation does not depend on the doctor module's enum.
+    'section': 'sos',
+    if (respond) 'sosRespond': true,
+    if (eventId != null) 'eventId': eventId,
+  };
 
   /// Opens the role-appropriate SOS hub (list + respond controls).
   static void openHub(
@@ -105,7 +100,12 @@ class SosNavigation {
       final eventId = map['eventId'] as String?;
       final role = AuthState.instance.user?.role;
       if (role == UserRole.doctor && patientId.isNotEmpty) {
-        openRespond(context, patientId: patientId, eventId: eventId, role: role);
+        openRespond(
+          context,
+          patientId: patientId,
+          eventId: eventId,
+          role: role,
+        );
       } else if (patientId.isNotEmpty || eventId != null) {
         openHub(context, patientId: patientId, eventId: eventId, role: role);
       } else {

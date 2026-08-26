@@ -41,8 +41,9 @@ class SupportApi {
 
   Future<SupportTicket?> close(String ticketId) async {
     if (!AppEnv.backendEnabled) return null;
-    final res =
-        await ApiClient.instance.patch('/patient/support-tickets/$ticketId/close');
+    final res = await ApiClient.instance.patch(
+      '/patient/support-tickets/$ticketId/close',
+    );
     final json = res['data']?['ticket'] as Map<String, dynamic>?;
     if (json == null) return null;
     return PatientDomainMapper.supportTicketFromApi(json);

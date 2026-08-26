@@ -56,6 +56,7 @@ class AuthState extends ChangeNotifier {
   static final AuthState instance = AuthState._();
 
   AppUser? _user;
+
   /// Demo password for mock auth (patient login uses `demo-password`).
   String _password = 'demo-password';
 
@@ -94,7 +95,11 @@ class AuthState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void signIn(AppUser user, {String? password, Iterable<String>? assistantPermissions}) {
+  void signIn(
+    AppUser user, {
+    String? password,
+    Iterable<String>? assistantPermissions,
+  }) {
     _user = user;
     if (password != null) _password = password;
     _assistantPermissions
@@ -153,7 +158,9 @@ class AuthState extends ChangeNotifier {
   void signOut() {
     // Revoke server-side session (best-effort; don't block UI on failure).
     if (AppEnv.backendEnabled && ApiClient.instance.token != null) {
-      ApiClient.instance.post('/auth/logout').catchError((_) => <String, dynamic>{});
+      ApiClient.instance
+          .post('/auth/logout')
+          .catchError((_) => <String, dynamic>{});
     }
     PushNotificationService.instance.unregisterOnLogout();
     ApiClient.instance.setToken(null);
@@ -174,9 +181,4 @@ class AuthState extends ChangeNotifier {
   }
 }
 
-enum PasswordChangeResult {
-  success,
-  wrongPassword,
-  weakPassword,
-  invalidOtp,
-}
+enum PasswordChangeResult { success, wrongPassword, weakPassword, invalidOtp }

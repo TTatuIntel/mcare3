@@ -65,8 +65,8 @@ Future<void> showStaffCredentialDialog(
               Text(
                 message,
                 style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.textMuted(dialogContext),
-                    ),
+                  color: AppPalette.textMuted(dialogContext),
+                ),
               ),
               if (statusMessage != null) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -87,9 +87,7 @@ Future<void> showStaffCredentialDialog(
                       Expanded(
                         child: Text(
                           statusMessage,
-                          style: Theme.of(dialogContext)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(dialogContext).textTheme.bodySmall
                               ?.copyWith(
                                 color: AppColors.success,
                                 fontWeight: FontWeight.w700,
@@ -149,8 +147,8 @@ class _StaffCredentialCard extends StatelessWidget {
                 child: Text(
                   value.label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                    color: AppPalette.textMuted(context),
+                  ),
                 ),
               ),
               IconButton(
@@ -173,9 +171,9 @@ class _StaffCredentialCard extends StatelessWidget {
           SelectableText(
             hasValue ? value.value : '(not returned — retry)',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: hasValue ? 1.1 : 0,
-                ),
+              fontWeight: FontWeight.w800,
+              letterSpacing: hasValue ? 1.1 : 0,
+            ),
           ),
         ],
       ),

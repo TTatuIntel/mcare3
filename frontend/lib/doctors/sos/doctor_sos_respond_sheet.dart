@@ -29,19 +29,13 @@ class DoctorSosRespondSheet {
       title: 'Respond to SOS',
       subtitle: 'Patient details · contacts · location',
       maxHeightFactor: 0.96,
-      child: _DoctorSosRespondBody(
-        patientId: patientId,
-        eventId: eventId,
-      ),
+      child: _DoctorSosRespondBody(patientId: patientId, eventId: eventId),
     );
   }
 }
 
 class _DoctorSosRespondBody extends StatelessWidget {
-  const _DoctorSosRespondBody({
-    required this.patientId,
-    this.eventId,
-  });
+  const _DoctorSosRespondBody({required this.patientId, this.eventId});
 
   final String patientId;
   final String? eventId;
@@ -57,11 +51,7 @@ class _DoctorSosRespondBody extends StatelessWidget {
     return active.isEmpty ? null : active.first;
   }
 
-  Future<void> _update(
-    BuildContext context,
-    String id,
-    String status,
-  ) async {
+  Future<void> _update(BuildContext context, String id, String status) async {
     final ok = await StaffState.instance.resolveSos(id, status: status);
     if (!context.mounted) return;
     if (ok) {
@@ -96,7 +86,9 @@ class _DoctorSosRespondBody extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppPalette.criticalSoft(context),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(color: AppColors.critical.withOpacity(0.3)),
+                  border: Border.all(
+                    color: AppColors.critical.withOpacity(0.3),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -111,7 +103,10 @@ class _DoctorSosRespondBody extends StatelessWidget {
                     if (event.note != null && event.note!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(event.note!, style: theme.textTheme.bodyMedium),
+                        child: Text(
+                          event.note!,
+                          style: theme.textTheme.bodyMedium,
+                        ),
                       ),
                     const SizedBox(height: 4),
                     Text(

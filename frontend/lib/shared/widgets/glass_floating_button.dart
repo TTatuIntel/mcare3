@@ -40,7 +40,10 @@ class _GlassFloatingButtonState extends State<GlassFloatingButton>
   void initState() {
     super.initState();
     final disable = SchedulerBinding
-        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
@@ -121,8 +124,9 @@ class _GlassFloatingButtonState extends State<GlassFloatingButton>
                       Text(
                         widget.label,
                         style: theme.textTheme.labelLarge?.copyWith(
-                          color:
-                              isDark ? AppColors.darkInk : AppPalette.ink(context),
+                          color: isDark
+                              ? AppColors.darkInk
+                              : AppPalette.ink(context),
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                           letterSpacing: 0.12,
@@ -237,22 +241,14 @@ class _AccentIconWell extends StatelessWidget {
       width: 34,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: accent.withOpacity(
-          (isDark ? 0.26 : 0.14) + breathe * 0.08,
-        ),
+        color: accent.withOpacity((isDark ? 0.26 : 0.14) + breathe * 0.08),
         border: Border.all(
-          color: accent.withOpacity(
-            (isDark ? 0.50 : 0.32) + breathe * 0.12,
-          ),
+          color: accent.withOpacity((isDark ? 0.50 : 0.32) + breathe * 0.12),
           width: 1.2,
         ),
       ),
       alignment: Alignment.center,
-      child: Icon(
-        icon,
-        size: 19,
-        color: accent,
-      ),
+      child: Icon(icon, size: 19, color: accent),
     );
   }
 }

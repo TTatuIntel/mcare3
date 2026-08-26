@@ -6,36 +6,36 @@ enum DoseStatus { pending, taken, skipped, missed }
 
 extension DoseStatusX on DoseStatus {
   String get label => switch (this) {
-        DoseStatus.pending => 'Pending',
-        DoseStatus.taken => 'Taken',
-        DoseStatus.skipped => 'Skipped',
-        DoseStatus.missed => 'Missed',
-      };
+    DoseStatus.pending => 'Pending',
+    DoseStatus.taken => 'Taken',
+    DoseStatus.skipped => 'Skipped',
+    DoseStatus.missed => 'Missed',
+  };
 
   Color get color => switch (this) {
-        DoseStatus.pending => AppColors.info,
-        DoseStatus.taken => AppColors.success,
-        DoseStatus.skipped => AppColors.warning,
-        DoseStatus.missed => AppColors.critical,
-      };
+    DoseStatus.pending => AppColors.info,
+    DoseStatus.taken => AppColors.success,
+    DoseStatus.skipped => AppColors.warning,
+    DoseStatus.missed => AppColors.critical,
+  };
 }
 
 enum DosePeriod { morning, afternoon, evening, night }
 
 extension DosePeriodX on DosePeriod {
   String get label => switch (this) {
-        DosePeriod.morning => 'Morning',
-        DosePeriod.afternoon => 'Afternoon',
-        DosePeriod.evening => 'Evening',
-        DosePeriod.night => 'Night',
-      };
+    DosePeriod.morning => 'Morning',
+    DosePeriod.afternoon => 'Afternoon',
+    DosePeriod.evening => 'Evening',
+    DosePeriod.night => 'Night',
+  };
 
   IconData get icon => switch (this) {
-        DosePeriod.morning => Icons.wb_sunny_rounded,
-        DosePeriod.afternoon => Icons.wb_cloudy_rounded,
-        DosePeriod.evening => Icons.wb_twilight_rounded,
-        DosePeriod.night => Icons.nightlight_round,
-      };
+    DosePeriod.morning => Icons.wb_sunny_rounded,
+    DosePeriod.afternoon => Icons.wb_cloudy_rounded,
+    DosePeriod.evening => Icons.wb_twilight_rounded,
+    DosePeriod.night => Icons.nightlight_round,
+  };
 
   static DosePeriod fromHour(int h) {
     if (h < 12) return DosePeriod.morning;
@@ -49,14 +49,14 @@ enum MedicationSource { doctorPrescribed, patientAdded }
 
 extension MedicationSourceX on MedicationSource {
   String get label => switch (this) {
-        MedicationSource.doctorPrescribed => 'Prescribed',
-        MedicationSource.patientAdded => 'Yours',
-      };
+    MedicationSource.doctorPrescribed => 'Prescribed',
+    MedicationSource.patientAdded => 'Yours',
+  };
 
   Color get color => switch (this) {
-        MedicationSource.doctorPrescribed => AppColors.brandIndigo,
-        MedicationSource.patientAdded => AppColors.glucoseAmber,
-      };
+    MedicationSource.doctorPrescribed => AppColors.brandIndigo,
+    MedicationSource.patientAdded => AppColors.glucoseAmber,
+  };
 }
 
 enum MedicationAlertKind { refillLow, expiringSoon, expired }
@@ -75,10 +75,10 @@ class MedicationAlert {
   final String body;
 
   Color get tint => switch (kind) {
-        MedicationAlertKind.refillLow => AppColors.warning,
-        MedicationAlertKind.expiringSoon => AppColors.warning,
-        MedicationAlertKind.expired => AppColors.critical,
-      };
+    MedicationAlertKind.refillLow => AppColors.warning,
+    MedicationAlertKind.expiringSoon => AppColors.warning,
+    MedicationAlertKind.expired => AppColors.critical,
+  };
 }
 
 class Medication {

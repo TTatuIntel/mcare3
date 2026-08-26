@@ -45,10 +45,7 @@ class DoctorAssignVitalsSheet {
 }
 
 class _AssignVitalsBody extends StatefulWidget {
-  const _AssignVitalsBody({
-    this.initialPatientId,
-    this.initialPatientName,
-  });
+  const _AssignVitalsBody({this.initialPatientId, this.initialPatientName});
 
   final String? initialPatientId;
   final String? initialPatientName;
@@ -142,7 +139,8 @@ class _AssignVitalsBodyState extends State<_AssignVitalsBody> {
 
   @override
   Widget build(BuildContext context) {
-    final canChoosePatient = _patients.length > 1 && widget.initialPatientId == null;
+    final canChoosePatient =
+        _patients.length > 1 && widget.initialPatientId == null;
     final chosenName = _patientName ?? 'No patient selected';
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -178,16 +176,16 @@ class _AssignVitalsBodyState extends State<_AssignVitalsBody> {
           ],
           Text(
             'Patient: $chosenName',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             'Toggle vitals this patient must log. Assigned vitals appear locked in the patient app.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           ConstrainedBox(
@@ -195,8 +193,8 @@ class _AssignVitalsBodyState extends State<_AssignVitalsBody> {
             child: AnimatedBuilder(
               animation: StaffState.instance,
               builder: (context, _) {
-                final catalogVitals =
-                    StaffState.instance.enabledBuiltinVitals();
+                final catalogVitals = StaffState.instance
+                    .enabledBuiltinVitals();
                 return ListView.separated(
                   shrinkWrap: true,
                   itemCount: catalogVitals.length,
@@ -221,11 +219,11 @@ class _AssignVitalsBodyState extends State<_AssignVitalsBody> {
                             },
                       onThreshold: _hasPatient && isAssigned
                           ? () => DoctorPatientVitalThresholdSheet.show(
-                                context: context,
-                                patientId: _patientId!,
-                                patientName: _patientName!,
-                                vital: v,
-                              )
+                              context: context,
+                              patientId: _patientId!,
+                              patientName: _patientName!,
+                              vital: v,
+                            )
                           : null,
                     );
                   },
@@ -277,10 +275,14 @@ class _VitalAssignRow extends StatelessWidget {
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: assigned ? accent.withOpacity(0.06) : AppPalette.surfaceAlt(context),
+        color: assigned
+            ? accent.withOpacity(0.06)
+            : AppPalette.surfaceAlt(context),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         border: Border.all(
-          color: assigned ? accent.withOpacity(0.28) : AppPalette.border(context),
+          color: assigned
+              ? accent.withOpacity(0.28)
+              : AppPalette.border(context),
         ),
       ),
       child: Row(

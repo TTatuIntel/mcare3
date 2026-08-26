@@ -73,20 +73,16 @@ class _ForceChangePasswordViewState extends State<ForceChangePasswordView> {
       final current = AuthState.instance.user;
       if (current == null) {
         if (!mounted) return;
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RouteNames.login,
-          (_) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RouteNames.login, (_) => false);
         return;
       }
 
       if (AppEnv.backendEnabled) {
         final res = await ApiClient.instance.post(
           '/auth/change-password',
-          body: {
-            'current_password': _current.text,
-            'new_password': _next.text,
-          },
+          body: {'current_password': _current.text, 'new_password': _next.text},
         );
         final data = res['data'] as Map<String, dynamic>?;
         final userMap = data?['user'] as Map<String, dynamic>?;
@@ -95,9 +91,7 @@ class _ForceChangePasswordViewState extends State<ForceChangePasswordView> {
             : current.copyWith(mustChangePassword: false);
         await _clearMustChangeFlag(updated);
       } else {
-        await _clearMustChangeFlag(
-          current.copyWith(mustChangePassword: false),
-        );
+        await _clearMustChangeFlag(current.copyWith(mustChangePassword: false));
       }
 
       if (!mounted) return;
@@ -142,8 +136,9 @@ class _ForceChangePasswordViewState extends State<ForceChangePasswordView> {
                       Text(
                         'An admin issued a temporary password for your account. Choose a new one before continuing.',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.7),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),

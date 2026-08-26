@@ -75,10 +75,10 @@ class _LanguagePickerBodyState extends State<_LanguagePickerBody> {
                 child: Text(
                   entry.key,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                  ),
                 ),
               ),
               ...entry.value.map((lang) {
@@ -87,7 +87,9 @@ class _LanguagePickerBodyState extends State<_LanguagePickerBody> {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     selected ? AppIcons.check : AppIcons.language,
-                    color: selected ? AppColors.brandIndigo : AppPalette.textMuted(context),
+                    color: selected
+                        ? AppColors.brandIndigo
+                        : AppPalette.textMuted(context),
                     size: 20,
                   ),
                   title: Text(
@@ -101,7 +103,11 @@ class _LanguagePickerBodyState extends State<_LanguagePickerBody> {
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                   trailing: selected
-                      ? const Icon(AppIcons.check, color: AppColors.success, size: 18)
+                      ? const Icon(
+                          AppIcons.check,
+                          color: AppColors.success,
+                          size: 18,
+                        )
                       : null,
                   onTap: () {
                     SettingsState.instance.setLanguageCode(lang.code);
@@ -132,15 +138,15 @@ class LanguagePickerRow extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text(
         l10n.language,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         '${lang.nativeName} · ${lang.region}',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppPalette.textMuted(context),
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: AppPalette.textMuted(context)),
       ),
       trailing: const Icon(AppIcons.chevronRight, size: 18),
       onTap: () => LanguagePickerSheet.show(context),

@@ -17,11 +17,9 @@ class _PatientStatusStrip extends StatelessWidget {
     final sos = s.hasActiveSos(patientId);
     final openAlerts = s.openAlertCountForPatient(patientId);
     final apptCount = s.appointmentsForPatient(patientId).length;
-    final primaryAlert = s
-        .alertsForPatient(patientId)
-        .where((a) => !a.resolved)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final primaryAlert =
+        s.alertsForPatient(patientId).where((a) => !a.resolved).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final topAlert = primaryAlert.isEmpty ? null : primaryAlert.first;
 
     return GlassCard(
@@ -47,19 +45,19 @@ class _PatientStatusStrip extends StatelessWidget {
                       Text(
                         patient.condition,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                            ),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     Text(
                       'Last reading ${DateFormat.MMMd().add_jm().format(patient.lastReading)}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 10,
-                          ),
+                        color: AppPalette.textMuted(context),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -164,14 +162,18 @@ class _InsightLine extends StatelessWidget {
                 child: Text(
                   text,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(AppIcons.chevronRight, size: 12, color: AppPalette.textMuted(context)),
+              Icon(
+                AppIcons.chevronRight,
+                size: 12,
+                color: AppPalette.textMuted(context),
+              ),
             ],
           ),
         ),
@@ -208,10 +210,10 @@ class _MiniChip extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 9,
-                ),
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 9,
+            ),
           ),
         ),
       ),
@@ -237,36 +239,42 @@ class _SectionBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (section) {
       DoctorPatientSection.overview => _OverviewPanel(
-          patientId: patientId,
-          patientName: patientName,
-          onNavigateSection: onNavigateSection,
-        ),
+        patientId: patientId,
+        patientName: patientName,
+        onNavigateSection: onNavigateSection,
+      ),
       DoctorPatientSection.vitals => _VitalsPanel(
-          patientId: patientId,
-          patientName: patientName,
-        ),
+        patientId: patientId,
+        patientName: patientName,
+      ),
       DoctorPatientSection.documents => _DocumentsPanel(patientId: patientId),
-      DoctorPatientSection.prescriptions =>
-        _PrescriptionsPanel(patientId: patientId, patientName: patientName),
+      DoctorPatientSection.prescriptions => _PrescriptionsPanel(
+        patientId: patientId,
+        patientName: patientName,
+      ),
       DoctorPatientSection.meals => _MealsPanel(
-          patientId: patientId,
-          patientName: patientName,
-        ),
+        patientId: patientId,
+        patientName: patientName,
+      ),
       DoctorPatientSection.medications => _PrescriptionsPanel(
-          patientId: patientId,
-          patientName: patientName,
-          title: 'Medication records',
-        ),
+        patientId: patientId,
+        patientName: patientName,
+        title: 'Medication records',
+      ),
       DoctorPatientSection.alerts => _AlertsPanel(patientId: patientId),
       DoctorPatientSection.sos => _SosPanel(patientId: patientId),
-      DoctorPatientSection.appointments =>
-        _AppointmentsPanel(patientId: patientId, patientName: patientName),
+      DoctorPatientSection.appointments => _AppointmentsPanel(
+        patientId: patientId,
+        patientName: patientName,
+      ),
       DoctorPatientSection.messages => _MessagesPanel(
-          patientId: patientId,
-          patientName: patientName,
-        ),
-      DoctorPatientSection.reports =>
-        _ReportsPanel(patientId: patientId, patientName: patientName),
+        patientId: patientId,
+        patientName: patientName,
+      ),
+      DoctorPatientSection.reports => _ReportsPanel(
+        patientId: patientId,
+        patientName: patientName,
+      ),
       DoctorPatientSection.timeline => _TimelinePanel(patientId: patientId),
       DoctorPatientSection.trends => _TrendsPanel(patientId: patientId),
     };
@@ -302,10 +310,8 @@ class _OverviewPanel extends StatelessWidget {
             index: 0,
             child: GlassCard(
               frosted: true,
-              onTap: () => DoctorSosRespondSheet.show(
-                context,
-                patientId: patientId,
-              ),
+              onTap: () =>
+                  DoctorSosRespondSheet.show(context, patientId: patientId),
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md,
                 vertical: AppSpacing.sm,
@@ -318,13 +324,16 @@ class _OverviewPanel extends StatelessWidget {
                     child: Text(
                       'Active SOS â€” respond now',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.critical,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        color: AppColors.critical,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  Icon(AppIcons.chevronRight,
-                      size: 14, color: AppPalette.textMuted(context)),
+                  Icon(
+                    AppIcons.chevronRight,
+                    size: 14,
+                    color: AppPalette.textMuted(context),
+                  ),
                 ],
               ),
             ),
@@ -351,14 +360,16 @@ class _OverviewPanel extends StatelessWidget {
                   onNavigateSection(DoctorPatientSection.prescriptions),
               child: StaffListCard(
                 children: rxPreview
-                    .map((p) => StaffListRow(
-                          icon: AppIcons.prescription,
-                          iconColor: AppColors.brandIndigo,
-                          title: '${p.drug} ${p.dosage}',
-                          subtitle: '${p.frequency} Â· ${p.duration}',
-                          pill: p.status,
-                          pillColor: AppColors.success,
-                        ))
+                    .map(
+                      (p) => StaffListRow(
+                        icon: AppIcons.prescription,
+                        iconColor: AppColors.brandIndigo,
+                        title: '${p.drug} ${p.dosage}',
+                        subtitle: '${p.frequency} Â· ${p.duration}',
+                        pill: p.status,
+                        pillColor: AppColors.success,
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -381,15 +392,19 @@ class _OverviewPanel extends StatelessWidget {
                 ? null
                 : StaffListCard(
                     children: apptPreview
-                        .map((a) => StaffListRow(
-                              icon: a.type.icon,
-                              iconColor: AppColors.info,
-                              title: DateFormat.MMMd().add_jm().format(a.startAt),
-                              subtitle:
-                                  '${a.type.label}${a.reason != null ? ' Â· ${a.reason}' : ''}',
-                              onTap: () =>
-                                  DoctorAppointmentFlows.openDetail(context, a.id),
-                            ))
+                        .map(
+                          (a) => StaffListRow(
+                            icon: a.type.icon,
+                            iconColor: AppColors.info,
+                            title: DateFormat.MMMd().add_jm().format(a.startAt),
+                            subtitle:
+                                '${a.type.label}${a.reason != null ? ' Â· ${a.reason}' : ''}',
+                            onTap: () => DoctorAppointmentFlows.openDetail(
+                              context,
+                              a.id,
+                            ),
+                          ),
+                        )
                         .toList(),
                   ),
           ),
@@ -465,8 +480,11 @@ class _OverviewFeedCard extends StatelessWidget {
                   ),
                 ),
               const SizedBox(width: 4),
-              Icon(AppIcons.chevronRight,
-                  size: 14, color: AppPalette.textMuted(context)),
+              Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: AppPalette.textMuted(context),
+              ),
             ],
           ),
           if (child != null) ...[
@@ -499,20 +517,16 @@ void _openPatientChat(
     patientName: patientName,
   );
   if (conv != null) {
-    Navigator.of(context).pushNamed(
-      RouteNames.doctorChatThread,
-      arguments: conv.id,
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(RouteNames.doctorChatThread, arguments: conv.id);
     return;
   }
   Navigator.of(context).pushNamed(RouteNames.doctorMessages);
 }
 
 class _VitalsPanel extends StatelessWidget {
-  const _VitalsPanel({
-    required this.patientId,
-    required this.patientName,
-  });
+  const _VitalsPanel({required this.patientId, required this.patientName});
   final String patientId;
   final String patientName;
 
@@ -535,10 +549,9 @@ class _VitalsPanel extends StatelessWidget {
           variant: AppButtonVariant.secondary,
           expand: true,
           size: AppButtonSize.sm,
-          onPressed: () => Navigator.of(context).pushNamed(
-            RouteNames.doctorReportEditor,
-            arguments: patientName,
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pushNamed(RouteNames.doctorReportEditor, arguments: patientName),
         ),
         const SizedBox(height: AppSpacing.md),
         SectionLabel(
@@ -576,15 +589,17 @@ class _VitalsList extends StatelessWidget {
     }
     return StaffListCard(
       children: vitals
-          .map((v) => StaffListRow(
-                icon: v.vital.icon,
-                iconColor: v.risk.color,
-                title: v.vital.label,
-                subtitle:
-                    '${v.value} Â· ${DateFormat.MMMd().add_jm().format(v.recordedAt)}',
-                pill: v.risk.label,
-                pillColor: v.risk.color,
-              ))
+          .map(
+            (v) => StaffListRow(
+              icon: v.vital.icon,
+              iconColor: v.risk.color,
+              title: v.vital.label,
+              subtitle:
+                  '${v.value} Â· ${DateFormat.MMMd().add_jm().format(v.recordedAt)}',
+              pill: v.risk.label,
+              pillColor: v.risk.color,
+            ),
+          )
           .toList(),
     );
   }
@@ -618,16 +633,18 @@ class _DocumentsPanel extends StatelessWidget {
         else
           StaffListCard(
             children: docs
-                .map((d) => StaffListRow(
-                      icon: AppIcons.document,
-                      iconColor: AppColors.weightSlate,
-                      title: d.title,
-                      subtitle:
-                          '${d.category} Â· ${DateFormat.MMMd().format(d.uploadedAt)}',
-                      pill: 'View',
-                      pillColor: AppColors.info,
-                      onTap: () => _showDocumentSheet(context, d),
-                    ))
+                .map(
+                  (d) => StaffListRow(
+                    icon: AppIcons.document,
+                    iconColor: AppColors.weightSlate,
+                    title: d.title,
+                    subtitle:
+                        '${d.category} Â· ${DateFormat.MMMd().format(d.uploadedAt)}',
+                    pill: 'View',
+                    pillColor: AppColors.info,
+                    onTap: () => _showDocumentSheet(context, d),
+                  ),
+                )
                 .toList(),
           ),
         const SizedBox(height: AppSpacing.md),
@@ -695,15 +712,17 @@ class _PrescriptionsPanel extends StatelessWidget {
         else
           StaffListCard(
             children: rx
-                .map((p) => StaffListRow(
-                      icon: AppIcons.prescription,
-                      iconColor: AppColors.brandIndigo,
-                      title: '${p.drug} ${p.dosage}',
-                      subtitle:
-                          '${p.frequency} Â· ${DateFormat.MMMd().format(p.issuedAt)}',
-                      pill: p.status,
-                      pillColor: AppColors.success,
-                    ))
+                .map(
+                  (p) => StaffListRow(
+                    icon: AppIcons.prescription,
+                    iconColor: AppColors.brandIndigo,
+                    title: '${p.drug} ${p.dosage}',
+                    subtitle:
+                        '${p.frequency} Â· ${DateFormat.MMMd().format(p.issuedAt)}',
+                    pill: p.status,
+                    pillColor: AppColors.success,
+                  ),
+                )
                 .toList(),
           ),
       ],
@@ -757,64 +776,63 @@ class _AlertsList extends StatelessWidget {
     }
     return StaffListCard(
       children: alerts
-          .map((a) => StaffListRow(
-                icon: a.vital.icon,
-                iconColor: a.severity.color,
-                title: a.vital.label,
-                subtitle:
-                    '${a.value} Â· ${DateFormat.MMMd().add_jm().format(a.createdAt)}'
-                    '${a.resolved && a.resolutionAction != null ? ' Â· ${formatAlertResolutionAction(a)}' : ''}',
-                pill: a.resolved
-                    ? 'Resolved'
-                    : (a.acknowledged ? 'Ack' : a.severity.label),
-                pillColor: a.resolved
-                    ? AppColors.success
-                    : a.severity.color,
-                onTap: compact
-                    ? () => Navigator.of(context).pushNamed(
-                          RouteNames.doctorAlertDetail,
-                          arguments: a.id,
-                        )
-                    : null,
-                trailing: compact
-                    ? null
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!a.acknowledged)
-                            TextButton(
-                              onPressed: () async {
-                                final ok = await StaffState.instance
-                                    .acknowledgeAlert(a.id);
-                                if (!context.mounted) return;
-                                if (ok) {
-                                  if (AppEnv.backendEnabled) {
-                                    await DoctorSessionService.instance
-                                        .syncFromApi();
-                                  }
-                                  if (!context.mounted) return;
-                                  AppToast.success(context, 'Acknowledged.');
-                                } else {
-                                  AppToast.error(
-                                    context,
-                                    'Could not acknowledge alert.',
-                                  );
+          .map(
+            (a) => StaffListRow(
+              icon: a.vital.icon,
+              iconColor: a.severity.color,
+              title: a.vital.label,
+              subtitle:
+                  '${a.value} Â· ${DateFormat.MMMd().add_jm().format(a.createdAt)}'
+                  '${a.resolved && a.resolutionAction != null ? ' Â· ${formatAlertResolutionAction(a)}' : ''}',
+              pill: a.resolved
+                  ? 'Resolved'
+                  : (a.acknowledged ? 'Ack' : a.severity.label),
+              pillColor: a.resolved ? AppColors.success : a.severity.color,
+              onTap: compact
+                  ? () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.doctorAlertDetail, arguments: a.id)
+                  : null,
+              trailing: compact
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!a.acknowledged)
+                          TextButton(
+                            onPressed: () async {
+                              final ok = await StaffState.instance
+                                  .acknowledgeAlert(a.id);
+                              if (!context.mounted) return;
+                              if (ok) {
+                                if (AppEnv.backendEnabled) {
+                                  await DoctorSessionService.instance
+                                      .syncFromApi();
                                 }
-                              },
-                              child: const Text('Ack'),
+                                if (!context.mounted) return;
+                                AppToast.success(context, 'Acknowledged.');
+                              } else {
+                                AppToast.error(
+                                  context,
+                                  'Could not acknowledge alert.',
+                                );
+                              }
+                            },
+                            child: const Text('Ack'),
+                          ),
+                        if (!a.resolved)
+                          TextButton(
+                            onPressed: () => DoctorAlertResolveFlow.resolve(
+                              context,
+                              a,
+                              successMessage: 'Alert resolved.',
                             ),
-                          if (!a.resolved)
-                            TextButton(
-                              onPressed: () => DoctorAlertResolveFlow.resolve(
-                                context,
-                                a,
-                                successMessage: 'Alert resolved.',
-                              ),
-                              child: const Text('Resolve'),
-                            ),
-                        ],
-                      ),
-              ))
+                            child: const Text('Resolve'),
+                          ),
+                      ],
+                    ),
+            ),
+          )
           .toList(),
     );
   }
@@ -824,11 +842,7 @@ class _SosPanel extends StatelessWidget {
   const _SosPanel({required this.patientId});
   final String patientId;
 
-  Future<void> _update(
-    BuildContext context,
-    String id,
-    String status,
-  ) async {
+  Future<void> _update(BuildContext context, String id, String status) async {
     final ok = await StaffState.instance.resolveSos(id, status: status);
     if (!context.mounted) return;
     if (ok) {
@@ -886,8 +900,9 @@ class _SosPanel extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: AppPalette.criticalSoft(context),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusPill),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
                       ),
                       child: Text(
                         'ACTIVE SOS',
@@ -955,8 +970,7 @@ class _SosPanel extends StatelessWidget {
                         child: AppButton(
                           label: 'False alarm',
                           variant: AppButtonVariant.secondary,
-                          onPressed: () =>
-                              _update(context, e.id, 'falseAlarm'),
+                          onPressed: () => _update(context, e.id, 'falseAlarm'),
                         ),
                       ),
                     ],
@@ -978,18 +992,21 @@ class _SosPanel extends StatelessWidget {
         else
           StaffListCard(
             children: events
-                .map((e) => StaffListRow(
-                      icon: AppIcons.sos,
-                      iconColor: e.isActive
-                          ? AppColors.critical
-                          : AppPalette.textMuted(context),
-                      title: e.kindLabel,
-                      subtitle:
-                          '${DateFormat.MMMd().add_jm().format(e.triggeredAt)}${e.locationLabel != null ? ' Â· ${e.locationLabel}' : ''}${e.respondedBy != null ? ' Â· ${e.respondedBy}' : ''}',
-                      pill: e.status,
-                      pillColor:
-                          e.isActive ? AppColors.critical : AppColors.success,
-                    ))
+                .map(
+                  (e) => StaffListRow(
+                    icon: AppIcons.sos,
+                    iconColor: e.isActive
+                        ? AppColors.critical
+                        : AppPalette.textMuted(context),
+                    title: e.kindLabel,
+                    subtitle:
+                        '${DateFormat.MMMd().add_jm().format(e.triggeredAt)}${e.locationLabel != null ? ' Â· ${e.locationLabel}' : ''}${e.respondedBy != null ? ' Â· ${e.respondedBy}' : ''}',
+                    pill: e.status,
+                    pillColor: e.isActive
+                        ? AppColors.critical
+                        : AppColors.success,
+                  ),
+                )
                 .toList(),
           ),
       ],
@@ -1012,13 +1029,16 @@ class _AppointmentsPanel extends StatelessWidget {
       ..sort((a, b) => a.startAt.compareTo(b.startAt));
     final now = DateTime.now();
     final upcoming = appts.where((a) => a.isUpcoming).toList();
-    final past = appts
-        .where((a) =>
-            !a.isUpcoming && a.status != AppointmentStatus.cancelled)
-        .toList()
-      ..sort((a, b) => b.startAt.compareTo(a.startAt));
-    final cancelled =
-        appts.where((a) => a.status == AppointmentStatus.cancelled).toList();
+    final past =
+        appts
+            .where(
+              (a) => !a.isUpcoming && a.status != AppointmentStatus.cancelled,
+            )
+            .toList()
+          ..sort((a, b) => b.startAt.compareTo(a.startAt));
+    final cancelled = appts
+        .where((a) => a.status == AppointmentStatus.cancelled)
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1054,12 +1074,15 @@ class _AppointmentsPanel extends StatelessWidget {
                 child: Text(
                   'Schedule visit with $patientName',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              Icon(AppIcons.chevronRight,
-                  size: 14, color: AppPalette.textMuted(context)),
+              Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: AppPalette.textMuted(context),
+              ),
             ],
           ),
         ),
@@ -1136,8 +1159,7 @@ class _AppointmentsPanel extends StatelessWidget {
       icon: a.type.icon,
       iconColor: a.status.color,
       title: DateFormat.MMMEd().add_jm().format(a.startAt),
-      subtitle:
-          '${a.type.label}${a.reason != null ? ' Â· ${a.reason}' : ''}',
+      subtitle: '${a.type.label}${a.reason != null ? ' Â· ${a.reason}' : ''}',
       pill: a.isUpcoming ? _appointmentPill(a.startAt, now) : a.status.label,
       pillColor: a.isUpcoming ? AppColors.success : a.status.color,
       onTap: () => DoctorAppointmentFlows.openDetail(context, a.id),
@@ -1155,4 +1177,3 @@ class _AppointmentsPanel extends StatelessWidget {
     return 'Upcoming';
   }
 }
-

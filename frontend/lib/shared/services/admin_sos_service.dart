@@ -14,10 +14,12 @@ class AdminSosService {
     try {
       final rows = await AdminApi.instance.listSosEvents();
       final events = rows
-          .map((e) => StaffMapper.sosFromApi(
-                e,
-                patientId: (e['patient_id'] ?? '').toString(),
-              ))
+          .map(
+            (e) => StaffMapper.sosFromApi(
+              e,
+              patientId: (e['patient_id'] ?? '').toString(),
+            ),
+          )
           .toList();
       StaffState.instance.mergeSosEvents(events);
       return true;

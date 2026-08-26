@@ -7,38 +7,38 @@ enum EmergencyKind { medical, accident, fall, panic, other }
 
 extension EmergencyKindX on EmergencyKind {
   String get label => switch (this) {
-        EmergencyKind.medical => 'Medical emergency',
-        EmergencyKind.accident => 'Accident',
-        EmergencyKind.fall => 'Fall',
-        EmergencyKind.panic => 'Panic',
-        EmergencyKind.other => 'Other',
-      };
+    EmergencyKind.medical => 'Medical emergency',
+    EmergencyKind.accident => 'Accident',
+    EmergencyKind.fall => 'Fall',
+    EmergencyKind.panic => 'Panic',
+    EmergencyKind.other => 'Other',
+  };
 
   IconData get icon => switch (this) {
-        EmergencyKind.medical => AppIcons.careTeam,
-        EmergencyKind.accident => Icons.car_crash_rounded,
-        EmergencyKind.fall => Icons.accessibility_new_rounded,
-        EmergencyKind.panic => Icons.bolt_rounded,
-        EmergencyKind.other => Icons.warning_rounded,
-      };
+    EmergencyKind.medical => AppIcons.careTeam,
+    EmergencyKind.accident => Icons.car_crash_rounded,
+    EmergencyKind.fall => Icons.accessibility_new_rounded,
+    EmergencyKind.panic => Icons.bolt_rounded,
+    EmergencyKind.other => Icons.warning_rounded,
+  };
 }
 
 enum SosStatus { active, acknowledged, resolved, falseAlarm }
 
 extension SosStatusX on SosStatus {
   String get label => switch (this) {
-        SosStatus.active => 'Active',
-        SosStatus.acknowledged => 'Acknowledged',
-        SosStatus.resolved => 'Resolved',
-        SosStatus.falseAlarm => 'False alarm',
-      };
+    SosStatus.active => 'Active',
+    SosStatus.acknowledged => 'Acknowledged',
+    SosStatus.resolved => 'Resolved',
+    SosStatus.falseAlarm => 'False alarm',
+  };
 
   Color get color => switch (this) {
-        SosStatus.active => AppColors.critical,
-        SosStatus.acknowledged => AppColors.warning,
-        SosStatus.resolved => AppColors.success,
-        SosStatus.falseAlarm => AppColors.textMutedAA,
-      };
+    SosStatus.active => AppColors.critical,
+    SosStatus.acknowledged => AppColors.warning,
+    SosStatus.resolved => AppColors.success,
+    SosStatus.falseAlarm => AppColors.textMutedAA,
+  };
 }
 
 class EmergencyContact {

@@ -76,69 +76,72 @@ class _StatusBodyState extends State<_StatusBody> {
   }
 
   Future<void> _verify() => _run(() async {
-        final code = _code.text.trim();
-        if (code.length < 4) {
-          AppToast.error(context, 'Enter the code the patient read back.');
-          return;
-        }
-        _apply(await AdminApi.instance
-            .verifyReportConsent(_request.id, code: code));
-        if (!mounted) return;
-        _code.clear();
-        AppToast.success(context, 'Patient consent recorded.');
-      });
+    final code = _code.text.trim();
+    if (code.length < 4) {
+      AppToast.error(context, 'Enter the code the patient read back.');
+      return;
+    }
+    _apply(
+      await AdminApi.instance.verifyReportConsent(_request.id, code: code),
+    );
+    if (!mounted) return;
+    _code.clear();
+    AppToast.success(context, 'Patient consent recorded.');
+  });
 
   Future<void> _resend() => _run(() async {
-        _apply(await AdminApi.instance.resendReportConsent(_request.id));
-        if (!mounted) return;
-        AppToast.success(
-          context,
-          'A new code and approval link were sent to the patient.',
-        );
-      });
+    _apply(await AdminApi.instance.resendReportConsent(_request.id));
+    if (!mounted) return;
+    AppToast.success(
+      context,
+      'A new code and approval link were sent to the patient.',
+    );
+  });
 
   Future<void> _issue() => _run(() async {
-        final data = await AdminApi.instance.issueReport(_request.id);
-        if (data == null || !mounted) return;
-        _apply((data['report_request'] as Map?)?.cast<String, dynamic>());
-        final doc = data['document'];
-        AppToast.success(context, 'Report issued.');
-        if (doc is Map && mounted) {
-          await PatientReportDocumentView.show(
-            context,
-            document:
-                PatientReportDocument.fromJson(doc.cast<String, dynamic>()),
-          );
-        }
-      });
+    final data = await AdminApi.instance.issueReport(_request.id);
+    if (data == null || !mounted) return;
+    _apply((data['report_request'] as Map?)?.cast<String, dynamic>());
+    final doc = data['document'];
+    AppToast.success(context, 'Report issued.');
+    if (doc is Map && mounted) {
+      await PatientReportDocumentView.show(
+        context,
+        document: PatientReportDocument.fromJson(doc.cast<String, dynamic>()),
+      );
+    }
+  });
 
   Future<void> _revoke() => _run(() async {
-        final reason = await promptReason(
-          context,
-          title: 'Revoke report request',
-          message: 'Say why — the reason is recorded in the audit trail.',
-          confirmLabel: 'Revoke',
-        );
-        if (reason == null || reason.trim().length < 4) return;
-        _apply(await AdminApi.instance
-            .revokeReportRequest(_request.id, reason: reason.trim()));
-        if (!mounted) return;
-        AppToast.info(context, 'Report request revoked.');
-      });
+    final reason = await promptReason(
+      context,
+      title: 'Revoke report request',
+      message: 'Say why — the reason is recorded in the audit trail.',
+      confirmLabel: 'Revoke',
+    );
+    if (reason == null || reason.trim().length < 4) return;
+    _apply(
+      await AdminApi.instance.revokeReportRequest(
+        _request.id,
+        reason: reason.trim(),
+      ),
+    );
+    if (!mounted) return;
+    AppToast.info(context, 'Report request revoked.');
+  });
 
   Future<void> _viewDocument() => _run(() async {
-        final data = await AdminApi.instance.reportRequest(_request.id);
-        final doc = data?['document'];
-        if (doc is! Map || !mounted) {
-          if (mounted) AppToast.info(context, 'No issued document to show.');
-          return;
-        }
-        await PatientReportDocumentView.show(
-          context,
-          document:
-              PatientReportDocument.fromJson(doc.cast<String, dynamic>()),
-        );
-      });
+    final data = await AdminApi.instance.reportRequest(_request.id);
+    final doc = data?['document'];
+    if (doc is! Map || !mounted) {
+      if (mounted) AppToast.info(context, 'No issued document to show.');
+      return;
+    }
+    await PatientReportDocumentView.show(
+      context,
+      document: PatientReportDocument.fromJson(doc.cast<String, dynamic>()),
+    );
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -167,10 +170,7 @@ class _StatusBodyState extends State<_StatusBody> {
           trailing: '${r.sectionLabels.length}',
           emptyMessage: 'No sections selected.',
           children: [
-            DossierChips(
-              labels: r.sectionLabels,
-              color: AppColors.brandIndigo,
-            ),
+            DossierChips(labels: r.sectionLabels, color: AppColors.brandIndigo),
           ],
         ),
         DossierCard(
@@ -187,7 +187,7 @@ class _StatusBodyState extends State<_StatusBody> {
                 value: r.consentedAt == null
                     ? 'Not yet'
                     : '${dossierDateTime(r.consentedAt)} '
-                        '(${dossierHumanize(r.consentMethod)})',
+                          '(${dossierHumanize(r.consentMethod)})',
                 valueColor: r.consentedAt == null
                     ? AppColors.warning
                     : AppColors.success,
@@ -202,7 +202,7 @@ class _StatusBodyState extends State<_StatusBody> {
                 value: r.consentExpiresAt == null
                     ? null
                     : '${dossierDateTime(r.consentExpiresAt)}'
-                        '${r.consentExpired ? ' — expired' : ''}',
+                          '${r.consentExpired ? ' — expired' : ''}',
                 valueColor: r.consentExpired ? AppColors.critical : null,
               ),
               if (r.consentAttempts > 0)
@@ -230,8 +230,7 @@ class _StatusBodyState extends State<_StatusBody> {
           children: [
             DossierRow(
               label: 'Required',
-              value:
-                  r.signatureRequired ? 'Yes' : 'No — no clinical sections',
+              value: r.signatureRequired ? 'Yes' : 'No — no clinical sections',
             ),
             DossierRow(label: 'Nominated', value: r.doctorName),
             if (r.signatureRequired)
@@ -256,10 +255,10 @@ class _StatusBodyState extends State<_StatusBody> {
             'here. Otherwise they can approve from the app or the emailed '
             'link.',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                  fontSize: 10.5,
-                  height: 1.4,
-                ),
+              color: AppPalette.textMuted(context),
+              fontSize: 10.5,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           AppTextField(
@@ -292,9 +291,9 @@ class _StatusBodyState extends State<_StatusBody> {
             icon: AppIcons.approval,
             message: r.doctorName == null
                 ? 'Waiting on a doctor signature, but no doctor is nominated. '
-                    'Assign this patient to a doctor first.'
+                      'Assign this patient to a doctor first.'
                 : 'Waiting on Dr. ${r.doctorName} to review and sign. They '
-                    'have been notified.',
+                      'have been notified.',
             color: r.doctorName == null
                 ? AppColors.critical
                 : AppColors.warning,
@@ -385,11 +384,12 @@ class _StatusBanner extends StatelessWidget {
                     'doctor_signature' =>
                       'Consent granted — a doctor must sign before issue.',
                     'issue' => 'All approvals in place. Ready to issue.',
-                    _ => request.issuedAt != null
-                        ? 'Issued ${dossierDate(request.issuedAt)}'
-                        : request.revokeReason ??
-                            request.declineReason ??
-                            'This request is closed.',
+                    _ =>
+                      request.issuedAt != null
+                          ? 'Issued ${dossierDate(request.issuedAt)}'
+                          : request.revokeReason ??
+                                request.declineReason ??
+                                'This request is closed.',
                   },
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: AppPalette.textMuted(context),
@@ -433,10 +433,9 @@ class _WaitingNotice extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 10.5,
-                    height: 1.4,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(fontSize: 10.5, height: 1.4),
             ),
           ),
         ],

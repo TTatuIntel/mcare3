@@ -49,10 +49,10 @@ class UrgentItem {
       kind == UrgentKind.sos || kind == UrgentKind.criticalVital;
 
   int get priority => switch (kind) {
-        UrgentKind.sos => 0,
-        UrgentKind.criticalVital => 1,
-        UrgentKind.warningVital => 2,
-      };
+    UrgentKind.sos => 0,
+    UrgentKind.criticalVital => 1,
+    UrgentKind.warningVital => 2,
+  };
 }
 
 /// Per-item surfacing history. Deliberately session-local: whether an item
@@ -108,8 +108,10 @@ class AlertCenter extends ChangeNotifier {
   @override
   void addListener(VoidCallback listener) {
     super.addListener(listener);
-    _ticker ??=
-        Timer.periodic(const Duration(seconds: 20), (_) => _reevaluate());
+    _ticker ??= Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _reevaluate(),
+    );
   }
 
   @override
@@ -154,8 +156,7 @@ class AlertCenter extends ChangeNotifier {
   /// True when something due should be making noise, and a session is live.
   /// "Not logged out" is the gate the request asked for.
   bool get shouldRing =>
-      AuthState.instance.user != null &&
-      dueNow.any((item) => item.shouldRing);
+      AuthState.instance.user != null && dueNow.any((item) => item.shouldRing);
 
   bool _isDue(UrgentItem item, DateTime now) {
     final track = _tracks[item.id];
@@ -204,8 +205,9 @@ class AlertCenter extends ChangeNotifier {
 
   void snoozeAll(Iterable<String> ids, [Duration duration = defaultSnooze]) {
     for (final id in ids) {
-      _tracks.putIfAbsent(id, _Track.new).snoozedUntil =
-          DateTime.now().add(duration);
+      _tracks.putIfAbsent(id, _Track.new).snoozedUntil = DateTime.now().add(
+        duration,
+      );
     }
     _syncRing();
     notifyListeners();
@@ -263,12 +265,12 @@ class AlertCenter extends ChangeNotifier {
     final user = AuthState.instance.user;
     if (user == null) return const {};
     return switch (user.role) {
-      UserRole.doctor => StaffState.instance
-          .assignedPatientsForDoctor()
-          .map((p) => p.id)
-          .toSet(),
-      UserRole.admin ||
-      UserRole.mcareAssistant =>
+      UserRole.doctor =>
+        StaffState.instance
+            .assignedPatientsForDoctor()
+            .map((p) => p.id)
+            .toSet(),
+      UserRole.admin || UserRole.mcareAssistant =>
         StaffState.instance.patients.map((p) => p.id).toSet(),
       _ => const {},
     };
@@ -295,7 +297,8 @@ class AlertCenter extends ChangeNotifier {
     // Doctors respond to their own caseload's emergencies unconditionally —
     // hasAssistantPermission returns false for them, so check role first.
     final role = AuthState.instance.user?.role;
-    final canSeeSos = role == UserRole.doctor ||
+    final canSeeSos =
+        role == UserRole.doctor ||
         role == UserRole.admin ||
         AuthState.instance.hasAssistantPermission(
           AssistantPermissions.canAccessEmergencyLocation,
@@ -308,20 +311,22 @@ class AlertCenter extends ChangeNotifier {
       final acked = e.status == 'acknowledged';
       if (acked && !includeAcknowledged) continue;
       final patient = StaffState.instance.patientById(e.patientId);
-      items.add(UrgentItem(
-        id: 'sos:${e.id}',
-        kind: UrgentKind.sos,
-        patientId: e.patientId,
-        patientName: e.patientName ?? patient?.name ?? 'Patient',
-        title: e.kindLabel,
-        detail: [
-          if (e.locationLabel != null) e.locationLabel!,
-          if (e.note != null) e.note!,
-        ].join(' · '),
-        createdAt: e.triggeredAt,
-        acknowledged: acked,
-        sos: e,
-      ));
+      items.add(
+        UrgentItem(
+          id: 'sos:${e.id}',
+          kind: UrgentKind.sos,
+          patientId: e.patientId,
+          patientName: e.patientName ?? patient?.name ?? 'Patient',
+          title: e.kindLabel,
+          detail: [
+            if (e.locationLabel != null) e.locationLabel!,
+            if (e.note != null) e.note!,
+          ].join(' · '),
+          createdAt: e.triggeredAt,
+          acknowledged: acked,
+          sos: e,
+        ),
+      );
     }
 
     for (final a in StaffState.instance.alerts) {
@@ -330,19 +335,22 @@ class AlertCenter extends ChangeNotifier {
         continue;
       }
       if (a.acknowledged && !includeAcknowledged) continue;
-      items.add(UrgentItem(
-        id: 'alert:${a.id}',
-        kind: a.severity == RiskLevel.critical
-            ? UrgentKind.criticalVital
-            : UrgentKind.warningVital,
-        patientId: a.patientId,
-        patientName: a.patientName,
-        title: '${a.vital.label} ${a.severity == RiskLevel.critical ? 'critical' : 'warning'}',
-        detail: '${a.value} ${a.vital.unit}'.trim(),
-        createdAt: a.createdAt,
-        acknowledged: a.acknowledged,
-        alert: a,
-      ));
+      items.add(
+        UrgentItem(
+          id: 'alert:${a.id}',
+          kind: a.severity == RiskLevel.critical
+              ? UrgentKind.criticalVital
+              : UrgentKind.warningVital,
+          patientId: a.patientId,
+          patientName: a.patientName,
+          title:
+              '${a.vital.label} ${a.severity == RiskLevel.critical ? 'critical' : 'warning'}',
+          detail: '${a.value} ${a.vital.unit}'.trim(),
+          createdAt: a.createdAt,
+          acknowledged: a.acknowledged,
+          alert: a,
+        ),
+      );
     }
 
     items.sort((x, y) {

@@ -24,9 +24,7 @@ class SettingsStorage {
   static bool _has(String key) => _read(key) != null;
 
   static Future<Map<String, dynamic>?> readAll() async {
-    if (!_has(_keyTheme) &&
-        !_has(_keyLanguage) &&
-        !_has(_keyNotifications)) {
+    if (!_has(_keyTheme) && !_has(_keyLanguage) && !_has(_keyNotifications)) {
       return null;
     }
 
@@ -48,8 +46,9 @@ class SettingsStorage {
       'languageCode': AppLanguage.byCode(_read(_keyLanguage)).code,
       'notifications': notifications,
       'privacyShareWithCareTeam': shareRaw == null ? true : shareRaw == 'true',
-      'privacyAllowExternalAccess':
-          externalRaw == null ? false : externalRaw == 'true',
+      'privacyAllowExternalAccess': externalRaw == null
+          ? false
+          : externalRaw == 'true',
     };
   }
 
@@ -68,14 +67,14 @@ class SettingsStorage {
   }
 
   static ThemeMode _parseTheme(String? raw) => switch (raw) {
-        'dark' => ThemeMode.dark,
-        'system' => ThemeMode.system,
-        _ => ThemeMode.light,
-      };
+    'dark' => ThemeMode.dark,
+    'system' => ThemeMode.system,
+    _ => ThemeMode.light,
+  };
 
   static String _themeToString(ThemeMode mode) => switch (mode) {
-        ThemeMode.dark => 'dark',
-        ThemeMode.system => 'system',
-        ThemeMode.light => 'light',
-      };
+    ThemeMode.dark => 'dark',
+    ThemeMode.system => 'system',
+    ThemeMode.light => 'light',
+  };
 }

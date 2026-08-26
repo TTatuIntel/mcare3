@@ -40,10 +40,8 @@ class _VitalPreferencesBodyState extends State<_VitalPreferencesBody> {
       builder: (context, _) {
         final state = VitalsState.instance;
         final selectable = state.selectableVitals;
-        final assigned =
-            selectable.where((v) => state.isAssigned(v)).toList();
-        final optional =
-            selectable.where((v) => !state.isAssigned(v)).toList();
+        final assigned = selectable.where((v) => state.isAssigned(v)).toList();
+        final optional = selectable.where((v) => !state.isAssigned(v)).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,8 +91,7 @@ class _VitalPreferencesBodyState extends State<_VitalPreferencesBody> {
                     if (!context.mounted) return;
                     AppToast.show(
                       context,
-                      message:
-                          'This vital is required by your care team.',
+                      message: 'This vital is required by your care team.',
                       kind: AppToastKind.info,
                     );
                   } else if (!ok) {
@@ -117,11 +114,7 @@ class _VitalPreferencesBodyState extends State<_VitalPreferencesBody> {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.icon,
-    required this.label,
-    this.hint,
-  });
+  const _SectionHeader({required this.icon, required this.label, this.hint});
 
   final IconData icon;
   final String label;
@@ -180,10 +173,14 @@ class _VitalRow extends StatelessWidget {
         vertical: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: tracked ? accent.withOpacity(0.06) : AppPalette.surfaceAlt(context),
+        color: tracked
+            ? accent.withOpacity(0.06)
+            : AppPalette.surfaceAlt(context),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         border: Border.all(
-          color: tracked ? accent.withOpacity(0.28) : AppPalette.border(context),
+          color: tracked
+              ? accent.withOpacity(0.28)
+              : AppPalette.border(context),
         ),
       ),
       child: Row(

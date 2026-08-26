@@ -72,10 +72,7 @@ class _FormState extends State<_Form> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppTextField(
-          label: 'Subject',
-          controller: _subject,
-        ),
+        AppTextField(label: 'Subject', controller: _subject),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
           label: 'Description',

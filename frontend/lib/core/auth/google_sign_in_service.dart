@@ -6,7 +6,8 @@ import 'package:flutter/foundation.dart';
 import '../env/app_env.dart';
 import 'google_redirect_auth_result.dart';
 import 'google_sign_in_stub.dart'
-    if (dart.library.html) 'google_sign_in_web.dart' as platform;
+    if (dart.library.html) 'google_sign_in_web.dart'
+    as platform;
 
 export 'google_redirect_auth_result.dart';
 

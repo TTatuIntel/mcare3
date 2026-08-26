@@ -114,9 +114,7 @@ class _ActionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final accent = danger
-        ? AppColors.critical
-        : theme.colorScheme.primary;
+    final accent = danger ? AppColors.critical : theme.colorScheme.primary;
     final fg = danger
         ? accent
         : (isDark ? AppColors.darkInk : AppPalette.ink(context));

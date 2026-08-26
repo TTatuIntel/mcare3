@@ -30,10 +30,10 @@ class NotificationsView extends StatelessWidget {
           Text(
             todayStr,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                ),
+              color: AppPalette.textMuted(context),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           NotificationsPanel(

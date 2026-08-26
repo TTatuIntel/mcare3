@@ -19,8 +19,7 @@ class DocumentsApi {
   String doctorStreamPath({
     required String patientUserId,
     required String documentId,
-  }) =>
-      '/doctor/patients/$patientUserId/documents/$documentId/stream';
+  }) => '/doctor/patients/$patientUserId/documents/$documentId/stream';
 
   Future<Uint8List> fetchBytes({
     required String documentId,
@@ -30,10 +29,7 @@ class DocumentsApi {
       throw UnsupportedError('API disabled.');
     }
     final path = patientUserId != null
-        ? doctorStreamPath(
-            patientUserId: patientUserId,
-            documentId: documentId,
-          )
+        ? doctorStreamPath(patientUserId: patientUserId, documentId: documentId)
         : patientStreamPath(documentId);
     return ApiClient.instance.getBytes(path);
   }

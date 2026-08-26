@@ -33,16 +33,16 @@ String _relativeTime(DateTime at) {
 
 /// Higher = more urgent, so an expired medication always wins the hero banner.
 int _alertUrgency(MedicationAlertKind kind) => switch (kind) {
-      MedicationAlertKind.expired => 3,
-      MedicationAlertKind.refillLow => 2,
-      MedicationAlertKind.expiringSoon => 1,
-    };
+  MedicationAlertKind.expired => 3,
+  MedicationAlertKind.refillLow => 2,
+  MedicationAlertKind.expiringSoon => 1,
+};
 
 String _alertActionLabel(MedicationAlertKind kind) => switch (kind) {
-      MedicationAlertKind.expired => 'Review now',
-      MedicationAlertKind.refillLow => 'Request refill',
-      MedicationAlertKind.expiringSoon => 'Review',
-    };
+  MedicationAlertKind.expired => 'Review now',
+  MedicationAlertKind.refillLow => 'Request refill',
+  MedicationAlertKind.expiringSoon => 'Review',
+};
 
 class MedicationsView extends StatelessWidget {
   const MedicationsView({super.key});
@@ -62,12 +62,15 @@ class MedicationsView extends StatelessWidget {
           final today = state.dosesForToday();
           final alerts = state.medicationAlerts();
           final activity = state.recentActivity(limit: 4);
-          final takenToday =
-              today.where((d) => d.status == DoseStatus.taken).length;
-          final pendingToday =
-              today.where((d) => d.status == DoseStatus.pending).length;
-          final missedToday =
-              today.where((d) => d.status == DoseStatus.missed).length;
+          final takenToday = today
+              .where((d) => d.status == DoseStatus.taken)
+              .length;
+          final pendingToday = today
+              .where((d) => d.status == DoseStatus.pending)
+              .length;
+          final missedToday = today
+              .where((d) => d.status == DoseStatus.missed)
+              .length;
           final actionableToday = today
               .where((d) => d.status != DoseStatus.taken)
               .toList();
@@ -142,7 +145,9 @@ class MedicationsView extends StatelessWidget {
                 index: 5,
                 child: _ActivityFeed(activity: activity),
               ),
-              SizedBox(height: tier.isHandheld ? AppSpacing.xl : AppSpacing.huge),
+              SizedBox(
+                height: tier.isHandheld ? AppSpacing.xl : AppSpacing.huge,
+              ),
             ],
           );
         },
@@ -179,9 +184,8 @@ class _MedsHero extends StatelessWidget {
     final theme = Theme.of(context);
     // Surface the most urgent alert first (expired > refill/expiring) so the
     // patient always sees the critical one.
-    final sortedAlerts = [...alerts]..sort(
-        (a, b) => _alertUrgency(b.kind).compareTo(_alertUrgency(a.kind)),
-      );
+    final sortedAlerts = [...alerts]
+      ..sort((a, b) => _alertUrgency(b.kind).compareTo(_alertUrgency(a.kind)));
     final primaryAlert = sortedAlerts.isNotEmpty ? sortedAlerts.first : null;
     final isAlert = primaryAlert != null;
     final isPending = pending > 0;
@@ -191,19 +195,19 @@ class _MedsHero extends StatelessWidget {
     final accent = isAlert
         ? primaryAlert.tint
         : isPending
-            ? AppColors.glucoseAmber
-            : AppColors.brandIndigo;
+        ? AppColors.glucoseAmber
+        : AppColors.brandIndigo;
     final iconBg = isAlert
         ? primaryAlert.tint.withOpacity(0.15)
         : isPending
-            ? AppColors.glucoseAmber.withOpacity(0.15)
-            : AppPalette.infoSoft(context);
+        ? AppColors.glucoseAmber.withOpacity(0.15)
+        : AppPalette.infoSoft(context);
 
     final headline = total == 0
         ? 'Track your medications'
         : pending == 0
-            ? 'All doses taken today'
-            : '$pending dose${pending == 1 ? '' : 's'} left today';
+        ? 'All doses taken today'
+        : '$pending dose${pending == 1 ? '' : 's'} left today';
 
     return GlassCard(
       frosted: true,
@@ -372,7 +376,11 @@ class _HeroInsight extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(AppIcons.chevronRight, size: 12, color: AppPalette.textMuted(context)),
+              Icon(
+                AppIcons.chevronRight,
+                size: 12,
+                color: AppPalette.textMuted(context),
+              ),
             ],
           ),
         ),
@@ -458,8 +466,9 @@ class _HeroAlertBanner extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: color.withOpacity(0.18),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.radiusPill),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
                             ),
                             child: Text(
                               '+$extraCount more',
@@ -624,8 +633,9 @@ class _MedsQuickActions extends StatelessWidget {
                 AppToast.info(context, 'No medication alerts.');
                 return;
               }
-              final med =
-                  MedicationsState.instance.byId(alerts.first.medicationId);
+              final med = MedicationsState.instance.byId(
+                alerts.first.medicationId,
+              );
               if (med != null) {
                 MedicationDetailSheet.show(context, med);
               }
@@ -863,9 +873,9 @@ class _ActivityRow extends StatelessWidget {
 
 extension on DoseStatus {
   IconData get icon => switch (this) {
-        DoseStatus.taken => AppIcons.check,
-        DoseStatus.pending => AppIcons.time,
-        DoseStatus.skipped => AppIcons.alert,
-        DoseStatus.missed => AppIcons.alert,
-      };
+    DoseStatus.taken => AppIcons.check,
+    DoseStatus.pending => AppIcons.time,
+    DoseStatus.skipped => AppIcons.alert,
+    DoseStatus.missed => AppIcons.alert,
+  };
 }

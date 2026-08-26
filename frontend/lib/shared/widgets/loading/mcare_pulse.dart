@@ -64,7 +64,10 @@ class _McarePulseState extends State<McarePulse>
   void initState() {
     super.initState();
     _reduceMotion = WidgetsBinding
-        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     _ctrl = AnimationController(vsync: this, duration: AppMotion.pulseCycle);
     if (_reduceMotion) {
       _ctrl.value = 0.5;
@@ -87,7 +90,8 @@ class _McarePulseState extends State<McarePulse>
       color: color,
       stroke: widget.size.stroke,
       isStatic: _reduceMotion,
-      compact: widget.size == McarePulseSize.micro ||
+      compact:
+          widget.size == McarePulseSize.micro ||
           widget.size == McarePulseSize.inline,
     );
 
@@ -191,11 +195,7 @@ class McarePulsePainter extends CustomPainter {
         ..color = color.withValues(alpha: 0.10 + beat * 0.20)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, stroke * 1.6),
     );
-    canvas.drawCircle(
-      tangent.position,
-      headRadius,
-      Paint()..color = color,
-    );
+    canvas.drawCircle(tangent.position, headRadius, Paint()..color = color);
   }
 
   @override

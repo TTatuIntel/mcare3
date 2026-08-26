@@ -76,9 +76,9 @@ class _FormState extends State<_Form> {
         Text(
           '${widget.provider.specialty} · ${widget.provider.facility}',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppPalette.textMuted(context),
-                fontSize: 11,
-              ),
+            color: AppPalette.textMuted(context),
+            fontSize: 11,
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
@@ -131,8 +131,8 @@ class _CareTeamViewState extends State<CareTeamView> {
           final providers = _tab == _CareTeamTab.browse
               ? available
               : _tab == _CareTeamTab.myTeam
-                  ? assigned
-                  : <CareProvider>[];
+              ? assigned
+              : <CareProvider>[];
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,14 +161,18 @@ class _CareTeamViewState extends State<CareTeamView> {
                       PatientQuickAction(
                         icon: AppIcons.careTeam,
                         label: 'My team',
-                        badge: assigned.isNotEmpty ? '${assigned.length}' : null,
+                        badge: assigned.isNotEmpty
+                            ? '${assigned.length}'
+                            : null,
                         selected: _tab == _CareTeamTab.myTeam,
                         onTap: () => setState(() => _tab = _CareTeamTab.myTeam),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.add,
                         label: 'Browse',
-                        badge: available.isNotEmpty ? '${available.length}' : null,
+                        badge: available.isNotEmpty
+                            ? '${available.length}'
+                            : null,
                         selected: _tab == _CareTeamTab.browse,
                         onTap: () => setState(() => _tab = _CareTeamTab.browse),
                       ),
@@ -183,7 +187,8 @@ class _CareTeamViewState extends State<CareTeamView> {
                         badge: pending.isNotEmpty ? '${pending.length}' : null,
                         badgeColor: AppColors.warning,
                         selected: _tab == _CareTeamTab.pending,
-                        onTap: () => setState(() => _tab = _CareTeamTab.pending),
+                        onTap: () =>
+                            setState(() => _tab = _CareTeamTab.pending),
                       ),
                     ],
                   ),
@@ -203,14 +208,14 @@ class _CareTeamViewState extends State<CareTeamView> {
                   title: _tab == _CareTeamTab.browse
                       ? 'Browse providers'
                       : _tab == _CareTeamTab.pending
-                          ? 'Pending requests'
-                          : 'Assigned to you',
+                      ? 'Pending requests'
+                      : 'Assigned to you',
                   icon: AppIcons.careTeam,
                   trailing: _tab == _CareTeamTab.pending
                       ? '${pending.length}'
                       : providers.isEmpty
-                          ? null
-                          : '${providers.length}',
+                      ? null
+                      : '${providers.length}',
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -218,34 +223,34 @@ class _CareTeamViewState extends State<CareTeamView> {
                 index: 5,
                 child: _tab == _CareTeamTab.pending
                     ? (pending.isEmpty
-                        ? GlassCard(
-                            frosted: true,
-                            child: EmptyStateView(
-                              icon: AppIcons.time,
-                              title: 'No pending requests',
-                              message:
-                                  'Browse providers to request care from a doctor.',
-                              compact: true,
-                            ),
-                          )
-                        : GlassCard(
-                            frosted: true,
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.md,
-                              AppSpacing.sm,
-                              AppSpacing.md,
-                              AppSpacing.md,
-                            ),
-                            child: Column(
-                              children: [
-                                for (var i = 0; i < pending.length; i++) ...[
-                                  if (i > 0)
-                                    const SizedBox(height: AppSpacing.xs),
-                                  _PendingRequestRow(request: pending[i]),
+                          ? GlassCard(
+                              frosted: true,
+                              child: EmptyStateView(
+                                icon: AppIcons.time,
+                                title: 'No pending requests',
+                                message:
+                                    'Browse providers to request care from a doctor.',
+                                compact: true,
+                              ),
+                            )
+                          : GlassCard(
+                              frosted: true,
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.md,
+                                AppSpacing.sm,
+                                AppSpacing.md,
+                                AppSpacing.md,
+                              ),
+                              child: Column(
+                                children: [
+                                  for (var i = 0; i < pending.length; i++) ...[
+                                    if (i > 0)
+                                      const SizedBox(height: AppSpacing.xs),
+                                    _PendingRequestRow(request: pending[i]),
+                                  ],
                                 ],
-                              ],
-                            ),
-                          ))
+                              ),
+                            ))
                     : providers.isEmpty
                     ? GlassCard(
                         frosted: true,
@@ -438,9 +443,7 @@ class _PendingRequestRow extends StatelessWidget {
                     request.reason!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 10,
-                    ),
+                    style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
                   ),
               ],
             ),
@@ -512,8 +515,11 @@ class _ProviderRow extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        const Icon(AppIcons.star,
-                            size: 12, color: AppColors.warning),
+                        const Icon(
+                          AppIcons.star,
+                          size: 12,
+                          color: AppColors.warning,
+                        ),
                         Text(
                           ' ${provider.rating} (${provider.totalReviews})',
                           style: theme.textTheme.labelSmall?.copyWith(
@@ -547,8 +553,8 @@ class _ProviderRow extends StatelessWidget {
               icon: AppIcons.chat,
               size: AppButtonSize.sm,
               expand: true,
-              onPressed: () => Navigator.of(context)
-                  .pushNamed(RouteNames.patientMessages),
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(RouteNames.patientMessages),
             )
           else
             AppButton(

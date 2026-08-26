@@ -16,8 +16,9 @@ class AssistantSettingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canManageUsers = AuthState.instance
-        .hasAssistantPermission(AssistantPermissions.canCreateUsers);
+    final canManageUsers = AuthState.instance.hasAssistantPermission(
+      AssistantPermissions.canCreateUsers,
+    );
     final openTickets = AdminWorkspaceCounts.openSupport;
 
     return StaffPersonalSettingsScaffold(

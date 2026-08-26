@@ -98,11 +98,9 @@ class _ProfileBodyState extends State<_ProfileBody> {
       _error = null;
     });
     try {
-      final data =
-          await AdminApi.instance.patientProfile(widget.patientId);
+      final data = await AdminApi.instance.patientProfile(widget.patientId);
       if (data != null) {
-        StaffState.instance
-            .mergeAdminPatientProfile(widget.patientId, data);
+        StaffState.instance.mergeAdminPatientProfile(widget.patientId, data);
       }
       if (mounted) setState(() => _loading = false);
     } catch (e) {
@@ -120,15 +118,16 @@ class _ProfileBodyState extends State<_ProfileBody> {
     return AnimatedBuilder(
       animation: StaffState.instance,
       builder: (context, _) {
-        final detail =
-            StaffState.instance.patientClinicalDetail(widget.patientId);
+        final detail = StaffState.instance.patientClinicalDetail(
+          widget.patientId,
+        );
         final patient = StaffState.instance.patientById(widget.patientId);
-        final assigned =
-            StaffState.instance.assignedVitalsForPatient(widget.patientId);
+        final assigned = StaffState.instance.assignedVitalsForPatient(
+          widget.patientId,
+        );
         final health = detail?.health;
         final name = detail?.name ?? patient?.name ?? widget.fallbackName;
-        final hasAnyData =
-            detail != null || health != null || patient != null;
+        final hasAnyData = detail != null || health != null || patient != null;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -137,8 +136,9 @@ class _ProfileBodyState extends State<_ProfileBody> {
               const Padding(
                 padding: EdgeInsets.only(bottom: AppSpacing.sm),
                 child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.all(Radius.circular(AppSpacing.radiusPill)),
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(AppSpacing.radiusPill),
+                  ),
                   child: LinearProgressIndicator(minHeight: 2),
                 ),
               ),
@@ -160,9 +160,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 patient: patient,
                 assigned: assigned,
                 health: health,
-                banner: _error == null || hasAnyData
-                    ? null
-                    : _error,
+                banner: _error == null || hasAnyData ? null : _error,
                 onRetry: _error == null ? null : _fetch,
                 urgentItem: widget.urgentItem,
               ),
@@ -191,11 +189,7 @@ class _ErrorState extends StatelessWidget {
           compact: true,
         ),
         const SizedBox(height: AppSpacing.md),
-        AppButton(
-          label: 'Retry',
-          icon: AppIcons.refresh,
-          onPressed: onRetry,
-        ),
+        AppButton(label: 'Retry', icon: AppIcons.refresh, onPressed: onRetry),
       ],
     );
   }
@@ -251,8 +245,8 @@ class _ProfileContent extends StatelessWidget {
                     Text(
                       name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     if (detail?.uniqueId != null)
                       Text(
@@ -262,10 +256,9 @@ class _ProfileContent extends StatelessWidget {
                     if (patient != null)
                       Text(
                         patient!.demographicsLine,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: AppPalette.textMuted(context)),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -290,15 +283,9 @@ class _ProfileContent extends StatelessWidget {
             child: Column(
               children: [
                 if (detail?.email != null)
-                  PatientCompactInfoRow(
-                    label: 'Email',
-                    value: detail!.email!,
-                  ),
+                  PatientCompactInfoRow(label: 'Email', value: detail!.email!),
                 if (detail?.phone != null)
-                  PatientCompactInfoRow(
-                    label: 'Phone',
-                    value: detail!.phone!,
-                  ),
+                  PatientCompactInfoRow(label: 'Phone', value: detail!.phone!),
                 if (detail?.joinedAt != null)
                   PatientCompactInfoRow(
                     label: 'Joined',
@@ -371,16 +358,16 @@ class _ProfileContent extends StatelessWidget {
                   value: health!.noKnownAllergies
                       ? 'None known'
                       : health!.allergies.isEmpty
-                          ? 'Not recorded'
-                          : health!.allergies.join(', '),
+                      ? 'Not recorded'
+                      : health!.allergies.join(', '),
                 ),
                 PatientCompactInfoRow(
                   label: 'Medications',
                   value: health!.noCurrentMedications
                       ? 'None'
                       : health!.currentMedications.isEmpty
-                          ? 'Not recorded'
-                          : health!.currentMedications.join(', '),
+                      ? 'Not recorded'
+                      : health!.currentMedications.join(', '),
                 ),
               ],
             ),
@@ -392,21 +379,19 @@ class _ProfileContent extends StatelessWidget {
             final role = AuthState.instance.user?.role;
             final canAssist =
                 role == UserRole.admin || role == UserRole.mcareAssistant;
-            final patientName =
-                detail?.name ?? patient?.name ?? name;
+            final patientName = detail?.name ?? patient?.name ?? name;
             final patientId = detail?.patientId ?? patient?.id;
             return SectionLabel(
               title: 'Assigned vitals',
               icon: AppIcons.vitals,
               trailing: '${assigned.length}',
-              actionLabel:
-                  (canAssist && patientId != null) ? 'Assign' : null,
+              actionLabel: (canAssist && patientId != null) ? 'Assign' : null,
               onAction: (canAssist && patientId != null)
                   ? () => DoctorAssignVitalsSheet.show(
-                        ctx,
-                        patientId: patientId,
-                        patientName: patientName,
-                      )
+                      ctx,
+                      patientId: patientId,
+                      patientName: patientName,
+                    )
                   : null,
             );
           },
@@ -432,8 +417,7 @@ class _ProfileContent extends StatelessWidget {
             child: Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
-              children:
-                  assigned.map((v) => _VitalChip(vital: v)).toList(),
+              children: assigned.map((v) => _VitalChip(vital: v)).toList(),
             ),
           ),
         // Admin staff can step up from this clinical snapshot to the complete
@@ -483,9 +467,7 @@ class _ProfileContent extends StatelessWidget {
             ),
             child: Column(
               children: [
-                for (var i = 0;
-                    i < detail!.emergencyContacts.length;
-                    i++) ...[
+                for (var i = 0; i < detail!.emergencyContacts.length; i++) ...[
                   if (i > 0) const SizedBox(height: AppSpacing.xs),
                   _ContactRow(contact: detail!.emergencyContacts[i]),
                 ],
@@ -585,8 +567,8 @@ class _UrgentCareContextState extends State<_UrgentCareContext> {
         final status = !isOpen
             ? 'RESOLVED'
             : item.acknowledged
-                ? 'ACKNOWLEDGED'
-                : 'NEEDS RESPONSE';
+            ? 'ACKNOWLEDGED'
+            : 'NEEDS RESPONSE';
 
         return Semantics(
           container: true,
@@ -627,7 +609,8 @@ class _UrgentCareContextState extends State<_UrgentCareContext> {
                         children: [
                           Text(
                             item.isSos ? 'SOS EMERGENCY' : 'ACTIVE VITAL ALERT',
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
                                   color: accent,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.8,
@@ -636,9 +619,8 @@ class _UrgentCareContextState extends State<_UrgentCareContext> {
                           ),
                           Text(
                             item.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                         ],
                       ),
@@ -649,18 +631,20 @@ class _UrgentCareContextState extends State<_UrgentCareContext> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: (isOpen ? accent : AppColors.success)
-                            .withValues(alpha: 0.12),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusPill),
+                        color: (isOpen ? accent : AppColors.success).withValues(
+                          alpha: 0.12,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
                       ),
                       child: Text(
                         status,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: isOpen ? accent : AppColors.success,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 8.5,
-                            ),
+                          color: isOpen ? accent : AppColors.success,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 8.5,
+                        ),
                       ),
                     ),
                   ],
@@ -670,18 +654,18 @@ class _UrgentCareContextState extends State<_UrgentCareContext> {
                   Text(
                     item.detail,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: accent,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 4),
                 Text(
                   'Raised ${DateFormat.yMMMd().add_jm().format(item.createdAt)}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontSize: 10,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontSize: 10,
+                  ),
                 ),
                 if (isOpen) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -854,10 +838,10 @@ class _HealthScoreCard extends StatelessWidget {
                     Text(
                       'Health score',
                       style: theme.textTheme.labelMedium?.copyWith(
-                            color: AppPalette.textMuted(context),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
+                        color: AppPalette.textMuted(context),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.xs),
                     Container(
@@ -867,8 +851,9 @@ class _HealthScoreCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.16),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusPill),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
                       ),
                       child: Text(
                         category.toUpperCase(),
@@ -888,9 +873,9 @@ class _HealthScoreCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppPalette.ink(context),
-                        height: 1.3,
-                      ),
+                    color: AppPalette.ink(context),
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -973,9 +958,9 @@ class _VitalChip extends StatelessWidget {
           Text(
             vital.label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: vital.accent,
-                ),
+              fontWeight: FontWeight.w700,
+              color: vital.accent,
+            ),
           ),
         ],
       ),
@@ -999,16 +984,16 @@ class _ContactRow extends StatelessWidget {
             children: [
               Text(
                 contact.name,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               Text(
                 '${contact.relationship} · ${contact.phone}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                      fontSize: 10,
-                    ),
+                  color: AppPalette.textMuted(context),
+                  fontSize: 10,
+                ),
               ),
             ],
           ),

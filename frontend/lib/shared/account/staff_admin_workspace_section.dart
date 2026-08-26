@@ -19,10 +19,7 @@ class StaffAdminWorkspaceSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        StaffState.instance,
-        SupportState.instance,
-      ]),
+      animation: Listenable.merge([StaffState.instance, SupportState.instance]),
       builder: (context, _) {
         final hubAreas = AdminWorkspaceCatalog.operationsHub();
 
@@ -80,16 +77,20 @@ class StaffAdminWorkspaceSection extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.warning.withValues(alpha: 0.1),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
                         border: Border.all(
                           color: AppColors.warning.withValues(alpha: 0.25),
                         ),
                       ),
                       child: Row(
                         children: [
-                          Icon(AppIcons.alert,
-                              size: 16, color: AppColors.warning),
+                          Icon(
+                            AppIcons.alert,
+                            size: 16,
+                            color: AppColors.warning,
+                          ),
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
@@ -112,8 +113,9 @@ class StaffAdminWorkspaceSection extends StatelessWidget {
                     icon: AppIcons.home,
                     title: 'Admin dashboard',
                     subtitle: 'System overview and KPIs',
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(RouteNames.adminDashboard),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.adminDashboard),
                   ),
                   for (final area in hubAreas)
                     StaffListRow(
@@ -122,8 +124,7 @@ class StaffAdminWorkspaceSection extends StatelessWidget {
                       subtitle: _hubSubtitle(area),
                       pill: _hubPill(area),
                       pillColor: area.color,
-                      onTap: () =>
-                          Navigator.of(context).pushNamed(area.route),
+                      onTap: () => Navigator.of(context).pushNamed(area.route),
                     ),
                   StaffListRow(
                     icon: AppIcons.sos,
@@ -142,8 +143,9 @@ class StaffAdminWorkspaceSection extends StatelessWidget {
                     icon: AppIcons.analytics,
                     title: 'Analytics & audit',
                     subtitle: 'Metrics, trends and activity trail',
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(RouteNames.adminAnalytics),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.adminAnalytics),
                   ),
                   StaffListRow(
                     icon: AppIcons.system,
@@ -166,7 +168,8 @@ class StaffAdminWorkspaceSection extends StatelessWidget {
     if (badge > 0) {
       return switch (area.id) {
         'approvals' => '$badge pending healthworker review',
-        'care_requests' => '$badge patient request${badge == 1 ? '' : 's'} waiting',
+        'care_requests' =>
+          '$badge patient request${badge == 1 ? '' : 's'} waiting',
         'support' => '$badge open ticket${badge == 1 ? '' : 's'}',
         _ => area.subtitle,
       };
@@ -217,16 +220,16 @@ class _MetricChip extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

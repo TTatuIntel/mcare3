@@ -8,19 +8,22 @@ class DoctorApi {
   static final DoctorApi instance = DoctorApi._();
 
   // Alerts
-  Future<void> acknowledgeAlert(String alertId) => _patch('alerts/$alertId/acknowledge');
+  Future<void> acknowledgeAlert(String alertId) =>
+      _patch('alerts/$alertId/acknowledge');
   Future<void> resolveAlert(
     String alertId, {
     required String actionTaken,
     required String note,
     String? customAction,
-  }) =>
-      _patch('alerts/$alertId/resolve', body: {
-        'action_taken': actionTaken,
-        'note': note,
-        if (customAction != null && customAction.isNotEmpty)
-          'custom_action': customAction,
-      });
+  }) => _patch(
+    'alerts/$alertId/resolve',
+    body: {
+      'action_taken': actionTaken,
+      'note': note,
+      if (customAction != null && customAction.isNotEmpty)
+        'custom_action': customAction,
+    },
+  );
 
   // Prescriptions
   Future<Map<String, dynamic>?> issuePrescription({
@@ -33,16 +36,19 @@ class DoctorApi {
     String? instructions,
     int? refillsLeft,
   }) async {
-    final res = await ApiClient.instance.post('/doctor/prescriptions', body: {
-      'patient_user_id': int.parse(patientUserId),
-      'name': name,
-      'dosage': dosage,
-      'frequency': frequency,
-      'start_date': _date(startDate),
-      if (endDate != null) 'end_date': _date(endDate),
-      if (instructions != null) 'instructions': instructions,
-      if (refillsLeft != null) 'refills_left': refillsLeft,
-    });
+    final res = await ApiClient.instance.post(
+      '/doctor/prescriptions',
+      body: {
+        'patient_user_id': int.parse(patientUserId),
+        'name': name,
+        'dosage': dosage,
+        'frequency': frequency,
+        'start_date': _date(startDate),
+        if (endDate != null) 'end_date': _date(endDate),
+        if (instructions != null) 'instructions': instructions,
+        if (refillsLeft != null) 'refills_left': refillsLeft,
+      },
+    );
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
@@ -56,20 +62,26 @@ class DoctorApi {
     required String body,
     bool publish = false,
   }) async {
-    final res = await ApiClient.instance.post('/doctor/reports', body: {
-      'patient_user_id': int.parse(patientUserId),
-      'title': title,
-      'body': body,
-      'publish': publish,
-    });
+    final res = await ApiClient.instance.post(
+      '/doctor/reports',
+      body: {
+        'patient_user_id': int.parse(patientUserId),
+        'title': title,
+        'body': body,
+        'publish': publish,
+      },
+    );
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
   Future<void> updateReport(String reportId, {String? title, String? body}) =>
-      _patch('reports/$reportId', body: {
-        if (title != null) 'title': title,
-        if (body != null) 'body': body,
-      });
+      _patch(
+        'reports/$reportId',
+        body: {
+          if (title != null) 'title': title,
+          if (body != null) 'body': body,
+        },
+      );
 
   Future<void> publishReport(String reportId) =>
       _patch('reports/$reportId/publish');
@@ -86,14 +98,17 @@ class DoctorApi {
     String? reason,
     String? locationOrLink,
   }) async {
-    final res = await ApiClient.instance.post('/doctor/appointments', body: {
-      'patient_user_id': int.parse(patientUserId),
-      'scheduled_at': scheduledAt.toIso8601String(),
-      'duration_minutes': durationMinutes,
-      'type': type,
-      if (reason != null) 'reason': reason,
-      if (locationOrLink != null) 'location_or_link': locationOrLink,
-    });
+    final res = await ApiClient.instance.post(
+      '/doctor/appointments',
+      body: {
+        'patient_user_id': int.parse(patientUserId),
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration_minutes': durationMinutes,
+        'type': type,
+        if (reason != null) 'reason': reason,
+        if (locationOrLink != null) 'location_or_link': locationOrLink,
+      },
+    );
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
@@ -102,17 +117,21 @@ class DoctorApi {
     String? status,
     DateTime? scheduledAt,
     String? cancellationReason,
-  }) =>
-      _patch('appointments/$appointmentId', body: {
-        if (status != null) 'status': status,
-        if (scheduledAt != null) 'scheduled_at': scheduledAt.toIso8601String(),
-        if (cancellationReason != null) 'cancellation_reason': cancellationReason,
-      });
+  }) => _patch(
+    'appointments/$appointmentId',
+    body: {
+      if (status != null) 'status': status,
+      if (scheduledAt != null) 'scheduled_at': scheduledAt.toIso8601String(),
+      if (cancellationReason != null) 'cancellation_reason': cancellationReason,
+    },
+  );
 
   // Vital report requests
   Future<void> fulfillVitalReportRequest(String requestId, {String? note}) =>
-      _patch('vital-report-requests/$requestId/fulfill',
-          body: {if (note != null) 'note': note});
+      _patch(
+        'vital-report-requests/$requestId/fulfill',
+        body: {if (note != null) 'note': note},
+      );
 
   Future<void> escalateVitalReportRequest(String requestId) =>
       _patch('vital-report-requests/$requestId/escalate');
@@ -121,9 +140,10 @@ class DoctorApi {
   Future<void> acceptCareRequest(String requestId) =>
       _patch('care-requests/$requestId/accept');
 
-  Future<void> declineCareRequest(String requestId, {String? reason}) =>
-      _patch('care-requests/$requestId/decline',
-          body: {if (reason != null) 'reason': reason});
+  Future<void> declineCareRequest(String requestId, {String? reason}) => _patch(
+    'care-requests/$requestId/decline',
+    body: {if (reason != null) 'reason': reason},
+  );
 
   Future<void> resolveSos(String eventId, {required String status}) =>
       _patch('sos/$eventId', body: {'status': status});
@@ -136,8 +156,9 @@ class DoctorApi {
   }
 
   Future<List<Map<String, dynamic>>> loadThread(String conversationId) async {
-    final res = await ApiClient.instance
-        .get('/doctor/conversations/$conversationId/messages');
+    final res = await ApiClient.instance.get(
+      '/doctor/conversations/$conversationId/messages',
+    );
     final list = res['data']?['messages'] as List? ?? [];
     return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
@@ -169,17 +190,20 @@ class DoctorApi {
     String? fat,
     String? notes,
   }) async {
-    final res = await ApiClient.instance.post('/doctor/meal-plans', body: {
-      'patient_user_id': int.parse(patientUserId),
-      'title': title,
-      'meal_type': mealType,
-      if (description != null) 'description': description,
-      if (calories != null) 'calories': calories,
-      if (protein != null) 'protein': protein,
-      if (carbs != null) 'carbs': carbs,
-      if (fat != null) 'fat': fat,
-      if (notes != null) 'notes': notes,
-    });
+    final res = await ApiClient.instance.post(
+      '/doctor/meal-plans',
+      body: {
+        'patient_user_id': int.parse(patientUserId),
+        'title': title,
+        'meal_type': mealType,
+        if (description != null) 'description': description,
+        if (calories != null) 'calories': calories,
+        if (protein != null) 'protein': protein,
+        if (carbs != null) 'carbs': carbs,
+        if (fat != null) 'fat': fat,
+        if (notes != null) 'notes': notes,
+      },
+    );
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
@@ -201,10 +225,7 @@ class DoctorApi {
   }) async {
     final res = await ApiClient.instance.patch(
       '/doctor/patients/$patientUserId/chart',
-      body: {
-        ...healthDelta,
-        if (note != null && note.isNotEmpty) 'note': note,
-      },
+      body: {...healthDelta, if (note != null && note.isNotEmpty) 'note': note},
     );
     final data = (res['data'] as Map?)?.cast<String, dynamic>();
     final changes = (data?['changes'] as List? ?? const [])
@@ -236,8 +257,10 @@ class DoctorApi {
   Future<Map<String, dynamic>?> createVitalCatalogEntry(
     Map<String, dynamic> body,
   ) async {
-    final res =
-        await ApiClient.instance.post('/doctor/vital-catalog', body: body);
+    final res = await ApiClient.instance.post(
+      '/doctor/vital-catalog',
+      body: body,
+    );
     return (res['data']?['entry'] as Map?)?.cast<String, dynamic>();
   }
 

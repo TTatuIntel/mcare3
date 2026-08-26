@@ -118,7 +118,8 @@ class _PermissionSafeEventOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isStaff = role == UserRole.admin ||
+    final isStaff =
+        role == UserRole.admin ||
         role == UserRole.mcareAssistant ||
         role == UserRole.doctor;
     if (isStaff) return CriticalEventOverlay(child: child);
@@ -186,10 +187,7 @@ class _HubScaffold extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  _HubTopBar(
-                    role: role,
-                    onOpenTickets: openTickets,
-                  ),
+                  _HubTopBar(role: role, onOpenTickets: openTickets),
                   Expanded(child: content),
                 ],
               ),
@@ -201,10 +199,7 @@ class _HubScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppPalette.scaffoldBg(context),
-      appBar: _HubTopBar(
-        role: role,
-        onOpenTickets: openTickets,
-      ),
+      appBar: _HubTopBar(role: role, onOpenTickets: openTickets),
       body: content,
       floatingActionButton: messagingFab,
       bottomNavigationBar: _MobileNavigation(
@@ -519,10 +514,7 @@ class _WelcomeRevealState extends State<_WelcomeReveal> {
 }
 
 class _HubTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HubTopBar({
-    required this.role,
-    this.onOpenTickets,
-  });
+  const _HubTopBar({required this.role, this.onOpenTickets});
 
   final UserRole role;
 

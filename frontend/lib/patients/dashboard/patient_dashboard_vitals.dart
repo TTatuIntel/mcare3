@@ -111,8 +111,9 @@ class _RecentVitalsPanelState extends State<_RecentVitalsPanel> {
     _resumeTimer = Timer(const Duration(seconds: 5), () {
       if (!mounted) return;
       setState(() => _userInteracting = false);
-      final pairs =
-          _pairs(_sortedTracked(VitalsState.instance.tracked.toList()));
+      final pairs = _pairs(
+        _sortedTracked(VitalsState.instance.tracked.toList()),
+      );
       if (pairs.length > 1) _startAutoPage(pairs.length);
     });
   }
@@ -141,8 +142,9 @@ class _RecentVitalsPanelState extends State<_RecentVitalsPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tracked = VitalsState.instance.tracked.toList();
-    final hasReading =
-        tracked.any((v) => VitalsState.instance.latestOf(v) != null);
+    final hasReading = tracked.any(
+      (v) => VitalsState.instance.latestOf(v) != null,
+    );
     final newest = _newestReadingAt(tracked);
     final pairs = _pairs(_sortedTracked(tracked));
 
@@ -218,8 +220,7 @@ class _RecentVitalsPanelState extends State<_RecentVitalsPanel> {
                         child: PageView.builder(
                           controller: _pageController,
                           itemCount: pairs.length,
-                          onPageChanged: (i) =>
-                              setState(() => _pageIndex = i),
+                          onPageChanged: (i) => setState(() => _pageIndex = i),
                           itemBuilder: (_, pageIndex) {
                             final pair = pairs[pageIndex];
                             return Padding(
@@ -230,15 +231,17 @@ class _RecentVitalsPanelState extends State<_RecentVitalsPanel> {
                                 children: [
                                   _VitalDetailTile(
                                     vital: pair[0],
-                                    reading: VitalsState.instance
-                                        .latestOf(pair[0]),
+                                    reading: VitalsState.instance.latestOf(
+                                      pair[0],
+                                    ),
                                   ),
                                   if (pair.length > 1) ...[
                                     const SizedBox(height: AppSpacing.xs),
                                     _VitalDetailTile(
                                       vital: pair[1],
-                                      reading: VitalsState.instance
-                                          .latestOf(pair[1]),
+                                      reading: VitalsState.instance.latestOf(
+                                        pair[1],
+                                      ),
                                     ),
                                   ],
                                 ],
@@ -285,10 +288,7 @@ class _RecentVitalsPanelState extends State<_RecentVitalsPanel> {
 }
 
 class _VitalPairNavArrow extends StatelessWidget {
-  const _VitalPairNavArrow({
-    required this.icon,
-    required this.onPressed,
-  });
+  const _VitalPairNavArrow({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;
@@ -360,10 +360,7 @@ class _VitalPairNavArrow extends StatelessWidget {
 }
 
 class _VitalDetailTile extends StatelessWidget {
-  const _VitalDetailTile({
-    required this.vital,
-    required this.reading,
-  });
+  const _VitalDetailTile({required this.vital, required this.reading});
 
   final VitalKey vital;
   final VitalReading? reading;
@@ -390,8 +387,7 @@ class _VitalDetailTile extends StatelessWidget {
         : _relativeTime(reading!.recordedAt);
 
     return Semantics(
-      label:
-          '${vital.label} $value ${vital.unit}, ${risk.label}. $when.',
+      label: '${vital.label} $value ${vital.unit}, ${risk.label}. $when.',
       button: true,
       child: Material(
         color: Colors.transparent,
@@ -424,8 +420,7 @@ class _VitalDetailTile extends StatelessWidget {
                   width: 34,
                   decoration: BoxDecoration(
                     color: accent.withOpacity(0.14),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusSm),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                   ),
                   child: Icon(vital.icon, color: accent, size: 17),
                 ),

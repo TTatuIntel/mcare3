@@ -132,12 +132,12 @@ class StaffPatientSos {
   bool get isActive => status == 'active' || status == 'acknowledged';
 
   String get kindLabel => switch (kind) {
-        'medical' => 'Medical emergency',
-        'accident' => 'Accident',
-        'fall' => 'Fall',
-        'panic' => 'Panic',
-        _ => 'Emergency',
-      };
+    'medical' => 'Medical emergency',
+    'accident' => 'Accident',
+    'fall' => 'Fall',
+    'panic' => 'Panic',
+    _ => 'Emergency',
+  };
 
   String? get mapsUrl {
     if (latitude != null && longitude != null) {
@@ -317,19 +317,18 @@ class StaffAppointment {
     String? reason,
     String? locationOrLink,
     int? durationMinutes,
-  }) =>
-      StaffAppointment(
-        id: id,
-        patientId: patientId,
-        patientName: patientName,
-        startAt: startAt ?? this.startAt,
-        type: type,
-        reason: reason ?? this.reason,
-        status: status ?? this.status,
-        durationMinutes: durationMinutes ?? this.durationMinutes,
-        locationOrLink: locationOrLink ?? this.locationOrLink,
-        cancellationReason: cancellationReason ?? this.cancellationReason,
-      );
+  }) => StaffAppointment(
+    id: id,
+    patientId: patientId,
+    patientName: patientName,
+    startAt: startAt ?? this.startAt,
+    type: type,
+    reason: reason ?? this.reason,
+    status: status ?? this.status,
+    durationMinutes: durationMinutes ?? this.durationMinutes,
+    locationOrLink: locationOrLink ?? this.locationOrLink,
+    cancellationReason: cancellationReason ?? this.cancellationReason,
+  );
 }
 
 class ClinicalReport {
@@ -490,10 +489,9 @@ class CareRequestItem {
 
   /// Name of the provider the patient ends up with — the assigned one when
   /// the request was re-routed, otherwise the requested one.
-  String get effectiveProvider =>
-      (assignedProviderName?.isNotEmpty ?? false)
-          ? assignedProviderName!
-          : providerRequested;
+  String get effectiveProvider => (assignedProviderName?.isNotEmpty ?? false)
+      ? assignedProviderName!
+      : providerRequested;
 
   bool get isPending => status == 'pending';
   bool get isDecided => !isPending;
@@ -522,8 +520,8 @@ class VitalCatalogEntry {
     DateTime? createdAt,
     this.updatedBy,
     this.updatedAt,
-  })  : alertConfig = alertConfig ?? const VitalAlertConfig(),
-        createdAt = createdAt ?? DateTime(2024);
+  }) : alertConfig = alertConfig ?? const VitalAlertConfig(),
+       createdAt = createdAt ?? DateTime(2024);
 
   /// Stable lookup key. For built-in vitals this equals [vital.name];
   /// for custom vitals it is a timestamp-based unique id.
@@ -563,7 +561,10 @@ class VitalCatalogEntry {
   String get displayShortLabel {
     if (customLabel != null) {
       final words = customLabel!.trim().split(RegExp(r'\s+'));
-      if (words.length == 1) return customLabel!.substring(0, customLabel!.length.clamp(1, 4)).toUpperCase();
+      if (words.length == 1)
+        return customLabel!
+            .substring(0, customLabel!.length.clamp(1, 4))
+            .toUpperCase();
       return words.map((w) => w.isEmpty ? '' : w[0].toUpperCase()).join('');
     }
     return vital?.shortLabel ?? '?';
@@ -574,13 +575,13 @@ class VitalCatalogEntry {
   bool get hasSecondaryValue => vital?.hasSecondaryValue ?? false;
 
   VitalRiskRange toRange() => VitalRiskRange(
-        normalMin: normalMin,
-        normalMax: normalMax,
-        warningLow: warningLow,
-        warningHigh: warningHigh,
-        criticalLow: criticalLow,
-        criticalHigh: criticalHigh,
-      );
+    normalMin: normalMin,
+    normalMax: normalMax,
+    warningLow: warningLow,
+    warningHigh: warningHigh,
+    criticalLow: criticalLow,
+    criticalHigh: criticalHigh,
+  );
 }
 
 /// Per-patient threshold override. Falls back to [VitalCatalogEntry] when null.
@@ -612,13 +613,13 @@ class PatientVitalThreshold {
   String? note;
 
   VitalRiskRange toRange() => VitalRiskRange(
-        normalMin: normalMin,
-        normalMax: normalMax,
-        warningLow: warningLow,
-        warningHigh: warningHigh,
-        criticalLow: criticalLow,
-        criticalHigh: criticalHigh,
-      );
+    normalMin: normalMin,
+    normalMax: normalMax,
+    warningLow: warningLow,
+    warningHigh: warningHigh,
+    criticalLow: criticalLow,
+    criticalHigh: criticalHigh,
+  );
 }
 
 class AuditEntry {

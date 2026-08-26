@@ -9,24 +9,26 @@ class AppPageRoute<T> extends PageRouteBuilder<T> {
     RouteSettings? settings,
     bool fullscreenDialog = false,
   }) : super(
-          settings: settings,
-          fullscreenDialog: fullscreenDialog,
-          transitionDuration: AppMotion.pageFast,
-          reverseTransitionDuration: AppMotion.pageFast,
-          pageBuilder: (ctx, anim, secondary) => builder(ctx),
-          transitionsBuilder: (ctx, anim, secondary, child) {
-            final curved =
-                CurvedAnimation(parent: anim, curve: AppMotion.easeOut);
-            final slide = Tween<Offset>(
-              begin: const Offset(0, 0.02),
-              end: Offset.zero,
-            ).animate(curved);
-            return FadeTransition(
-              opacity: curved,
-              child: SlideTransition(position: slide, child: child),
-            );
-          },
-        );
+         settings: settings,
+         fullscreenDialog: fullscreenDialog,
+         transitionDuration: AppMotion.pageFast,
+         reverseTransitionDuration: AppMotion.pageFast,
+         pageBuilder: (ctx, anim, secondary) => builder(ctx),
+         transitionsBuilder: (ctx, anim, secondary, child) {
+           final curved = CurvedAnimation(
+             parent: anim,
+             curve: AppMotion.easeOut,
+           );
+           final slide = Tween<Offset>(
+             begin: const Offset(0, 0.02),
+             end: Offset.zero,
+           ).animate(curved);
+           return FadeTransition(
+             opacity: curved,
+             child: SlideTransition(position: slide, child: child),
+           );
+         },
+       );
 }
 
 /// Staggered entrance for dashboard sections and list rows.
@@ -59,7 +61,10 @@ class _StaggeredEntryState extends State<StaggeredEntry>
   void initState() {
     super.initState();
     final disable = WidgetsBinding
-        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     _ctrl = AnimationController(
       vsync: this,
       duration: AppMotion.itemEntry,
@@ -77,8 +82,9 @@ class _StaggeredEntryState extends State<StaggeredEntry>
         _ctrl.forward();
       } else {
         final cap = widget.totalItems.clamp(1, 12);
-        final delayMs = (widget.index / cap * AppMotion.entryStagger.inMilliseconds)
-            .round();
+        final delayMs =
+            (widget.index / cap * AppMotion.entryStagger.inMilliseconds)
+                .round();
         Future<void>.delayed(Duration(milliseconds: delayMs), () {
           if (mounted) _ctrl.forward();
         });

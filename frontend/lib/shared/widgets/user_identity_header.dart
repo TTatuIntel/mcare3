@@ -47,21 +47,21 @@ class UserIdentityHeader extends StatelessWidget {
               Text(
                 user.fullName,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppPalette.ink(context),
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: AppPalette.ink(context),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Text(
                 user.email,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
+                  color: AppPalette.textMuted(context),
+                ),
               ),
               Text(
                 '${user.role.label} · ${user.uniqueId}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
+                  color: AppPalette.textMuted(context),
+                ),
               ),
               if (showPhone &&
                   user.phone != null &&
@@ -69,8 +69,8 @@ class UserIdentityHeader extends StatelessWidget {
                 Text(
                   user.phone!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                    color: AppPalette.textMuted(context),
+                  ),
                 ),
             ],
           ),

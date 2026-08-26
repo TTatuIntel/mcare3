@@ -203,9 +203,10 @@ class _AdminUsersViewState extends State<AdminUsersView> {
           final first = firstCtrl.text.trim();
           final last = lastCtrl.text.trim();
           final email = emailCtrl.text.trim();
-          final specialtyReq = selectedRole == 'doctor' &&
-              specialtyCtrl.text.trim().isEmpty;
-          final canSubmit = first.isNotEmpty &&
+          final specialtyReq =
+              selectedRole == 'doctor' && specialtyCtrl.text.trim().isEmpty;
+          final canSubmit =
+              first.isNotEmpty &&
               last.isNotEmpty &&
               _looksLikeEmail(email) &&
               !specialtyReq &&
@@ -258,8 +259,8 @@ class _AdminUsersViewState extends State<AdminUsersView> {
               Text(
                 'Role',
                 style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
+                  color: AppPalette.textMuted(context),
+                ),
               ),
               const SizedBox(height: 4),
               GlassCard(
@@ -272,8 +273,7 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                   value: selectedRole,
                   isExpanded: true,
                   underline: const SizedBox.shrink(),
-                  onChanged: (v) =>
-                      setSt(() => selectedRole = v ?? 'patient'),
+                  onChanged: (v) => setSt(() => selectedRole = v ?? 'patient'),
                   items: _creatableRoleItems(includeRole: selectedRole),
                 ),
               ),
@@ -298,64 +298,67 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                 icon: AppIcons.user,
                 expand: true,
                 loading: creating,
-                onPressed: !canSubmit ? null : () async {
-                setSt(() => creating = true);
-                try {
-                  final data = await AdminApi.instance.createUser(
-                    firstName: first,
-                    lastName: last,
-                    email: email,
-                    phone: phoneCtrl.text.trim().isEmpty
-                        ? null
-                        : phoneCtrl.text.trim(),
-                    role: selectedRole,
-                    specialty: specialtyCtrl.text.trim(),
-                    licenseNumber: licenseCtrl.text.trim(),
-                  );
-                  if (ctx.mounted) {
-                    Navigator.of(ctx).pop();
-                    final temp = data?['temp_password'] as String?;
-                    final invite = data?['invite_token'] as String?;
-                    final emailSent = data?['email_sent'] as bool? ?? false;
-                    if (temp != null || invite != null) {
-                      await showStaffCredentialDialog(
-                        context,
-                        title: 'Account created',
-                        message:
-                            '$first $last is ready. Share credentials only through a secure channel.',
-                        icon: AppIcons.check,
-                        statusMessage: invite != null && emailSent
-                            ? 'Invite email sent to $email.'
-                            : null,
-                        values: [
-                          if (temp != null)
-                            StaffCredentialValue(
-                              label: 'Temporary password',
-                              value: temp,
-                            ),
-                          if (invite != null)
-                            StaffCredentialValue(
-                              label: 'Invite token · expires in 7 days',
-                              value: invite,
-                            ),
-                        ],
-                      );
-                    } else {
-                      AppToast.success(
-                        context,
-                        '$first $last created successfully.',
-                      );
-                    }
-                    _loadUsers();
-                  }
-                } catch (e) {
-                  if (ctx.mounted) {
-                    AppToast.error(ctx, 'Could not create user: $e');
-                  }
-                } finally {
-                  if (ctx.mounted) setSt(() => creating = false);
-                }
-              },
+                onPressed: !canSubmit
+                    ? null
+                    : () async {
+                        setSt(() => creating = true);
+                        try {
+                          final data = await AdminApi.instance.createUser(
+                            firstName: first,
+                            lastName: last,
+                            email: email,
+                            phone: phoneCtrl.text.trim().isEmpty
+                                ? null
+                                : phoneCtrl.text.trim(),
+                            role: selectedRole,
+                            specialty: specialtyCtrl.text.trim(),
+                            licenseNumber: licenseCtrl.text.trim(),
+                          );
+                          if (ctx.mounted) {
+                            Navigator.of(ctx).pop();
+                            final temp = data?['temp_password'] as String?;
+                            final invite = data?['invite_token'] as String?;
+                            final emailSent =
+                                data?['email_sent'] as bool? ?? false;
+                            if (temp != null || invite != null) {
+                              await showStaffCredentialDialog(
+                                context,
+                                title: 'Account created',
+                                message:
+                                    '$first $last is ready. Share credentials only through a secure channel.',
+                                icon: AppIcons.check,
+                                statusMessage: invite != null && emailSent
+                                    ? 'Invite email sent to $email.'
+                                    : null,
+                                values: [
+                                  if (temp != null)
+                                    StaffCredentialValue(
+                                      label: 'Temporary password',
+                                      value: temp,
+                                    ),
+                                  if (invite != null)
+                                    StaffCredentialValue(
+                                      label: 'Invite token · expires in 7 days',
+                                      value: invite,
+                                    ),
+                                ],
+                              );
+                            } else {
+                              AppToast.success(
+                                context,
+                                '$first $last created successfully.',
+                              );
+                            }
+                            _loadUsers();
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            AppToast.error(ctx, 'Could not create user: $e');
+                          }
+                        } finally {
+                          if (ctx.mounted) setSt(() => creating = false);
+                        }
+                      },
               ),
             ],
           );
@@ -441,11 +444,13 @@ class _AdminUsersViewState extends State<AdminUsersView> {
     switch (_sort) {
       case _UserSort.nameAsc:
         list.sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         break;
       case _UserSort.nameDesc:
         list.sort(
-            (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+          (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+        );
         break;
       case _UserSort.newest:
         list.sort((a, b) => b.joinedAt.compareTo(a.joinedAt));
@@ -454,8 +459,10 @@ class _AdminUsersViewState extends State<AdminUsersView> {
         list.sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
         break;
       case _UserSort.mcareId:
-        list.sort((a, b) =>
-            a.uniqueId.toLowerCase().compareTo(b.uniqueId.toLowerCase()));
+        list.sort(
+          (a, b) =>
+              a.uniqueId.toLowerCase().compareTo(b.uniqueId.toLowerCase()),
+        );
         break;
       case _UserSort.roleAsc:
         list.sort((a, b) {
@@ -579,8 +586,8 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                   child: Text(
                     _syncedCaption()!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
+                      color: AppPalette.textMuted(context),
+                    ),
                   ),
                 ),
               if (list.isEmpty)
@@ -658,12 +665,13 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                     horizontal: 6,
                     vertical: 1,
                   ),
-                  constraints:
-                      const BoxConstraints(minWidth: 18, minHeight: 18),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.brandIndigo,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
                   alignment: Alignment.center,
                   child: Text(
@@ -713,11 +721,11 @@ class _AdminUsersViewState extends State<AdminUsersView> {
     var draftAssist = _passwordAssistOnly;
     var draftSort = _sort;
 
-    int roleCount(UserRole? r) => r == null
-        ? all.length
-        : all.where((u) => u.role == r).length;
-    final assistCount =
-        all.where((u) => u.isLocked || u.mustChangePassword).length;
+    int roleCount(UserRole? r) =>
+        r == null ? all.length : all.where((u) => u.role == r).length;
+    final assistCount = all
+        .where((u) => u.isLocked || u.mustChangePassword)
+        .length;
 
     final applied = await showModalBottomSheet<bool>(
       context: context,
@@ -739,10 +747,10 @@ class _AdminUsersViewState extends State<AdminUsersView> {
                     child: Text(
                       title,
                       style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppPalette.textMuted(ctx),
-                            letterSpacing: 0.4,
-                          ),
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textMuted(ctx),
+                        letterSpacing: 0.4,
+                      ),
                     ),
                   ),
                   Wrap(runSpacing: AppSpacing.xs, children: children),
@@ -863,17 +871,17 @@ class _AdminUsersViewState extends State<AdminUsersView> {
         pill: u.isLocked
             ? 'LOCKED'
             : u.mustChangePassword
-                ? 'TEMP PWD'
-                : u.status.toUpperCase(),
+            ? 'TEMP PWD'
+            : u.status.toUpperCase(),
         pillColor: u.isLocked
             ? AppColors.critical
             : u.mustChangePassword
-                ? AppColors.warning
-                : switch (u.status) {
-                    'active' => AppColors.success,
-                    'suspended' => AppColors.critical,
-                    _ => AppColors.warning,
-                  },
+            ? AppColors.warning
+            : switch (u.status) {
+                'active' => AppColors.success,
+                'suspended' => AppColors.critical,
+                _ => AppColors.warning,
+              },
         onTap: () =>
             Navigator.of(context).pushNamed(detailRoute, arguments: u.id),
       ),
@@ -929,8 +937,7 @@ class _AdminUsersViewState extends State<AdminUsersView> {
               title: const Text('Open details'),
               onTap: () {
                 Navigator.of(ctx).pop();
-                Navigator.of(context)
-                    .pushNamed(detailRoute, arguments: u.id);
+                Navigator.of(context).pushNamed(detailRoute, arguments: u.id);
               },
             ),
             ListTile(
@@ -1112,9 +1119,7 @@ class AdminUserDetailView extends StatelessWidget {
                                   user.role == UserRole.patient
                                       ? 'Tap for full clinical profile'
                                       : 'Tap for full account record',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
+                                  style: Theme.of(context).textTheme.labelSmall
                                       ?.copyWith(
                                         color: AppColors.info,
                                         fontWeight: FontWeight.w600,

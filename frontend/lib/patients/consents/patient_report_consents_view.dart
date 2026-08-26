@@ -91,44 +91,41 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView> {
               child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
             )
           : _items.isEmpty
-              ? GlassCard(
-                  child: EmptyStateView(
+          ? GlassCard(
+              child: EmptyStateView(
+                icon: AppIcons.lock,
+                title: 'No sharing requests',
+                message:
+                    _error ??
+                    'When mCare staff need to share part of your record, '
+                        'the request appears here for your approval.',
+                compact: true,
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (awaiting.isNotEmpty) ...[
+                  SectionLabel(
+                    title: 'Needs your approval',
                     icon: AppIcons.lock,
-                    title: 'No sharing requests',
-                    message: _error ??
-                        'When mCare staff need to share part of your record, '
-                            'the request appears here for your approval.',
-                    compact: true,
+                    trailing: '${awaiting.length}',
                   ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (awaiting.isNotEmpty) ...[
-                      SectionLabel(
-                        title: 'Needs your approval',
-                        icon: AppIcons.lock,
-                        trailing: '${awaiting.length}',
-                      ),
-                      for (final r in awaiting)
-                        _ConsentCard(
-                          request: r,
-                          onChanged: _load,
-                          urgent: true,
-                        ),
-                      const SizedBox(height: AppSpacing.md),
-                    ],
-                    if (history.isNotEmpty) ...[
-                      SectionLabel(
-                        title: 'Past requests',
-                        icon: AppIcons.audit,
-                        trailing: '${history.length}',
-                      ),
-                      for (final r in history)
-                        _ConsentCard(request: r, onChanged: _load),
-                    ],
-                  ],
-                ),
+                  for (final r in awaiting)
+                    _ConsentCard(request: r, onChanged: _load, urgent: true),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                if (history.isNotEmpty) ...[
+                  SectionLabel(
+                    title: 'Past requests',
+                    icon: AppIcons.audit,
+                    trailing: '${history.length}',
+                  ),
+                  for (final r in history)
+                    _ConsentCard(request: r, onChanged: _load),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -271,8 +268,10 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
 
     setState(() => _busy = true);
     try {
-      await ReportConsentsApi.instance
-          .decline(widget.request.id, reason: reason);
+      await ReportConsentsApi.instance.decline(
+        widget.request.id,
+        reason: reason,
+      );
       if (!mounted) return;
       widget.onChanged?.call();
       Navigator.of(context, rootNavigator: true).pop();
@@ -348,7 +347,7 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
               value: r.consentExpiresAt == null
                   ? null
                   : '${dossierDateTime(r.consentExpiresAt)}'
-                      '${r.consentExpired ? ' — expired' : ''}',
+                        '${r.consentExpired ? ' — expired' : ''}',
               valueColor: r.consentExpired ? AppColors.critical : null,
             ),
           ],
@@ -368,10 +367,7 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
               ),
             // Fall back to plain labels if the detail list is unavailable.
             if (r.sectionDetails.isEmpty)
-              DossierChips(
-                labels: r.sectionLabels,
-                color: AppColors.info,
-              ),
+              DossierChips(labels: r.sectionLabels, color: AppColors.info),
           ],
         ),
         if (r.consentedAt != null)

@@ -27,15 +27,18 @@ class CriticalAlertPopup {
         .assignedPatientsForDoctor()
         .map((p) => p.id)
         .toSet();
-    final fresh = StaffState.instance.alerts
-        .where((a) =>
-            a.severity == RiskLevel.critical &&
-            !a.acknowledged &&
-            !a.resolved &&
-            assignedIds.contains(a.patientId) &&
-            !_shownIds.contains(a.id))
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final fresh =
+        StaffState.instance.alerts
+            .where(
+              (a) =>
+                  a.severity == RiskLevel.critical &&
+                  !a.acknowledged &&
+                  !a.resolved &&
+                  assignedIds.contains(a.patientId) &&
+                  !_shownIds.contains(a.id),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     if (fresh.isEmpty) return;
     for (final a in fresh) {
@@ -55,11 +58,12 @@ class CriticalAlertPopup {
         barrierDismissible: true,
         barrierColor: Colors.black.withOpacity(0.55),
         transitionDuration: const Duration(milliseconds: 220),
-        pageBuilder: (ctx, _, __) =>
-            _CriticalAlertDialog(alerts: fresh),
+        pageBuilder: (ctx, _, __) => _CriticalAlertDialog(alerts: fresh),
         transitionBuilder: (_, anim, __, child) {
-          final curved =
-              CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+          final curved = CurvedAnimation(
+            parent: anim,
+            curve: Curves.easeOutBack,
+          );
           return FadeTransition(
             opacity: anim,
             child: ScaleTransition(
@@ -132,8 +136,11 @@ class _CriticalAlertDialog extends StatelessWidget {
                       const Spacer(),
                       IconButton(
                         tooltip: 'Dismiss',
-                        icon: Icon(AppIcons.close,
-                            size: 20, color: AppPalette.textMuted(context)),
+                        icon: Icon(
+                          AppIcons.close,
+                          size: 20,
+                          color: AppPalette.textMuted(context),
+                        ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -148,8 +155,11 @@ class _CriticalAlertDialog extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(lead.vital.icon,
-                          size: 16, color: AppColors.critical),
+                      Icon(
+                        lead.vital.icon,
+                        size: 16,
+                        color: AppColors.critical,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -175,8 +185,9 @@ class _CriticalAlertDialog extends StatelessWidget {
                       padding: const EdgeInsets.all(AppSpacing.sm),
                       decoration: BoxDecoration(
                         color: AppPalette.criticalSoft(context),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +200,9 @@ class _CriticalAlertDialog extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          ...extras.take(3).map(
+                          ...extras
+                              .take(3)
+                              .map(
                                 (e) => Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Text(
@@ -233,11 +246,12 @@ class _CriticalAlertDialog extends StatelessWidget {
                           label: 'Open chart',
                           variant: AppButtonVariant.danger,
                           onPressed: () async {
-                            await StaffState.instance
-                                .acknowledgeAlert(lead.id);
+                            await StaffState.instance.acknowledgeAlert(lead.id);
                             if (!context.mounted) return;
-                            final nav =
-                                Navigator.of(context, rootNavigator: true);
+                            final nav = Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            );
                             if (nav.canPop()) nav.pop();
                             await Future<void>.delayed(Duration.zero);
                             if (!nav.mounted) return;
@@ -294,8 +308,7 @@ class _PulsingDotState extends State<_PulsingDot>
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.critical
-                    .withOpacity(0.4 + 0.5 * _c.value),
+                color: AppColors.critical.withOpacity(0.4 + 0.5 * _c.value),
                 blurRadius: 8 + 6 * _c.value,
                 spreadRadius: 1 + 2 * _c.value,
               ),

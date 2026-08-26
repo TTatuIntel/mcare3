@@ -17,8 +17,9 @@ class ReportConsentsApi {
 
   Future<Map<String, dynamic>?> approve(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance
-        .post('/patient/report-consents/$id/approve');
+    final res = await ApiClient.instance.post(
+      '/patient/report-consents/$id/approve',
+    );
     return (res['data']?['report_request'] as Map?)?.cast<String, dynamic>();
   }
 

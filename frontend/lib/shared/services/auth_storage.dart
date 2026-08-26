@@ -25,15 +25,14 @@ class AuthStorage {
     _write(_keyToken, token);
     _write(
       _keyUser,
-      jsonEncode({
-        'user': user,
-        'has_health_profile': hasHealthProfile,
-      }),
+      jsonEncode({'user': user, 'has_health_profile': hasHealthProfile}),
     );
   }
 
-  static Future<({String token, Map<String, dynamic> user, bool hasHealthProfile})?>
-      read() async {
+  static Future<
+    ({String token, Map<String, dynamic> user, bool hasHealthProfile})?
+  >
+  read() async {
     final token = _read(_keyToken);
     final raw = _read(_keyUser);
     if (token == null || raw == null) return null;

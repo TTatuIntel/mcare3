@@ -68,10 +68,10 @@ class SosLocationService {
       if (places.isNotEmpty) {
         final p = places.first;
         final parts = <String>[
-          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
+          if (p.subLocality != null && p.subLocality!.isNotEmpty)
+            p.subLocality!,
           if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
-          if (p.administrativeArea != null &&
-              p.administrativeArea!.isNotEmpty)
+          if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty)
             p.administrativeArea!,
         ];
         if (parts.isNotEmpty) {

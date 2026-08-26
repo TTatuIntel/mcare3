@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../env/app_env.dart';
 import 'apple_sign_in_result.dart';
 import 'apple_sign_in_stub.dart'
-    if (dart.library.html) 'apple_sign_in_web.dart' as platform;
+    if (dart.library.html) 'apple_sign_in_web.dart'
+    as platform;
 
 export 'apple_sign_in_result.dart';
 

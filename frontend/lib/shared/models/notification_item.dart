@@ -16,6 +16,7 @@ enum NotificationKind {
   sos,
   assignment,
   profile,
+
   /// Request for the patient to approve disclosure of part of their record.
   consent,
   system,
@@ -23,36 +24,36 @@ enum NotificationKind {
 
 extension NotificationKindX on NotificationKind {
   IconData get icon => switch (this) {
-        NotificationKind.vitalAlert => AppIcons.alert,
-        NotificationKind.appointment => AppIcons.appointment,
-        NotificationKind.medication => AppIcons.medication,
-        NotificationKind.message => AppIcons.chat,
-        NotificationKind.document => AppIcons.document,
-        NotificationKind.report => AppIcons.report,
-        NotificationKind.careRequest => AppIcons.careTeam,
-        NotificationKind.approval => AppIcons.check,
-        NotificationKind.sos => AppIcons.sos,
-        NotificationKind.assignment => AppIcons.careTeam,
-        NotificationKind.profile => AppIcons.user,
-        NotificationKind.consent => AppIcons.lock,
-        NotificationKind.system => AppIcons.info,
-      };
+    NotificationKind.vitalAlert => AppIcons.alert,
+    NotificationKind.appointment => AppIcons.appointment,
+    NotificationKind.medication => AppIcons.medication,
+    NotificationKind.message => AppIcons.chat,
+    NotificationKind.document => AppIcons.document,
+    NotificationKind.report => AppIcons.report,
+    NotificationKind.careRequest => AppIcons.careTeam,
+    NotificationKind.approval => AppIcons.check,
+    NotificationKind.sos => AppIcons.sos,
+    NotificationKind.assignment => AppIcons.careTeam,
+    NotificationKind.profile => AppIcons.user,
+    NotificationKind.consent => AppIcons.lock,
+    NotificationKind.system => AppIcons.info,
+  };
 
   Color get tint => switch (this) {
-        NotificationKind.vitalAlert => AppColors.critical,
-        NotificationKind.appointment => AppColors.bpPurple,
-        NotificationKind.medication => AppColors.glucoseAmber,
-        NotificationKind.message => AppColors.info,
-        NotificationKind.document => AppColors.weightSlate,
-        NotificationKind.report => AppColors.doctorGreen,
-        NotificationKind.careRequest => AppColors.brandIndigo,
-        NotificationKind.approval => AppColors.success,
-        NotificationKind.sos => AppColors.critical,
-        NotificationKind.assignment => AppColors.brandIndigo,
-        NotificationKind.profile => AppColors.brandIndigo,
-        NotificationKind.consent => AppColors.warning,
-        NotificationKind.system => AppColors.textMutedAA,
-      };
+    NotificationKind.vitalAlert => AppColors.critical,
+    NotificationKind.appointment => AppColors.bpPurple,
+    NotificationKind.medication => AppColors.glucoseAmber,
+    NotificationKind.message => AppColors.info,
+    NotificationKind.document => AppColors.weightSlate,
+    NotificationKind.report => AppColors.doctorGreen,
+    NotificationKind.careRequest => AppColors.brandIndigo,
+    NotificationKind.approval => AppColors.success,
+    NotificationKind.sos => AppColors.critical,
+    NotificationKind.assignment => AppColors.brandIndigo,
+    NotificationKind.profile => AppColors.brandIndigo,
+    NotificationKind.consent => AppColors.warning,
+    NotificationKind.system => AppColors.textMutedAA,
+  };
 }
 
 class AppNotification {
@@ -90,17 +91,16 @@ class AppNotification {
     bool? read,
     bool? resolved,
     DateTime? resolvedAt,
-  }) =>
-      AppNotification(
-        id: id,
-        kind: kind,
-        title: title,
-        body: body,
-        createdAt: createdAt,
-        read: read ?? this.read,
-        resolved: resolved ?? this.resolved,
-        resolvedAt: resolvedAt ?? this.resolvedAt,
-        actionRoute: actionRoute,
-        actionArguments: actionArguments,
-      );
+  }) => AppNotification(
+    id: id,
+    kind: kind,
+    title: title,
+    body: body,
+    createdAt: createdAt,
+    read: read ?? this.read,
+    resolved: resolved ?? this.resolved,
+    resolvedAt: resolvedAt ?? this.resolvedAt,
+    actionRoute: actionRoute,
+    actionArguments: actionArguments,
+  );
 }

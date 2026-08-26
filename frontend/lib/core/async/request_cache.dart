@@ -43,12 +43,14 @@ class RequestCache {
       if (pending != null) return pending.then((v) => v as T);
     }
 
-    final future = fetch().then((value) {
-      _entries[key] = _Entry(value, DateTime.now().add(ttl));
-      return value;
-    }).whenComplete(() {
-      _inFlight.remove(key);
-    });
+    final future = fetch()
+        .then((value) {
+          _entries[key] = _Entry(value, DateTime.now().add(ttl));
+          return value;
+        })
+        .whenComplete(() {
+          _inFlight.remove(key);
+        });
 
     _inFlight[key] = future;
     return future;

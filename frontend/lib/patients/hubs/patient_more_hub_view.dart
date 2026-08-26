@@ -24,7 +24,8 @@ class PatientMoreHubView extends StatelessWidget {
         groups: [
           AppSectionGroup(
             title: 'Your account',
-            description: 'Personal information, alerts and application options.',
+            description:
+                'Personal information, alerts and application options.',
             links: [
               AppSectionLink(
                 title: 'Notifications',

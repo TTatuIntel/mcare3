@@ -131,7 +131,9 @@ class AuthShell extends StatelessWidget {
         : theme.textTheme.displaySmall;
     final subtitleStyle = compact
         ? theme.textTheme.bodySmall
-        : theme.textTheme.bodyLarge?.copyWith(color: AppPalette.textMuted(context));
+        : theme.textTheme.bodyLarge?.copyWith(
+            color: AppPalette.textMuted(context),
+          );
     final headerGap = subtitle == null || subtitle!.isEmpty
         ? AppLayout.pageHeaderGap
         : (compact ? AppSpacing.lg : AppSpacing.huge);
@@ -158,10 +160,7 @@ class AuthShell extends StatelessWidget {
         ],
         SizedBox(height: headerGap),
         child,
-        if (footer != null) ...[
-          SizedBox(height: footerGap),
-          footer!,
-        ],
+        if (footer != null) ...[SizedBox(height: footerGap), footer!],
       ],
     );
   }
@@ -204,10 +203,10 @@ class _BrandPanel extends StatelessWidget {
                 Text(
                   'Care that\nnever sleeps.',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        height: 1.05,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    height: 1.05,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
@@ -267,19 +266,23 @@ class _Stat extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-            )),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 12,
-              letterSpacing: 0.4,
-            )),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 12,
+            letterSpacing: 0.4,
+          ),
+        ),
       ],
     );
   }

@@ -17,7 +17,9 @@ class AdminApi {
   // ---------------- SOS ----------------
   Future<List<JsonMap>> listSosEvents({String status = 'active'}) async {
     if (!AppEnv.backendEnabled) return [];
-    final res = await ApiClient.instance.get('/admin/sos-events?status=$status');
+    final res = await ApiClient.instance.get(
+      '/admin/sos-events?status=$status',
+    );
     return _list(res, 'sos_events');
   }
 
@@ -45,7 +47,10 @@ class AdminApi {
     return _obj(res, 'user');
   }
 
-  Future<JsonMap?> rejectApplication(String id, {required String reason}) async {
+  Future<JsonMap?> rejectApplication(
+    String id, {
+    required String reason,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.patch(
       '/admin/approvals/$id/reject',
@@ -54,7 +59,10 @@ class AdminApi {
     return _obj(res, 'user');
   }
 
-  Future<JsonMap?> requestApplicationInfo(String id, {required String message}) async {
+  Future<JsonMap?> requestApplicationInfo(
+    String id, {
+    required String message,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
       '/admin/approvals/$id/request-info',
@@ -76,8 +84,9 @@ class AdminApi {
     if (patientId != null) params['patient_id'] = patientId;
     if (providerId != null) params['provider_id'] = providerId;
     if (query != null && query.isNotEmpty) params['query'] = query;
-    final res =
-        await ApiClient.instance.get('/admin/care-requests${_query(params)}');
+    final res = await ApiClient.instance.get(
+      '/admin/care-requests${_query(params)}',
+    );
     return _list(res, 'care_requests');
   }
 
@@ -104,7 +113,10 @@ class AdminApi {
     return _obj(res, 'care_request');
   }
 
-  Future<JsonMap?> cancelCareRequest(String id, {required String reason}) async {
+  Future<JsonMap?> cancelCareRequest(
+    String id, {
+    required String reason,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.patch(
       '/admin/care-requests/$id/cancel',
@@ -128,8 +140,9 @@ class AdminApi {
     if (role != null) params['role'] = role;
     if (query != null && query.isNotEmpty) params['query'] = query;
     if (includeEnded) params['include_ended'] = '1';
-    final res =
-        await ApiClient.instance.get('/admin/assignments${_query(params)}');
+    final res = await ApiClient.instance.get(
+      '/admin/assignments${_query(params)}',
+    );
     return _list(res, 'assignments');
   }
 
@@ -179,7 +192,8 @@ class AdminApi {
     if (role != null) params['role'] = role;
     if (status != null) params['status'] = status;
     if (query != null && query.isNotEmpty) params['query'] = query;
-    final q = '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
+    final q =
+        '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
     final res = await ApiClient.instance.get('/admin/users$q');
     return res['data'] as JsonMap? ?? {};
   }
@@ -210,7 +224,11 @@ class AdminApi {
     return res['data'] as JsonMap?;
   }
 
-  Future<JsonMap?> changeUserRole(String id, {required String role, required String reason}) async {
+  Future<JsonMap?> changeUserRole(
+    String id, {
+    required String role,
+    required String reason,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.patch(
       '/admin/users/$id/role',
@@ -230,7 +248,9 @@ class AdminApi {
 
   Future<String?> resetUserPassword(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.post('/admin/users/$id/password-reset');
+    final res = await ApiClient.instance.post(
+      '/admin/users/$id/password-reset',
+    );
     return res['data']?['temp_password'] as String?;
   }
 
@@ -283,8 +303,7 @@ class AdminApi {
   /// Read-only clinical profile for a patient account.
   Future<JsonMap?> patientProfile(String patientUserId) async {
     if (!AppEnv.backendEnabled) return null;
-    final res =
-        await ApiClient.instance.get('/admin/patients/$patientUserId');
+    final res = await ApiClient.instance.get('/admin/patients/$patientUserId');
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
@@ -316,8 +335,9 @@ class AdminApi {
     if (patientId != null) params['patient_id'] = patientId;
     if (status != null) params['status'] = status;
     if (openOnly) params['open_only'] = '1';
-    final res =
-        await ApiClient.instance.get('/admin/report-requests${_query(params)}');
+    final res = await ApiClient.instance.get(
+      '/admin/report-requests${_query(params)}',
+    );
     return _list(res, 'report_requests');
   }
 
@@ -353,13 +373,17 @@ class AdminApi {
 
   Future<JsonMap?> resendReportConsent(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance
-        .post('/admin/report-requests/$id/resend-consent');
+    final res = await ApiClient.instance.post(
+      '/admin/report-requests/$id/resend-consent',
+    );
     return _obj(res, 'report_request');
   }
 
   /// Staff-assisted consent — the patient reads their code back by phone.
-  Future<JsonMap?> verifyReportConsent(String id, {required String code}) async {
+  Future<JsonMap?> verifyReportConsent(
+    String id, {
+    required String code,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
       '/admin/report-requests/$id/verify-consent',
@@ -370,12 +394,16 @@ class AdminApi {
 
   Future<JsonMap?> issueReport(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res =
-        await ApiClient.instance.post('/admin/report-requests/$id/issue');
+    final res = await ApiClient.instance.post(
+      '/admin/report-requests/$id/issue',
+    );
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
-  Future<JsonMap?> revokeReportRequest(String id, {required String reason}) async {
+  Future<JsonMap?> revokeReportRequest(
+    String id, {
+    required String reason,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
       '/admin/report-requests/$id/revoke',
@@ -386,7 +414,8 @@ class AdminApi {
 
   // ---------------- Permissions (admin-only) ----------------
   Future<JsonMap> listAllPermissions() async {
-    if (!AppEnv.backendEnabled) return {'grants': <JsonMap>[], 'available_keys': <String>[]};
+    if (!AppEnv.backendEnabled)
+      return {'grants': <JsonMap>[], 'available_keys': <String>[]};
     final res = await ApiClient.instance.get('/admin/permissions');
     return res['data'] as JsonMap? ?? {};
   }
@@ -398,7 +427,10 @@ class AdminApi {
     return list.map((e) => e.toString()).toList();
   }
 
-  Future<List<String>> syncUserPermissions(String userId, List<String> keys) async {
+  Future<List<String>> syncUserPermissions(
+    String userId,
+    List<String> keys,
+  ) async {
     if (!AppEnv.backendEnabled) return keys;
     final res = await ApiClient.instance.patch(
       '/admin/permissions/$userId',
@@ -409,7 +441,10 @@ class AdminApi {
   }
 
   // ---------------- Announcements ----------------
-  Future<List<JsonMap>> listAnnouncements({String? audience, bool? published}) async {
+  Future<List<JsonMap>> listAnnouncements({
+    String? audience,
+    bool? published,
+  }) async {
     if (!AppEnv.backendEnabled) return [];
     final params = <String, String>{};
     if (audience != null) params['audience'] = audience;
@@ -423,17 +458,26 @@ class AdminApi {
 
   Future<JsonMap?> createAnnouncement(JsonMap payload) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.post('/admin/announcements', body: payload);
+    final res = await ApiClient.instance.post(
+      '/admin/announcements',
+      body: payload,
+    );
     return _obj(res, 'announcement');
   }
 
   Future<JsonMap?> updateAnnouncement(String id, JsonMap payload) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.patch('/admin/announcements/$id', body: payload);
+    final res = await ApiClient.instance.patch(
+      '/admin/announcements/$id',
+      body: payload,
+    );
     return _obj(res, 'announcement');
   }
 
-  Future<JsonMap?> publishAnnouncement(String id, {required bool publish}) async {
+  Future<JsonMap?> publishAnnouncement(
+    String id, {
+    required bool publish,
+  }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.patch(
       '/admin/announcements/$id/publish',
@@ -464,7 +508,8 @@ class AdminApi {
     if (category != null) params['category'] = category;
     if (from != null) params['from'] = from.toIso8601String();
     if (to != null) params['to'] = to.toIso8601String();
-    final q = '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
+    final q =
+        '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
     final res = await ApiClient.instance.get('/admin/audit$q');
     return res['data'] as JsonMap? ?? {};
   }
@@ -501,20 +546,25 @@ class AdminApi {
 
   Future<JsonMap?> resolveTicket(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res =
-        await ApiClient.instance.patch('/admin/support-tickets/$id/resolve');
+    final res = await ApiClient.instance.patch(
+      '/admin/support-tickets/$id/resolve',
+    );
     return _obj(res, 'ticket');
   }
 
   Future<JsonMap?> closeTicket(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.patch('/admin/support-tickets/$id/close');
+    final res = await ApiClient.instance.patch(
+      '/admin/support-tickets/$id/close',
+    );
     return _obj(res, 'ticket');
   }
 
   Future<JsonMap?> reopenTicket(String id) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.patch('/admin/support-tickets/$id/reopen');
+    final res = await ApiClient.instance.patch(
+      '/admin/support-tickets/$id/reopen',
+    );
     return _obj(res, 'ticket');
   }
 
@@ -536,7 +586,9 @@ class AdminApi {
 
   Future<List<JsonMap>> threadMessages(String id) async {
     if (!AppEnv.backendEnabled) return [];
-    final res = await ApiClient.instance.get('/admin/conversations/$id/messages');
+    final res = await ApiClient.instance.get(
+      '/admin/conversations/$id/messages',
+    );
     return _list(res, 'messages');
   }
 
@@ -609,13 +661,19 @@ class AdminApi {
 
   Future<JsonMap?> createVitalCatalogEntry(JsonMap body) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.post('/admin/vital-catalog', body: body);
+    final res = await ApiClient.instance.post(
+      '/admin/vital-catalog',
+      body: body,
+    );
     return _obj(res, 'entry');
   }
 
   Future<JsonMap?> updateVitalCatalogEntry(String id, JsonMap body) async {
     if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.patch('/admin/vital-catalog/$id', body: body);
+    final res = await ApiClient.instance.patch(
+      '/admin/vital-catalog/$id',
+      body: body,
+    );
     return _obj(res, 'entry');
   }
 

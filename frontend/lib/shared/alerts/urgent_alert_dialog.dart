@@ -115,65 +115,68 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
   }
 
   Future<void> _acknowledge(UrgentItem item) => _run(() async {
-        if (item.alert != null) {
-          final ok = await StaffState.instance.acknowledgeAlert(item.alert!.id);
-          if (!mounted) return;
-          if (!ok) {
-            AppToast.error(context, 'Could not acknowledge — try again.');
-            return;
-          }
-          AppToast.success(context, 'Acknowledged. It stays on your board '
-              'until resolved.');
-        } else if (item.sos != null) {
-          final ok = await StaffState.instance.updateSosForCurrentRole(
-            item.sos!.id,
-            status: 'acknowledged',
-          );
-          if (!mounted) return;
-          if (!ok) {
-            AppToast.error(context, 'Could not acknowledge — try again.');
-            return;
-          }
-          AppToast.success(context, 'Responding — patient notified.');
-        }
-        _advance();
-      });
+    if (item.alert != null) {
+      final ok = await StaffState.instance.acknowledgeAlert(item.alert!.id);
+      if (!mounted) return;
+      if (!ok) {
+        AppToast.error(context, 'Could not acknowledge — try again.');
+        return;
+      }
+      AppToast.success(
+        context,
+        'Acknowledged. It stays on your board '
+        'until resolved.',
+      );
+    } else if (item.sos != null) {
+      final ok = await StaffState.instance.updateSosForCurrentRole(
+        item.sos!.id,
+        status: 'acknowledged',
+      );
+      if (!mounted) return;
+      if (!ok) {
+        AppToast.error(context, 'Could not acknowledge — try again.');
+        return;
+      }
+      AppToast.success(context, 'Responding — patient notified.');
+    }
+    _advance();
+  });
 
   Future<void> _resolve(UrgentItem item) => _run(() async {
-        final alert = item.alert;
-        if (alert == null) return;
-        final done = await DoctorAlertResolveFlow.resolve(context, alert);
-        if (!mounted) return;
-        if (done) _advance();
-      });
+    final alert = item.alert;
+    if (alert == null) return;
+    final done = await DoctorAlertResolveFlow.resolve(context, alert);
+    if (!mounted) return;
+    if (done) _advance();
+  });
 
   /// Taking an SOS means owning it and entering the responder workspace. It
   /// must never silently mean "resolved"; closing an emergency stays an
   /// explicit action inside the responder flow.
   Future<void> _respondToSos(UrgentItem item) => _run(() async {
-        if (!item.acknowledged) {
-          final ok = await StaffState.instance.updateSosForCurrentRole(
-            item.sos!.id,
-            status: 'acknowledged',
-          );
-          if (!mounted) return;
-          if (!ok) {
-            AppToast.error(context, 'Could not take ownership — try again.');
-            return;
-          }
-        }
+    if (!item.acknowledged) {
+      final ok = await StaffState.instance.updateSosForCurrentRole(
+        item.sos!.id,
+        status: 'acknowledged',
+      );
+      if (!mounted) return;
+      if (!ok) {
+        AppToast.error(context, 'Could not take ownership — try again.');
+        return;
+      }
+    }
 
-        final navigator = Navigator.of(context, rootNavigator: true);
-        final pageContext = navigator.context;
-        navigator.pop();
-        await Future<void>.delayed(Duration.zero);
-        if (!pageContext.mounted) return;
-        await SosNavigation.openRespond(
-          pageContext,
-          patientId: item.patientId,
-          eventId: item.sos!.id,
-        );
-      });
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final pageContext = navigator.context;
+    navigator.pop();
+    await Future<void>.delayed(Duration.zero);
+    if (!pageContext.mounted) return;
+    await SosNavigation.openRespond(
+      pageContext,
+      patientId: item.patientId,
+      eventId: item.sos!.id,
+    );
+  });
 
   Future<void> _openPatient(UrgentItem item) async {
     final navigator = Navigator.of(context, rootNavigator: true);
@@ -190,8 +193,7 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
       pageContext,
       patientId: item.patientId,
       patientName: item.patientName,
-      loadFromAdmin:
-          role == UserRole.admin || role == UserRole.mcareAssistant,
+      loadFromAdmin: role == UserRole.admin || role == UserRole.mcareAssistant,
       urgentItem: item,
     );
   }
@@ -256,9 +258,8 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
                           item: item,
                           busy: _busy,
                           onAcknowledge: () => _acknowledge(item),
-                          onResolve: () => item.isSos
-                              ? _respondToSos(item)
-                              : _resolve(item),
+                          onResolve: () =>
+                              item.isSos ? _respondToSos(item) : _resolve(item),
                           onOpen: () => _openPatient(item),
                           onSnooze: () {
                             AlertCenter.instance.snooze(item.id);
@@ -270,8 +271,10 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
                             _advance();
                           },
                           onSkip: remaining > 0
-                              ? () => setState(() =>
-                                  _index = (_index + 1) % _queueIds.length)
+                              ? () => setState(
+                                  () =>
+                                      _index = (_index + 1) % _queueIds.length,
+                                )
                               : null,
                         ),
                       ],
@@ -307,10 +310,10 @@ class _Header extends StatelessWidget {
     final ageLabel = age.inMinutes < 1
         ? 'just now'
         : age.inMinutes < 60
-            ? '${age.inMinutes} min ago'
-            : age.inHours < 24
-                ? '${age.inHours} hr ago'
-                : '${age.inDays} d ago';
+        ? '${age.inMinutes} min ago'
+        : age.inHours < 24
+        ? '${age.inHours} hr ago'
+        : '${age.inDays} d ago';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -337,7 +340,9 @@ class _Header extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.isSos ? 'EMERGENCY' : item.kind == UrgentKind.criticalVital
+                    item.isSos
+                        ? 'EMERGENCY'
+                        : item.kind == UrgentKind.criticalVital
                         ? 'CRITICAL'
                         : 'WARNING',
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -412,7 +417,9 @@ class _Header extends StatelessWidget {
                   color: shownTimes > 1
                       ? AppColors.critical
                       : AppPalette.textMuted(context),
-                  fontWeight: shownTimes > 1 ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: shownTimes > 1
+                      ? FontWeight.w800
+                      : FontWeight.w600,
                   fontSize: 10.5,
                 ),
               ),
@@ -485,7 +492,8 @@ class _Actions extends StatelessWidget {
           children: [
             Expanded(
               child: AppButton(
-                label: 'Remind me in '
+                label:
+                    'Remind me in '
                     '${AlertCenter.defaultSnooze.inMinutes} min',
                 icon: AppIcons.time,
                 variant: AppButtonVariant.ghost,
@@ -511,10 +519,10 @@ class _Actions extends StatelessWidget {
           'comes back automatically.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppPalette.textMuted(context),
-                fontSize: 10,
-                height: 1.4,
-              ),
+            color: AppPalette.textMuted(context),
+            fontSize: 10,
+            height: 1.4,
+          ),
         ),
       ],
     );

@@ -71,9 +71,9 @@ class _BusyScrim extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardWidth = math.max(
-          136.0,
-          math.min(184.0, constraints.maxWidth - AppSpacing.huge),
+        final cardWidth = math.min(
+          184.0,
+          math.max(0.0, constraints.maxWidth - AppSpacing.huge),
         );
 
         return Stack(

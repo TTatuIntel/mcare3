@@ -244,12 +244,12 @@ class AdminWorkspaceCatalog {
       areas.where((a) => a.category == cat && !a.featured).toList();
 
   static List<AdminWorkspaceArea> operationsHub() => [
-        areaById('users')!,
-        areaById('approvals')!,
-        areaById('permissions')!,
-        areaById('care_requests')!,
-        areaById('support')!,
-      ];
+    areaById('users')!,
+    areaById('approvals')!,
+    areaById('permissions')!,
+    areaById('care_requests')!,
+    areaById('support')!,
+  ];
 
   static AdminWorkspaceArea? areaById(String id) {
     for (final a in areas) {
@@ -260,50 +260,52 @@ class AdminWorkspaceCatalog {
 
   /// Map admin workspace ids to assistant routes for delegated staff.
   static String assistantRouteFor(String areaId) => switch (areaId) {
-        'users' => RouteNames.assistantUsers,
-        'patients' => RouteNames.assistantPatients,
-        'approvals' => RouteNames.assistantApprovals,
-        'care_requests' => RouteNames.assistantCareRequests,
-        // Retired id — still mapped so stored shortcuts land on the merged page.
-        'assignments' => RouteNames.assistantCareRequests,
-        'support' => RouteNames.assistantSupport,
-        'alerts' => RouteNames.assistantAlerts,
-        'sos' => RouteNames.assistantSos,
-        'audit' => RouteNames.assistantAudit,
-        'announcements' => RouteNames.assistantAnnouncements,
-        'security' => RouteNames.assistantSecurity,
-        'vital_catalog' => RouteNames.assistantVitalCatalog,
-        _ => RouteNames.assistantDashboard,
-      };
+    'users' => RouteNames.assistantUsers,
+    'patients' => RouteNames.assistantPatients,
+    'approvals' => RouteNames.assistantApprovals,
+    'care_requests' => RouteNames.assistantCareRequests,
+    // Retired id — still mapped so stored shortcuts land on the merged page.
+    'assignments' => RouteNames.assistantCareRequests,
+    'support' => RouteNames.assistantSupport,
+    'alerts' => RouteNames.assistantAlerts,
+    'sos' => RouteNames.assistantSos,
+    'audit' => RouteNames.assistantAudit,
+    'announcements' => RouteNames.assistantAnnouncements,
+    'security' => RouteNames.assistantSecurity,
+    'vital_catalog' => RouteNames.assistantVitalCatalog,
+    _ => RouteNames.assistantDashboard,
+  };
 
   /// Areas an assistant can open given their current permission grants.
   static List<AdminWorkspaceArea> forAssistantGrants(
     bool Function(String key) hasPermission,
   ) {
     bool allowed(AdminWorkspaceArea area) => switch (area.id) {
-          'users' || 'patients' =>
-            hasPermission(AssistantPermissions.canCreateUsers),
-          'approvals' =>
-            hasPermission(AssistantPermissions.canApproveHealthworkers),
-          // The merged screen serves both grants: request triage needs
-          // can_manage_care_requests, the assignments tab needs
-          // can_assign_patients. Either one earns the entry.
-          'care_requests' =>
-            hasPermission(AssistantPermissions.canManageCareRequests) ||
-                hasPermission(AssistantPermissions.canAssignPatients),
-          'audit' =>
-            hasPermission(AssistantPermissions.canViewActivityLogs),
-          'announcements' =>
-            hasPermission(AssistantPermissions.canManageAdvertising),
-          'security' =>
-            hasPermission(AssistantPermissions.canViewSecurityIncidents),
-          'sos' =>
-            hasPermission(AssistantPermissions.canAccessEmergencyLocation),
-          'vital_catalog' =>
-            hasPermission(AssistantPermissions.canManageVitalCatalog),
-          'support' || 'alerts' || 'messages' || 'notifications' => true,
-          _ => false,
-        };
+      'users' ||
+      'patients' => hasPermission(AssistantPermissions.canCreateUsers),
+      'approvals' => hasPermission(
+        AssistantPermissions.canApproveHealthworkers,
+      ),
+      // The merged screen serves both grants: request triage needs
+      // can_manage_care_requests, the assignments tab needs
+      // can_assign_patients. Either one earns the entry.
+      'care_requests' =>
+        hasPermission(AssistantPermissions.canManageCareRequests) ||
+            hasPermission(AssistantPermissions.canAssignPatients),
+      'audit' => hasPermission(AssistantPermissions.canViewActivityLogs),
+      'announcements' => hasPermission(
+        AssistantPermissions.canManageAdvertising,
+      ),
+      'security' => hasPermission(
+        AssistantPermissions.canViewSecurityIncidents,
+      ),
+      'sos' => hasPermission(AssistantPermissions.canAccessEmergencyLocation),
+      'vital_catalog' => hasPermission(
+        AssistantPermissions.canManageVitalCatalog,
+      ),
+      'support' || 'alerts' || 'messages' || 'notifications' => true,
+      _ => false,
+    };
 
     return areas.where(allowed).toList();
   }
@@ -320,22 +322,27 @@ class AdminWorkspaceCounts {
   static int badgeFor(String? key) {
     if (key == null) return 0;
     return switch (key) {
-      'approvals' => StaffState.instance.approvals
-          .where((a) => a.status == 'pending')
-          .length,
-      'care_requests' => StaffState.instance.careRequests
-          .where((r) => r.status == 'pending')
-          .length,
-      'alerts' => StaffState.instance.alerts
-          .where((a) => !a.acknowledged && !a.resolved)
-          .length,
-      'sos' =>
-          StaffState.instance.patientSos.where((e) => e.isActive).length,
-      'support' => SupportState.instance.all
-          .where((t) =>
-              t.status == TicketStatus.open ||
-              t.status == TicketStatus.inProgress)
-          .length,
+      'approvals' =>
+        StaffState.instance.approvals
+            .where((a) => a.status == 'pending')
+            .length,
+      'care_requests' =>
+        StaffState.instance.careRequests
+            .where((r) => r.status == 'pending')
+            .length,
+      'alerts' =>
+        StaffState.instance.alerts
+            .where((a) => !a.acknowledged && !a.resolved)
+            .length,
+      'sos' => StaffState.instance.patientSos.where((e) => e.isActive).length,
+      'support' =>
+        SupportState.instance.all
+            .where(
+              (t) =>
+                  t.status == TicketStatus.open ||
+                  t.status == TicketStatus.inProgress,
+            )
+            .length,
       _ => 0,
     };
   }
@@ -347,7 +354,11 @@ class AdminWorkspaceCounts {
   static int get openSupport => badgeFor('support');
 
   static int get totalAttention =>
-      pendingApprovals + pendingCareRequests + openAlerts + activeSos + openSupport;
+      pendingApprovals +
+      pendingCareRequests +
+      openAlerts +
+      activeSos +
+      openSupport;
 
   static int activePatients() => StaffState.instance.users
       .where((u) => u.role == UserRole.patient && u.status == 'active')

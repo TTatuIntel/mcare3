@@ -18,10 +18,14 @@ abstract final class AppLayout {
   // --- Form controls --------------------------------------------------------
   static const double controlHeight = 48;
   static const double controlIconSize = 18;
-  static const EdgeInsets controlPadding =
-      EdgeInsets.symmetric(horizontal: 14, vertical: 12);
-  static const BoxConstraints controlConstraints =
-      BoxConstraints(minHeight: 48, maxHeight: 56);
+  static const EdgeInsets controlPadding = EdgeInsets.symmetric(
+    horizontal: 14,
+    vertical: 12,
+  );
+  static const BoxConstraints controlConstraints = BoxConstraints(
+    minHeight: 48,
+    maxHeight: 56,
+  );
   static const double controlPrefixWidth = 48;
 
   // --- Spacing rhythm -------------------------------------------------------

@@ -180,8 +180,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
     list.sort(switch (_sort) {
       _Sort.newest => (a, b) => b.createdAt.compareTo(a.createdAt),
       _Sort.oldest => (a, b) => a.createdAt.compareTo(b.createdAt),
-      _Sort.patient => (a, b) =>
-          a.patient.toLowerCase().compareTo(b.patient.toLowerCase()),
+      _Sort.patient => (a, b) => a.patient.toLowerCase().compareTo(
+        b.patient.toLowerCase(),
+      ),
     });
     // Pending work always floats to the top of whatever ordering is chosen.
     list.sort((a, b) {
@@ -209,29 +210,31 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
     list.sort(switch (_sort) {
       _Sort.newest => (a, b) => b.assignedAt.compareTo(a.assignedAt),
       _Sort.oldest => (a, b) => a.assignedAt.compareTo(b.assignedAt),
-      _Sort.patient => (a, b) =>
-          a.patient.toLowerCase().compareTo(b.patient.toLowerCase()),
+      _Sort.patient => (a, b) => a.patient.toLowerCase().compareTo(
+        b.patient.toLowerCase(),
+      ),
     });
     return list;
   }
 
-  static String _normaliseRole(String role) => switch (role.trim().toLowerCase()) {
+  static String _normaliseRole(String role) =>
+      switch (role.trim().toLowerCase()) {
         'consulting' => 'Consulting',
         'specialist' => 'Specialist',
         _ => 'Primary',
       };
 
   static Color _statusColor(String status) => switch (status) {
-        'approved' => AppColors.success,
-        'rejected' => AppColors.critical,
-        _ => AppColors.warning,
-      };
+    'approved' => AppColors.success,
+    'rejected' => AppColors.critical,
+    _ => AppColors.warning,
+  };
 
   static Color _roleColor(String role) => switch (role) {
-        'Consulting' => AppColors.info,
-        'Specialist' => AppColors.warning,
-        _ => AppColors.brandIndigo,
-      };
+    'Consulting' => AppColors.info,
+    'Specialist' => AppColors.warning,
+    _ => AppColors.brandIndigo,
+  };
 
   List<DirectoryUser> get _activePatients =>
       StaffState.instance.users
@@ -246,7 +249,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
     final options = StaffState.instance.users
         .where(
           (u) =>
-              (u.role == UserRole.doctor || u.role == UserRole.externalDoctor) &&
+              (u.role == UserRole.doctor ||
+                  u.role == UserRole.externalDoctor) &&
               u.status == 'active',
         )
         .map((u) {
@@ -255,7 +259,7 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                 (a) => a.providerUserId != null
                     ? a.providerUserId == u.id
                     : a.provider.trim().toLowerCase() ==
-                        u.name.trim().toLowerCase(),
+                          u.name.trim().toLowerCase(),
               )
               .length;
           return _ProviderOption(user: u, caseload: caseload);
@@ -347,11 +351,13 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                 (p.user.specialty ?? '').toLowerCase().contains(q);
           }).toList();
 
-          final needsReason = decision == _Decision.decline ||
+          final needsReason =
+              decision == _Decision.decline ||
               (decision == _Decision.reassign && chosen != null);
           final reasonFilled = reasonCtrl.text.trim().length >= 4;
 
-          final canSubmit = !submitting &&
+          final canSubmit =
+              !submitting &&
               switch (decision) {
                 _Decision.approve => true,
                 _Decision.reassign => chosen != null && reasonFilled,
@@ -395,10 +401,7 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                 _RequestSummaryCard(request: request),
                 const SizedBox(height: AppSpacing.md),
 
-                _FieldLabel(
-                  label: 'Decision',
-                  icon: AppIcons.careRequest,
-                ),
+                _FieldLabel(label: 'Decision', icon: AppIcons.careRequest),
                 const SizedBox(height: AppSpacing.sm),
                 _DecisionSelector(
                   value: decision,
@@ -426,7 +429,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   _PickerShell(
                     child: DropdownButton<DirectoryUser>(
-                      value: visibleProviders.any((p) => p.user.id == chosen?.id)
+                      value:
+                          visibleProviders.any((p) => p.user.id == chosen?.id)
                           ? chosen
                           : null,
                       hint: Text(
@@ -440,8 +444,7 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                             ),
                       ),
                       isExpanded: true,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusMd),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       icon: const Icon(AppIcons.expandMore),
                       onChanged: submitting || visibleProviders.isEmpty
                           ? null
@@ -471,13 +474,12 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                     child: DropdownButton<String>(
                       value: role,
                       isExpanded: true,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusMd),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       icon: const Icon(AppIcons.expandMore),
                       onChanged: submitting
                           ? null
                           : (value) =>
-                              setSheet(() => role = value ?? 'Primary'),
+                                setSheet(() => role = value ?? 'Primary'),
                       items: [
                         for (final r in _roles)
                           DropdownMenuItem(value: r, child: Text(r)),
@@ -500,9 +502,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                   maxLines: 3,
                   maxLength: 280,
                   enabled: !submitting,
-                  errorText: needsReason &&
-                          reasonCtrl.text.isNotEmpty &&
-                          !reasonFilled
+                  errorText:
+                      needsReason && reasonCtrl.text.isNotEmpty && !reasonFilled
                       ? 'Give at least 4 characters'
                       : null,
                   onChanged: (_) => setSheet(() {}),
@@ -530,9 +531,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                   Text(
                     'The patient sees this reason, so it is required.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(sheetContext).textTheme.labelSmall?.copyWith(
-                          color: AppPalette.textMuted(sheetContext),
-                        ),
+                    style: Theme.of(sheetContext).textTheme.labelSmall
+                        ?.copyWith(color: AppPalette.textMuted(sheetContext)),
                   ),
                 ],
               ],
@@ -607,9 +607,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                         ? 'No active patients available'
                         : 'Select a patient',
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-                          color: AppPalette.textMuted(sheetContext),
-                        ),
+                    style: Theme.of(sheetContext).textTheme.bodyMedium
+                        ?.copyWith(color: AppPalette.textMuted(sheetContext)),
                   ),
                   isExpanded: true,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -645,9 +644,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                         ? 'No active care providers available'
                         : 'Select a care provider',
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-                          color: AppPalette.textMuted(sheetContext),
-                        ),
+                    style: Theme.of(sheetContext).textTheme.bodyMedium
+                        ?.copyWith(color: AppPalette.textMuted(sheetContext)),
                   ),
                   isExpanded: true,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -958,7 +956,10 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
             if ((assignment.assignedReason ?? '').isNotEmpty)
               _DetailRow(label: 'Reason', value: assignment.assignedReason!),
             if ((assignment.assignedByName ?? '').isNotEmpty)
-              _DetailRow(label: 'Assigned by', value: assignment.assignedByName!),
+              _DetailRow(
+                label: 'Assigned by',
+                value: assignment.assignedByName!,
+              ),
             const SizedBox(height: AppSpacing.md),
             AppButton(
               label: 'End assignment',
@@ -992,8 +993,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
       subtitle: _showTabs
           ? 'Triage requests and manage care assignments'
           : widget.canTriage
-              ? 'Patient ↔ provider matchmaking queue'
-              : 'Patient ↔ provider care team pairings',
+          ? 'Patient ↔ provider matchmaking queue'
+          : 'Patient ↔ provider care team pairings',
       headerActions: [
         if (widget.canAssign)
           AppButton(
@@ -1069,8 +1070,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                   index: 1,
                   child: _TabSwitcher(
                     value: _tab,
-                    requestCount:
-                        staff.careRequests.where((r) => r.isPending).length,
+                    requestCount: staff.careRequests
+                        .where((r) => r.isPending)
+                        .length,
                     assignmentCount: staff.assignments.length,
                     onChanged: (tab) => setState(() => _tab = tab),
                   ),
@@ -1097,10 +1099,12 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
 
   Widget _buildKpis(StaffState staff) {
     final pending = staff.careRequests.where((r) => r.isPending).length;
-    final approved =
-        staff.careRequests.where((r) => r.status == 'approved').length;
-    final declined =
-        staff.careRequests.where((r) => r.status == 'rejected').length;
+    final approved = staff.careRequests
+        .where((r) => r.status == 'approved')
+        .length;
+    final declined = staff.careRequests
+        .where((r) => r.status == 'rejected')
+        .length;
     final reassigned = staff.careRequests.where((r) => r.reassigned).length;
 
     return StaffKpiGrid(
@@ -1272,9 +1276,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
               onAction: all.isEmpty
                   ? null
                   : () => setState(() {
-                        _statusFilter = 'all';
-                        _search.clear();
-                      }),
+                      _statusFilter = 'all';
+                      _search.clear();
+                    }),
               compact: true,
             ),
           )
@@ -1295,50 +1299,48 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
                   trailing: !request.isPending
                       ? null
                       : _busyRequests.contains(request.id)
-                          ? const McarePulse(
-                              size: McarePulseSize.micro,
-                              semanticLabel: null,
-                            )
-                          : handheld
-                              ? AppButton(
-                                  label: 'Review',
-                                  size: AppButtonSize.sm,
-                                  onPressed: () =>
-                                      _openReviewSheet(context, request),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    AppButton(
-                                      label: 'Approve',
-                                      size: AppButtonSize.sm,
-                                      onPressed: () =>
-                                          _quickApprove(context, request),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    AppButton(
-                                      label: 'Assign…',
-                                      size: AppButtonSize.sm,
-                                      variant: AppButtonVariant.secondary,
-                                      onPressed: () => _openReviewSheet(
-                                        context,
-                                        request,
-                                        initial: _Decision.reassign,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    AppButton(
-                                      label: 'Decline',
-                                      size: AppButtonSize.sm,
-                                      variant: AppButtonVariant.danger,
-                                      onPressed: () => _openReviewSheet(
-                                        context,
-                                        request,
-                                        initial: _Decision.decline,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                      ? const McarePulse(
+                          size: McarePulseSize.micro,
+                          semanticLabel: null,
+                        )
+                      : handheld
+                      ? AppButton(
+                          label: 'Review',
+                          size: AppButtonSize.sm,
+                          onPressed: () => _openReviewSheet(context, request),
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppButton(
+                              label: 'Approve',
+                              size: AppButtonSize.sm,
+                              onPressed: () => _quickApprove(context, request),
+                            ),
+                            const SizedBox(width: 6),
+                            AppButton(
+                              label: 'Assign…',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () => _openReviewSheet(
+                                context,
+                                request,
+                                initial: _Decision.reassign,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            AppButton(
+                              label: 'Decline',
+                              size: AppButtonSize.sm,
+                              variant: AppButtonVariant.danger,
+                              onPressed: () => _openReviewSheet(
+                                context,
+                                request,
+                                initial: _Decision.decline,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
             ],
           ),
@@ -1349,7 +1351,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
   String _requestSubtitle(CareRequestItem request) {
     final when = DateFormat.MMMd().add_jm().format(request.createdAt);
     if (request.isPending) {
-      final reason = request.reason.isEmpty ? 'No reason given' : request.reason;
+      final reason = request.reason.isEmpty
+          ? 'No reason given'
+          : request.reason;
       return '$reason\n$when';
     }
     final note = (request.decisionNote ?? '').isEmpty
@@ -1358,7 +1362,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
     final decided = request.decidedAt == null
         ? when
         : DateFormat.MMMd().add_jm().format(request.decidedAt!);
-    final who = request.decidedByName == null ? '' : ' · ${request.decidedByName}';
+    final who = request.decidedByName == null
+        ? ''
+        : ' · ${request.decidedByName}';
     return '$note\n$decided$who';
   }
 
@@ -1391,9 +1397,9 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
               onAction: all.isEmpty
                   ? () => _openAssignmentSheet(context)
                   : () => setState(() {
-                        _roleFilter = 'all';
-                        _search.clear();
-                      }),
+                      _roleFilter = 'all';
+                      _search.clear();
+                    }),
               compact: true,
             ),
           )
@@ -1451,7 +1457,9 @@ class _ProviderOption {
   final int caseload;
 
   String get label {
-    final specialty = (user.specialty ?? '').isEmpty ? '' : ' · ${user.specialty}';
+    final specialty = (user.specialty ?? '').isEmpty
+        ? ''
+        : ' · ${user.specialty}';
     return '${user.name}$specialty · $caseload patient${caseload == 1 ? '' : 's'}';
   }
 }
@@ -1531,13 +1539,9 @@ class _TabButton extends StatelessWidget {
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.12)
-              : Colors.transparent,
+          color: selected ? accent.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(
-            color: selected ? accent : Colors.transparent,
-          ),
+          border: Border.all(color: selected ? accent : Colors.transparent),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1587,10 +1591,10 @@ class _SortMenu extends StatelessWidget {
   final ValueChanged<_Sort> onChanged;
 
   static String _label(_Sort sort) => switch (sort) {
-        _Sort.newest => 'Newest first',
-        _Sort.oldest => 'Oldest first',
-        _Sort.patient => 'Patient A–Z',
-      };
+    _Sort.newest => 'Newest first',
+    _Sort.oldest => 'Oldest first',
+    _Sort.patient => 'Patient A–Z',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -1689,7 +1693,8 @@ class _DecisionSelector extends StatelessWidget {
             selected: value == entry.$1,
             onTap: onChanged == null ? null : () => onChanged!(entry.$1),
           ),
-          if (entry.$1 != entries.last.$1) const SizedBox(height: AppSpacing.xs),
+          if (entry.$1 != entries.last.$1)
+            const SizedBox(height: AppSpacing.xs),
         ],
       ],
     );
@@ -1941,8 +1946,8 @@ class _FieldLabel extends StatelessWidget {
               helper!,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                  ),
+                color: AppPalette.textMuted(context),
+              ),
             ),
           ),
         ],
@@ -1991,16 +1996,13 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),

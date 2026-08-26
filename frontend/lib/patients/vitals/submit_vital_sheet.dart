@@ -137,8 +137,10 @@ class _FormState extends State<_Form> {
     }
     if (!mounted) return;
     Navigator.of(context).pop();
-    AppToast.success(context,
-        '${_vital.shortLabel} logged · ${saved.formatValue()} ${_vital.unit}');
+    AppToast.success(
+      context,
+      '${_vital.shortLabel} logged · ${saved.formatValue()} ${_vital.unit}',
+    );
   }
 
   @override
@@ -187,17 +189,15 @@ class _FormState extends State<_Form> {
                       children: [
                         Text(
                           _vital.label,
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         Text(
                           _v == null
                               ? 'Enter a value below'
                               : _vital.hasSecondaryValue && _s != null
-                                  ? '${_v!.toStringAsFixed(0)}/${_s!.toStringAsFixed(0)} ${_vital.unit}'
-                                  : '${_v!.toStringAsFixed(_vital == VitalKey.temperature ? 1 : 0)} ${_vital.unit}',
+                              ? '${_v!.toStringAsFixed(0)}/${_s!.toStringAsFixed(0)} ${_vital.unit}'
+                              : '${_v!.toStringAsFixed(_vital == VitalKey.temperature ? 1 : 0)} ${_vital.unit}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -216,10 +216,11 @@ class _FormState extends State<_Form> {
                       label: 'Systolic',
                       hint: '120',
                       controller: _primary,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.]'))
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.]')),
                       ],
                       dense: true,
                       onChanged: (_) => setState(() {}),
@@ -231,10 +232,11 @@ class _FormState extends State<_Form> {
                       label: 'Diastolic',
                       hint: '80',
                       controller: _secondary,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.]'))
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d\.]')),
                       ],
                       dense: true,
                       onChanged: (_) => setState(() {}),
@@ -247,10 +249,11 @@ class _FormState extends State<_Form> {
                 label: 'Value (${_vital.unit})',
                 hint: 'e.g. 72',
                 controller: _primary,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d\.]'))
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d\.]')),
                 ],
                 dense: true,
                 onChanged: (_) => setState(() {}),
@@ -315,20 +318,22 @@ class _VitalSelector extends StatelessWidget {
         Text(
           'Your tracked vitals',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppPalette.ink(context),
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppPalette.ink(context),
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.sm,
           children: tracked
-              .map((v) => _VitalChoice(
-                    vital: v,
-                    selected: v == value,
-                    onTap: () => onChanged(v),
-                  ))
+              .map(
+                (v) => _VitalChoice(
+                  vital: v,
+                  selected: v == value,
+                  onTap: () => onChanged(v),
+                ),
+              )
               .toList(),
         ),
       ],
@@ -368,9 +373,9 @@ class _VitalChoice extends StatelessWidget {
             Text(
               vital.shortLabel,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: selected ? Colors.white : c,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: selected ? Colors.white : c,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),

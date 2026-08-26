@@ -38,8 +38,10 @@ class DoctorPatientVitalThresholdSheet {
     if (result == null || context.mounted == false) return;
     if (result.clear) {
       s.clearPatientThreshold(patientId, vital);
-      AppToast.show(context,
-          message: 'Reverted ${vital.label} to default for $patientName.');
+      AppToast.show(
+        context,
+        message: 'Reverted ${vital.label} to default for $patientName.',
+      );
       return;
     }
 
@@ -53,11 +55,14 @@ class DoctorPatientVitalThresholdSheet {
       warningHigh: result.warningHigh,
       criticalLow: result.criticalLow,
       criticalHigh: result.criticalHigh,
-      setBy: actor == null ? 'Clinician' : 'Dr. ${actor.firstName} ${actor.lastName}',
+      setBy: actor == null
+          ? 'Clinician'
+          : 'Dr. ${actor.firstName} ${actor.lastName}',
       note: result.note,
     );
-    AppToast.show(context,
-        message: '${vital.label} thresholds updated for $patientName.');
+    AppToast.show(
+      context,
+      message: '${vital.label} thresholds updated for $patientName.',
+    );
   }
 }
-

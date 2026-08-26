@@ -142,8 +142,9 @@ class _BuilderBodyState extends State<_BuilderBody> {
       );
       if (!mounted) return;
 
-      final item =
-          data == null ? null : PatientReportRequestItem.fromJson(data);
+      final item = data == null
+          ? null
+          : PatientReportRequestItem.fromJson(data);
       Navigator.of(context, rootNavigator: true).pop(item);
 
       if (item != null && item.consentRequired) {

@@ -88,8 +88,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
               ProfileHeaderCard(
                 user: user,
                 completionPercent: completion.percent,
-                editLabel:
-                    user.isProfileComplete ? 'Edit profile' : 'Complete profile',
+                editLabel: user.isProfileComplete
+                    ? 'Edit profile'
+                    : 'Complete profile',
                 onEdit: () =>
                     ProfileNavigation.openEditOrCompleteProfile(context),
                 warning: user.isProfileComplete
@@ -106,8 +107,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                   ),
                   child: ProfileCompletionCard(
                     percent: completion.percent,
-                    incompleteLabels:
-                        completion.incompleteItems.map((i) => i.label).toList(),
+                    incompleteLabels: completion.incompleteItems
+                        .map((i) => i.label)
+                        .toList(),
                     onTap: () =>
                         ProfileNavigation.openEditOrCompleteProfile(context),
                   ),
@@ -162,8 +164,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                     badge: AdminWorkspaceCounts.openSupport > 0
                         ? '${AdminWorkspaceCounts.openSupport}'
                         : null,
-                    onTap: () =>
-                        Navigator.of(context).pushNamed(RouteNames.adminSupport),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.adminSupport),
                   ),
                   SettingsQuickActionDef(
                     icon: AppIcons.lock,
@@ -174,8 +177,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                   SettingsQuickActionDef(
                     icon: AppIcons.settings,
                     label: 'Settings',
-                    onTap: () =>
-                        Navigator.of(context).pushNamed(RouteNames.adminSettings),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.adminSettings),
                   ),
                 ],
               ),

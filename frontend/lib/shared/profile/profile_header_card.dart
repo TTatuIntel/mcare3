@@ -64,8 +64,9 @@ class ProfileHeaderCard extends StatelessWidget {
               CircleAvatar(
                 radius: 30,
                 backgroundColor: accent.withValues(alpha: 0.15),
-                backgroundImage:
-                    hasPhoto ? NetworkImage(user.avatarUrl!) : null,
+                backgroundImage: hasPhoto
+                    ? NetworkImage(user.avatarUrl!)
+                    : null,
                 child: hasPhoto
                     ? null
                     : Text(
@@ -95,10 +96,7 @@ class ProfileHeaderCard extends StatelessWidget {
                       runSpacing: AppSpacing.xs,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        _Chip(
-                          label: user.role.label,
-                          color: accent,
-                        ),
+                        _Chip(label: user.role.label, color: accent),
                         _Chip(
                           label: 'ID ${user.uniqueId}',
                           color: AppPalette.textMuted(context),
@@ -221,10 +219,10 @@ class _Chip extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 9.5,
-            ),
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 9.5,
+        ),
       ),
     );
   }

@@ -93,7 +93,8 @@ class AppIcons {
   static const IconData pharmacy = Icons.local_pharmacy_rounded;
   static const IconData announcements = Icons.campaign_rounded;
   static const IconData security = Icons.security_rounded;
-  static const IconData notificationsActive = Icons.notifications_active_rounded;
+  static const IconData notificationsActive =
+      Icons.notifications_active_rounded;
   static const IconData error = Icons.error_outline_rounded;
   static const IconData map = Icons.map_rounded;
   static const IconData homeAddress = Icons.home_rounded;

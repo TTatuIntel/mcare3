@@ -36,11 +36,7 @@ class AuthApi {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
       '/auth/verify-otp',
-      body: {
-        'identifier': identifier,
-        'code': code,
-        'purpose': purpose,
-      },
+      body: {'identifier': identifier, 'code': code, 'purpose': purpose},
       allowWhenBackendDisabled: true,
     );
     return res['data'] as Map<String, dynamic>?;

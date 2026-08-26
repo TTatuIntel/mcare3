@@ -69,10 +69,10 @@ class AppLocalizations {
   String get allowExternalAccess => _t('allowExternalAccess');
 
   String themeLabel(ThemeMode mode) => switch (mode) {
-        ThemeMode.light => themeLight,
-        ThemeMode.dark => themeDark,
-        ThemeMode.system => themeSystem,
-      };
+    ThemeMode.light => themeLight,
+    ThemeMode.dark => themeDark,
+    ThemeMode.system => themeSystem,
+  };
 }
 
 class _AppLocalizationsDelegate

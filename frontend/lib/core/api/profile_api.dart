@@ -47,10 +47,7 @@ class ProfileApi {
     if (!AppEnv.backendEnabled) return;
     await ApiClient.instance.post(
       '/auth/change-email',
-      body: {
-        'current_password': currentPassword,
-        'new_email': newEmail,
-      },
+      body: {'current_password': currentPassword, 'new_email': newEmail},
     );
   }
 

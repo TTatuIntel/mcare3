@@ -86,10 +86,7 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
       _loading = false;
       _step = 1;
     });
-    AppToast.info(
-      context,
-      'Verification code sent. Demo code: $_demoOtp',
-    );
+    AppToast.info(context, 'Verification code sent. Demo code: $_demoOtp');
   }
 
   Future<void> _saveBackend() async {
@@ -119,9 +116,9 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           title: 'Password changed',
           body: 'Your password was updated successfully.',
           createdAt: DateTime.now(),
-          actionRoute: settingsRoute ?? ProfileNavigation.profileRouteFor(
-            user?.role ?? UserRole.patient,
-          ),
+          actionRoute:
+              settingsRoute ??
+              ProfileNavigation.profileRouteFor(user?.role ?? UserRole.patient),
         ),
       );
       AppToast.success(context, 'Password updated.');
@@ -129,7 +126,10 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
-      AppToast.error(context, 'Could not update password. Check your current password.');
+      AppToast.error(
+        context,
+        'Could not update password. Check your current password.',
+      );
     }
   }
 
@@ -163,9 +163,11 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
             title: 'Password changed',
             body: 'Your password was updated successfully.',
             createdAt: DateTime.now(),
-            actionRoute: settingsRoute ?? ProfileNavigation.profileRouteFor(
-              user?.role ?? UserRole.patient,
-            ),
+            actionRoute:
+                settingsRoute ??
+                ProfileNavigation.profileRouteFor(
+                  user?.role ?? UserRole.patient,
+                ),
           ),
         );
         AppToast.success(context, 'Password updated.');
@@ -223,7 +225,9 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           ),
           const SizedBox(height: AppSpacing.xl),
           AppButton(
-            label: AppEnv.backendEnabled ? 'Update password' : 'Send verification code',
+            label: AppEnv.backendEnabled
+                ? 'Update password'
+                : 'Send verification code',
             icon: AppIcons.email,
             expand: true,
             loading: _loading,

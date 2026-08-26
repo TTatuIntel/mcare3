@@ -135,15 +135,9 @@ class _SummaryStrip extends StatelessWidget {
             accent: AppColors.brandIndigo,
           ),
           _SummaryDivider(),
-          _SummaryChip(
-            value: '$prescribed',
-            label: 'Prescribed',
-          ),
+          _SummaryChip(value: '$prescribed', label: 'Prescribed'),
           _SummaryDivider(),
-          _SummaryChip(
-            value: '$yours',
-            label: 'Yours',
-          ),
+          _SummaryChip(value: '$yours', label: 'Yours'),
           if (alerts > 0) ...[
             _SummaryDivider(),
             _SummaryChip(
@@ -159,11 +153,7 @@ class _SummaryStrip extends StatelessWidget {
 }
 
 class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({
-    required this.value,
-    required this.label,
-    this.accent,
-  });
+  const _SummaryChip({required this.value, required this.label, this.accent});
 
   final String value;
   final String label;
@@ -280,8 +270,12 @@ class _MedTile extends StatelessWidget {
         .dosesForToday()
         .where((d) => d.medicationId == med.id)
         .toList();
-    final pending = todayDoses.where((d) => d.status == DoseStatus.pending).length;
-    final missed = todayDoses.where((d) => d.status == DoseStatus.missed).length;
+    final pending = todayDoses
+        .where((d) => d.status == DoseStatus.pending)
+        .length;
+    final missed = todayDoses
+        .where((d) => d.status == DoseStatus.missed)
+        .length;
 
     return Material(
       color: Colors.transparent,
@@ -358,11 +352,13 @@ class _MedTile extends StatelessWidget {
                           children: [
                             if (alert != null)
                               _StatusChip(
-                                label: alert.kind == MedicationAlertKind.refillLow
+                                label:
+                                    alert.kind == MedicationAlertKind.refillLow
                                     ? 'Refill'
-                                    : alert.kind == MedicationAlertKind.expiringSoon
-                                        ? 'Expiring'
-                                        : 'Expired',
+                                    : alert.kind ==
+                                          MedicationAlertKind.expiringSoon
+                                    ? 'Expiring'
+                                    : 'Expired',
                                 color: alert.tint,
                               ),
                             if (pending > 0)
@@ -412,10 +408,10 @@ class _StatusChip extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 8,
-            ),
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 8,
+        ),
       ),
     );
   }
@@ -438,10 +434,10 @@ class _SourceBadge extends StatelessWidget {
       child: Text(
         source.label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: source.color,
-              fontWeight: FontWeight.w700,
-              fontSize: 9,
-            ),
+          color: source.color,
+          fontWeight: FontWeight.w700,
+          fontSize: 9,
+        ),
       ),
     );
   }

@@ -256,11 +256,11 @@ class _StaffHubWorkPageState extends State<StaffHubWorkPage> {
   }
 
   String get _urgencyKey => switch (_urgency) {
-        null => 'all',
-        StaffWorkUrgency.critical => 'urgent',
-        StaffWorkUrgency.attention => 'attention',
-        StaffWorkUrgency.routine => 'routine',
-      };
+    null => 'all',
+    StaffWorkUrgency.critical => 'urgent',
+    StaffWorkUrgency.attention => 'attention',
+    StaffWorkUrgency.routine => 'routine',
+  };
 
   void _setUrgency(String key) {
     setState(() {
@@ -274,11 +274,11 @@ class _StaffHubWorkPageState extends State<StaffHubWorkPage> {
   }
 
   String _sectionTitle() => switch (_urgency) {
-        null => 'Open work',
-        StaffWorkUrgency.critical => 'Urgent',
-        StaffWorkUrgency.attention => 'Needs attention',
-        StaffWorkUrgency.routine => 'Routine',
-      };
+    null => 'Open work',
+    StaffWorkUrgency.critical => 'Urgent',
+    StaffWorkUrgency.attention => 'Needs attention',
+    StaffWorkUrgency.routine => 'Routine',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -286,10 +286,7 @@ class _StaffHubWorkPageState extends State<StaffHubWorkPage> {
     final visible = _computeVisible();
 
     final options = [
-      StaffFilterOption(
-        value: 'all',
-        label: 'All · ${_countFor(null)}',
-      ),
+      StaffFilterOption(value: 'all', label: 'All · ${_countFor(null)}'),
       StaffFilterOption(
         value: 'urgent',
         label: 'Urgent · ${_countFor(StaffWorkUrgency.critical)}',
@@ -360,16 +357,11 @@ class _StaffHubWorkPageState extends State<StaffHubWorkPage> {
                         StaffHubWorkRow(
                           item: visible[i],
                           accent: widget.snapshot.role.accent,
-                          compact:
-                              MediaQuery.sizeOf(context).width < 560,
-                          onTap: () =>
-                              widget.openRoute(visible[i].route),
+                          compact: MediaQuery.sizeOf(context).width < 560,
+                          onTap: () => widget.openRoute(visible[i].route),
                         ),
                         if (i < visible.length - 1)
-                          Divider(
-                            height: 1,
-                            color: AppPalette.border(context),
-                          ),
+                          Divider(height: 1, color: AppPalette.border(context)),
                       ],
                     ],
                   ),
@@ -518,4 +510,3 @@ class _LinkGrid extends StatelessWidget {
     );
   }
 }
-

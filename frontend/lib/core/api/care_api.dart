@@ -12,8 +12,11 @@ class CareApi {
     final res = await ApiClient.instance.get('/patient/care/providers');
     final list = res['data']?['providers'] as List? ?? [];
     return list
-        .map((e) =>
-            PatientDomainMapper.careProviderFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) => PatientDomainMapper.careProviderFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
@@ -24,10 +27,7 @@ class CareApi {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
       '/patient/care/requests',
-      body: {
-        'provider_id': providerId,
-        if (reason != null) 'reason': reason,
-      },
+      body: {'provider_id': providerId, if (reason != null) 'reason': reason},
     );
     final json = res['data']?['request'] as Map<String, dynamic>?;
     if (json == null) return null;

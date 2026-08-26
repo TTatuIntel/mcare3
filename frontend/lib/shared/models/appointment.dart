@@ -9,47 +9,47 @@ enum AppointmentStatus { scheduled, confirmed, completed, cancelled }
 
 extension AppointmentTypeX on AppointmentType {
   String get label => switch (this) {
-        AppointmentType.inPerson => 'In-person',
-        AppointmentType.virtual => 'Virtual',
-        AppointmentType.phone => 'Phone',
-      };
+    AppointmentType.inPerson => 'In-person',
+    AppointmentType.virtual => 'Virtual',
+    AppointmentType.phone => 'Phone',
+  };
 
   IconData get icon => switch (this) {
-        AppointmentType.inPerson => AppIcons.location,
-        AppointmentType.virtual => AppIcons.videocam,
-        AppointmentType.phone => AppIcons.phone,
-      };
+    AppointmentType.inPerson => AppIcons.location,
+    AppointmentType.virtual => AppIcons.videocam,
+    AppointmentType.phone => AppIcons.phone,
+  };
 }
 
 extension AppointmentStatusX on AppointmentStatus {
   String get label => switch (this) {
-        AppointmentStatus.scheduled => 'Scheduled',
-        AppointmentStatus.confirmed => 'Confirmed',
-        AppointmentStatus.completed => 'Completed',
-        AppointmentStatus.cancelled => 'Cancelled',
-      };
+    AppointmentStatus.scheduled => 'Scheduled',
+    AppointmentStatus.confirmed => 'Confirmed',
+    AppointmentStatus.completed => 'Completed',
+    AppointmentStatus.cancelled => 'Cancelled',
+  };
 
   Color get color => switch (this) {
-        AppointmentStatus.scheduled => AppColors.info,
-        AppointmentStatus.confirmed => AppColors.success,
-        AppointmentStatus.completed => AppColors.textMutedAA,
-        AppointmentStatus.cancelled => AppColors.critical,
-      };
+    AppointmentStatus.scheduled => AppColors.info,
+    AppointmentStatus.confirmed => AppColors.success,
+    AppointmentStatus.completed => AppColors.textMutedAA,
+    AppointmentStatus.cancelled => AppColors.critical,
+  };
 
   Color get soft => switch (this) {
-        AppointmentStatus.scheduled => AppColors.infoSoft,
-        AppointmentStatus.confirmed => AppColors.successSoft,
-        AppointmentStatus.completed => AppColors.surfaceMuted,
-        AppointmentStatus.cancelled => AppColors.criticalSoft,
-      };
+    AppointmentStatus.scheduled => AppColors.infoSoft,
+    AppointmentStatus.confirmed => AppColors.successSoft,
+    AppointmentStatus.completed => AppColors.surfaceMuted,
+    AppointmentStatus.cancelled => AppColors.criticalSoft,
+  };
 
   /// Theme-aware soft background for status chips.
   Color softBg(BuildContext context) => switch (this) {
-        AppointmentStatus.scheduled => AppPalette.infoSoft(context),
-        AppointmentStatus.confirmed => AppPalette.successSoft(context),
-        AppointmentStatus.completed => AppPalette.surfaceMuted(context),
-        AppointmentStatus.cancelled => AppPalette.criticalSoft(context),
-      };
+    AppointmentStatus.scheduled => AppPalette.infoSoft(context),
+    AppointmentStatus.confirmed => AppPalette.successSoft(context),
+    AppointmentStatus.completed => AppPalette.surfaceMuted(context),
+    AppointmentStatus.cancelled => AppPalette.criticalSoft(context),
+  };
 }
 
 class Appointment {
@@ -88,18 +88,17 @@ class Appointment {
     AppointmentStatus? status,
     String? cancellationReason,
     DateTime? scheduledAt,
-  }) =>
-      Appointment(
-        id: id,
-        doctorId: doctorId,
-        doctorName: doctorName,
-        doctorSpecialty: doctorSpecialty,
-        scheduledAt: scheduledAt ?? this.scheduledAt,
-        type: type,
-        status: status ?? this.status,
-        reason: reason,
-        locationOrLink: locationOrLink,
-        durationMinutes: durationMinutes,
-        cancellationReason: cancellationReason ?? this.cancellationReason,
-      );
+  }) => Appointment(
+    id: id,
+    doctorId: doctorId,
+    doctorName: doctorName,
+    doctorSpecialty: doctorSpecialty,
+    scheduledAt: scheduledAt ?? this.scheduledAt,
+    type: type,
+    status: status ?? this.status,
+    reason: reason,
+    locationOrLink: locationOrLink,
+    durationMinutes: durationMinutes,
+    cancellationReason: cancellationReason ?? this.cancellationReason,
+  );
 }

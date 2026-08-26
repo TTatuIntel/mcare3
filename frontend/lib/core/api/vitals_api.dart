@@ -7,10 +7,7 @@ class VitalsApi {
   VitalsApi._();
   static final VitalsApi instance = VitalsApi._();
 
-  Future<List<VitalReading>> history({
-    VitalKey? vital,
-    int? days,
-  }) async {
+  Future<List<VitalReading>> history({VitalKey? vital, int? days}) async {
     if (!AppEnv.backendEnabled) return const [];
     final query = <String, String>{};
     if (vital != null) query['vital_key'] = vital.name;
@@ -52,9 +49,7 @@ class VitalsApi {
     if (!AppEnv.backendEnabled) return vitals;
     final res = await ApiClient.instance.patch(
       '/patient/tracked-vitals',
-      body: {
-        'tracked_vitals': vitals.map((v) => v.name).toList(),
-      },
+      body: {'tracked_vitals': vitals.map((v) => v.name).toList()},
     );
     final list = res['data']?['tracked_vitals'] as List? ?? [];
     return list

@@ -51,8 +51,7 @@ class DoctorAssignedVitalsPeek extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final assigned =
-        StaffState.instance.assignedVitalsForPatient(patientId);
+    final assigned = StaffState.instance.assignedVitalsForPatient(patientId);
     final summary = _summaryFor(assigned);
 
     return Material(
@@ -89,17 +88,17 @@ class DoctorAssignedVitalsPeek extends StatelessWidget {
                           ? 'Assigned vitals'
                           : 'Assigned vitals · ${assigned.length}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppPalette.textMuted(context),
-                            letterSpacing: 0.2,
-                          ),
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textMuted(context),
+                        letterSpacing: 0.2,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       summary,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -144,8 +143,7 @@ class _AssignedVitalsViewBody extends StatelessWidget {
     final assigned = _sortedAssignedVitals(
       StaffState.instance.assignedVitalsForPatient(patientId),
     );
-    final note =
-        StaffState.instance.assignedVitalsNoteForPatient(patientId);
+    final note = StaffState.instance.assignedVitalsNoteForPatient(patientId);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -161,8 +159,8 @@ class _AssignedVitalsViewBody extends StatelessWidget {
           Text(
             'Vitals this patient must log. Optional vitals they chose stay on their dashboard too.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           if (assigned.isEmpty)
@@ -205,8 +203,8 @@ class _AssignedVitalsViewBody extends StatelessWidget {
                     child: Text(
                       note,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                          ),
+                        color: AppPalette.textMuted(context),
+                      ),
                     ),
                   ),
                 ],
@@ -271,15 +269,15 @@ class _AssignedVitalChip extends StatelessWidget {
                 Text(
                   vital.label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
                   vital.unit,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontSize: 10,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),

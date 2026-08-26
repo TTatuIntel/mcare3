@@ -9,14 +9,17 @@ class MessagesApi {
 
   Future<List<ChatMessage>> loadThread(String conversationId) async {
     if (!AppEnv.backendEnabled) return const [];
-    final res = await ApiClient.instance
-        .get('/patient/conversations/$conversationId/messages');
+    final res = await ApiClient.instance.get(
+      '/patient/conversations/$conversationId/messages',
+    );
     final list = res['data']?['messages'] as List? ?? [];
     return list
-        .map((e) => PatientDomainMapper.messageFromApi(
-              e as Map<String, dynamic>,
-              currentUserId: null,
-            ))
+        .map(
+          (e) => PatientDomainMapper.messageFromApi(
+            e as Map<String, dynamic>,
+            currentUserId: null,
+          ),
+        )
         .toList();
   }
 
@@ -33,7 +36,9 @@ class MessagesApi {
 
   Future<bool> markRead(String conversationId) async {
     if (!AppEnv.backendEnabled) return false;
-    await ApiClient.instance.post('/patient/conversations/$conversationId/read');
+    await ApiClient.instance.post(
+      '/patient/conversations/$conversationId/read',
+    );
     return true;
   }
 }

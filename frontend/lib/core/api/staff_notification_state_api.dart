@@ -5,7 +5,8 @@ import 'api_client.dart';
 /// (doctor/admin/assistant inbox items that have no backing notification row).
 class StaffNotificationStateApi {
   StaffNotificationStateApi._();
-  static final StaffNotificationStateApi instance = StaffNotificationStateApi._();
+  static final StaffNotificationStateApi instance =
+      StaffNotificationStateApi._();
 
   /// Returns a map of `notification_key -> (read, resolved)`.
   Future<Map<String, ({bool read, bool resolved})>> fetch() async {
@@ -17,31 +18,28 @@ class StaffNotificationStateApi {
       final m = e as Map<String, dynamic>;
       final key = m['key'] as String?;
       if (key == null) continue;
-      out[key] = (
-        read: m['read'] == true,
-        resolved: m['resolved'] == true,
-      );
+      out[key] = (read: m['read'] == true, resolved: m['resolved'] == true);
     }
     return out;
   }
 
-  Future<void> setState(
-    String key, {
-    bool? read,
-    bool? resolved,
-  }) async {
+  Future<void> setState(String key, {bool? read, bool? resolved}) async {
     if (!AppEnv.backendEnabled) return;
-    await ApiClient.instance.post('/me/notification-states', body: {
-      'key': key,
-      if (read != null) 'read': read,
-      if (resolved != null) 'resolved': resolved,
-    });
+    await ApiClient.instance.post(
+      '/me/notification-states',
+      body: {
+        'key': key,
+        if (read != null) 'read': read,
+        if (resolved != null) 'resolved': resolved,
+      },
+    );
   }
 
   Future<void> readAll(List<String> keys) async {
     if (!AppEnv.backendEnabled || keys.isEmpty) return;
-    await ApiClient.instance.post('/me/notification-states/read-all', body: {
-      'keys': keys,
-    });
+    await ApiClient.instance.post(
+      '/me/notification-states/read-all',
+      body: {'keys': keys},
+    );
   }
 }

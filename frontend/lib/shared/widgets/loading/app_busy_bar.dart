@@ -82,7 +82,7 @@ class _AppBusyBarState extends State<AppBusyBar>
                 height: widget.thickness,
                 child: AnimatedBuilder(
                   animation: _sweep,
-                  builder: (_, __) => CustomPaint(
+                  builder: (_, _) => CustomPaint(
                     painter: _BusySweepPainter(
                       progress: _reduceMotion ? 0.5 : _sweep.value,
                       color: accent,

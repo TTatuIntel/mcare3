@@ -56,18 +56,15 @@ class _DocumentsViewState extends State<DocumentsView> {
           final rxCount = _countFor(DocumentCategory.prescription, all);
           final imagingCount = _countFor(DocumentCategory.imaging, all);
           final mostRecent = all.isNotEmpty
-              ? all.map((d) => d.uploadedAt).reduce(
-                    (a, b) => a.isAfter(b) ? a : b,
-                  )
+              ? all
+                    .map((d) => d.uploadedAt)
+                    .reduce((a, b) => a.isAfter(b) ? a : b)
               : null;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              StaggeredEntry(
-                index: 0,
-                child: PatientDateHeader(),
-              ),
+              StaggeredEntry(index: 0, child: PatientDateHeader()),
               const SizedBox(height: AppSpacing.sm),
               StaggeredEntry(
                 index: 1,
@@ -121,9 +118,8 @@ class _DocumentsViewState extends State<DocumentsView> {
                         badge: imagingCount > 0 ? '$imagingCount' : null,
                         badgeColor: DocumentCategory.imaging.color,
                         selected: _filter == DocumentCategory.imaging,
-                        onTap: () => setState(
-                          () => _filter = DocumentCategory.imaging,
-                        ),
+                        onTap: () =>
+                            setState(() => _filter = DocumentCategory.imaging),
                       ),
                     ],
                   ),
@@ -160,9 +156,7 @@ class _DocumentsViewState extends State<DocumentsView> {
               StaggeredEntry(
                 index: 4,
                 child: SectionLabel(
-                  title: _filter == null
-                      ? 'All documents'
-                      : _filter!.label,
+                  title: _filter == null ? 'All documents' : _filter!.label,
                   icon: AppIcons.document,
                   trailing: items.isEmpty ? null : '${items.length}',
                 ),
@@ -189,26 +183,25 @@ class _DocumentsViewState extends State<DocumentsView> {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      mainAxisSpacing: AppSpacing.md,
-                      crossAxisSpacing: AppSpacing.md,
-                      childAspectRatio: 1.1,
-                    ),
+                          crossAxisCount: 3,
+                          mainAxisSpacing: AppSpacing.md,
+                          crossAxisSpacing: AppSpacing.md,
+                          childAspectRatio: 1.1,
+                        ),
                     itemCount: items.length,
                     itemBuilder: (_, i) => _DocumentTile(doc: items[i]),
                   ),
                 )
               else
                 ...items.asMap().entries.map(
-                      (e) => StaggeredEntry(
-                        index: e.key + 5,
-                        child: Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: _DocumentTile(doc: e.value, compact: true),
-                        ),
-                      ),
+                  (e) => StaggeredEntry(
+                    index: e.key + 5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _DocumentTile(doc: e.value, compact: true),
                     ),
+                  ),
+                ),
               const SizedBox(height: AppSpacing.huge),
             ],
           );
@@ -388,8 +381,11 @@ class _IconBox extends StatelessWidget {
         color: doc.category.color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       ),
-      child: Icon(doc.category.icon,
-          color: doc.category.color, size: large ? 28 : 22),
+      child: Icon(
+        doc.category.icon,
+        color: doc.category.color,
+        size: large ? 28 : 22,
+      ),
     );
   }
 }
@@ -410,10 +406,9 @@ class _Content extends StatelessWidget {
         ),
         Text(
           DateFormat.yMMMd().format(doc.uploadedAt),
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: AppPalette.textMuted(context)),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppPalette.textMuted(context),
+          ),
         ),
       ],
     );

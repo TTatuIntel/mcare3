@@ -63,8 +63,9 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
   /// per-page sync so long directories stay complete without operator taps.
   static const Duration _backgroundRefreshCadence = Duration(seconds: 45);
 
-  late final TextEditingController _search =
-      TextEditingController(text: _persistedSearchQuery);
+  late final TextEditingController _search = TextEditingController(
+    text: _persistedSearchQuery,
+  );
 
   late String? _statusFilter = _persistedStatus;
   late String _searchQuery = _persistedSearchQuery;
@@ -96,9 +97,11 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
       ? StaffDestinations.assistant()
       : StaffDestinations.admin();
 
-  bool get _canCreate => !widget.assistantMode ||
-      AuthState.instance
-          .hasAssistantPermission(AssistantPermissions.canCreateUsers);
+  bool get _canCreate =>
+      !widget.assistantMode ||
+      AuthState.instance.hasAssistantPermission(
+        AssistantPermissions.canCreateUsers,
+      );
 
   int get _advancedFilterCount {
     var count = 0;
@@ -388,8 +391,9 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
             label: 'Register',
             icon: AppIcons.add,
             size: AppButtonSize.sm,
-            onPressed:
-                _canCreate ? () => _openCreatePatientSheet(context) : null,
+            onPressed: _canCreate
+                ? () => _openCreatePatientSheet(context)
+                : null,
           ),
         ),
         const SizedBox(width: 8),
@@ -470,8 +474,8 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                   child: Text(
                     _syncedCaption()!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
+                      color: AppPalette.textMuted(context),
+                    ),
                   ),
                 ),
               StaggeredEntry(
@@ -534,9 +538,9 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
             child: Text(
               'Could not refresh. Showing the last available patient data.',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.warning,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: AppColors.warning,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           TextButton(
@@ -556,8 +560,8 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
         title: all.isEmpty ? 'No patients yet' : 'No patients match',
         message: all.isEmpty
             ? (_canCreate
-                ? 'Register a patient to get started.'
-                : 'The patient directory is currently empty.')
+                  ? 'Register a patient to get started.'
+                  : 'The patient directory is currently empty.')
             : 'Try adjusting your search or filters.',
         actionLabel: all.isEmpty && _canCreate ? 'Register patient' : null,
         onAction: all.isEmpty && _canCreate
@@ -663,9 +667,9 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppPalette.textMuted(context),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         TextButton(
@@ -690,17 +694,17 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
     final pillLabel = patient.isLocked
         ? 'LOCKED'
         : patient.mustChangePassword
-            ? 'TEMP PWD'
-            : patient.status.replaceAll('_', ' ').toUpperCase();
+        ? 'TEMP PWD'
+        : patient.status.replaceAll('_', ' ').toUpperCase();
     final pillColor = patient.isLocked
         ? AppColors.critical
         : patient.mustChangePassword
-            ? AppColors.warning
-            : switch (patient.status) {
-                'active' => AppColors.success,
-                'suspended' => AppColors.critical,
-                _ => AppColors.warning,
-              };
+        ? AppColors.warning
+        : switch (patient.status) {
+            'active' => AppColors.success,
+            'suspended' => AppColors.critical,
+            _ => AppColors.warning,
+          };
 
     final busy = _busyPatientIds.contains(patient.id);
 
@@ -726,8 +730,8 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                   ? 'Approve'
                   : (patient.status == 'active' ? 'Suspend' : 'Reactivate'),
               primaryDanger: patient.status == 'active',
-              primarySuccess: patient.status != 'active' &&
-                  patient.status != 'pending',
+              primarySuccess:
+                  patient.status != 'active' && patient.status != 'pending',
             ),
     );
   }
@@ -767,10 +771,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                 _PatientIdentityCard(patient: current),
                 const SizedBox(height: AppSpacing.lg),
                 _PatientDetailRow(label: 'Email', value: current.email),
-                _PatientDetailRow(
-                  label: 'mCare ID',
-                  value: current.uniqueId,
-                ),
+                _PatientDetailRow(label: 'mCare ID', value: current.uniqueId),
                 _PatientDetailRow(
                   label: 'Status',
                   value: current.status.replaceAll('_', ' ').toUpperCase(),
@@ -818,10 +819,14 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                         ? null
                         : () async {
                             final ok = await _approvePatient(
-                                sheetContext, current);
+                              sheetContext,
+                              current,
+                            );
                             if (ok && sheetContext.mounted) {
-                              Navigator.of(sheetContext, rootNavigator: true)
-                                  .pop();
+                              Navigator.of(
+                                sheetContext,
+                                rootNavigator: true,
+                              ).pop();
                             }
                           },
                   ),
@@ -836,10 +841,14 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                         ? null
                         : () async {
                             final ok = await _rejectPatient(
-                                sheetContext, current);
+                              sheetContext,
+                              current,
+                            );
                             if (ok && sheetContext.mounted) {
-                              Navigator.of(sheetContext, rootNavigator: true)
-                                  .pop();
+                              Navigator.of(
+                                sheetContext,
+                                rootNavigator: true,
+                              ).pop();
                             }
                           },
                   ),
@@ -1083,10 +1092,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
         message:
             'Share this securely with ${u.name}. It is shown only once and must be changed at the next sign-in.',
         values: [
-          StaffCredentialValue(
-            label: 'Temporary password',
-            value: temp ?? '',
-          ),
+          StaffCredentialValue(label: 'Temporary password', value: temp ?? ''),
         ],
       );
     } catch (e) {
@@ -1150,13 +1156,13 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
     }
 
     int advancedCount(_AdvancedFilter filter) => switch (filter) {
-          _AdvancedFilter.none => scoped.length,
-          _AdvancedFilter.locked => scoped.where((u) => u.isLocked).length,
-          _AdvancedFilter.needsSetup =>
-            scoped.where((u) => u.mustChangePassword).length,
-          _AdvancedFilter.newThisWeek =>
-            scoped.where((u) => u.joinedAt.isAfter(cutoff)).length,
-        };
+      _AdvancedFilter.none => scoped.length,
+      _AdvancedFilter.locked => scoped.where((u) => u.isLocked).length,
+      _AdvancedFilter.needsSetup =>
+        scoped.where((u) => u.mustChangePassword).length,
+      _AdvancedFilter.newThisWeek =>
+        scoped.where((u) => u.joinedAt.isAfter(cutoff)).length,
+    };
 
     final applied = await showModalBottomSheet<bool>(
       context: context,
@@ -1175,9 +1181,9 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                     child: Text(
                       title,
                       style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppPalette.textMuted(ctx),
-                          ),
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textMuted(ctx),
+                      ),
                     ),
                   ),
                   Wrap(
@@ -1214,15 +1220,12 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                               children: [
                                 Text(
                                   'More filters & sort',
-                                  style:
-                                      Theme.of(ctx).textTheme.titleMedium,
+                                  style: Theme.of(ctx).textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   'Status stays on the quick chips above the directory.',
-                                  style: Theme.of(ctx)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(ctx).textTheme.bodySmall
                                       ?.copyWith(
                                         color: AppPalette.textMuted(ctx),
                                       ),
@@ -1265,9 +1268,8 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
                                     label: sort.label,
                                     selected: draftSort == sort,
                                     accent: AppColors.doctorGreen,
-                                    onTap: () => setSheetState(
-                                      () => draftSort = sort,
-                                    ),
+                                    onTap: () =>
+                                        setSheetState(() => draftSort = sort),
                                   ),
                               ]),
                             ],
@@ -1336,7 +1338,8 @@ class _AdminPatientsViewState extends State<AdminPatientsView>
           final first = firstCtrl.text.trim();
           final last = lastCtrl.text.trim();
           final email = emailCtrl.text.trim();
-          final canSubmit = first.isNotEmpty &&
+          final canSubmit =
+              first.isNotEmpty &&
               last.isNotEmpty &&
               _looksLikeEmail(email) &&
               !creating;
@@ -1490,9 +1493,7 @@ class _PatientIdentityCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: patient.role.accent.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: patient.role.accent.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: patient.role.accent.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
@@ -1520,8 +1521,8 @@ class _PatientIdentityCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -1529,8 +1530,8 @@ class _PatientIdentityCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                    color: AppPalette.textMuted(context),
+                  ),
                 ),
               ],
             ),
@@ -1564,9 +1565,9 @@ class _PatientDetailRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -1575,9 +1576,9 @@ class _PatientDetailRow extends StatelessWidget {
               value,
               textAlign: TextAlign.right,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: valueColor ?? AppPalette.ink(context),
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: valueColor ?? AppPalette.ink(context),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1639,8 +1640,8 @@ class _RowInlineActions extends StatelessWidget {
           variant: primaryDanger
               ? AppButtonVariant.danger
               : primarySuccess
-                  ? AppButtonVariant.primary
-                  : AppButtonVariant.primary,
+              ? AppButtonVariant.primary
+              : AppButtonVariant.primary,
           onPressed: busy ? null : onPrimary,
         ),
       ],

@@ -37,8 +37,9 @@ List<Widget> buildStaffOverviewSections(BuildContext context, UserDossier d) {
                 value: app.hasCredentialDocument
                     ? (app.credentialDocumentName ?? 'On file')
                     : null,
-                valueColor:
-                    app.hasCredentialDocument ? AppColors.success : null,
+                valueColor: app.hasCredentialDocument
+                    ? AppColors.success
+                    : null,
               ),
               if (app.approvedAt != null) ...[
                 DossierRow(
@@ -69,9 +70,9 @@ List<Widget> buildStaffOverviewSections(BuildContext context, UserDossier d) {
                   value: app.inviteAcceptedAt != null
                       ? 'Accepted ${dossierDate(app.inviteAcceptedAt)}'
                       : app.invitePending
-                          ? 'Pending — expires '
-                              '${dossierDate(app.inviteExpiresAt)}'
-                          : 'Expired',
+                      ? 'Pending — expires '
+                            '${dossierDate(app.inviteExpiresAt)}'
+                      : 'Expired',
                   valueColor: app.inviteAcceptedAt != null
                       ? AppColors.success
                       : AppColors.warning,
@@ -97,7 +98,7 @@ List<Widget> buildStaffOverviewSections(BuildContext context, UserDossier d) {
             value: practice.rating == null
                 ? null
                 : '${practice.rating!.toStringAsFixed(1)} '
-                    '(${practice.totalReviews ?? 0} reviews)',
+                      '(${practice.totalReviews ?? 0} reviews)',
           ),
           DossierRow(
             label: 'Languages',
@@ -162,23 +163,21 @@ List<Widget> buildStaffWorkSections(BuildContext context, UserDossier d) {
         if (isDoctor) ...[
           DossierRow(
             label: 'Active caseload',
-            value: '${p.caseloadActive} patient'
+            value:
+                '${p.caseloadActive} patient'
                 '${p.caseloadActive == 1 ? '' : 's'}',
             emphasise: true,
           ),
-          DossierRow(
-            label: 'Past caseload',
-            value: '${p.caseloadEnded} ended',
-          ),
+          DossierRow(label: 'Past caseload', value: '${p.caseloadEnded} ended'),
           DossierRow(
             label: 'Patients alerting',
             value: '${p.patientsAlerting}',
-            valueColor:
-                p.patientsAlerting > 0 ? AppColors.critical : null,
+            valueColor: p.patientsAlerting > 0 ? AppColors.critical : null,
           ),
           DossierRow(
             label: 'Prescriptions',
-            value: '${p.prescriptionsActive} active of '
+            value:
+                '${p.prescriptionsActive} active of '
                 '${p.prescriptionsIssued} issued',
           ),
           DossierRow(
@@ -187,20 +186,22 @@ List<Widget> buildStaffWorkSections(BuildContext context, UserDossier d) {
           ),
           DossierRow(
             label: 'Reports',
-            value: '${p.reportsPublished} published of '
+            value:
+                '${p.reportsPublished} published of '
                 '${p.reportsAuthored} written',
           ),
           DossierRow(
             label: 'Appointments',
-            value: '${p.appointmentsUpcoming} upcoming of '
+            value:
+                '${p.appointmentsUpcoming} upcoming of '
                 '${p.appointmentsTotal} total',
           ),
           DossierRow(
             label: 'Care requests',
-            value: '${p.careRequestsPending} pending of '
+            value:
+                '${p.careRequestsPending} pending of '
                 '${p.careRequestsHandled} received',
-            valueColor:
-                p.careRequestsPending > 0 ? AppColors.warning : null,
+            valueColor: p.careRequestsPending > 0 ? AppColors.warning : null,
           ),
         ] else ...[
           DossierRow(
@@ -216,7 +217,7 @@ List<Widget> buildStaffWorkSections(BuildContext context, UserDossier d) {
             value: access?.implicitAll == true
                 ? 'All (administrator)'
                 : '${access?.granted.length ?? 0} of '
-                    '${access?.available.length ?? 0}',
+                      '${access?.available.length ?? 0}',
           ),
         ],
       ],
@@ -336,8 +337,7 @@ List<Widget> buildAccountSections(BuildContext context, UserDossier d) {
         DossierRow(
           label: 'Profile',
           value: a.profileComplete ? 'Complete' : 'Incomplete',
-          valueColor:
-              a.profileComplete ? AppColors.success : AppColors.warning,
+          valueColor: a.profileComplete ? AppColors.success : AppColors.warning,
         ),
       ],
     ),
@@ -364,7 +364,8 @@ List<Widget> buildAccountSections(BuildContext context, UserDossier d) {
         if (app.approvedAt != null)
           DossierRow(
             label: 'Approved',
-            value: '${dossierDate(app.approvedAt)}'
+            value:
+                '${dossierDate(app.approvedAt)}'
                 '${app.approvedByName == null ? '' : ' by ${app.approvedByName}'}',
             valueColor: AppColors.success,
           ),
@@ -374,10 +375,7 @@ List<Widget> buildAccountSections(BuildContext context, UserDossier d) {
             value: dossierDate(app.rejectedAt),
             valueColor: AppColors.critical,
           ),
-        DossierRow(
-          label: 'Record updated',
-          value: dossierDate(a.updatedAt),
-        ),
+        DossierRow(label: 'Record updated', value: dossierDate(a.updatedAt)),
       ],
     ),
     DossierCard(
@@ -389,21 +387,17 @@ List<Widget> buildAccountSections(BuildContext context, UserDossier d) {
           value: s.lastLoginAt == null
               ? 'Never signed in'
               : '${dossierDateTime(s.lastLoginAt)} '
-                  '(${dossierRelative(s.lastLoginAt!)})',
+                    '(${dossierRelative(s.lastLoginAt!)})',
           emphasise: true,
           valueColor: s.lastLoginAt == null ? AppColors.warning : null,
         ),
         DossierRow(label: 'Total sign-ins', value: '${s.loginCount}'),
         DossierRow(label: 'Sign-in methods', value: s.signInMethods),
-        DossierRow(
-          label: 'Last IP',
-          value: s.lastLoginIp,
-        ),
+        DossierRow(label: 'Last IP', value: s.lastLoginIp),
         DossierRow(
           label: 'Failed attempts',
           value: '${s.failedLoginAttempts}',
-          valueColor:
-              s.failedLoginAttempts > 0 ? AppColors.warning : null,
+          valueColor: s.failedLoginAttempts > 0 ? AppColors.warning : null,
         ),
         DossierRow(
           label: 'Lockout',
@@ -476,10 +470,10 @@ List<Widget> buildActivitySections(BuildContext context, UserDossier d) {
                 ? AppColors.critical
                 : AppColors.info,
             title: dossierHumanize(a.action.replaceAll('.', ' ')),
-            subtitle: [a.actor, a.target]
-                .whereType<String>()
-                .where((e) => e.isNotEmpty)
-                .join(' · '),
+            subtitle: [
+              a.actor,
+              a.target,
+            ].whereType<String>().where((e) => e.isNotEmpty).join(' · '),
             meta: dossierRelative(a.at),
           ),
       ],

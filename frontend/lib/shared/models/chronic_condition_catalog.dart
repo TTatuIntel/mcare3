@@ -35,10 +35,7 @@ class ChronicConditionCatalog {
       id: 'hypertension',
       label: 'Hypertension',
       description: 'Blood pressure and heart rate',
-      recommendedVitals: [
-        VitalKey.bloodPressure,
-        VitalKey.heartRate,
-      ],
+      recommendedVitals: [VitalKey.bloodPressure, VitalKey.heartRate],
     ),
     ChronicConditionOption(
       id: 'heart_disease',
@@ -64,10 +61,7 @@ class ChronicConditionCatalog {
       id: 'kidney',
       label: 'Kidney disease',
       description: 'Blood pressure and weight',
-      recommendedVitals: [
-        VitalKey.bloodPressure,
-        VitalKey.weight,
-      ],
+      recommendedVitals: [VitalKey.bloodPressure, VitalKey.weight],
     ),
     ChronicConditionOption(
       id: 'obesity',
@@ -116,18 +110,12 @@ class ChronicConditionCatalog {
       if (opt != null) keys.addAll(opt.recommendedVitals);
     }
     if (keys.isEmpty) {
-      keys.addAll([
-        VitalKey.heartRate,
-        VitalKey.bloodPressure,
-      ]);
+      keys.addAll([VitalKey.heartRate, VitalKey.bloodPressure]);
     }
     return keys.toList();
   }
 
   static List<String> labelsForIds(Set<String> ids) {
-    return ids
-        .map((id) => byId(id)?.label)
-        .whereType<String>()
-        .toList();
+    return ids.map((id) => byId(id)?.label).whereType<String>().toList();
   }
 }

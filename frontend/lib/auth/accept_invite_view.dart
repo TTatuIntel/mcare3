@@ -78,13 +78,15 @@ class _AcceptInviteViewState extends State<AcceptInviteView> {
       }
       if (!mounted) return;
       AppToast.success(context, 'Invite accepted — please sign in.');
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        RouteNames.login,
-        (_) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(RouteNames.login, (_) => false);
     } catch (_) {
       if (mounted) {
-        AppToast.error(context, 'Could not accept invite. Link may have expired.');
+        AppToast.error(
+          context,
+          'Could not accept invite. Link may have expired.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -113,9 +115,11 @@ class _AcceptInviteViewState extends State<AcceptInviteView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(AppIcons.approval,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 32),
+                            Icon(
+                              AppIcons.approval,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 32,
+                            ),
                             const SizedBox(height: AppSpacing.md),
                             Text(
                               'Accept your invite',
@@ -127,10 +131,10 @@ class _AcceptInviteViewState extends State<AcceptInviteView> {
                               widget.token == null
                                   ? 'No token detected. Make sure you used the link from your invitation email.'
                                   : 'Set a password to activate your account.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: AppPalette.textMuted(context)),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: AppPalette.textMuted(context),
+                                  ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppSpacing.lg),

@@ -10,7 +10,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
 import 'document_pdf_view_stub.dart'
-    if (dart.library.html) 'document_pdf_view_web.dart' as pdf_view;
+    if (dart.library.html) 'document_pdf_view_web.dart'
+    as pdf_view;
 import 'loading/loading.dart';
 
 /// In-app preview for PDFs and images — authenticated, no public storage URL.
@@ -133,9 +134,7 @@ class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: McareLoadingMark(size: McareMarkSize.small),
-      );
+      return const Center(child: McareLoadingMark(size: McareMarkSize.small));
     }
     if (_error != null) {
       return _Placeholder(
@@ -251,8 +250,8 @@ class _Placeholder extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                  ),
+                color: AppPalette.textMuted(context),
+              ),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: AppSpacing.sm),

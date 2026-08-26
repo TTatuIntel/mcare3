@@ -66,10 +66,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 child: Text(
                   todayStr,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -146,24 +146,25 @@ class _VisitsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isSoon = nextVisit != null &&
+    final isSoon =
+        nextVisit != null &&
         nextVisit!.scheduledAt.difference(DateTime.now()).inHours < 48;
     final accent = upcomingCount == 0
         ? AppColors.brandIndigo
         : isSoon
-            ? AppColors.warning
-            : AppColors.brandIndigo;
+        ? AppColors.warning
+        : AppColors.brandIndigo;
     final iconBg = upcomingCount == 0
         ? AppPalette.infoSoft(context)
         : isSoon
-            ? AppPalette.warningSoft(context)
-            : AppPalette.infoSoft(context);
+        ? AppPalette.warningSoft(context)
+        : AppPalette.infoSoft(context);
 
     final headline = nextVisit == null
         ? 'No upcoming visits'
         : _isToday(nextVisit!.scheduledAt)
-            ? 'Visit today'
-            : 'Next visit ${DateFormat.MMMd().format(nextVisit!.scheduledAt)}';
+        ? 'Visit today'
+        : 'Next visit ${DateFormat.MMMd().format(nextVisit!.scheduledAt)}';
 
     return GlassCard(
       frosted: true,
@@ -181,11 +182,7 @@ class _VisitsHero extends StatelessWidget {
                   color: iconBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
-                child: Icon(
-                  AppIcons.appointment,
-                  color: accent,
-                  size: 20,
-                ),
+                child: Icon(AppIcons.appointment, color: accent, size: 20),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -214,11 +211,7 @@ class _VisitsHero extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    nextVisit!.type.icon,
-                    size: 14,
-                    color: accent,
-                  ),
+                  Icon(nextVisit!.type.icon, size: 14, color: accent),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
@@ -247,7 +240,9 @@ class _VisitsHero extends StatelessWidget {
               _HeroStat(
                 label: 'Cancelled',
                 value: '$cancelledCount',
-                accent: cancelledCount > 0 ? AppPalette.textMuted(context) : null,
+                accent: cancelledCount > 0
+                    ? AppPalette.textMuted(context)
+                    : null,
               ),
               _HeroStatDivider(),
               _HeroStat(
@@ -426,7 +421,9 @@ class _QuickAction extends StatelessWidget {
     final color = selected ? AppColors.brandIndigo : AppColors.brandIndigo;
 
     return Material(
-      color: selected ? AppColors.brandIndigo.withOpacity(0.08) : Colors.transparent,
+      color: selected
+          ? AppColors.brandIndigo.withOpacity(0.08)
+          : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -454,8 +451,9 @@ class _QuickAction extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.brandIndigo,
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusPill),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusPill,
+                          ),
                         ),
                         child: Text(
                           badge!,
@@ -476,7 +474,9 @@ class _QuickAction extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: selected ? AppColors.brandIndigo : AppPalette.ink(context),
+                  color: selected
+                      ? AppColors.brandIndigo
+                      : AppPalette.ink(context),
                   fontWeight: FontWeight.w700,
                   fontSize: 9,
                 ),
@@ -556,10 +556,9 @@ class _VisitRow extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.of(context).pushNamed(
-          RouteNames.patientAppointmentDetail,
-          arguments: a.id,
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(RouteNames.patientAppointmentDetail, arguments: a.id),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Container(
           padding: const EdgeInsets.symmetric(

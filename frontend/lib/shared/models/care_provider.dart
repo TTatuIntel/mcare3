@@ -6,18 +6,18 @@ enum CareRequestStatus { pending, approved, rejected, cancelled }
 
 extension CareRequestStatusX on CareRequestStatus {
   String get label => switch (this) {
-        CareRequestStatus.pending => 'Pending',
-        CareRequestStatus.approved => 'Approved',
-        CareRequestStatus.rejected => 'Rejected',
-        CareRequestStatus.cancelled => 'Cancelled',
-      };
+    CareRequestStatus.pending => 'Pending',
+    CareRequestStatus.approved => 'Approved',
+    CareRequestStatus.rejected => 'Rejected',
+    CareRequestStatus.cancelled => 'Cancelled',
+  };
 
   Color get color => switch (this) {
-        CareRequestStatus.pending => AppColors.warning,
-        CareRequestStatus.approved => AppColors.success,
-        CareRequestStatus.rejected => AppColors.critical,
-        CareRequestStatus.cancelled => AppColors.textMutedAA,
-      };
+    CareRequestStatus.pending => AppColors.warning,
+    CareRequestStatus.approved => AppColors.success,
+    CareRequestStatus.rejected => AppColors.critical,
+    CareRequestStatus.cancelled => AppColors.textMutedAA,
+  };
 }
 
 class CareProvider {

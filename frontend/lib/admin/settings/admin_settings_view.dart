@@ -61,10 +61,9 @@ class AdminSettingsView extends StatelessWidget {
           icon: AppIcons.home,
           variant: AppButtonVariant.secondary,
           expand: true,
-          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
-            RouteNames.adminDashboard,
-            (_) => false,
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RouteNames.adminDashboard, (_) => false),
         ),
         const SizedBox(height: AppSpacing.lg),
         const SectionLabel(

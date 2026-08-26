@@ -17,16 +17,16 @@ class StaffMapper {
   // Caseload / patients
   // ---------------------------------------------------------------------------
   static StaffPatient patientFromApi(Map<String, dynamic> j) => StaffPatient(
-        id: (j['id'] ?? '').toString(),
-        name: (j['name'] ?? '') as String,
-        age: (j['age'] as num?)?.toInt() ?? 0,
-        sex: (j['sex'] as String?) ?? '—',
-        condition: (j['condition'] as String?) ?? '',
-        risk: _risk(j['risk'] as String?),
-        lastReading: _parseDate(j['last_reading_at']) ?? DateTime.now(),
-        assignedDoctor: (j['assigned_doctor'] as String?) ?? '',
-        unreadAlerts: (j['unread_alerts'] as num?)?.toInt() ?? 0,
-      );
+    id: (j['id'] ?? '').toString(),
+    name: (j['name'] ?? '') as String,
+    age: (j['age'] as num?)?.toInt() ?? 0,
+    sex: (j['sex'] as String?) ?? '—',
+    condition: (j['condition'] as String?) ?? '',
+    risk: _risk(j['risk'] as String?),
+    lastReading: _parseDate(j['last_reading_at']) ?? DateTime.now(),
+    assignedDoctor: (j['assigned_doctor'] as String?) ?? '',
+    unreadAlerts: (j['unread_alerts'] as num?)?.toInt() ?? 0,
+  );
 
   // ---------------------------------------------------------------------------
   // Alerts (sourced from AppNotification kinds vital_warning/critical/sos)
@@ -39,21 +39,21 @@ class StaffMapper {
     final value = (j['value'] as String?) ?? body ?? '';
 
     return StaffAlert(
-      id: (j['id'] ?? '').toString(),
-      patientId: (j['patient_id'] ?? '').toString(),
-      patientName: (j['patient_name'] ?? '') as String,
-      vital: parseVitalFromAlertPayload(
-        vitalKey: vitalKey,
-        title: title,
-        body: body,
+        id: (j['id'] ?? '').toString(),
+        patientId: (j['patient_id'] ?? '').toString(),
+        patientName: (j['patient_name'] ?? '') as String,
+        vital: parseVitalFromAlertPayload(
+          vitalKey: vitalKey,
+          title: title,
+          body: body,
+          kind: kind,
+        ),
+        value: value,
+        severity: severityFromAlertKind(kind, j['severity'] as String?),
+        createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
         kind: kind,
-      ),
-      value: value,
-      severity: severityFromAlertKind(kind, j['severity'] as String?),
-      createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-      kind: kind,
-      acknowledged: (j['acknowledged'] as bool?) ?? false,
-    )
+        acknowledged: (j['acknowledged'] as bool?) ?? false,
+      )
       ..resolved = (j['resolved'] as bool?) ?? false
       ..resolutionNote = j['resolution_note'] as String?
       ..resolutionAction = j['resolution_action'] as String?
@@ -106,7 +106,10 @@ class StaffMapper {
         drug: (j['drug'] ?? '') as String,
         dosage: (j['dosage'] ?? '') as String,
         frequency: (j['frequency'] ?? '') as String,
-        duration: _durationLabel(j['start_date'] as String?, j['end_date'] as String?),
+        duration: _durationLabel(
+          j['start_date'] as String?,
+          j['end_date'] as String?,
+        ),
         issuedAt: _parseDate(j['start_date']) ?? DateTime.now(),
         status: (j['status'] as String?) ?? 'Active',
       );
@@ -115,53 +118,55 @@ class StaffMapper {
   // Clinical reports
   // ---------------------------------------------------------------------------
   static ClinicalReport reportFromApi(Map<String, dynamic> j) => ClinicalReport(
-        id: (j['id'] ?? '').toString(),
-        patientName: (j['patient_name'] ?? '') as String,
-        title: (j['title'] ?? '') as String,
-        body: (j['body'] ?? '') as String,
-        createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-        published: (j['published'] as bool?) ?? false,
-      );
+    id: (j['id'] ?? '').toString(),
+    patientName: (j['patient_name'] ?? '') as String,
+    title: (j['title'] ?? '') as String,
+    body: (j['body'] ?? '') as String,
+    createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
+    published: (j['published'] as bool?) ?? false,
+  );
 
   // ---------------------------------------------------------------------------
   // Pending vital-report requests + care requests
   // ---------------------------------------------------------------------------
-  static StaffPatientRequest vitalReportRequestFromApi(Map<String, dynamic> j) =>
-      StaffPatientRequest(
-        id: (j['id'] ?? '').toString(),
-        patientId: (j['patient_id'] ?? '').toString(),
-        type: 'Vital report',
-        summary: (j['note'] as String?)?.isNotEmpty == true
-            ? j['note'] as String
-            : 'Vital summary report',
-        status: (j['status'] as String?) ?? 'pending',
-        createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-      );
+  static StaffPatientRequest vitalReportRequestFromApi(
+    Map<String, dynamic> j,
+  ) => StaffPatientRequest(
+    id: (j['id'] ?? '').toString(),
+    patientId: (j['patient_id'] ?? '').toString(),
+    type: 'Vital report',
+    summary: (j['note'] as String?)?.isNotEmpty == true
+        ? j['note'] as String
+        : 'Vital summary report',
+    status: (j['status'] as String?) ?? 'pending',
+    createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
+  );
 
-  static CareRequestItem careRequestFromApi(Map<String, dynamic> j) =>
-      CareRequestItem(
-        id: (j['id'] ?? '').toString(),
-        patient: (j['patient_name'] ?? '') as String,
-        providerRequested: (j['provider_name'] ?? '') as String,
-        reason: (j['reason'] ?? '') as String,
-        createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-        // The admin list endpoint sends patient_user_id; session sends patient_id.
-        patientId:
-            (j['patient_id'] ?? j['patient_user_id'])?.toString(),
-        status: _normalizeCareRequestStatus((j['status'] as String?) ?? 'pending'),
-        providerId: j['provider_id']?.toString(),
-        providerSpecialty: j['provider_specialty'] as String?,
-        assignedProviderId: j['assigned_provider_id']?.toString(),
-        assignedProviderName: j['assigned_provider_name'] as String?,
-        assignmentRole: j['assignment_role'] as String?,
-        decisionNote: j['decision_note'] as String?,
-        decidedAt: _parseDate(j['decided_at']),
-        decidedByName: j['decided_by_name'] as String?,
-        reassigned: j['reassigned'] as bool? ?? false,
-      );
+  static CareRequestItem careRequestFromApi(
+    Map<String, dynamic> j,
+  ) => CareRequestItem(
+    id: (j['id'] ?? '').toString(),
+    patient: (j['patient_name'] ?? '') as String,
+    providerRequested: (j['provider_name'] ?? '') as String,
+    reason: (j['reason'] ?? '') as String,
+    createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
+    // The admin list endpoint sends patient_user_id; session sends patient_id.
+    patientId: (j['patient_id'] ?? j['patient_user_id'])?.toString(),
+    status: _normalizeCareRequestStatus((j['status'] as String?) ?? 'pending'),
+    providerId: j['provider_id']?.toString(),
+    providerSpecialty: j['provider_specialty'] as String?,
+    assignedProviderId: j['assigned_provider_id']?.toString(),
+    assignedProviderName: j['assigned_provider_name'] as String?,
+    assignmentRole: j['assignment_role'] as String?,
+    decisionNote: j['decision_note'] as String?,
+    decidedAt: _parseDate(j['decided_at']),
+    decidedByName: j['decided_by_name'] as String?,
+    reassigned: j['reassigned'] as bool? ?? false,
+  );
 
   static String _normalizeCareRequestStatus(String s) {
-    if (s == 'cancelled' || s == 'canceled' || s == 'declined') return 'rejected';
+    if (s == 'cancelled' || s == 'canceled' || s == 'declined')
+      return 'rejected';
     if (s == 'accepted') return 'approved';
     return s;
   }
@@ -258,13 +263,13 @@ class StaffMapper {
       );
 
   static AuditEntry auditFromApi(Map<String, dynamic> j) => AuditEntry(
-        id: (j['id'] ?? '').toString(),
-        at: _parseDate(j['happened_at']) ?? DateTime.now(),
-        actor: (j['actor'] ?? '') as String,
-        action: (j['action'] ?? '') as String,
-        target: (j['target'] ?? '') as String,
-        category: (j['category'] as String?) ?? 'activity',
-      );
+    id: (j['id'] ?? '').toString(),
+    at: _parseDate(j['happened_at']) ?? DateTime.now(),
+    actor: (j['actor'] ?? '') as String,
+    action: (j['action'] ?? '') as String,
+    target: (j['target'] ?? '') as String,
+    category: (j['category'] as String?) ?? 'activity',
+  );
 
   static SystemConfigSection systemSettingFromApi(Map<String, dynamic> j) =>
       SystemConfigSection(
@@ -281,45 +286,44 @@ class StaffMapper {
   static StaffPatientDocument documentFromApi(
     Map<String, dynamic> j, {
     required String patientId,
-  }) =>
-      StaffPatientDocument(
-        id: (j['id'] ?? '').toString(),
-        patientId: patientId,
-        title: (j['title'] ?? j['name'] ?? 'Document') as String,
-        category: (j['category'] ?? j['type'] ?? 'General') as String,
-        uploadedAt: _parseDate(j['uploaded_at'] ?? j['created_at']) ??
-            DateTime.now(),
-        uploadedBy: (j['uploaded_by'] as String?) ?? 'Patient',
-        fileType: PatientDomainMapper.documentFileTypeFromApi(
-          j['file_type'] as String?,
-        ),
-        description: j['description'] as String?,
-        hasFile: j['has_file'] as bool? ?? true,
-      );
+  }) => StaffPatientDocument(
+    id: (j['id'] ?? '').toString(),
+    patientId: patientId,
+    title: (j['title'] ?? j['name'] ?? 'Document') as String,
+    category: (j['category'] ?? j['type'] ?? 'General') as String,
+    uploadedAt:
+        _parseDate(j['uploaded_at'] ?? j['created_at']) ?? DateTime.now(),
+    uploadedBy: (j['uploaded_by'] as String?) ?? 'Patient',
+    fileType: PatientDomainMapper.documentFileTypeFromApi(
+      j['file_type'] as String?,
+    ),
+    description: j['description'] as String?,
+    hasFile: j['has_file'] as bool? ?? true,
+  );
 
   static StaffPatientSos sosFromApi(
     Map<String, dynamic> j, {
     required String patientId,
-  }) =>
-      StaffPatientSos(
-        id: (j['id'] ?? '').toString(),
-        patientId: (j['patient_id'] ?? patientId).toString(),
-        patientName: j['patient_name'] as String?,
-        kind: (j['kind'] as String?) ?? 'other',
-        status: (j['status'] as String?) ?? 'active',
-        triggeredAt: _parseDate(j['triggered_at']) ?? DateTime.now(),
-        locationLabel: j['location_label'] as String?,
-        note: j['note'] as String?,
-        latitude: (j['latitude'] as num?)?.toDouble(),
-        longitude: (j['longitude'] as num?)?.toDouble(),
-        respondedBy: j['responded_by'] as String?,
-      );
+  }) => StaffPatientSos(
+    id: (j['id'] ?? '').toString(),
+    patientId: (j['patient_id'] ?? patientId).toString(),
+    patientName: j['patient_name'] as String?,
+    kind: (j['kind'] as String?) ?? 'other',
+    status: (j['status'] as String?) ?? 'active',
+    triggeredAt: _parseDate(j['triggered_at']) ?? DateTime.now(),
+    locationLabel: j['location_label'] as String?,
+    note: j['note'] as String?,
+    latitude: (j['latitude'] as num?)?.toDouble(),
+    longitude: (j['longitude'] as num?)?.toDouble(),
+    respondedBy: j['responded_by'] as String?,
+  );
 
   static StaffPatientVitalReading vitalReadingFromApi(
     Map<String, dynamic> j, {
     required String patientId,
   }) {
-    final vitalKey = (j['vital'] ?? j['vital_key'] ?? 'bloodPressure') as String;
+    final vitalKey =
+        (j['vital'] ?? j['vital_key'] ?? 'bloodPressure') as String;
 
     return StaffPatientVitalReading(
       id: j['id']?.toString(),
@@ -359,42 +363,43 @@ class StaffMapper {
   // Meal plans
   // ---------------------------------------------------------------------------
   static StaffMealPlan mealPlanFromApi(Map<String, dynamic> j) => StaffMealPlan(
-        id: (j['id'] ?? '').toString(),
-        patientId: (j['patient_id'] ?? '').toString(),
-        patientName: (j['patient_name'] ?? '') as String,
-        title: (j['title'] ?? '') as String,
-        mealType: _mealTypeFromApi(j['meal_type'] as String?),
-        description: j['description'] as String?,
-        calories: (j['calories'] as num?)?.toInt(),
-        protein: j['protein'] as String?,
-        carbs: j['carbs'] as String?,
-        fat: j['fat'] as String?,
-        notes: j['notes'] as String?,
-        assignedAt: _parseDate(j['assigned_at'] ?? j['created_at']) ?? DateTime.now(),
-        assignedBy: (j['assigned_by'] as String?) ?? '',
-      );
+    id: (j['id'] ?? '').toString(),
+    patientId: (j['patient_id'] ?? '').toString(),
+    patientName: (j['patient_name'] ?? '') as String,
+    title: (j['title'] ?? '') as String,
+    mealType: _mealTypeFromApi(j['meal_type'] as String?),
+    description: j['description'] as String?,
+    calories: (j['calories'] as num?)?.toInt(),
+    protein: j['protein'] as String?,
+    carbs: j['carbs'] as String?,
+    fat: j['fat'] as String?,
+    notes: j['notes'] as String?,
+    assignedAt:
+        _parseDate(j['assigned_at'] ?? j['created_at']) ?? DateTime.now(),
+    assignedBy: (j['assigned_by'] as String?) ?? '',
+  );
 
   static MealType _mealTypeFromApi(String? raw) => MealType.values.firstWhere(
-        (t) => t.name == raw,
-        orElse: () => MealType.general,
-      );
+    (t) => t.name == raw,
+    orElse: () => MealType.general,
+  );
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
   static RiskLevel _risk(String? s) => switch (s) {
-        'critical' => RiskLevel.critical,
-        'warning' => RiskLevel.warning,
-        'normal' => RiskLevel.normal,
-        _ => RiskLevel.unknown,
-      };
+    'critical' => RiskLevel.critical,
+    'warning' => RiskLevel.warning,
+    'normal' => RiskLevel.normal,
+    _ => RiskLevel.unknown,
+  };
 
   static UserRole _role(String? s) => switch (s) {
-        'doctor' => UserRole.doctor,
-        'admin' => UserRole.admin,
-        'mcareAssistant' || 'mcare_assistant' => UserRole.mcareAssistant,
-        _ => UserRole.patient,
-      };
+    'doctor' => UserRole.doctor,
+    'admin' => UserRole.admin,
+    'mcareAssistant' || 'mcare_assistant' => UserRole.mcareAssistant,
+    _ => UserRole.patient,
+  };
 
   static DateTime? _parseDate(dynamic v) {
     if (v is String && v.isNotEmpty) return DateTime.tryParse(v);
@@ -409,12 +414,10 @@ class StaffMapper {
     return '$days days';
   }
 
-
   static VitalCatalogEntry vitalCatalogEntryFromApi(Map<String, dynamic> j) {
     final keyRaw = (j['vital'] ?? j['vital_key'] ?? '') as String;
     // Only map to a built-in VitalKey when the API key is a known enum name.
-    final isBuiltin =
-        VitalKey.values.any((v) => v.name == keyRaw);
+    final isBuiltin = VitalKey.values.any((v) => v.name == keyRaw);
     final vitalKey = isBuiltin
         ? PatientProfileMapper.vitalKeyFromApi(keyRaw)
         : null;

@@ -32,28 +32,27 @@ Widget _gate({
   required String currentRoute,
   required String title,
   required Widget child,
-}) =>
-    PermissionGate(
-      permissionKey: permissionKey,
-      currentRoute: currentRoute,
-      title: title,
-      child: child,
-    );
+}) => PermissionGate(
+  permissionKey: permissionKey,
+  currentRoute: currentRoute,
+  title: title,
+  child: child,
+);
 
 class AssistantApprovalsView extends StatelessWidget {
   const AssistantApprovalsView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canApproveHealthworkers,
-        currentRoute: RouteNames.assistantApprovals,
-        title: 'Healthworker approvals',
-        child: ApprovalsScreen(
-          currentRoute: RouteNames.assistantApprovals,
-          destinations: StaffDestinations.assistant(),
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        ),
-      );
+    permissionKey: AssistantPermissions.canApproveHealthworkers,
+    currentRoute: RouteNames.assistantApprovals,
+    title: 'Healthworker approvals',
+    child: ApprovalsScreen(
+      currentRoute: RouteNames.assistantApprovals,
+      destinations: StaffDestinations.assistant(),
+      profileRoute: RouteNames.assistantProfile,
+      notificationsRoute: RouteNames.assistantNotifications,
+    ),
+  );
 }
 
 /// The merged care workspace. Each half carries its own grant, so this gates
@@ -63,31 +62,31 @@ class AssistantCareRequestsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: AuthState.instance,
-        builder: (context, _) {
-          final has = AuthState.instance.hasAssistantPermission;
-          final canTriage = has(AssistantPermissions.canManageCareRequests);
-          final canAssign = has(AssistantPermissions.canAssignPatients);
+    animation: AuthState.instance,
+    builder: (context, _) {
+      final has = AuthState.instance.hasAssistantPermission;
+      final canTriage = has(AssistantPermissions.canManageCareRequests);
+      final canAssign = has(AssistantPermissions.canAssignPatients);
 
-          return _gate(
-            // With only can_assign_patients the assignments tab is still
-            // reachable, so gate against the grant they actually hold.
-            permissionKey: canTriage
-                ? AssistantPermissions.canManageCareRequests
-                : AssistantPermissions.canAssignPatients,
-            currentRoute: RouteNames.assistantCareRequests,
-            title: canTriage ? 'Care requests' : 'Care assignments',
-            child: CareRequestsScreen(
-              currentRoute: RouteNames.assistantCareRequests,
-              destinations: StaffDestinations.assistant(),
-              profileRoute: RouteNames.assistantProfile,
-              notificationsRoute: RouteNames.assistantNotifications,
-              canTriage: canTriage,
-              canAssign: canAssign,
-            ),
-          );
-        },
+      return _gate(
+        // With only can_assign_patients the assignments tab is still
+        // reachable, so gate against the grant they actually hold.
+        permissionKey: canTriage
+            ? AssistantPermissions.canManageCareRequests
+            : AssistantPermissions.canAssignPatients,
+        currentRoute: RouteNames.assistantCareRequests,
+        title: canTriage ? 'Care requests' : 'Care assignments',
+        child: CareRequestsScreen(
+          currentRoute: RouteNames.assistantCareRequests,
+          destinations: StaffDestinations.assistant(),
+          profileRoute: RouteNames.assistantProfile,
+          notificationsRoute: RouteNames.assistantNotifications,
+          canTriage: canTriage,
+          canAssign: canAssign,
+        ),
       );
+    },
+  );
 }
 
 /// PAGE REMOVED — assignments now live inside [AssistantCareRequestsView].
@@ -96,41 +95,41 @@ class AssistantAssignmentsView extends StatelessWidget {
   const AssistantAssignmentsView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canAssignPatients,
-        currentRoute: RouteNames.assistantAssignments,
-        title: 'Assignments',
-        child: MergedAssignmentsRedirect(
-          target: RouteNames.assistantCareRequests,
-          currentRoute: RouteNames.assistantAssignments,
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-          canTriage: AuthState.instance.hasAssistantPermission(
-            AssistantPermissions.canManageCareRequests,
-          ),
-        ),
-      );
+    permissionKey: AssistantPermissions.canAssignPatients,
+    currentRoute: RouteNames.assistantAssignments,
+    title: 'Assignments',
+    child: MergedAssignmentsRedirect(
+      target: RouteNames.assistantCareRequests,
+      currentRoute: RouteNames.assistantAssignments,
+      profileRoute: RouteNames.assistantProfile,
+      notificationsRoute: RouteNames.assistantNotifications,
+      canTriage: AuthState.instance.hasAssistantPermission(
+        AssistantPermissions.canManageCareRequests,
+      ),
+    ),
+  );
 }
 
 class AssistantUsersView extends StatelessWidget {
   const AssistantUsersView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canCreateUsers,
-        currentRoute: RouteNames.assistantUsers,
-        title: 'Users',
-        child: const AdminUsersView(),
-      );
+    permissionKey: AssistantPermissions.canCreateUsers,
+    currentRoute: RouteNames.assistantUsers,
+    title: 'Users',
+    child: const AdminUsersView(),
+  );
 }
 
 class AssistantPatientsView extends StatelessWidget {
   const AssistantPatientsView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canCreateUsers,
-        currentRoute: RouteNames.assistantPatients,
-        title: 'Patients',
-        child: const AdminPatientsView(assistantMode: true),
-      );
+    permissionKey: AssistantPermissions.canCreateUsers,
+    currentRoute: RouteNames.assistantPatients,
+    title: 'Patients',
+    child: const AdminPatientsView(assistantMode: true),
+  );
 }
 
 class AssistantUserDetailView extends StatelessWidget {
@@ -138,81 +137,81 @@ class AssistantUserDetailView extends StatelessWidget {
   final String userId;
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canCreateUsers,
-        currentRoute: RouteNames.assistantUserDetail,
-        title: 'User detail',
-        child: AdminUserDetailView(userId: userId),
-      );
+    permissionKey: AssistantPermissions.canCreateUsers,
+    currentRoute: RouteNames.assistantUserDetail,
+    title: 'User detail',
+    child: AdminUserDetailView(userId: userId),
+  );
 }
 
 class AssistantAuditView extends StatelessWidget {
   const AssistantAuditView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canViewActivityLogs,
-        currentRoute: RouteNames.assistantAudit,
-        title: 'Audit log',
-        child: AuditScreen(
-          currentRoute: RouteNames.assistantAudit,
-          destinations: StaffDestinations.assistant(),
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        ),
-      );
+    permissionKey: AssistantPermissions.canViewActivityLogs,
+    currentRoute: RouteNames.assistantAudit,
+    title: 'Audit log',
+    child: AuditScreen(
+      currentRoute: RouteNames.assistantAudit,
+      destinations: StaffDestinations.assistant(),
+      profileRoute: RouteNames.assistantProfile,
+      notificationsRoute: RouteNames.assistantNotifications,
+    ),
+  );
 }
 
 class AssistantAnnouncementsView extends StatelessWidget {
   const AssistantAnnouncementsView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canManageAdvertising,
-        currentRoute: RouteNames.assistantAnnouncements,
-        title: 'Announcements',
-        child: AnnouncementsScreen(
-          currentRoute: RouteNames.assistantAnnouncements,
-          destinations: StaffDestinations.assistant(),
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        ),
-      );
+    permissionKey: AssistantPermissions.canManageAdvertising,
+    currentRoute: RouteNames.assistantAnnouncements,
+    title: 'Announcements',
+    child: AnnouncementsScreen(
+      currentRoute: RouteNames.assistantAnnouncements,
+      destinations: StaffDestinations.assistant(),
+      profileRoute: RouteNames.assistantProfile,
+      notificationsRoute: RouteNames.assistantNotifications,
+    ),
+  );
 }
 
 class AssistantSecurityView extends StatelessWidget {
   const AssistantSecurityView({super.key});
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canViewSecurityIncidents,
-        currentRoute: RouteNames.assistantSecurity,
-        title: 'Security incidents',
-        child: SecurityIncidentsScreen(
-          currentRoute: RouteNames.assistantSecurity,
-          destinations: StaffDestinations.assistant(),
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        ),
-      );
+    permissionKey: AssistantPermissions.canViewSecurityIncidents,
+    currentRoute: RouteNames.assistantSecurity,
+    title: 'Security incidents',
+    child: SecurityIncidentsScreen(
+      currentRoute: RouteNames.assistantSecurity,
+      destinations: StaffDestinations.assistant(),
+      profileRoute: RouteNames.assistantProfile,
+      notificationsRoute: RouteNames.assistantNotifications,
+    ),
+  );
 }
 
 class AssistantSupportView extends StatelessWidget {
   const AssistantSupportView({super.key});
   @override
   Widget build(BuildContext context) => SupportQueueScreen(
-        currentRoute: RouteNames.assistantSupport,
-        destinations: StaffDestinations.assistant(),
-        profileRoute: RouteNames.assistantProfile,
-        notificationsRoute: RouteNames.assistantNotifications,
-      );
+    currentRoute: RouteNames.assistantSupport,
+    destinations: StaffDestinations.assistant(),
+    profileRoute: RouteNames.assistantProfile,
+    notificationsRoute: RouteNames.assistantNotifications,
+  );
 }
 
 class AssistantAlertsView extends StatelessWidget {
   const AssistantAlertsView({super.key});
   @override
   Widget build(BuildContext context) => StaffAlertsScreen(
-        currentRoute: RouteNames.assistantAlerts,
-        destinations: StaffDestinations.assistant(),
-        profileRoute: RouteNames.assistantProfile,
-        notificationsRoute: RouteNames.assistantNotifications,
-      );
+    currentRoute: RouteNames.assistantAlerts,
+    destinations: StaffDestinations.assistant(),
+    profileRoute: RouteNames.assistantProfile,
+    notificationsRoute: RouteNames.assistantNotifications,
+  );
 }
 
 /// SOS emergency hub — gated by [AssistantPermissions.canAccessEmergencyLocation]
@@ -228,14 +227,14 @@ class AssistantSosView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canAccessEmergencyLocation,
-        currentRoute: RouteNames.assistantSos,
-        title: 'Emergency SOS',
-        child: StaffSosHubView(
-          initialPatientId: initialPatientId,
-          initialEventId: initialEventId,
-        ),
-      );
+    permissionKey: AssistantPermissions.canAccessEmergencyLocation,
+    currentRoute: RouteNames.assistantSos,
+    title: 'Emergency SOS',
+    child: StaffSosHubView(
+      initialPatientId: initialPatientId,
+      initialEventId: initialEventId,
+    ),
+  );
 }
 
 class AssistantVitalCatalogView extends StatelessWidget {
@@ -243,11 +242,11 @@ class AssistantVitalCatalogView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canManageVitalCatalog,
-        currentRoute: RouteNames.assistantVitalCatalog,
-        title: 'Vital catalog',
-        child: VitalCatalogScreen.assistant(),
-      );
+    permissionKey: AssistantPermissions.canManageVitalCatalog,
+    currentRoute: RouteNames.assistantVitalCatalog,
+    title: 'Vital catalog',
+    child: VitalCatalogScreen.assistant(),
+  );
 }
 
 class AssistantAnalyticsView extends StatelessWidget {
@@ -255,14 +254,14 @@ class AssistantAnalyticsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _gate(
-        permissionKey: AssistantPermissions.canViewActivityLogs,
-        currentRoute: RouteNames.assistantAnalytics,
-        title: 'Analytics',
-        child: AdminAnalyticsView(
-          currentRoute: RouteNames.assistantAnalytics,
-          destinations: StaffDestinations.assistant(),
-          profileRoute: RouteNames.assistantProfile,
-          notificationsRoute: RouteNames.assistantNotifications,
-        ),
-      );
+    permissionKey: AssistantPermissions.canViewActivityLogs,
+    currentRoute: RouteNames.assistantAnalytics,
+    title: 'Analytics',
+    child: AdminAnalyticsView(
+      currentRoute: RouteNames.assistantAnalytics,
+      destinations: StaffDestinations.assistant(),
+      profileRoute: RouteNames.assistantProfile,
+      notificationsRoute: RouteNames.assistantNotifications,
+    ),
+  );
 }

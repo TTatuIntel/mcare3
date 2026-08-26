@@ -50,10 +50,7 @@ class StaffStatCardsGrid extends StatelessWidget {
               .map(
                 (c) => SizedBox(
                   width: w,
-                  child: StaffStatCard(
-                    key: c.cardKey,
-                    data: c,
-                  ),
+                  child: StaffStatCard(key: c.cardKey, data: c),
                 ),
               )
               .toList(),
@@ -115,8 +112,8 @@ class _StaffStatCardState extends State<StaffStatCard>
     final muted = AppPalette.textMuted(context);
     final valueColor =
         data.accent == AppPalette.textMuted(context) || data.accent == muted
-            ? null
-            : data.accent;
+        ? null
+        : data.accent;
 
     Widget card = GlassCard(
       frosted: true,
@@ -154,11 +151,7 @@ class _StaffStatCardState extends State<StaffStatCard>
               ),
               if (data.onTap != null) ...[
                 const SizedBox(width: 2),
-                Icon(
-                  AppIcons.chevronRight,
-                  size: 12,
-                  color: muted,
-                ),
+                Icon(AppIcons.chevronRight, size: 12, color: muted),
               ],
             ],
           ),

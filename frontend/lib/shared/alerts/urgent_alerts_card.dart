@@ -35,10 +35,12 @@ class UrgentAlertsCard extends StatelessWidget {
 
         final unattended = AlertCenter.instance.unattendedCount;
         final sos = queue.where((i) => i.isSos).length;
-        final critical =
-            queue.where((i) => i.kind == UrgentKind.criticalVital).length;
-        final warning =
-            queue.where((i) => i.kind == UrgentKind.warningVital).length;
+        final critical = queue
+            .where((i) => i.kind == UrgentKind.criticalVital)
+            .length;
+        final warning = queue
+            .where((i) => i.kind == UrgentKind.warningVital)
+            .length;
 
         final accent = sos > 0 || critical > 0
             ? AppColors.critical
@@ -72,9 +74,9 @@ class UrgentAlertsCard extends StatelessWidget {
                     child: Text(
                       '+${queue.length - shown.length} more outstanding',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                            fontWeight: FontWeight.w700,
-                          ),
+                        color: AppPalette.textMuted(context),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 const SizedBox(height: AppSpacing.md),
@@ -124,8 +126,7 @@ class _AllClearCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.success.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border:
-              Border.all(color: AppColors.success.withValues(alpha: 0.24)),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.24)),
         ),
         child: Row(
           children: [
@@ -304,8 +305,9 @@ class _UrgentRowState extends State<_UrgentRow> {
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.info.withValues(alpha: 0.14),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusPill),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusPill,
+                          ),
                         ),
                         child: const Text(
                           'OWNED',
@@ -333,10 +335,7 @@ class _UrgentRowState extends State<_UrgentRow> {
           ),
           const SizedBox(width: AppSpacing.sm),
           if (_busy)
-            const McarePulse(
-              size: McarePulseSize.micro,
-              semanticLabel: null,
-            )
+            const McarePulse(size: McarePulseSize.micro, semanticLabel: null)
           else ...[
             if (!item.acknowledged)
               IconButton(

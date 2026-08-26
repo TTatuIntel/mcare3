@@ -73,8 +73,9 @@ class _StaffPersonalSettingsScaffoldState
             appearanceKey: _appearanceKey,
             notificationsKey: _notificationsKey,
             privacyKey: widget.showPrivacy ? _privacyKey : null,
-            privacySection:
-                widget.showPrivacy ? const PrivacySettingsSection() : null,
+            privacySection: widget.showPrivacy
+                ? const PrivacySettingsSection()
+                : null,
             leadingQuickActions: widget.leadingQuickActions,
             trailingSections: widget.trailingSections,
           );

@@ -21,11 +21,11 @@ import '../glass_card.dart';
 /// Maps the backend's `good` / `warn` / `bad` / `neutral` classification onto
 /// the palette, so tone decisions live server-side and colour lives here.
 Color dossierToneColor(BuildContext context, String tone) => switch (tone) {
-      'good' => AppColors.success,
-      'warn' => AppColors.warning,
-      'bad' => AppColors.critical,
-      _ => AppColors.info,
-    };
+  'good' => AppColors.success,
+  'warn' => AppColors.warning,
+  'bad' => AppColors.critical,
+  _ => AppColors.info,
+};
 
 // ---------------------------------------------------------------------------
 // Hero
@@ -178,18 +178,18 @@ class DossierHero extends StatelessWidget {
   }
 
   static String _statusLabel(String status) => switch (status) {
-        'active' => 'Active',
-        'suspended' => 'Suspended',
-        'rejected' => 'Rejected',
-        'pendingApproval' || 'pending_approval' || 'pending' => 'Pending approval',
-        _ => status,
-      };
+    'active' => 'Active',
+    'suspended' => 'Suspended',
+    'rejected' => 'Rejected',
+    'pendingApproval' || 'pending_approval' || 'pending' => 'Pending approval',
+    _ => status,
+  };
 
   static Color _statusColor(String status) => switch (status) {
-        'active' => AppColors.success,
-        'suspended' || 'rejected' => AppColors.critical,
-        _ => AppColors.warning,
-      };
+    'active' => AppColors.success,
+    'suspended' || 'rejected' => AppColors.critical,
+    _ => AppColors.warning,
+  };
 }
 
 class _Avatar extends StatelessWidget {
@@ -420,13 +420,13 @@ class DossierSegments extends StatelessWidget {
                     color: i == selected
                         ? AppPalette.surface(context)
                         : Colors.transparent,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                     boxShadow: i == selected
                         ? [
                             BoxShadow(
-                              color: AppPalette.ink(context)
-                                  .withValues(alpha: 0.08),
+                              color: AppPalette.ink(
+                                context,
+                              ).withValues(alpha: 0.08),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -440,8 +440,9 @@ class DossierSegments extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelMedium?.copyWith(
                       fontSize: 11,
-                      fontWeight:
-                          i == selected ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: i == selected
+                          ? FontWeight.w800
+                          : FontWeight.w600,
                       color: i == selected
                           ? AppPalette.ink(context)
                           : AppPalette.textMuted(context),
@@ -696,10 +697,7 @@ class DossierRecordRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (badge != null)
-                DossierPill(
-                  label: badge!,
-                  color: badgeColor ?? AppColors.info,
-                ),
+                DossierPill(label: badge!, color: badgeColor ?? AppColors.info),
               if (meta != null)
                 Padding(
                   padding: EdgeInsets.only(top: badge != null ? 3 : 0),
@@ -862,12 +860,12 @@ class DossierTimeline extends StatelessWidget {
   }
 
   static Color _kindColor(String kind) => switch (kind) {
-        'created' => AppColors.info,
-        'verified' || 'approved' => AppColors.success,
-        'rejected' || 'locked' => AppColors.critical,
-        'login' => AppColors.brandIndigo,
-        _ => AppColors.textMutedAA,
-      };
+    'created' => AppColors.info,
+    'verified' || 'approved' => AppColors.success,
+    'rejected' || 'locked' => AppColors.critical,
+    'login' => AppColors.brandIndigo,
+    _ => AppColors.textMutedAA,
+  };
 }
 
 /// Wrapping chip list — assigned vitals, permissions, languages.
@@ -890,9 +888,9 @@ class DossierChips extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Text(
           emptyMessage,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppPalette.textMuted(context),
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppPalette.textMuted(context)),
         ),
       );
     }
@@ -955,8 +953,8 @@ String dossierHumanize(String? raw) {
 
 /// Risk band colouring shared by vitals and alert rows.
 Color dossierRiskColor(String? risk) => switch (risk) {
-      'critical' => AppColors.critical,
-      'warning' => AppColors.warning,
-      'normal' => AppColors.success,
-      _ => AppColors.textMutedAA,
-    };
+  'critical' => AppColors.critical,
+  'warning' => AppColors.warning,
+  'normal' => AppColors.success,
+  _ => AppColors.textMutedAA,
+};

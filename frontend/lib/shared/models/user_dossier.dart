@@ -46,8 +46,9 @@ class UserDossier {
       security: DossierSecurity.fromJson(_map(json['security'])),
       stats: _listOf(json['stats']).map(DossierStat.fromJson).toList(),
       timeline: _listOf(json['timeline']).map(DossierEvent.fromJson).toList(),
-      activity:
-          _listOf(json['activity']).map(DossierActivity.fromJson).toList(),
+      activity: _listOf(
+        json['activity'],
+      ).map(DossierActivity.fromJson).toList(),
       clinical: json['clinical'] is Map
           ? DossierClinical.fromJson(_map(json['clinical']))
           : null,
@@ -106,24 +107,24 @@ class DossierAccount {
   final int? accountAgeDays;
 
   static DossierAccount fromJson(Map<String, dynamic> j) => DossierAccount(
-        id: '${j['id'] ?? ''}',
-        name: '${j['name'] ?? 'Unknown'}',
-        role: _role(j['role']),
-        uniqueId: _str(j['unique_id']),
-        firstName: _str(j['first_name']),
-        lastName: _str(j['last_name']),
-        initials: _str(j['initials']) ?? '?',
-        email: _str(j['email']),
-        phone: _str(j['phone']),
-        avatarUrl: _str(j['avatar_url']),
-        status: _str(j['status']) ?? 'active',
-        profileComplete: j['profile_complete'] == true,
-        emailVerified: j['email_verified'] == true,
-        emailVerifiedAt: _date(j['email_verified_at']),
-        createdAt: _date(j['created_at']),
-        updatedAt: _date(j['updated_at']),
-        accountAgeDays: _int(j['account_age_days']),
-      );
+    id: '${j['id'] ?? ''}',
+    name: '${j['name'] ?? 'Unknown'}',
+    role: _role(j['role']),
+    uniqueId: _str(j['unique_id']),
+    firstName: _str(j['first_name']),
+    lastName: _str(j['last_name']),
+    initials: _str(j['initials']) ?? '?',
+    email: _str(j['email']),
+    phone: _str(j['phone']),
+    avatarUrl: _str(j['avatar_url']),
+    status: _str(j['status']) ?? 'active',
+    profileComplete: j['profile_complete'] == true,
+    emailVerified: j['email_verified'] == true,
+    emailVerifiedAt: _date(j['email_verified_at']),
+    createdAt: _date(j['created_at']),
+    updatedAt: _date(j['updated_at']),
+    accountAgeDays: _int(j['account_age_days']),
+  );
 }
 
 class DossierApplication {
@@ -231,22 +232,21 @@ class DossierSecurity {
   }
 
   static DossierSecurity fromJson(Map<String, dynamic> j) => DossierSecurity(
-        lastLoginAt: _date(j['last_login_at']),
-        lastLoginIp: _str(j['last_login_ip']),
-        loginCount: _int(j['login_count']) ?? 0,
-        mustChangePassword: j['must_change_password'] == true,
-        failedLoginAttempts: _int(j['failed_login_attempts']) ?? 0,
-        isLocked: j['is_locked'] == true,
-        lockedUntil: _date(j['locked_until']),
-        hasPassword: j['has_password'] == true,
-        googleLinked: j['google_linked'] == true,
-        appleLinked: j['apple_linked'] == true,
-        activeSessions: _int(j['active_sessions']) ?? 0,
-        lastSessionUsedAt: _date(j['last_session_used_at']),
-        pushDevices: _int(j['push_devices']) ?? 0,
-        sessions:
-            _listOf(j['sessions']).map(DossierSession.fromJson).toList(),
-      );
+    lastLoginAt: _date(j['last_login_at']),
+    lastLoginIp: _str(j['last_login_ip']),
+    loginCount: _int(j['login_count']) ?? 0,
+    mustChangePassword: j['must_change_password'] == true,
+    failedLoginAttempts: _int(j['failed_login_attempts']) ?? 0,
+    isLocked: j['is_locked'] == true,
+    lockedUntil: _date(j['locked_until']),
+    hasPassword: j['has_password'] == true,
+    googleLinked: j['google_linked'] == true,
+    appleLinked: j['apple_linked'] == true,
+    activeSessions: _int(j['active_sessions']) ?? 0,
+    lastSessionUsedAt: _date(j['last_session_used_at']),
+    pushDevices: _int(j['push_devices']) ?? 0,
+    sessions: _listOf(j['sessions']).map(DossierSession.fromJson).toList(),
+  );
 }
 
 class DossierSession {
@@ -257,10 +257,10 @@ class DossierSession {
   final DateTime? lastUsedAt;
 
   static DossierSession fromJson(Map<String, dynamic> j) => DossierSession(
-        name: _str(j['name']),
-        createdAt: _date(j['created_at']),
-        lastUsedAt: _date(j['last_used_at']),
-      );
+    name: _str(j['name']),
+    createdAt: _date(j['created_at']),
+    lastUsedAt: _date(j['last_used_at']),
+  );
 }
 
 /// One headline number in the dossier's stat strip.
@@ -280,11 +280,11 @@ class DossierStat {
   final String tone;
 
   static DossierStat fromJson(Map<String, dynamic> j) => DossierStat(
-        key: '${j['key'] ?? ''}',
-        label: '${j['label'] ?? ''}',
-        value: '${j['value'] ?? '—'}',
-        tone: _str(j['tone']) ?? 'neutral',
-      );
+    key: '${j['key'] ?? ''}',
+    label: '${j['label'] ?? ''}',
+    value: '${j['value'] ?? '—'}',
+    tone: _str(j['tone']) ?? 'neutral',
+  );
 }
 
 class DossierEvent {
@@ -301,11 +301,11 @@ class DossierEvent {
   final String? detail;
 
   static DossierEvent fromJson(Map<String, dynamic> j) => DossierEvent(
-        at: _date(j['at']) ?? DateTime.now(),
-        kind: _str(j['kind']) ?? 'event',
-        title: '${j['title'] ?? ''}',
-        detail: _str(j['detail']),
-      );
+    at: _date(j['at']) ?? DateTime.now(),
+    kind: _str(j['kind']) ?? 'event',
+    title: '${j['title'] ?? ''}',
+    detail: _str(j['detail']),
+  );
 }
 
 class DossierActivity {
@@ -330,14 +330,14 @@ class DossierActivity {
   final bool isActor;
 
   static DossierActivity fromJson(Map<String, dynamic> j) => DossierActivity(
-        id: '${j['id'] ?? ''}',
-        at: _date(j['happened_at']) ?? DateTime.now(),
-        actor: '${j['actor'] ?? ''}',
-        action: '${j['action'] ?? ''}',
-        target: _str(j['target']),
-        category: _str(j['category']) ?? 'activity',
-        isActor: j['is_actor'] == true,
-      );
+    id: '${j['id'] ?? ''}',
+    at: _date(j['happened_at']) ?? DateTime.now(),
+    actor: '${j['actor'] ?? ''}',
+    action: '${j['action'] ?? ''}',
+    target: _str(j['target']),
+    category: _str(j['category']) ?? 'activity',
+    isActor: j['is_actor'] == true,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -389,26 +389,26 @@ class DossierClinical {
       medications.where((m) => m['active'] == true).length;
 
   static DossierClinical fromJson(Map<String, dynamic> j) => DossierClinical(
-        health: j['health'] is Map ? _map(j['health']) : null,
-        hasHealthProfile: j['has_health_profile'] == true,
-        emergencyContacts: _listOf(j['emergency_contacts']),
-        assignedVitals: _strings(j['assigned_vitals']),
-        vitalsSummary: _listOf(j['vitals_summary'])
-            .map(DossierVitalSummary.fromJson)
-            .toList(),
-        recentReadings: _listOf(j['recent_readings']),
-        medications: _listOf(j['medications']),
-        mealPlans: _listOf(j['meal_plans']),
-        appointments: _listOf(j['appointments']),
-        documents: _listOf(j['documents']),
-        sosEvents: _listOf(j['sos_events']),
-        reports: _listOf(j['reports']),
-        alerts: _listOf(j['alerts']),
-        careTeam: _listOf(j['care_team']),
-        careRequests: _listOf(j['care_requests']),
-        vitalReportRequests: _listOf(j['vital_report_requests']),
-        supportTickets: _listOf(j['support_tickets']),
-      );
+    health: j['health'] is Map ? _map(j['health']) : null,
+    hasHealthProfile: j['has_health_profile'] == true,
+    emergencyContacts: _listOf(j['emergency_contacts']),
+    assignedVitals: _strings(j['assigned_vitals']),
+    vitalsSummary: _listOf(
+      j['vitals_summary'],
+    ).map(DossierVitalSummary.fromJson).toList(),
+    recentReadings: _listOf(j['recent_readings']),
+    medications: _listOf(j['medications']),
+    mealPlans: _listOf(j['meal_plans']),
+    appointments: _listOf(j['appointments']),
+    documents: _listOf(j['documents']),
+    sosEvents: _listOf(j['sos_events']),
+    reports: _listOf(j['reports']),
+    alerts: _listOf(j['alerts']),
+    careTeam: _listOf(j['care_team']),
+    careRequests: _listOf(j['care_requests']),
+    vitalReportRequests: _listOf(j['vital_report_requests']),
+    supportTickets: _listOf(j['support_tickets']),
+  );
 }
 
 class DossierVitalSummary {
@@ -483,19 +483,19 @@ class DossierProgress {
   final int engagementScore;
 
   static DossierProgress fromJson(Map<String, dynamic> j) => DossierProgress(
-        adherencePercent: _int(j['adherence_percent']),
-        dosesDue30d: _int(j['doses_due_30d']) ?? 0,
-        dosesTaken30d: _int(j['doses_taken_30d']) ?? 0,
-        dosesMissed30d: _int(j['doses_missed_30d']) ?? 0,
-        readings7d: _int(j['readings_7d']) ?? 0,
-        readings30d: _int(j['readings_30d']) ?? 0,
-        loggingStreakDays: _int(j['logging_streak_days']) ?? 0,
-        lastReadingAt: _date(j['last_reading_at']),
-        daysSinceLastReading: _int(j['days_since_last_reading']),
-        appointmentsKept: _int(j['appointments_kept']) ?? 0,
-        appointmentsMissed: _int(j['appointments_missed']) ?? 0,
-        engagementScore: _int(j['engagement_score']) ?? 0,
-      );
+    adherencePercent: _int(j['adherence_percent']),
+    dosesDue30d: _int(j['doses_due_30d']) ?? 0,
+    dosesTaken30d: _int(j['doses_taken_30d']) ?? 0,
+    dosesMissed30d: _int(j['doses_missed_30d']) ?? 0,
+    readings7d: _int(j['readings_7d']) ?? 0,
+    readings30d: _int(j['readings_30d']) ?? 0,
+    loggingStreakDays: _int(j['logging_streak_days']) ?? 0,
+    lastReadingAt: _date(j['last_reading_at']),
+    daysSinceLastReading: _int(j['days_since_last_reading']),
+    appointmentsKept: _int(j['appointments_kept']) ?? 0,
+    appointmentsMissed: _int(j['appointments_missed']) ?? 0,
+    engagementScore: _int(j['engagement_score']) ?? 0,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -547,23 +547,23 @@ class DossierPractice {
   List<String> get languages => _strings(provider?['languages']);
 
   static DossierPractice fromJson(Map<String, dynamic> j) => DossierPractice(
-        provider: j['provider'] is Map ? _map(j['provider']) : null,
-        caseloadActive: _int(j['caseload_active']) ?? 0,
-        caseloadEnded: _int(j['caseload_ended']) ?? 0,
-        caseload: _listOf(j['caseload']),
-        careRequestsHandled: _int(j['care_requests_handled']) ?? 0,
-        careRequestsPending: _int(j['care_requests_pending']) ?? 0,
-        prescriptionsIssued: _int(j['prescriptions_issued']) ?? 0,
-        prescriptionsActive: _int(j['prescriptions_active']) ?? 0,
-        reportsAuthored: _int(j['reports_authored']) ?? 0,
-        reportsPublished: _int(j['reports_published']) ?? 0,
-        mealPlansAssigned: _int(j['meal_plans_assigned']) ?? 0,
-        appointmentsTotal: _int(j['appointments_total']) ?? 0,
-        appointmentsUpcoming: _int(j['appointments_upcoming']) ?? 0,
-        recentAppointments: _listOf(j['recent_appointments']),
-        recentReports: _listOf(j['recent_reports']),
-        patientsAlerting: _int(j['patients_alerting']) ?? 0,
-      );
+    provider: j['provider'] is Map ? _map(j['provider']) : null,
+    caseloadActive: _int(j['caseload_active']) ?? 0,
+    caseloadEnded: _int(j['caseload_ended']) ?? 0,
+    caseload: _listOf(j['caseload']),
+    careRequestsHandled: _int(j['care_requests_handled']) ?? 0,
+    careRequestsPending: _int(j['care_requests_pending']) ?? 0,
+    prescriptionsIssued: _int(j['prescriptions_issued']) ?? 0,
+    prescriptionsActive: _int(j['prescriptions_active']) ?? 0,
+    reportsAuthored: _int(j['reports_authored']) ?? 0,
+    reportsPublished: _int(j['reports_published']) ?? 0,
+    mealPlansAssigned: _int(j['meal_plans_assigned']) ?? 0,
+    appointmentsTotal: _int(j['appointments_total']) ?? 0,
+    appointmentsUpcoming: _int(j['appointments_upcoming']) ?? 0,
+    recentAppointments: _listOf(j['recent_appointments']),
+    recentReports: _listOf(j['recent_reports']),
+    patientsAlerting: _int(j['patients_alerting']) ?? 0,
+  );
 }
 
 class DossierAccess {
@@ -583,12 +583,12 @@ class DossierAccess {
   final int supportTicketsAssigned;
 
   static DossierAccess fromJson(Map<String, dynamic> j) => DossierAccess(
-        implicitAll: j['implicit_all'] == true,
-        granted: _strings(j['granted']),
-        available: _strings(j['available']),
-        grants: _listOf(j['grants']),
-        supportTicketsAssigned: _int(j['support_tickets_assigned']) ?? 0,
-      );
+    implicitAll: j['implicit_all'] == true,
+    granted: _strings(j['granted']),
+    available: _strings(j['available']),
+    grants: _listOf(j['grants']),
+    supportTicketsAssigned: _int(j['support_tickets_assigned']) ?? 0,
+  );
 }
 
 // ---------------------------------------------------------------------------

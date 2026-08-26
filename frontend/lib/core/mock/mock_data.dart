@@ -19,61 +19,61 @@ class MockData {
   MockData._();
 
   static AppUser samplePatient() => const AppUser(
-        id: 'u_001',
-        uniqueId: 'MCR-001284',
-        firstName: 'Amara',
-        lastName: 'Okonkwo',
-        email: 'amara.okonkwo@example.com',
-        phone: '+254 712 000 000',
-        role: UserRole.patient,
-      );
+    id: 'u_001',
+    uniqueId: 'MCR-001284',
+    firstName: 'Amara',
+    lastName: 'Okonkwo',
+    email: 'amara.okonkwo@example.com',
+    phone: '+254 712 000 000',
+    role: UserRole.patient,
+  );
 
   static AppUser sampleDoctor() => const AppUser(
-        id: 'u_dr_001',
-        uniqueId: 'MCR-DR-0231',
-        firstName: 'Kojo',
-        lastName: 'Mensah',
-        email: 'dr.mensah@mcare.health',
-        phone: '+254 720 444 100',
-        role: UserRole.doctor,
-      );
+    id: 'u_dr_001',
+    uniqueId: 'MCR-DR-0231',
+    firstName: 'Kojo',
+    lastName: 'Mensah',
+    email: 'dr.mensah@mcare.health',
+    phone: '+254 720 444 100',
+    role: UserRole.doctor,
+  );
 
   static AppUser sampleAdmin() => const AppUser(
-        id: 'u_ad_001',
-        uniqueId: 'MCR-AD-0014',
-        firstName: 'Nia',
-        lastName: 'Chebet',
-        email: 'admin@mcare.health',
-        phone: '+254 720 111 010',
-        role: UserRole.admin,
-      );
+    id: 'u_ad_001',
+    uniqueId: 'MCR-AD-0014',
+    firstName: 'Nia',
+    lastName: 'Chebet',
+    email: 'admin@mcare.health',
+    phone: '+254 720 111 010',
+    role: UserRole.admin,
+  );
 
   static AppUser sampleAssistant() => const AppUser(
-        id: 'u_ma_001',
-        uniqueId: 'MCR-MA-0058',
-        firstName: 'Tendai',
-        lastName: 'Moyo',
-        email: 'assistant@mcare.health',
-        phone: '+254 720 222 020',
-        role: UserRole.mcareAssistant,
-      );
+    id: 'u_ma_001',
+    uniqueId: 'MCR-MA-0058',
+    firstName: 'Tendai',
+    lastName: 'Moyo',
+    email: 'assistant@mcare.health',
+    phone: '+254 720 222 020',
+    role: UserRole.mcareAssistant,
+  );
 
   static AppUser sampleExternalDoctor() => const AppUser(
-        id: 'u_ext_001',
-        uniqueId: 'MCR-EX-0007',
-        firstName: 'Rohan',
-        lastName: 'Patel',
-        email: 'rohan.external@partnerhealth.com',
-        phone: '',
-        role: UserRole.externalDoctor,
-      );
+    id: 'u_ext_001',
+    uniqueId: 'MCR-EX-0007',
+    firstName: 'Rohan',
+    lastName: 'Patel',
+    email: 'rohan.external@partnerhealth.com',
+    phone: '',
+    role: UserRole.externalDoctor,
+  );
 
   /// Vitals the patient's care team has assigned and locked. The patient
   /// can still add optional vitals on top, but cannot untrack these.
   static List<VitalKey> seedAssignedVitals() => const [
-        VitalKey.bloodPressure,
-        VitalKey.bloodGlucose,
-      ];
+    VitalKey.bloodPressure,
+    VitalKey.bloodGlucose,
+  ];
 
   static List<VitalReading> seedVitals() {
     final rng = Random(42);
@@ -95,15 +95,17 @@ class MockData {
           final s = baseSecondary == null
               ? null
               : baseSecondary + (rng.nextDouble() - 0.5) * jitter;
-          final ts =
-              now.subtract(Duration(days: d, hours: (i * 12) + rng.nextInt(3)));
+          final ts = now.subtract(
+            Duration(days: d, hours: (i * 12) + rng.nextInt(3)),
+          );
           out.add(
             VitalReading(
               id: 'v_${vital.name}_${d}_$i',
               vital: vital,
               value: double.parse(v.toStringAsFixed(1)),
-              secondaryValue:
-                  s == null ? null : double.parse(s.toStringAsFixed(1)),
+              secondaryValue: s == null
+                  ? null
+                  : double.parse(s.toStringAsFixed(1)),
               recordedAt: ts,
               risk: range.assess(v),
             ),
@@ -113,7 +115,11 @@ class MockData {
     }
 
     addSeries(
-        vital: VitalKey.bloodPressure, base: 118, baseSecondary: 78, jitter: 16);
+      vital: VitalKey.bloodPressure,
+      base: 118,
+      baseSecondary: 78,
+      jitter: 16,
+    );
     addSeries(vital: VitalKey.heartRate, base: 76, jitter: 18);
     addSeries(vital: VitalKey.bloodOxygen, base: 97, jitter: 4, perDay: 1);
     addSeries(vital: VitalKey.bloodGlucose, base: 102, jitter: 30, perDay: 3);
@@ -318,10 +324,12 @@ class MockData {
   static List<MedicationDose> seedDosesToday() {
     final now = DateTime.now();
     return seedAllDoses()
-        .where((d) =>
-            d.scheduledAt.year == now.year &&
-            d.scheduledAt.month == now.month &&
-            d.scheduledAt.day == now.day)
+        .where(
+          (d) =>
+              d.scheduledAt.year == now.year &&
+              d.scheduledAt.month == now.month &&
+              d.scheduledAt.day == now.day,
+        )
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
@@ -674,7 +682,8 @@ class MockData {
           TicketReply(
             id: 'tr1',
             author: 'mCare Support',
-            body: 'Thanks for reporting this. Can you tell us your device model?',
+            body:
+                'Thanks for reporting this. Can you tell us your device model?',
             sentAt: now.subtract(const Duration(hours: 5)),
             isStaff: true,
           ),

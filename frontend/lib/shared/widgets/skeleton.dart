@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
+
 class SkeletonBox extends StatefulWidget {
   const SkeletonBox({
     super.key,
@@ -48,7 +49,8 @@ class _SkeletonBoxState extends State<SkeletonBox>
           height: widget.height,
           width: widget.width ?? double.infinity,
           decoration: BoxDecoration(
-            borderRadius: widget.borderRadius ??
+            borderRadius:
+                widget.borderRadius ??
                 BorderRadius.circular(AppSpacing.radiusSm),
             gradient: LinearGradient(
               begin: Alignment(-1 + 2 * t, 0),

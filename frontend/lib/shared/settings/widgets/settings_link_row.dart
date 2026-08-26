@@ -42,14 +42,14 @@ class SettingsLinkRow extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
+                      color: AppPalette.textMuted(context),
+                    ),
                   ),
                 ],
               ),

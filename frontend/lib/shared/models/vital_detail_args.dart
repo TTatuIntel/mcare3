@@ -2,10 +2,7 @@ import 'vital.dart';
 
 /// Route arguments for opening a specific vital detail screen.
 class VitalDetailArgs {
-  const VitalDetailArgs({
-    required this.vital,
-    this.rangeDays = 7,
-  });
+  const VitalDetailArgs({required this.vital, this.rangeDays = 7});
 
   final VitalKey vital;
   final int rangeDays;

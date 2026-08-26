@@ -246,8 +246,8 @@ class StaffHubData {
           : 'Connect patients with their care providers',
       count: canCareRequests
           ? staff.careRequests
-              .where((request) => request.status == 'pending')
-              .length
+                .where((request) => request.status == 'pending')
+                .length
           : staff.assignments.length,
       route: _route(
         role,

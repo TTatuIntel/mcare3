@@ -65,10 +65,10 @@ class _MessagesViewState extends State<MessagesView> {
           final allConvos = s.conversations;
           final convos = _filterConversations(allConvos);
           final unread = s.totalUnread;
-          final online =
-              allConvos.where((c) => c.participant.online).length;
-          final mostRecent =
-              allConvos.isEmpty ? null : allConvos.first.lastMessage.sentAt;
+          final online = allConvos.where((c) => c.participant.online).length;
+          final mostRecent = allConvos.isEmpty
+              ? null
+              : allConvos.first.lastMessage.sentAt;
           Conversation? firstUnread;
           for (final c in allConvos) {
             if (c.unreadCount > 0) {
@@ -87,10 +87,10 @@ class _MessagesViewState extends State<MessagesView> {
                 child: Text(
                   todayStr,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -134,14 +134,15 @@ class _MessagesViewState extends State<MessagesView> {
                       title: _filter == _ChatFilter.unread
                           ? 'No unread messages'
                           : _filter == _ChatFilter.online
-                              ? 'No one online'
-                              : 'No conversations',
+                          ? 'No one online'
+                          : 'No conversations',
                       message: _filter == _ChatFilter.all
                           ? 'Message your assigned providers once care is established.'
                           : 'Try another filter or check back later.',
                       compact: true,
-                      actionLabel:
-                          _filter != _ChatFilter.all ? 'Show all' : null,
+                      actionLabel: _filter != _ChatFilter.all
+                          ? 'Show all'
+                          : null,
                       onAction: _filter != _ChatFilter.all
                           ? () => setState(() => _filter = _ChatFilter.all)
                           : null,
@@ -199,8 +200,8 @@ class _ChatHero extends StatelessWidget {
 
     final headline = unread == 0
         ? totalConversations == 0
-            ? 'Your care chat'
-            : 'All caught up'
+              ? 'Your care chat'
+              : 'All caught up'
         : '$unread new message${unread == 1 ? '' : 's'}';
 
     return GlassCard(
@@ -300,11 +301,7 @@ class _ChatHero extends StatelessWidget {
 }
 
 class _HeroStat extends StatelessWidget {
-  const _HeroStat({
-    required this.label,
-    required this.value,
-    this.accent,
-  });
+  const _HeroStat({required this.label, required this.value, this.accent});
 
   final String label;
   final String value;
@@ -398,14 +395,15 @@ class _ChatQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.careTeam,
             label: 'Care team',
-            onTap: () => Navigator.of(context)
-                .pushNamed(RouteNames.patientCareTeam),
+            onTap: () =>
+                Navigator.of(context).pushNamed(RouteNames.patientCareTeam),
           ),
           PatientQuickAction(
             icon: AppIcons.bell,
             label: 'Alerts',
-            onTap: () => Navigator.of(context)
-                .pushNamed(RouteNames.patientNotifications),
+            onTap: () => Navigator.of(
+              context,
+            ).pushNamed(RouteNames.patientNotifications),
           ),
           PatientQuickAction(
             icon: AppIcons.user,
@@ -512,10 +510,9 @@ class _ConversationRow extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.of(context).pushNamed(
-          RouteNames.patientChatThread,
-          arguments: convo.id,
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(RouteNames.patientChatThread, arguments: convo.id),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Container(
           padding: const EdgeInsets.symmetric(
@@ -543,8 +540,7 @@ class _ConversationRow extends StatelessWidget {
                     width: 32,
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.14),
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusSm),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -566,7 +562,10 @@ class _ConversationRow extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.success,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppPalette.surface(context), width: 2),
+                          border: Border.all(
+                            color: AppPalette.surface(context),
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -618,8 +617,9 @@ class _ConversationRow extends StatelessWidget {
                         color: hasUnread
                             ? AppPalette.ink(context)
                             : AppPalette.textMuted(context),
-                        fontWeight:
-                            hasUnread ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: hasUnread
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         fontSize: 10,
                       ),
                     ),
@@ -629,12 +629,13 @@ class _ConversationRow extends StatelessWidget {
               if (hasUnread) ...[
                 const SizedBox(width: AppSpacing.xs),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.brandIndigo,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
                   child: Text(
                     '${convo.unreadCount}',

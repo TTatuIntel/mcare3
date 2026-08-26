@@ -38,72 +38,72 @@ class NotificationRouter {
   }
 
   static String? _patientRoute(AppNotification n) => switch (n.kind) {
-        NotificationKind.vitalAlert =>
-          n.linkedVital != null
-              ? RouteNames.patientVitalDetail
-              : RouteNames.patientVitals,
-        NotificationKind.appointment => RouteNames.patientAppointments,
-        NotificationKind.medication => RouteNames.patientMedications,
-        NotificationKind.message => RouteNames.patientMessages,
-        NotificationKind.document => RouteNames.patientDocuments,
-        NotificationKind.report => RouteNames.patientDocuments,
-        NotificationKind.careRequest => RouteNames.patientCareTeam,
-        NotificationKind.sos => RouteNames.patientSos,
-        NotificationKind.approval => RouteNames.pendingApproval,
-        NotificationKind.assignment => RouteNames.patientCareTeam,
-        NotificationKind.profile => RouteNames.patientProfile,
-        NotificationKind.consent => RouteNames.patientReportConsents,
-        NotificationKind.system => RouteNames.patientNotifications,
-      };
+    NotificationKind.vitalAlert =>
+      n.linkedVital != null
+          ? RouteNames.patientVitalDetail
+          : RouteNames.patientVitals,
+    NotificationKind.appointment => RouteNames.patientAppointments,
+    NotificationKind.medication => RouteNames.patientMedications,
+    NotificationKind.message => RouteNames.patientMessages,
+    NotificationKind.document => RouteNames.patientDocuments,
+    NotificationKind.report => RouteNames.patientDocuments,
+    NotificationKind.careRequest => RouteNames.patientCareTeam,
+    NotificationKind.sos => RouteNames.patientSos,
+    NotificationKind.approval => RouteNames.pendingApproval,
+    NotificationKind.assignment => RouteNames.patientCareTeam,
+    NotificationKind.profile => RouteNames.patientProfile,
+    NotificationKind.consent => RouteNames.patientReportConsents,
+    NotificationKind.system => RouteNames.patientNotifications,
+  };
 
   static String? _doctorRoute(AppNotification n) => switch (n.kind) {
-        NotificationKind.vitalAlert => RouteNames.doctorAlerts,
-        NotificationKind.appointment => RouteNames.doctorAppointments,
-        NotificationKind.medication => RouteNames.doctorPrescriptions,
-        NotificationKind.message => RouteNames.doctorMessages,
-        NotificationKind.document => RouteNames.doctorReports,
-        NotificationKind.report => RouteNames.doctorReports,
-        NotificationKind.careRequest => RouteNames.doctorPatients,
-        NotificationKind.sos => RouteNames.doctorSos,
-        NotificationKind.approval => RouteNames.pendingApproval,
-        NotificationKind.assignment => RouteNames.doctorPatients,
-        NotificationKind.profile => RouteNames.doctorProfile,
-        NotificationKind.consent => RouteNames.doctorReports,
-        NotificationKind.system => RouteNames.doctorNotifications,
-      };
+    NotificationKind.vitalAlert => RouteNames.doctorAlerts,
+    NotificationKind.appointment => RouteNames.doctorAppointments,
+    NotificationKind.medication => RouteNames.doctorPrescriptions,
+    NotificationKind.message => RouteNames.doctorMessages,
+    NotificationKind.document => RouteNames.doctorReports,
+    NotificationKind.report => RouteNames.doctorReports,
+    NotificationKind.careRequest => RouteNames.doctorPatients,
+    NotificationKind.sos => RouteNames.doctorSos,
+    NotificationKind.approval => RouteNames.pendingApproval,
+    NotificationKind.assignment => RouteNames.doctorPatients,
+    NotificationKind.profile => RouteNames.doctorProfile,
+    NotificationKind.consent => RouteNames.doctorReports,
+    NotificationKind.system => RouteNames.doctorNotifications,
+  };
 
   static String? _adminRoute(AppNotification n) => switch (n.kind) {
-        NotificationKind.vitalAlert => RouteNames.adminAnalytics,
-        NotificationKind.appointment => RouteNames.adminCareRequests,
-        NotificationKind.medication => RouteNames.adminUsers,
-        NotificationKind.message => RouteNames.adminMessages,
-        NotificationKind.document => RouteNames.adminAudit,
-        NotificationKind.report => RouteNames.adminAudit,
-        NotificationKind.careRequest => RouteNames.adminCareRequests,
-        NotificationKind.sos => RouteNames.adminSos,
-        NotificationKind.approval => RouteNames.adminApprovals,
-        // Assignments live on the merged care-requests screen.
-        NotificationKind.assignment => RouteNames.adminCareRequests,
-        NotificationKind.profile => RouteNames.adminProfile,
-        NotificationKind.consent => RouteNames.adminPatients,
-        NotificationKind.system => RouteNames.adminNotifications,
-      };
+    NotificationKind.vitalAlert => RouteNames.adminAnalytics,
+    NotificationKind.appointment => RouteNames.adminCareRequests,
+    NotificationKind.medication => RouteNames.adminUsers,
+    NotificationKind.message => RouteNames.adminMessages,
+    NotificationKind.document => RouteNames.adminAudit,
+    NotificationKind.report => RouteNames.adminAudit,
+    NotificationKind.careRequest => RouteNames.adminCareRequests,
+    NotificationKind.sos => RouteNames.adminSos,
+    NotificationKind.approval => RouteNames.adminApprovals,
+    // Assignments live on the merged care-requests screen.
+    NotificationKind.assignment => RouteNames.adminCareRequests,
+    NotificationKind.profile => RouteNames.adminProfile,
+    NotificationKind.consent => RouteNames.adminPatients,
+    NotificationKind.system => RouteNames.adminNotifications,
+  };
 
   static String? _assistantRoute(AppNotification n) => switch (n.kind) {
-        NotificationKind.vitalAlert => RouteNames.assistantAlerts,
-        NotificationKind.appointment => RouteNames.assistantCareRequests,
-        NotificationKind.medication => RouteNames.assistantUsers,
-        NotificationKind.message => RouteNames.assistantMessages,
-        NotificationKind.document => RouteNames.assistantAudit,
-        NotificationKind.report => RouteNames.assistantAudit,
-        NotificationKind.careRequest => RouteNames.assistantCareRequests,
-        NotificationKind.sos => RouteNames.assistantSos,
-        NotificationKind.approval => RouteNames.assistantApprovals,
-        NotificationKind.assignment => RouteNames.assistantCareRequests,
-        NotificationKind.profile => RouteNames.assistantProfile,
-        NotificationKind.consent => RouteNames.assistantPatients,
-        NotificationKind.system => RouteNames.assistantNotifications,
-      };
+    NotificationKind.vitalAlert => RouteNames.assistantAlerts,
+    NotificationKind.appointment => RouteNames.assistantCareRequests,
+    NotificationKind.medication => RouteNames.assistantUsers,
+    NotificationKind.message => RouteNames.assistantMessages,
+    NotificationKind.document => RouteNames.assistantAudit,
+    NotificationKind.report => RouteNames.assistantAudit,
+    NotificationKind.careRequest => RouteNames.assistantCareRequests,
+    NotificationKind.sos => RouteNames.assistantSos,
+    NotificationKind.approval => RouteNames.assistantApprovals,
+    NotificationKind.assignment => RouteNames.assistantCareRequests,
+    NotificationKind.profile => RouteNames.assistantProfile,
+    NotificationKind.consent => RouteNames.assistantPatients,
+    NotificationKind.system => RouteNames.assistantNotifications,
+  };
 
   /// Convenience for vital alerts that open a specific vital detail.
   static Object? vitalDetailArgs(VitalKey key) => key;

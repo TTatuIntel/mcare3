@@ -22,7 +22,10 @@ class MedicationsState extends ChangeNotifier {
       .toList(growable: false);
   List<MedicationDose> get doses => List.unmodifiable(_doses);
 
-  void seed({required List<Medication> meds, required List<MedicationDose> doses}) {
+  void seed({
+    required List<Medication> meds,
+    required List<MedicationDose> doses,
+  }) {
     _medications
       ..clear()
       ..addAll(meds);
@@ -35,10 +38,12 @@ class MedicationsState extends ChangeNotifier {
   List<MedicationDose> dosesForToday() {
     final now = DateTime.now();
     return _doses
-        .where((d) =>
-            d.scheduledAt.year == now.year &&
-            d.scheduledAt.month == now.month &&
-            d.scheduledAt.day == now.day)
+        .where(
+          (d) =>
+              d.scheduledAt.year == now.year &&
+              d.scheduledAt.month == now.month &&
+              d.scheduledAt.day == now.day,
+        )
         .toList()
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
   }
@@ -77,8 +82,7 @@ class MedicationsState extends ChangeNotifier {
         .where((d) => d.status != DoseStatus.pending)
         .toList(growable: false);
     if (relevant.isEmpty) return 0;
-    final taken =
-        relevant.where((d) => d.status == DoseStatus.taken).length;
+    final taken = relevant.where((d) => d.status == DoseStatus.taken).length;
     return (taken / relevant.length) * 100;
   }
 

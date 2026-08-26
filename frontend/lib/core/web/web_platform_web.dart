@@ -11,8 +11,7 @@ String? localStorageGet(String key) => web.window.localStorage.getItem(key);
 void localStorageSet(String key, String value) =>
     web.window.localStorage.setItem(key, value);
 
-void localStorageRemove(String key) =>
-    web.window.localStorage.removeItem(key);
+void localStorageRemove(String key) => web.window.localStorage.removeItem(key);
 
 web.AudioContext? _audioContext;
 web.OscillatorNode? _oscillator;

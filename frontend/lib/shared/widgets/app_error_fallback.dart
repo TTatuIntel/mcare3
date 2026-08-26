@@ -47,10 +47,7 @@ class AppErrorFallback extends StatelessWidget {
                 const Text(
                   'Go back and try again, or reload the app.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textMutedAA,
-                  ),
+                  style: TextStyle(fontSize: 13, color: AppColors.textMutedAA),
                 ),
               ],
             ),

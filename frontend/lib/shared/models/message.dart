@@ -41,13 +41,13 @@ class ChatMessage {
   final bool read;
 
   ChatMessage copyWith({bool? read}) => ChatMessage(
-        id: id,
-        conversationId: conversationId,
-        senderId: senderId,
-        body: body,
-        sentAt: sentAt,
-        read: read ?? this.read,
-      );
+    id: id,
+    conversationId: conversationId,
+    senderId: senderId,
+    body: body,
+    sentAt: sentAt,
+    read: read ?? this.read,
+  );
 }
 
 class Conversation {

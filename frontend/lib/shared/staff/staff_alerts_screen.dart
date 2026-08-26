@@ -107,8 +107,7 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
     setState(() => _refreshing = true);
     try {
       final rows = await AdminApi.instance.listAlerts();
-      final alerts =
-          rows.map((e) => StaffMapper.alertFromApi(e)).toList();
+      final alerts = rows.map((e) => StaffMapper.alertFromApi(e)).toList();
       StaffState.instance.mergeAlerts(alerts);
       if (mounted) setState(() => _lastSyncedAt = DateTime.now());
     } catch (e) {
@@ -163,12 +162,14 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
         list = list.where((a) => !a.resolved);
         break;
       case 'critical':
-        list =
-            list.where((a) => !a.resolved && a.severity == RiskLevel.critical);
+        list = list.where(
+          (a) => !a.resolved && a.severity == RiskLevel.critical,
+        );
         break;
       case 'warning':
-        list =
-            list.where((a) => !a.resolved && a.severity == RiskLevel.warning);
+        list = list.where(
+          (a) => !a.resolved && a.severity == RiskLevel.warning,
+        );
         break;
       case 'acknowledged':
         list = list.where((a) => a.acknowledged && !a.resolved);
@@ -196,8 +197,7 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
     return out;
   }
 
-  int _openCount(List<StaffAlert> all) =>
-      all.where((a) => !a.resolved).length;
+  int _openCount(List<StaffAlert> all) => all.where((a) => !a.resolved).length;
 
   String? _syncedCaption() {
     final synced = _lastSyncedAt;
@@ -240,10 +240,7 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              StaggeredEntry(
-                index: 0,
-                child: _searchField(context),
-              ),
+              StaggeredEntry(index: 0, child: _searchField(context)),
               const SizedBox(height: AppSpacing.sm),
               StaggeredEntry(
                 index: 1,
@@ -278,8 +275,8 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
                   child: Text(
                     '${_syncedCaption()!} · $openCount open',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
+                      color: AppPalette.textMuted(context),
+                    ),
                   ),
                 ),
               StaggeredEntry(
@@ -288,14 +285,16 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
                     ? _emptyState(context, all)
                     : StaffListCard(
                         children: filtered
-                            .map((a) => _AlertRow(
-                                  alert: a,
-                                  busy: _busyAlertIds.contains(a.id),
-                                  onTap: () => _openDetail(context, a),
-                                  onAck: a.resolved || a.acknowledged
-                                      ? null
-                                      : () => _acknowledge(context, a),
-                                ))
+                            .map(
+                              (a) => _AlertRow(
+                                alert: a,
+                                busy: _busyAlertIds.contains(a.id),
+                                onTap: () => _openDetail(context, a),
+                                onAck: a.resolved || a.acknowledged
+                                    ? null
+                                    : () => _acknowledge(context, a),
+                              ),
+                            )
                             .toList(),
                       ),
               ),
@@ -332,13 +331,13 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
   }
 
   String _sectionTitle() => switch (_statusFilter) {
-        'open' => 'Open alerts',
-        'critical' => 'Critical alerts',
-        'warning' => 'Watch alerts',
-        'acknowledged' => 'Acknowledged',
-        'resolved' => 'Resolved',
-        _ => 'All alerts',
-      };
+    'open' => 'Open alerts',
+    'critical' => 'Critical alerts',
+    'warning' => 'Watch alerts',
+    'acknowledged' => 'Acknowledged',
+    'resolved' => 'Resolved',
+    _ => 'All alerts',
+  };
 
   Widget _emptyState(BuildContext context, List<StaffAlert> all) {
     return GlassCard(
@@ -579,12 +578,16 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
     BuildContext pageContext,
     StaffAlert alert,
   ) async {
-    final doctors = StaffState.instance.users
-        .where((u) =>
-            (u.role == UserRole.doctor || u.role == UserRole.externalDoctor) &&
-            u.status == 'active')
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    final doctors =
+        StaffState.instance.users
+            .where(
+              (u) =>
+                  (u.role == UserRole.doctor ||
+                      u.role == UserRole.externalDoctor) &&
+                  u.status == 'active',
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
 
     if (doctors.isEmpty) {
       AppToast.warn(
@@ -618,8 +621,8 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
                 'Route this patient to a doctor. The assignment grants the '
                 'doctor caseload access — future alerts appear in their queue.',
                 style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
-                      color: AppPalette.textMuted(sheetContext),
-                    ),
+                  color: AppPalette.textMuted(sheetContext),
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               _pickerBlock(
@@ -665,11 +668,17 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
                         : (v) => setSheetState(() => role = v ?? 'Primary'),
                     items: const [
                       DropdownMenuItem(
-                          value: 'Primary', child: Text('Primary care')),
+                        value: 'Primary',
+                        child: Text('Primary care'),
+                      ),
                       DropdownMenuItem(
-                          value: 'Consulting', child: Text('Consulting')),
+                        value: 'Consulting',
+                        child: Text('Consulting'),
+                      ),
                       DropdownMenuItem(
-                          value: 'Specialist', child: Text('Specialist')),
+                        value: 'Specialist',
+                        child: Text('Specialist'),
+                      ),
                     ],
                   ),
                 ),
@@ -706,8 +715,10 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
                             );
                           }
                           if (sheetContext.mounted) {
-                            Navigator.of(sheetContext, rootNavigator: true)
-                                .pop();
+                            Navigator.of(
+                              sheetContext,
+                              rootNavigator: true,
+                            ).pop();
                           }
                           if (pageContext.mounted) {
                             AppToast.success(
@@ -730,8 +741,8 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
               TextButton(
                 onPressed: saving
                     ? null
-                    : () => Navigator.of(sheetContext, rootNavigator: true)
-                        .pop(),
+                    : () =>
+                          Navigator.of(sheetContext, rootNavigator: true).pop(),
                 child: const Text('Cancel'),
               ),
             ],
@@ -756,9 +767,9 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
             const SizedBox(width: AppSpacing.sm),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ],
         ),
@@ -842,8 +853,7 @@ class _ActionsPanel extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppColors.brandIndigo.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
@@ -862,18 +872,18 @@ class _ActionsPanel extends StatelessWidget {
               if (isResolved)
                 Row(
                   children: [
-                    const Icon(Icons.lock_outline_rounded,
-                        size: 13, color: AppColors.success),
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 13,
+                      color: AppColors.success,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'Closed',
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelSmall
-                          ?.copyWith(
-                            color: AppColors.success,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
                 ),
@@ -946,11 +956,7 @@ class _ActionsPanel extends StatelessWidget {
 /// Small tap target used inside [_ActionsPanel] for the secondary triad.
 /// Icon over a short label, tinted background — reads instantly as an action.
 class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _ActionTile({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
@@ -991,9 +997,9 @@ class _ActionTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -1011,10 +1017,10 @@ class _SectionCaption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: AppPalette.textMuted(context),
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
-        );
+      color: AppPalette.textMuted(context),
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.6,
+    );
     return Row(
       children: [
         Text(label, style: style),
@@ -1074,9 +1080,9 @@ class _AlertHeaderCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                            ),
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
@@ -1092,9 +1098,9 @@ class _AlertHeaderCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (parsed.detail != null) ...[
                   const SizedBox(height: 2),
@@ -1103,9 +1109,9 @@ class _AlertHeaderCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppPalette.ink(context),
-                          height: 1.25,
-                        ),
+                      color: AppPalette.ink(context),
+                      height: 1.25,
+                    ),
                   ),
                 ],
               ],
@@ -1136,9 +1142,9 @@ class _ResolutionCard extends StatelessWidget {
           Text(
             'Resolution',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.success,
-                ),
+              fontWeight: FontWeight.w700,
+              color: AppColors.success,
+            ),
           ),
           if (alert.resolutionAction != null) ...[
             const SizedBox(height: AppSpacing.xs),
@@ -1152,8 +1158,8 @@ class _ResolutionCard extends StatelessWidget {
             Text(
               alert.resolutionNote!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                  ),
+                color: AppPalette.textMuted(context),
+              ),
             ),
           ],
         ],
@@ -1177,15 +1183,18 @@ class _EmptyAssignees extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(AppIcons.careTeam,
-              size: 16, color: AppPalette.textMuted(context)),
+          Icon(
+            AppIcons.careTeam,
+            size: 16,
+            color: AppPalette.textMuted(context),
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               'No health worker assigned yet.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                  ),
+                color: AppPalette.textMuted(context),
+              ),
             ),
           ),
         ],
@@ -1217,8 +1226,11 @@ class _AssigneeChip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(AppIcons.careTeam,
-                size: 16, color: AppColors.brandIndigo),
+            const Icon(
+              AppIcons.careTeam,
+              size: 16,
+              color: AppColors.brandIndigo,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
@@ -1230,10 +1242,10 @@ class _AssigneeChip extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppPalette.ink(context),
-                          height: 1.1,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.ink(context),
+                      height: 1.1,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -1241,8 +1253,8 @@ class _AssigneeChip extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
+                      color: AppPalette.textMuted(context),
+                    ),
                   ),
                 ],
               ),

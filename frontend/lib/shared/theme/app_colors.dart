@@ -52,9 +52,9 @@ class AppColors {
   static const Color darkSurfaceMuted = Color(0xFF182234);
   static const Color darkBorder = Color(0xFF334155);
   static const Color darkBorderStrong = Color(0xFF475569);
-  static const Color darkInk = Color(0xFFF8FAFC);          // primary text
-  static const Color darkTextMuted = Color(0xFFE2E8F0);    // AA secondary
-  static const Color darkTextFaint = Color(0xFFCBD5E1);    // hints/placeholders
+  static const Color darkInk = Color(0xFFF8FAFC); // primary text
+  static const Color darkTextMuted = Color(0xFFE2E8F0); // AA secondary
+  static const Color darkTextFaint = Color(0xFFCBD5E1); // hints/placeholders
   static const Color darkOverlay = Color(0xCC000000);
 
   // Soft status backgrounds for dark mode chips — slightly lifted saturation

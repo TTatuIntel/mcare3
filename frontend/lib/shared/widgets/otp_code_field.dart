@@ -6,11 +6,7 @@ import '../theme/app_spacing.dart';
 
 /// Six-digit OTP input row (password change, verification flows).
 class OtpCodeField extends StatefulWidget {
-  const OtpCodeField({
-    super.key,
-    this.onCompleted,
-    this.enabled = true,
-  });
+  const OtpCodeField({super.key, this.onCompleted, this.enabled = true});
 
   final ValueChanged<String>? onCompleted;
   final bool enabled;

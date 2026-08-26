@@ -23,16 +23,16 @@ class _DoctorDocumentViewerState extends State<_DoctorDocumentViewer> {
   int _previewReload = 0;
 
   MedicalDocument get _asMedical => MedicalDocument(
-        id: _doc.id,
-        title: _doc.title,
-        category: PatientDomainMapper.documentCategoryFromApi(_doc.category),
-        fileType: _doc.fileType,
-        sizeBytes: 0,
-        uploadedAt: _doc.uploadedAt,
-        uploadedBy: _doc.uploadedBy,
-        description: _doc.description,
-        hasFile: _doc.hasFile,
-      );
+    id: _doc.id,
+    title: _doc.title,
+    category: PatientDomainMapper.documentCategoryFromApi(_doc.category),
+    fileType: _doc.fileType,
+    sizeBytes: 0,
+    uploadedAt: _doc.uploadedAt,
+    uploadedBy: _doc.uploadedBy,
+    description: _doc.description,
+    hasFile: _doc.hasFile,
+  );
 
   @override
   void initState() {
@@ -93,10 +93,7 @@ class _DoctorDocumentViewerState extends State<_DoctorDocumentViewer> {
 }
 
 class _MessagesPanel extends StatelessWidget {
-  const _MessagesPanel({
-    required this.patientId,
-    required this.patientName,
-  });
+  const _MessagesPanel({required this.patientId, required this.patientName});
 
   final String patientId;
   final String patientName;
@@ -121,8 +118,8 @@ class _MessagesPanel extends StatelessWidget {
                 Text(
                   conv.lastMessage.body,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                    color: AppPalette.textMuted(context),
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -130,9 +127,9 @@ class _MessagesPanel extends StatelessWidget {
                 Text(
                   DateFormat.MMMd().add_jm().format(conv.lastMessage.sentAt),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textFaint(context),
-                        fontSize: 10,
-                      ),
+                    color: AppPalette.textFaint(context),
+                    fontSize: 10,
+                  ),
                 ),
               ] else
                 Text(
@@ -143,7 +140,8 @@ class _MessagesPanel extends StatelessWidget {
               AppButton(
                 label: conv != null ? 'Open conversation' : 'Open messages',
                 icon: AppIcons.chat,
-                onPressed: () => _openPatientChat(context, patientId, patientName),
+                onPressed: () =>
+                    _openPatientChat(context, patientId, patientName),
               ),
             ],
           ),
@@ -154,10 +152,7 @@ class _MessagesPanel extends StatelessWidget {
 }
 
 class _ReportsPanel extends StatelessWidget {
-  const _ReportsPanel({
-    required this.patientId,
-    required this.patientName,
-  });
+  const _ReportsPanel({required this.patientId, required this.patientName});
 
   final String patientId;
   final String patientName;
@@ -173,10 +168,9 @@ class _ReportsPanel extends StatelessWidget {
           icon: AppIcons.report,
           trailing: '${reports.length}',
           actionLabel: 'New report',
-          onAction: () => Navigator.of(context).pushNamed(
-            RouteNames.doctorReportEditor,
-            arguments: patientName,
-          ),
+          onAction: () => Navigator.of(
+            context,
+          ).pushNamed(RouteNames.doctorReportEditor, arguments: patientName),
         ),
         if (reports.isEmpty)
           GlassCard(
@@ -195,19 +189,21 @@ class _ReportsPanel extends StatelessWidget {
         else
           StaffListCard(
             children: reports
-                .map((r) => StaffListRow(
-                      icon: AppIcons.report,
-                      iconColor: AppColors.doctorGreen,
-                      title: r.title,
-                      subtitle: DateFormat.MMMd().format(r.createdAt),
-                      pill: r.published ? 'Published' : 'Draft',
-                      pillColor:
-                          r.published ? AppColors.success : AppColors.warning,
-                      onTap: () => Navigator.of(context).pushNamed(
-                        RouteNames.doctorReportEditor,
-                        arguments: r.id,
-                      ),
-                    ))
+                .map(
+                  (r) => StaffListRow(
+                    icon: AppIcons.report,
+                    iconColor: AppColors.doctorGreen,
+                    title: r.title,
+                    subtitle: DateFormat.MMMd().format(r.createdAt),
+                    pill: r.published ? 'Published' : 'Draft',
+                    pillColor: r.published
+                        ? AppColors.success
+                        : AppColors.warning,
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.doctorReportEditor, arguments: r.id),
+                  ),
+                )
                 .toList(),
           ),
       ],
@@ -223,30 +219,36 @@ class _TimelinePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = StaffState.instance;
     final items = <_TimelineItem>[
-      ...s.vitalsForPatient(patientId).map(
-        (v) => _TimelineItem(
-          at: v.recordedAt,
-          icon: v.vital.icon,
-          title: '${v.vital.label} recorded',
-          subtitle: v.value,
-        ),
-      ),
-      ...s.alertsForPatient(patientId).map(
-        (a) => _TimelineItem(
-          at: a.createdAt,
-          icon: AppIcons.alert,
-          title: 'Alert Â· ${a.vital.label}',
-          subtitle: a.value,
-        ),
-      ),
-      ...s.documentsForPatient(patientId).map(
-        (d) => _TimelineItem(
-          at: d.uploadedAt,
-          icon: AppIcons.document,
-          title: 'Document uploaded',
-          subtitle: d.title,
-        ),
-      ),
+      ...s
+          .vitalsForPatient(patientId)
+          .map(
+            (v) => _TimelineItem(
+              at: v.recordedAt,
+              icon: v.vital.icon,
+              title: '${v.vital.label} recorded',
+              subtitle: v.value,
+            ),
+          ),
+      ...s
+          .alertsForPatient(patientId)
+          .map(
+            (a) => _TimelineItem(
+              at: a.createdAt,
+              icon: AppIcons.alert,
+              title: 'Alert Â· ${a.vital.label}',
+              subtitle: a.value,
+            ),
+          ),
+      ...s
+          .documentsForPatient(patientId)
+          .map(
+            (d) => _TimelineItem(
+              at: d.uploadedAt,
+              icon: AppIcons.document,
+              title: 'Document uploaded',
+              subtitle: d.title,
+            ),
+          ),
     ]..sort((a, b) => b.at.compareTo(a.at));
 
     return Column(
@@ -265,12 +267,14 @@ class _TimelinePanel extends StatelessWidget {
           StaffListCard(
             children: items
                 .take(12)
-                .map((e) => StaffListRow(
-                      icon: e.icon,
-                      title: e.title,
-                      subtitle:
-                          '${e.subtitle} Â· ${DateFormat.MMMd().add_jm().format(e.at)}',
-                    ))
+                .map(
+                  (e) => StaffListRow(
+                    icon: e.icon,
+                    title: e.title,
+                    subtitle:
+                        '${e.subtitle} Â· ${DateFormat.MMMd().add_jm().format(e.at)}',
+                  ),
+                )
                 .toList(),
           ),
       ],
@@ -292,10 +296,7 @@ class _TimelineItem {
 }
 
 class _MealsPanel extends StatelessWidget {
-  const _MealsPanel({
-    required this.patientId,
-    required this.patientName,
-  });
+  const _MealsPanel({required this.patientId, required this.patientName});
 
   final String patientId;
   final String patientName;
@@ -342,12 +343,15 @@ class _MealsPanel extends StatelessWidget {
                 child: Text(
                   'Assign meal plan for $patientName',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              Icon(AppIcons.chevronRight,
-                  size: 14, color: AppPalette.textMuted(context)),
+              Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: AppPalette.textMuted(context),
+              ),
             ],
           ),
         ),
@@ -409,4 +413,3 @@ class _MealsPanel extends StatelessWidget {
     );
   }
 }
-

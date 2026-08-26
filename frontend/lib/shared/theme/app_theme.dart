@@ -109,23 +109,23 @@ class AppTheme {
 
   static ThemeData dark({Color accent = AppColors.brandIndigo}) {
     final base = ThemeData.dark(useMaterial3: true);
-    final scheme = ColorScheme.fromSeed(
-      seedColor: accent,
-      brightness: Brightness.dark,
-      primary: accent,
-      surface: AppColors.darkSurface,
-      onSurface: AppColors.darkInk,
-      onPrimary: Colors.white,
-      error: AppColors.critical,
-    ).copyWith(
-      onSurfaceVariant: AppColors.darkTextMuted,
-      outline: AppColors.darkBorder,
-      outlineVariant: AppColors.darkBorderStrong,
-      surfaceContainerHighest: AppColors.darkSurfaceAlt,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: accent,
+          brightness: Brightness.dark,
+          primary: accent,
+          surface: AppColors.darkSurface,
+          onSurface: AppColors.darkInk,
+          onPrimary: Colors.white,
+          error: AppColors.critical,
+        ).copyWith(
+          onSurfaceVariant: AppColors.darkTextMuted,
+          outline: AppColors.darkBorder,
+          outlineVariant: AppColors.darkBorderStrong,
+          surfaceContainerHighest: AppColors.darkSurfaceAlt,
+        );
 
-    final darkText =
-        AppTypography.buildTextTheme(textColor: AppColors.darkInk);
+    final darkText = AppTypography.buildTextTheme(textColor: AppColors.darkInk);
 
     return base.copyWith(
       colorScheme: scheme,
@@ -261,8 +261,7 @@ class AppTheme {
           }
           return AppColors.darkSurfaceAlt;
         }),
-        trackOutlineColor:
-            const WidgetStatePropertyAll(AppColors.darkBorder),
+        trackOutlineColor: const WidgetStatePropertyAll(AppColors.darkBorder),
       ),
       checkboxTheme: CheckboxThemeData(
         side: const BorderSide(color: AppColors.darkBorderStrong, width: 1.4),

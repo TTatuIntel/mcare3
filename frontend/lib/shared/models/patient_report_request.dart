@@ -175,9 +175,9 @@ class PatientReportRequestItem {
         awaitingMe: j['awaiting_me'] == true,
         sectionDetails: j['section_details'] is List
             ? (j['section_details'] as List)
-                .whereType<Map>()
-                .map((e) => e.cast<String, dynamic>())
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => e.cast<String, dynamic>())
+                  .toList()
             : const [],
       );
 }
@@ -269,10 +269,10 @@ class ReportBlock {
   final String emptyMessage;
 
   bool get isEmpty => switch (kind) {
-        'table' => rows.isEmpty,
-        'notes' => notes.isEmpty,
-        _ => fields.isEmpty,
-      };
+    'table' => rows.isEmpty,
+    'notes' => notes.isEmpty,
+    _ => fields.isEmpty,
+  };
 
   static ReportBlock fromJson(Map<String, dynamic> j) {
     final kind = '${j['kind'] ?? 'fields'}';
@@ -282,25 +282,27 @@ class ReportBlock {
       kind: kind,
       fields: (j['rows'] is List && kind == 'fields')
           ? (j['rows'] as List)
-              .whereType<Map>()
-              .map((e) => (
+                .whereType<Map>()
+                .map(
+                  (e) => (
                     label: '${e['label'] ?? ''}',
                     value: '${e['value'] ?? ''}',
-                  ))
-              .toList()
+                  ),
+                )
+                .toList()
           : const [],
       columns: _strings(j['columns']),
       rows: (j['rows'] is List && kind == 'table')
           ? (j['rows'] as List)
-              .whereType<List>()
-              .map((r) => r.map((c) => '${c ?? ''}').toList())
-              .toList()
+                .whereType<List>()
+                .map((r) => r.map((c) => '${c ?? ''}').toList())
+                .toList()
           : const [],
       notes: (j['notes'] is List)
           ? (j['notes'] as List)
-              .whereType<Map>()
-              .map((e) => e.map((k, v) => MapEntry('$k', '${v ?? ''}')))
-              .toList()
+                .whereType<Map>()
+                .map((e) => e.map((k, v) => MapEntry('$k', '${v ?? ''}')))
+                .toList()
           : const [],
       emptyMessage: '${j['empty_message'] ?? 'Nothing recorded.'}',
     );

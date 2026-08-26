@@ -14,11 +14,7 @@ import 'app_icons.dart';
 /// [ProfileNavigation.notificationsRouteFor]. Pass [onTap] to override.
 /// Guests / external doctors (no inbox route) are a no-op.
 class NotificationBell extends StatelessWidget {
-  const NotificationBell({
-    super.key,
-    this.onTap,
-    this.iconSize = 32,
-  });
+  const NotificationBell({super.key, this.onTap, this.iconSize = 32});
 
   final VoidCallback? onTap;
   final double iconSize;
@@ -56,8 +52,10 @@ class NotificationBell extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.critical,
                         borderRadius: BorderRadius.circular(11),
-                        border:
-                            Border.all(color: AppPalette.surface(context), width: 1.5),
+                        border: Border.all(
+                          color: AppPalette.surface(context),
+                          width: 1.5,
+                        ),
                       ),
                       child: Text(
                         count > 9 ? '9+' : '$count',

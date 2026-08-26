@@ -102,8 +102,7 @@ class _SheetChrome extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppPalette.borderStrong(context),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
                 ),
               ),
@@ -123,9 +122,7 @@ class _SheetChrome extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
+                            style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: AppPalette.ink(context),
@@ -134,10 +131,10 @@ class _SheetChrome extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             subtitle,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppPalette.textMuted(context),
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppPalette.textMuted(context),
+                                ),
                           ),
                         ],
                       ),
@@ -223,8 +220,8 @@ class _BodyState extends State<_Body> {
     final items = ProfileNavigation.menuFor(user.role);
     final quick = ProfileNavigation.quickActionsFor(user.role);
     final profileRoute = ProfileNavigation.profileRouteFor(user.role);
-    final openTickets = (user.role == UserRole.admin ||
-            user.role == UserRole.mcareAssistant)
+    final openTickets =
+        (user.role == UserRole.admin || user.role == UserRole.mcareAssistant)
         ? AdminWorkspaceCounts.openSupport
         : 0;
     final incomplete = !user.isProfileComplete;
@@ -295,7 +292,8 @@ class _BodyState extends State<_Body> {
                   (a) => SettingsQuickActionDef(
                     icon: a.icon,
                     label: a.label,
-                    badge: a.route ==
+                    badge:
+                        a.route ==
                                 ProfileNavigation.supportRouteFor(user.role) &&
                             openTickets > 0
                         ? '$openTickets'
@@ -329,9 +327,7 @@ class _BodyState extends State<_Body> {
                       children: [
                         Text(
                           item.label,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: item.danger
                                     ? AppColors.critical
@@ -343,9 +339,7 @@ class _BodyState extends State<_Body> {
                           const SizedBox(height: 2),
                           Text(
                             item.subtitle!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: AppPalette.textMuted(context),
                                 ),
@@ -410,9 +404,7 @@ class _SignOutButton extends StatelessWidget {
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.critical,
-            side: BorderSide(
-              color: AppColors.critical.withValues(alpha: 0.35),
-            ),
+            side: BorderSide(color: AppColors.critical.withValues(alpha: 0.35)),
             backgroundColor: AppColors.critical.withValues(alpha: 0.04),
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(

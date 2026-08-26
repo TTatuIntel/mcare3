@@ -15,8 +15,9 @@ class SosState extends ChangeNotifier {
   final List<SosEvent> _history = [];
   SosEvent? _active;
 
-  List<EmergencyContact> get contacts =>
-      List.unmodifiable(_contacts..sort((a, b) => a.priority.compareTo(b.priority)));
+  List<EmergencyContact> get contacts => List.unmodifiable(
+    _contacts..sort((a, b) => a.priority.compareTo(b.priority)),
+  );
   List<SosEvent> get history => List.unmodifiable(_history);
   SosEvent? get activeEvent => _active;
   bool get hasActiveSos =>
@@ -37,8 +38,7 @@ class SosState extends ChangeNotifier {
       ..sort((a, b) => b.triggeredAt.compareTo(a.triggeredAt));
     _active = null;
     for (final e in history) {
-      if (e.status == SosStatus.active ||
-          e.status == SosStatus.acknowledged) {
+      if (e.status == SosStatus.active || e.status == SosStatus.acknowledged) {
         _active = e;
         break;
       }
@@ -129,8 +129,8 @@ class SosState extends ChangeNotifier {
         if (event == null) return false;
         final i = _history.indexWhere((e) => e.id == current.id);
         if (i != -1) _history[i] = event;
-        _active = (status == SosStatus.active ||
-                status == SosStatus.acknowledged)
+        _active =
+            (status == SosStatus.active || status == SosStatus.acknowledged)
             ? event
             : null;
         notifyListeners();
@@ -144,7 +144,10 @@ class SosState extends ChangeNotifier {
     return true;
   }
 
-  void resolveActive({SosStatus status = SosStatus.resolved, String? respondedBy}) {
+  void resolveActive({
+    SosStatus status = SosStatus.resolved,
+    String? respondedBy,
+  }) {
     if (_active == null) return;
     final resolved = SosEvent(
       id: _active!.id,

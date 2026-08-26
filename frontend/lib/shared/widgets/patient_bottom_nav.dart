@@ -33,8 +33,8 @@ class PatientBottomNav extends StatelessWidget {
 
   /// Used for utility screens — highlights nothing but still navigates home.
   const PatientBottomNav.detached({super.key})
-      : currentRoute = '',
-        detached = true;
+    : currentRoute = '',
+      detached = true;
 
   final String currentRoute;
   final bool detached;
@@ -105,7 +105,9 @@ class PatientBottomNav extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.sm,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: destinations
@@ -115,10 +117,9 @@ class PatientBottomNav extends StatelessWidget {
                     selected: !detached && d.isActive(currentRoute),
                     onTap: () {
                       if (!detached && d.route == currentRoute) return;
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                        d.route,
-                        (_) => false,
-                      );
+                      Navigator.of(
+                        context,
+                      ).pushNamedAndRemoveUntil(d.route, (_) => false);
                     },
                   ),
                 )
@@ -163,11 +164,14 @@ class _NavItem extends StatelessWidget {
               children: [
                 AnimatedContainer(
                   duration: AppMotion.micro,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color:
-                        selected ? accent.withOpacity(0.12) : Colors.transparent,
+                    color: selected
+                        ? accent.withOpacity(0.12)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
                   child: Icon(destination.icon, color: color, size: 22),
@@ -240,10 +244,9 @@ class PatientSideRail extends StatelessWidget {
                 compact: compact,
                 onTap: () {
                   if (d.route == currentRoute) return;
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    d.route,
-                    (_) => false,
-                  );
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil(d.route, (_) => false);
                 },
               ),
             ),
@@ -275,7 +278,9 @@ class _RailItem extends StatelessWidget {
     final color = selected ? accent : AppPalette.textMuted(context);
     final item = Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: 2),
+        horizontal: AppSpacing.md,
+        vertical: 2,
+      ),
       child: Material(
         color: selected ? accent.withOpacity(0.10) : Colors.transparent,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -284,10 +289,13 @@ class _RailItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.md),
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
             child: Row(
-              mainAxisAlignment:
-                  compact ? MainAxisAlignment.center : MainAxisAlignment.start,
+              mainAxisAlignment: compact
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
               children: [
                 Icon(destination.icon, color: color, size: 20),
                 if (!compact) ...[
@@ -296,8 +304,7 @@ class _RailItem extends StatelessWidget {
                     destination.label,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: selected ? AppPalette.ink(context) : color,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                 ],

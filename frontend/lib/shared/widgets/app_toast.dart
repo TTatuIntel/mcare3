@@ -130,25 +130,25 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
   ({Color accent, Color soft, IconData icon}) _palette(BuildContext context) =>
       switch (widget.kind) {
         AppToastKind.success => (
-            accent: AppColors.success,
-            soft: AppPalette.successSoft(context),
-            icon: AppIcons.check,
-          ),
+          accent: AppColors.success,
+          soft: AppPalette.successSoft(context),
+          icon: AppIcons.check,
+        ),
         AppToastKind.error => (
-            accent: AppColors.critical,
-            soft: AppPalette.criticalSoft(context),
-            icon: AppIcons.alert,
-          ),
+          accent: AppColors.critical,
+          soft: AppPalette.criticalSoft(context),
+          icon: AppIcons.alert,
+        ),
         AppToastKind.warning => (
-            accent: AppColors.warning,
-            soft: AppPalette.warningSoft(context),
-            icon: AppIcons.alert,
-          ),
+          accent: AppColors.warning,
+          soft: AppPalette.warningSoft(context),
+          icon: AppIcons.alert,
+        ),
         AppToastKind.info => (
-            accent: AppColors.brandIndigo,
-            soft: AppPalette.infoSoft(context),
-            icon: AppIcons.info,
-          ),
+          accent: AppColors.brandIndigo,
+          soft: AppPalette.infoSoft(context),
+          icon: AppIcons.info,
+        ),
       };
 
   @override
@@ -194,8 +194,7 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
                     ),
                     decoration: BoxDecoration(
                       color: AppPalette.surface(context).withOpacity(0.94),
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusLg),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                       border: Border.all(
                         color: palette.accent.withOpacity(0.35),
                         width: 1.2,
@@ -208,8 +207,9 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
                           width: 38,
                           decoration: BoxDecoration(
                             color: palette.soft.withOpacity(0.9),
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusMd),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusMd,
+                            ),
                             border: Border.all(
                               color: palette.accent.withOpacity(0.3),
                             ),
@@ -224,9 +224,7 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
                         Expanded(
                           child: Text(
                             widget.message,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
+                            style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   color: AppPalette.ink(context),
                                   fontWeight: FontWeight.w700,

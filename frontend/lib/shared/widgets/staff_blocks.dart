@@ -208,8 +208,9 @@ class StaffPatientRow extends StatelessWidget {
                         Expanded(
                           child: Text(
                             name,
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -224,8 +225,9 @@ class StaffPatientRow extends StatelessWidget {
                               color: AppPalette.isDark(context)
                                   ? AppColors.darkCriticalSoft
                                   : AppPalette.criticalSoft(context),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.radiusPill),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
                             ),
                             child: Text(
                               '$unreadAlerts alert${unreadAlerts == 1 ? '' : 's'}',
@@ -240,9 +242,7 @@ class StaffPatientRow extends StatelessWidget {
                     ),
                     Text(
                       summary,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: muted,
-                      ),
+                      style: theme.textTheme.labelSmall?.copyWith(color: muted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -267,8 +267,7 @@ class StaffPatientRow extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 trailing!,
               ] else
-                Icon(AppIcons.chevronRight,
-                    size: 16, color: muted),
+                Icon(AppIcons.chevronRight, size: 16, color: muted),
             ],
           ),
         ),
@@ -354,8 +353,9 @@ class StaffListRow extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: theme.textTheme.labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -368,8 +368,9 @@ class StaffListRow extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: (pillColor ?? colour).withOpacity(0.14),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.radiusPill),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
                             ),
                             child: Text(
                               pill!,
@@ -384,8 +385,9 @@ class StaffListRow extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: AppPalette.textMuted(context)),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -432,9 +434,9 @@ class StaffListCard extends StatelessWidget {
               child: Text(
                 title!,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppPalette.textMuted(context),
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: AppPalette.textMuted(context),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.xs),

@@ -20,6 +20,7 @@ class AppDialog {
     String cancelLabel = 'Cancel',
     bool danger = false,
     IconData? icon,
+
     /// When true, the icon banner is the confirm action and only an X dismisses.
     bool iconActionOnly = false,
   }) {
@@ -145,52 +146,65 @@ class _IconActionBodyState extends State<_IconActionBody>
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
 
-    _closeOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0, 0.4, curve: AppMotion.easeOut),
-    ));
-    _closeSlide = Tween<Offset>(
-      begin: const Offset(0, -0.35),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0, 0.4, curve: AppMotion.easeOut),
-    ));
-
-    _bannerOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0.08, 0.58, curve: AppMotion.easeOut),
-    ));
-    _bannerScale = Tween<double>(begin: 0.9, end: 1).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0.08, 0.58, curve: AppMotion.easeOut),
-    ));
-    _bannerSlide = Tween<Offset>(
-      begin: const Offset(0, AppMotion.translateY / 72),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0.08, 0.58, curve: AppMotion.easeOut),
-    ));
-
-    _textOpacity = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0.32, 0.88, curve: AppMotion.easeOut),
-    ));
-    _textSlide = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entry,
-      curve: const Interval(0.32, 0.88, curve: AppMotion.easeOut),
-    ));
-
-    _pulseScale = Tween<double>(begin: 1, end: 1.018).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    _closeOpacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _entry,
+        curve: const Interval(0, 0.4, curve: AppMotion.easeOut),
+      ),
     );
-    _pulseGlow = Tween<double>(begin: 0.12, end: 0.28).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    _closeSlide = Tween<Offset>(begin: const Offset(0, -0.35), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entry,
+            curve: const Interval(0, 0.4, curve: AppMotion.easeOut),
+          ),
+        );
+
+    _bannerOpacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _entry,
+        curve: const Interval(0.08, 0.58, curve: AppMotion.easeOut),
+      ),
     );
+    _bannerScale = Tween<double>(begin: 0.9, end: 1).animate(
+      CurvedAnimation(
+        parent: _entry,
+        curve: const Interval(0.08, 0.58, curve: AppMotion.easeOut),
+      ),
+    );
+    _bannerSlide =
+        Tween<Offset>(
+          begin: const Offset(0, AppMotion.translateY / 72),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _entry,
+            curve: const Interval(0.08, 0.58, curve: AppMotion.easeOut),
+          ),
+        );
+
+    _textOpacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _entry,
+        curve: const Interval(0.32, 0.88, curve: AppMotion.easeOut),
+      ),
+    );
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entry,
+            curve: const Interval(0.32, 0.88, curve: AppMotion.easeOut),
+          ),
+        );
+
+    _pulseScale = Tween<double>(
+      begin: 1,
+      end: 1.018,
+    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
+    _pulseGlow = Tween<double>(
+      begin: 0.12,
+      end: 0.28,
+    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
 
     _entry.forward();
   }
@@ -222,7 +236,9 @@ class _IconActionBodyState extends State<_IconActionBody>
   @override
   Widget build(BuildContext context) {
     final accent = widget.danger ? AppColors.critical : AppColors.info;
-    final soft = widget.danger ? AppPalette.criticalSoft(context) : AppPalette.infoSoft(context);
+    final soft = widget.danger
+        ? AppPalette.criticalSoft(context)
+        : AppPalette.infoSoft(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -238,7 +254,10 @@ class _IconActionBodyState extends State<_IconActionBody>
                 tooltip: 'Close',
                 onPressed: _dismiss,
                 visualDensity: VisualDensity.compact,
-                icon: Icon(AppIcons.close, color: AppPalette.textMuted(context)),
+                icon: Icon(
+                  AppIcons.close,
+                  color: AppPalette.textMuted(context),
+                ),
               ),
             ),
           ),
@@ -254,18 +273,16 @@ class _IconActionBodyState extends State<_IconActionBody>
                 builder: (context, child) {
                   final breathe = _confirming ? 1.0 : _pulseScale.value;
                   final press = _pressed ? 0.96 : 1.0;
-                  return Transform.scale(
-                    scale: breathe * press,
-                    child: child,
-                  );
+                  return Transform.scale(scale: breathe * press, child: child);
                 },
                 child: AnimatedBuilder(
                   animation: _pulseGlow,
                   builder: (context, child) {
                     return DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusLg),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusLg,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: accent.withOpacity(
@@ -281,8 +298,7 @@ class _IconActionBodyState extends State<_IconActionBody>
                   },
                   child: Material(
                     color: soft,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusLg),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
                       onTap: _confirm,
@@ -309,11 +325,7 @@ class _IconActionBodyState extends State<_IconActionBody>
                                 child: child,
                               );
                             },
-                            child: Icon(
-                              widget.icon,
-                              color: accent,
-                              size: 32,
-                            ),
+                            child: Icon(widget.icon, color: accent, size: 32),
                           ),
                         ),
                       ),
@@ -335,16 +347,16 @@ class _IconActionBodyState extends State<_IconActionBody>
                   widget.title,
                   textAlign: TextAlign.center,
                   style: Theme.of(widget.ctx).textTheme.headlineSmall?.copyWith(
-                        color: AppPalette.ink(widget.ctx),
-                      ),
+                    color: AppPalette.ink(widget.ctx),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   widget.message,
                   textAlign: TextAlign.center,
                   style: Theme.of(widget.ctx).textTheme.bodyMedium?.copyWith(
-                        color: AppPalette.textMuted(widget.ctx),
-                      ),
+                    color: AppPalette.textMuted(widget.ctx),
+                  ),
                 ),
               ],
             ),
@@ -385,7 +397,9 @@ class _StandardBody extends StatelessWidget {
             height: 56,
             width: 56,
             decoration: BoxDecoration(
-              color: (danger ? AppPalette.criticalSoft(context) : AppPalette.infoSoft(context)),
+              color: (danger
+                  ? AppPalette.criticalSoft(context)
+                  : AppPalette.infoSoft(context)),
               borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
             ),
             child: Icon(
@@ -398,16 +412,16 @@ class _StandardBody extends StatelessWidget {
         ],
         Text(
           title,
-          style: Theme.of(ctx).textTheme.headlineSmall?.copyWith(
-                color: AppPalette.ink(ctx),
-              ),
+          style: Theme.of(
+            ctx,
+          ).textTheme.headlineSmall?.copyWith(color: AppPalette.ink(ctx)),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
           message,
-          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                color: AppPalette.textMuted(ctx),
-              ),
+          style: Theme.of(
+            ctx,
+          ).textTheme.bodyMedium?.copyWith(color: AppPalette.textMuted(ctx)),
         ),
         const SizedBox(height: AppSpacing.xl),
         Row(
@@ -421,8 +435,9 @@ class _StandardBody extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             AppButton(
               label: confirmLabel,
-              variant:
-                  danger ? AppButtonVariant.danger : AppButtonVariant.primary,
+              variant: danger
+                  ? AppButtonVariant.danger
+                  : AppButtonVariant.primary,
               onPressed: () => Navigator.of(ctx).pop(true),
             ),
           ],

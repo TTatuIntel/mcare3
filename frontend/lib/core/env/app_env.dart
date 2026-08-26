@@ -102,6 +102,7 @@ class AppEnv {
     'MCARE_FIREBASE_PROJECT_ID',
     defaultValue: '',
   );
+
   /// Web push VAPID key — Firebase Console → Project settings → Cloud Messaging
   static const String firebaseVapidKey = String.fromEnvironment(
     'MCARE_FIREBASE_VAPID_KEY',

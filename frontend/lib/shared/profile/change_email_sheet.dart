@@ -162,7 +162,9 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
           ),
           const SizedBox(height: AppSpacing.xl),
           AppButton(
-            label: AppEnv.backendEnabled ? 'Send verification code' : 'Update email',
+            label: AppEnv.backendEnabled
+                ? 'Send verification code'
+                : 'Update email',
             icon: AppIcons.email,
             expand: true,
             loading: _loading,
@@ -177,7 +179,9 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
       children: [
         Text(
           'Enter the 6-digit code',
-          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
@@ -188,19 +192,16 @@ class _ChangeEmailFormState extends State<_ChangeEmailForm> {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        OtpCodeField(
-          key: _otpKey,
-          enabled: !_loading,
-          onCompleted: _verify,
-        ),
+        OtpCodeField(key: _otpKey, enabled: !_loading, onCompleted: _verify),
         const SizedBox(height: AppSpacing.xl),
         AppButton(
           label: 'Confirm new email',
           icon: AppIcons.check,
           expand: true,
           loading: _loading,
-          onPressed:
-              _loading ? null : () => _verify(_otpKey.currentState?.code ?? ''),
+          onPressed: _loading
+              ? null
+              : () => _verify(_otpKey.currentState?.code ?? ''),
         ),
       ],
     );

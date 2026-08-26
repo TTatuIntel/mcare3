@@ -111,10 +111,7 @@ class PushNotificationService {
   Future<void> _registerToken(String token) async {
     if (!AppEnv.backendEnabled || ApiClient.instance.token == null) return;
     try {
-      await FcmApi.instance.register(
-        token: token,
-        platform: _platformLabel(),
-      );
+      await FcmApi.instance.register(token: token, platform: _platformLabel());
     } catch (e) {
       debugPrint('FCM register failed: $e');
     }

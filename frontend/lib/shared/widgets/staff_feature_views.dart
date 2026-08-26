@@ -96,10 +96,7 @@ class _StaffNotificationsViewState extends State<StaffNotificationsView> {
               icon: AppIcons.profile,
             ),
             const SizedBox(height: AppSpacing.sm),
-            AccountHubQuickLinks(
-              role: role,
-              currentRoute: widget.currentRoute,
-            ),
+            AccountHubQuickLinks(role: role, currentRoute: widget.currentRoute),
           ],
         ],
       ),
@@ -149,15 +146,13 @@ class _StaffMessagesViewState extends State<StaffMessagesView> {
   }
 
   void _openNewConversation() {
-    NewConversationSheet.show(
-      context,
-      threadRouteName: widget.threadRouteName,
-    );
+    NewConversationSheet.show(context, threadRouteName: widget.threadRouteName);
   }
 
   @override
   Widget build(BuildContext context) {
-    final accent = AuthState.instance.user?.role.accent ?? AppColors.brandIndigo;
+    final accent =
+        AuthState.instance.user?.role.accent ?? AppColors.brandIndigo;
 
     return RoleShell(
       currentRoute: widget.currentRoute,
@@ -200,8 +195,9 @@ class _StaffMessagesViewState extends State<StaffMessagesView> {
                     title: c.participant.name,
                     subtitle: c.lastMessage.body,
                     pill: c.unreadCount > 0 ? '${c.unreadCount} new' : null,
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(widget.threadRouteName, arguments: c.id),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(widget.threadRouteName, arguments: c.id),
                   ),
                 )
                 .toList(),
@@ -331,8 +327,9 @@ class _StaffChatThreadViewState extends State<StaffChatThreadView> {
                         filled: true,
                         fillColor: AppPalette.surfaceAlt(context),
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusPill),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusPill,
+                          ),
                           borderSide: BorderSide.none,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
@@ -430,8 +427,9 @@ class _StaffProfileViewState extends State<StaffProfileView> {
               ProfileHeaderCard(
                 user: user,
                 completionPercent: completion.percent,
-                editLabel:
-                    user.isProfileComplete ? 'Edit profile' : 'Complete profile',
+                editLabel: user.isProfileComplete
+                    ? 'Edit profile'
+                    : 'Complete profile',
                 onEdit: () =>
                     ProfileNavigation.openEditOrCompleteProfile(context),
                 warning: user.isProfileComplete
@@ -448,8 +446,9 @@ class _StaffProfileViewState extends State<StaffProfileView> {
                   ),
                   child: ProfileCompletionCard(
                     percent: completion.percent,
-                    incompleteLabels:
-                        completion.incompleteItems.map((i) => i.label).toList(),
+                    incompleteLabels: completion.incompleteItems
+                        .map((i) => i.label)
+                        .toList(),
                     onTap: () =>
                         ProfileNavigation.openEditOrCompleteProfile(context),
                   ),
@@ -479,22 +478,26 @@ class _StaffProfileViewState extends State<StaffProfileView> {
                       badge: AdminWorkspaceCounts.openSupport > 0
                           ? '${AdminWorkspaceCounts.openSupport}'
                           : null,
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.assistantSupport),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.assistantSupport),
                     ),
                     if (AuthState.instance.hasAssistantPermission(
-                        AssistantPermissions.canCreateUsers))
+                      AssistantPermissions.canCreateUsers,
+                    ))
                       SettingsQuickActionDef(
                         icon: AppIcons.lock,
                         label: 'Users & passwords',
-                        onTap: () => Navigator.of(context)
-                            .pushNamed(RouteNames.assistantUsers),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pushNamed(RouteNames.assistantUsers),
                       ),
                     SettingsQuickActionDef(
                       icon: AppIcons.settings,
                       label: 'Settings',
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.assistantSettings),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.assistantSettings),
                     ),
                   ],
                 ),
@@ -555,10 +558,12 @@ class StaffProfileDetail extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        )),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                ),
                 Text(value, style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),

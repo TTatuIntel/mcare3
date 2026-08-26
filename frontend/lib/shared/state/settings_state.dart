@@ -24,6 +24,7 @@ class SettingsState extends ChangeNotifier {
   NotificationPreferences get notifications => _notifications;
   String get languageCode => _languageCode;
   AppLanguage get currentLanguage => AppLanguage.byCode(_languageCode);
+
   /// Display name for hero tiles (native script when available).
   String get language => currentLanguage.nativeName;
   bool get privacyShareWithCareTeam => _privacyShareWithCareTeam;
@@ -35,33 +36,32 @@ class SettingsState extends ChangeNotifier {
   int get enabledNotificationCount =>
       _notifications.channelValues.where((v) => v).length;
 
-  bool get allNotificationsOn =>
-      _notifications.channelValues.every((v) => v);
+  bool get allNotificationsOn => _notifications.channelValues.every((v) => v);
 
   int get patientNotificationChannelCount => 7;
 
   int get patientEnabledNotificationCount => [
-        _notifications.vitalAlerts,
-        _notifications.appointmentReminders,
-        _notifications.medicationReminders,
-        _notifications.messages,
-        _notifications.pushEnabled,
-        _notifications.smsEnabled,
-        _notifications.emailEnabled,
-      ].where((v) => v).length;
+    _notifications.vitalAlerts,
+    _notifications.appointmentReminders,
+    _notifications.medicationReminders,
+    _notifications.messages,
+    _notifications.pushEnabled,
+    _notifications.smsEnabled,
+    _notifications.emailEnabled,
+  ].where((v) => v).length;
 
   bool get allPatientNotificationsOn => patientEnabledNotificationCount == 7;
 
   int get doctorNotificationChannelCount => 6;
 
   int get doctorEnabledNotificationCount => [
-        _notifications.vitalAlerts,
-        _notifications.appointmentReminders,
-        _notifications.messages,
-        _notifications.reports,
-        _notifications.pushEnabled,
-        _notifications.emailEnabled,
-      ].where((v) => v).length;
+    _notifications.vitalAlerts,
+    _notifications.appointmentReminders,
+    _notifications.messages,
+    _notifications.reports,
+    _notifications.pushEnabled,
+    _notifications.emailEnabled,
+  ].where((v) => v).length;
 
   bool get allDoctorNotificationsOn => doctorEnabledNotificationCount == 6;
 
@@ -69,14 +69,14 @@ class SettingsState extends ChangeNotifier {
 
   /// Admin ops alerts — reuses persisted notification channels with admin labels.
   int get adminEnabledNotificationCount => [
-        _notifications.vitalAlerts,
-        _notifications.medicationReminders,
-        _notifications.appointmentReminders,
-        _notifications.reports,
-        _notifications.messages,
-        _notifications.pushEnabled,
-        _notifications.emailEnabled,
-      ].where((v) => v).length;
+    _notifications.vitalAlerts,
+    _notifications.medicationReminders,
+    _notifications.appointmentReminders,
+    _notifications.reports,
+    _notifications.messages,
+    _notifications.pushEnabled,
+    _notifications.emailEnabled,
+  ].where((v) => v).length;
 
   bool get allAdminNotificationsOn =>
       adminEnabledNotificationCount == adminNotificationChannelCount;
@@ -89,8 +89,7 @@ class SettingsState extends ChangeNotifier {
         languageCode: data['languageCode'] as String?,
         notifications: data['notifications'] as NotificationPreferences?,
         privacyShareWithCareTeam: data['privacyShareWithCareTeam'] as bool?,
-        privacyAllowExternalAccess:
-            data['privacyAllowExternalAccess'] as bool?,
+        privacyAllowExternalAccess: data['privacyAllowExternalAccess'] as bool?,
       );
     }
     _loaded = true;
@@ -119,8 +118,7 @@ class SettingsState extends ChangeNotifier {
                 Map<String, dynamic>.from(notifRaw),
               )
             : null,
-        privacyShareWithCareTeam:
-            data['privacy_share_with_care_team'] as bool?,
+        privacyShareWithCareTeam: data['privacy_share_with_care_team'] as bool?,
         privacyAllowExternalAccess:
             data['privacy_allow_external_access'] as bool?,
       );
@@ -281,23 +279,23 @@ class SettingsState extends ChangeNotifier {
   }
 
   Map<String, dynamic> _remotePayload() => {
-        'theme_mode': _themeToString(_themeMode),
-        'language_code': _languageCode,
-        'notifications': _notifications.toJson(),
-        'privacy_share_with_care_team': _privacyShareWithCareTeam,
-        'privacy_allow_external_access': _privacyAllowExternalAccess,
-      };
+    'theme_mode': _themeToString(_themeMode),
+    'language_code': _languageCode,
+    'notifications': _notifications.toJson(),
+    'privacy_share_with_care_team': _privacyShareWithCareTeam,
+    'privacy_allow_external_access': _privacyAllowExternalAccess,
+  };
 
   static String _themeToString(ThemeMode mode) => switch (mode) {
-        ThemeMode.dark => 'dark',
-        ThemeMode.system => 'system',
-        ThemeMode.light => 'light',
-      };
+    ThemeMode.dark => 'dark',
+    ThemeMode.system => 'system',
+    ThemeMode.light => 'light',
+  };
 
   static ThemeMode? _themeFromString(String? raw) => switch (raw) {
-        'dark' => ThemeMode.dark,
-        'system' => ThemeMode.system,
-        'light' => ThemeMode.light,
-        _ => null,
-      };
+    'dark' => ThemeMode.dark,
+    'system' => ThemeMode.system,
+    'light' => ThemeMode.light,
+    _ => null,
+  };
 }

@@ -78,7 +78,9 @@ class _StaffFilterChip extends StatelessWidget {
           vertical: 6,
         ),
         decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.14) : AppPalette.surfaceAlt(context),
+          color: selected
+              ? accent.withValues(alpha: 0.14)
+              : AppPalette.surfaceAlt(context),
           borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
           border: Border.all(
             color: selected ? accent : AppPalette.border(context),

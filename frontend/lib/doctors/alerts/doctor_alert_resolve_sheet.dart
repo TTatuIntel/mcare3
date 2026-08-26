@@ -38,8 +38,7 @@ enum AlertResolutionAction {
     final who = patientName ?? 'the patient';
     final vital = vitalLabel ?? 'this reading';
     return switch (this) {
-      AlertResolutionAction.patientContacted =>
-        'Contacted $who about $vital.',
+      AlertResolutionAction.patientContacted => 'Contacted $who about $vital.',
       AlertResolutionAction.medicationAdjusted =>
         'Reviewed medications with $who after $vital.',
       AlertResolutionAction.followUpScheduled =>
@@ -95,7 +94,10 @@ class DoctorAlertResolveFlow {
     StaffAlert alert, {
     String? successMessage,
   }) async {
-    final ok = await DoctorAlertResolveSheet.showAndResolve(context, alert: alert);
+    final ok = await DoctorAlertResolveSheet.showAndResolve(
+      context,
+      alert: alert,
+    );
     if (!context.mounted) return ok;
 
     if (ok) {

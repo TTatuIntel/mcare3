@@ -49,8 +49,7 @@ class AdminPlatformSettingsSection extends StatelessWidget {
             label: 'Audit log',
             subtitle: 'Activity trail across all accounts',
             iconColor: AppColors.adminPurple,
-            onTap: () =>
-                Navigator.of(context).pushNamed(RouteNames.adminAudit),
+            onTap: () => Navigator.of(context).pushNamed(RouteNames.adminAudit),
           ),
         ],
       ),

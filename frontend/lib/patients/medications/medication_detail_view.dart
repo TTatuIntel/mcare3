@@ -61,9 +61,15 @@ class MedicationDetailView extends StatelessWidget {
                       _InfoRow(label: 'Form', value: med.form),
                       _InfoRow(label: 'Prescribed by', value: med.prescribedBy),
                       if (med.instructions != null)
-                        _InfoRow(label: 'Instructions', value: med.instructions!),
+                        _InfoRow(
+                          label: 'Instructions',
+                          value: med.instructions!,
+                        ),
                       if (med.refillsLeft != null)
-                        _InfoRow(label: 'Refills left', value: '${med.refillsLeft}'),
+                        _InfoRow(
+                          label: 'Refills left',
+                          value: '${med.refillsLeft}',
+                        ),
                       if (med.expiryDate != null)
                         _InfoRow(
                           label: 'Expires',
@@ -117,7 +123,10 @@ class MedicationDetailView extends StatelessWidget {
                       children: [
                         for (var i = 0; i < history.length; i++) ...[
                           if (i > 0)
-                            Divider(height: 1, color: AppPalette.border(context)),
+                            Divider(
+                              height: 1,
+                              color: AppPalette.border(context),
+                            ),
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             child: Material(
@@ -125,8 +134,9 @@ class MedicationDetailView extends StatelessWidget {
                               child: InkWell(
                                 onTap: () =>
                                     DoseDetailSheet.show(context, history[i]),
-                                borderRadius:
-                                    BorderRadius.circular(AppSpacing.radiusSm),
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.radiusSm,
+                                ),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 2,
@@ -219,15 +229,15 @@ class _AlertBanner extends StatelessWidget {
                 Text(
                   alert.title,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: alert.tint,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: alert.tint,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   alert.body,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                    color: AppPalette.textMuted(context),
+                  ),
                 ),
               ],
             ),
@@ -255,18 +265,18 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                  ),
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

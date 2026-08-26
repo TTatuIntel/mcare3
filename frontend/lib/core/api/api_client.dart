@@ -21,13 +21,14 @@ class ApiClient {
     if (_token != token) RequestCache.instance.clear();
     _token = token;
   }
+
   String? get token => _token;
 
   Map<String, String> get _headers => {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (_token != null) 'Authorization': 'Bearer $_token',
-      };
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+  };
 
   String _url(String path) {
     final base = AppEnv.apiBaseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -51,9 +52,11 @@ class ApiClient {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
 
-    Future<Map<String, dynamic>> request() => _send(http
-        .get(Uri.parse(_url(path)), headers: _headers)
-        .timeout(AppEnv.apiTimeout));
+    Future<Map<String, dynamic>> request() => _send(
+      http
+          .get(Uri.parse(_url(path)), headers: _headers)
+          .timeout(AppEnv.apiTimeout),
+    );
 
     if (cacheFor == null) return request();
 
@@ -278,8 +281,7 @@ class ApiClient {
     }
 
     final message = ApiErrorMessages.sanitize(
-      json?['message'] as String? ??
-          'Request failed (${response.statusCode}).',
+      json?['message'] as String? ?? 'Request failed (${response.statusCode}).',
     );
     throw ApiException(message, response.statusCode);
   }

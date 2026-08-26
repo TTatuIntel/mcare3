@@ -41,15 +41,15 @@ class PatientVitalFeedItem {
       );
 
   factory PatientVitalFeedItem.fromAlert(StaffAlert a) => PatientVitalFeedItem(
-        at: a.createdAt,
-        vital: a.vital,
-        value: a.value,
-        risk: a.severity,
-        isAlert: true,
-        alertId: a.id,
-        resolved: a.resolved,
-        acknowledged: a.acknowledged,
-      );
+    at: a.createdAt,
+    vital: a.vital,
+    value: a.value,
+    risk: a.severity,
+    isAlert: true,
+    alertId: a.id,
+    resolved: a.resolved,
+    acknowledged: a.acknowledged,
+  );
 
   String get pillLabel {
     if (!isAlert) return risk.label;
@@ -89,12 +89,12 @@ class PatientVitalFeed {
     for (final item in sorted) {
       final near = out.indexWhere(
         (d) =>
-            d.vital == item.vital &&
-            d.at.difference(item.at).abs().inHours < 3,
+            d.vital == item.vital && d.at.difference(item.at).abs().inHours < 3,
       );
       if (near >= 0) {
         final existing = out[near];
-        final preferNew = item.isAlert &&
+        final preferNew =
+            item.isAlert &&
             !item.resolved &&
             (!existing.isAlert || existing.resolved);
         if (preferNew || (!existing.isAlert && item.at.isAfter(existing.at))) {
@@ -123,10 +123,9 @@ class DoctorPatientVitalFeed extends StatelessWidget {
 
   void _openItem(BuildContext context, PatientVitalFeedItem item) {
     if (item.isAlert && item.alertId != null) {
-      Navigator.of(context).pushNamed(
-        RouteNames.doctorAlertDetail,
-        arguments: item.alertId,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed(RouteNames.doctorAlertDetail, arguments: item.alertId);
       return;
     }
     onOpenVitals();
@@ -136,12 +135,14 @@ class DoctorPatientVitalFeed extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = PatientVitalFeed.collect(patientId);
     final latest = items.isEmpty ? null : items.first;
-    final rest = items.length > 1 ? items.sublist(1) : const <PatientVitalFeedItem>[];
-    final openCount =
-        items.where((i) => i.isAlert && !i.resolved && !i.acknowledged).length;
+    final rest = items.length > 1
+        ? items.sublist(1)
+        : const <PatientVitalFeedItem>[];
+    final openCount = items
+        .where((i) => i.isAlert && !i.resolved && !i.acknowledged)
+        .length;
     final theme = Theme.of(context);
-    final accent =
-        openCount > 0 ? AppColors.warning : AppColors.brandIndigo;
+    final accent = openCount > 0 ? AppColors.warning : AppColors.brandIndigo;
 
     return GlassCard(
       frosted: true,
@@ -189,8 +190,11 @@ class DoctorPatientVitalFeed extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(width: 4),
-                  Icon(AppIcons.chevronRight,
-                      size: 14, color: AppPalette.textMuted(context)),
+                  Icon(
+                    AppIcons.chevronRight,
+                    size: 14,
+                    color: AppPalette.textMuted(context),
+                  ),
                 ],
               ),
             ),
@@ -279,7 +283,11 @@ class _HeroVitalRow extends StatelessWidget {
                   color: item.vital.accent.withOpacity(0.14),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                child: Icon(item.vital.icon, color: item.vital.accent, size: 18),
+                child: Icon(
+                  item.vital.icon,
+                  color: item.vital.accent,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -391,10 +399,10 @@ class _Pill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 9,
-            ),
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 9,
+        ),
       ),
     );
   }

@@ -31,14 +31,17 @@ class SosAlertPopup {
   }) {
     if (_isOpen || !context.mounted) return;
 
-    final fresh = StaffState.instance.patientSos
-        .where((e) =>
-            e.isActive &&
-            e.status == 'active' &&
-            scopePatientIds.contains(e.patientId) &&
-            !_shownIds.contains(e.id))
-        .toList()
-      ..sort((a, b) => b.triggeredAt.compareTo(a.triggeredAt));
+    final fresh =
+        StaffState.instance.patientSos
+            .where(
+              (e) =>
+                  e.isActive &&
+                  e.status == 'active' &&
+                  scopePatientIds.contains(e.patientId) &&
+                  !_shownIds.contains(e.id),
+            )
+            .toList()
+          ..sort((a, b) => b.triggeredAt.compareTo(a.triggeredAt));
 
     if (fresh.isEmpty) return;
     for (final e in fresh) {
@@ -58,13 +61,13 @@ class SosAlertPopup {
         barrierDismissible: false,
         barrierColor: Colors.black.withOpacity(0.72),
         transitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (ctx, _, __) => _SosAlertDialog(
-          events: fresh,
-          routeFor: routeFor,
-        ),
+        pageBuilder: (ctx, _, __) =>
+            _SosAlertDialog(events: fresh, routeFor: routeFor),
         transitionBuilder: (_, anim, __, child) {
-          final curved =
-              CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
+          final curved = CurvedAnimation(
+            parent: anim,
+            curve: Curves.easeOutBack,
+          );
           return FadeTransition(
             opacity: anim,
             child: ScaleTransition(
@@ -82,10 +85,7 @@ class SosAlertPopup {
 }
 
 class _SosAlertDialog extends StatelessWidget {
-  const _SosAlertDialog({
-    required this.events,
-    required this.routeFor,
-  });
+  const _SosAlertDialog({required this.events, required this.routeFor});
 
   final List<StaffPatientSos> events;
   final UserRole routeFor;
@@ -94,8 +94,7 @@ class _SosAlertDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lead = events.first;
-    final patient =
-        StaffState.instance.patientById(lead.patientId);
+    final patient = StaffState.instance.patientById(lead.patientId);
     final patientName = lead.patientName ?? patient?.name ?? 'Patient';
     final extras = events.skip(1).toList();
 
@@ -178,10 +177,7 @@ class _SosAlertDialog extends StatelessWidget {
                   ),
                   if (lead.note != null && lead.note!.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(
-                      lead.note!,
-                      style: theme.textTheme.bodyMedium,
-                    ),
+                    Text(lead.note!, style: theme.textTheme.bodyMedium),
                   ],
                   const SizedBox(height: 8),
                   Text(
@@ -194,8 +190,11 @@ class _SosAlertDialog extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(AppIcons.location,
-                            size: 14, color: AppColors.info),
+                        Icon(
+                          AppIcons.location,
+                          size: 14,
+                          color: AppColors.info,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -215,8 +214,9 @@ class _SosAlertDialog extends StatelessWidget {
                       padding: const EdgeInsets.all(AppSpacing.sm),
                       decoration: BoxDecoration(
                         color: AppPalette.criticalSoft(context),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
                       ),
                       child: Text(
                         '+${extras.length} more active SOS',
@@ -233,7 +233,8 @@ class _SosAlertDialog extends StatelessWidget {
                     variant: AppButtonVariant.danger,
                     icon: AppIcons.sos,
                     expand: true,
-                    onPressed: () => _respond(context, lead, acknowledge: false),
+                    onPressed: () =>
+                        _respond(context, lead, acknowledge: false),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Row(
@@ -281,12 +282,12 @@ class _SosAlertDialog extends StatelessWidget {
     required bool acknowledge,
   }) async {
     SosRingService.instance.stop();
-    final resolve = routeFor == UserRole.admin ||
-            routeFor == UserRole.mcareAssistant
+    final resolve =
+        routeFor == UserRole.admin || routeFor == UserRole.mcareAssistant
         ? (String status) =>
-            StaffState.instance.adminResolveSos(event.id, status: status)
+              StaffState.instance.adminResolveSos(event.id, status: status)
         : (String status) =>
-            StaffState.instance.resolveSos(event.id, status: status);
+              StaffState.instance.resolveSos(event.id, status: status);
 
     if (acknowledge) {
       await resolve('acknowledged');
@@ -346,8 +347,7 @@ class _PulsingSosIconState extends State<_PulsingSosIcon>
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.critical
-                    .withOpacity(0.25 + 0.35 * _c.value),
+                color: AppColors.critical.withOpacity(0.25 + 0.35 * _c.value),
                 blurRadius: 12 + 10 * _c.value,
                 spreadRadius: 1 + 3 * _c.value,
               ),

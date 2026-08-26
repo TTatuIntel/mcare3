@@ -55,11 +55,11 @@ class RoleGuard extends StatelessWidget {
   }
 
   static String _homeFor(UserRole role) => switch (role) {
-        UserRole.patient => RouteNames.patientDashboard,
-        UserRole.doctor => RouteNames.doctorDashboard,
-        UserRole.admin => RouteNames.adminDashboard,
-        UserRole.mcareAssistant => RouteNames.assistantDashboard,
-        UserRole.externalDoctor => RouteNames.externalDoctor,
-        UserRole.guest => RouteNames.landing,
-      };
+    UserRole.patient => RouteNames.patientDashboard,
+    UserRole.doctor => RouteNames.doctorDashboard,
+    UserRole.admin => RouteNames.adminDashboard,
+    UserRole.mcareAssistant => RouteNames.assistantDashboard,
+    UserRole.externalDoctor => RouteNames.externalDoctor,
+    UserRole.guest => RouteNames.landing,
+  };
 }

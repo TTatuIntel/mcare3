@@ -19,10 +19,9 @@ class AccountSheetAction {
   const AccountSheetAction._({this.route, this.openEdit = false});
 
   const AccountSheetAction.navigate(String route)
-      : this._(route: route, openEdit: false);
+    : this._(route: route, openEdit: false);
 
-  const AccountSheetAction.editProfile()
-      : this._(route: null, openEdit: true);
+  const AccountSheetAction.editProfile() : this._(route: null, openEdit: true);
 
   final String? route;
   final bool openEdit;
@@ -33,57 +32,57 @@ class ProfileNavigation {
   ProfileNavigation._();
 
   static String subtitleFor(UserRole role) => switch (role) {
-        UserRole.patient => 'Profile, care team and settings',
-        UserRole.doctor => 'Profile and workspace settings',
-        UserRole.admin => 'Profile and administration',
-        UserRole.mcareAssistant => 'Profile and assistant tools',
-        UserRole.externalDoctor => 'Profile and consult access',
-        UserRole.guest => 'Account',
-      };
+    UserRole.patient => 'Profile, care team and settings',
+    UserRole.doctor => 'Profile and workspace settings',
+    UserRole.admin => 'Profile and administration',
+    UserRole.mcareAssistant => 'Profile and assistant tools',
+    UserRole.externalDoctor => 'Profile and consult access',
+    UserRole.guest => 'Account',
+  };
 
   static String profileRouteFor(UserRole role) => switch (role) {
-        UserRole.doctor => RouteNames.doctorProfile,
-        UserRole.admin => RouteNames.adminProfile,
-        UserRole.mcareAssistant => RouteNames.assistantProfile,
-        UserRole.externalDoctor => RouteNames.externalDoctor,
-        _ => RouteNames.patientProfile,
-      };
+    UserRole.doctor => RouteNames.doctorProfile,
+    UserRole.admin => RouteNames.adminProfile,
+    UserRole.mcareAssistant => RouteNames.assistantProfile,
+    UserRole.externalDoctor => RouteNames.externalDoctor,
+    _ => RouteNames.patientProfile,
+  };
 
   static String? settingsRouteFor(UserRole role) => switch (role) {
-        UserRole.patient => RouteNames.patientSettings,
-        UserRole.doctor => RouteNames.doctorSettings,
-        UserRole.admin => RouteNames.adminSettings,
-        UserRole.mcareAssistant => RouteNames.assistantSettings,
-        _ => null,
-      };
+    UserRole.patient => RouteNames.patientSettings,
+    UserRole.doctor => RouteNames.doctorSettings,
+    UserRole.admin => RouteNames.adminSettings,
+    UserRole.mcareAssistant => RouteNames.assistantSettings,
+    _ => null,
+  };
 
   static String? supportRouteFor(UserRole role) => switch (role) {
-        UserRole.patient => RouteNames.patientSupport,
-        UserRole.admin => RouteNames.adminSupport,
-        UserRole.mcareAssistant => RouteNames.assistantSupport,
-        _ => null,
-      };
+    UserRole.patient => RouteNames.patientSupport,
+    UserRole.admin => RouteNames.adminSupport,
+    UserRole.mcareAssistant => RouteNames.assistantSupport,
+    _ => null,
+  };
 
   static String? usersRouteFor(UserRole role) => switch (role) {
-        UserRole.admin => RouteNames.adminUsers,
-        UserRole.mcareAssistant => RouteNames.assistantUsers,
-        _ => null,
-      };
+    UserRole.admin => RouteNames.adminUsers,
+    UserRole.mcareAssistant => RouteNames.assistantUsers,
+    _ => null,
+  };
 
   static String? notificationsRouteFor(UserRole role) => switch (role) {
-        UserRole.patient => RouteNames.patientNotifications,
-        UserRole.doctor => RouteNames.doctorNotifications,
-        UserRole.admin => RouteNames.adminNotifications,
-        UserRole.mcareAssistant => RouteNames.assistantNotifications,
-        _ => null,
-      };
+    UserRole.patient => RouteNames.patientNotifications,
+    UserRole.doctor => RouteNames.doctorNotifications,
+    UserRole.admin => RouteNames.adminNotifications,
+    UserRole.mcareAssistant => RouteNames.assistantNotifications,
+    _ => null,
+  };
 
   static String? completeProfileRouteFor(UserRole role) => switch (role) {
-        UserRole.admin => RouteNames.adminCompleteProfile,
-        UserRole.mcareAssistant => RouteNames.assistantCompleteProfile,
-        UserRole.doctor => RouteNames.doctorCompleteProfile,
-        _ => null,
-      };
+    UserRole.admin => RouteNames.adminCompleteProfile,
+    UserRole.mcareAssistant => RouteNames.assistantCompleteProfile,
+    UserRole.doctor => RouteNames.doctorCompleteProfile,
+    _ => null,
+  };
 
   /// Apply an [AccountSheetAction] after the account sheet has fully closed.
   static Future<void> applySheetAction(
@@ -173,22 +172,25 @@ class ProfileNavigation {
   /// that the persistent bottom nav / rail already shows — no duplicate icons in
   /// quick actions or menu rows anywhere in the app.
   static Set<String> primaryNavRoutesFor(UserRole role) => switch (role) {
-        UserRole.patient =>
-          PatientBottomNav.destinations.map((d) => d.route).toSet(),
-        UserRole.doctor => StaffDestinations.doctor()
-            .where((d) => d.showInBottomNav)
-            .map((d) => d.route)
-            .toSet(),
-        UserRole.admin => StaffDestinations.admin()
-            .where((d) => d.showInBottomNav)
-            .map((d) => d.route)
-            .toSet(),
-        UserRole.mcareAssistant => StaffDestinations.assistant()
-            .where((d) => d.showInBottomNav)
-            .map((d) => d.route)
-            .toSet(),
-        _ => <String>{},
-      };
+    UserRole.patient =>
+      PatientBottomNav.destinations.map((d) => d.route).toSet(),
+    UserRole.doctor =>
+      StaffDestinations.doctor()
+          .where((d) => d.showInBottomNav)
+          .map((d) => d.route)
+          .toSet(),
+    UserRole.admin =>
+      StaffDestinations.admin()
+          .where((d) => d.showInBottomNav)
+          .map((d) => d.route)
+          .toSet(),
+    UserRole.mcareAssistant =>
+      StaffDestinations.assistant()
+          .where((d) => d.showInBottomNav)
+          .map((d) => d.route)
+          .toSet(),
+    _ => <String>{},
+  };
 
   /// Compact quick-action chips shown between "Edit profile" and the menu.
   ///

@@ -78,12 +78,8 @@ class SessionPoller {
     _timer?.cancel();
     final user = AuthState.instance.user;
     final interval = user?.role == UserRole.patient
-        ? (SosState.instance.hasActiveSos
-            ? urgentInterval
-            : normalInterval)
-        : (_activeSos > 0 || _openAlerts > 0
-            ? urgentInterval
-            : normalInterval);
+        ? (SosState.instance.hasActiveSos ? urgentInterval : normalInterval)
+        : (_activeSos > 0 || _openAlerts > 0 ? urgentInterval : normalInterval);
     _timer = Timer(interval, () async {
       await _tick();
       _scheduleNext();
@@ -93,10 +89,9 @@ class SessionPoller {
   void _snapshotCounts() {
     final scope = _scopePatientIds();
     _openAlerts = StaffState.instance.alerts
-        .where((a) =>
-            !a.acknowledged &&
-            !a.resolved &&
-            scope.contains(a.patientId))
+        .where(
+          (a) => !a.acknowledged && !a.resolved && scope.contains(a.patientId),
+        )
         .length;
     _activeSos = StaffState.instance.patientSos
         .where((e) => scope.contains(e.patientId) && e.isActive)
@@ -112,8 +107,7 @@ class SessionPoller {
           .map((p) => p.id)
           .toSet();
     }
-    if (user.role == UserRole.admin ||
-        user.role == UserRole.mcareAssistant) {
+    if (user.role == UserRole.admin || user.role == UserRole.mcareAssistant) {
       return {
         ...StaffState.instance.patients.map((p) => p.id),
         ...StaffState.instance.patientSos.map((e) => e.patientId),

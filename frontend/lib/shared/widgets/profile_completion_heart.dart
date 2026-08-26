@@ -37,11 +37,7 @@ class ProfileCompletionHeart extends StatelessWidget {
         ),
         ClipRect(
           clipper: _BottomFillClipper(fill),
-          child: Icon(
-            AppIcons.heartRate,
-            size: size,
-            color: color,
-          ),
+          child: Icon(AppIcons.heartRate, size: size, color: color),
         ),
         if (showLabel)
           Text(
@@ -62,10 +58,7 @@ class ProfileCompletionHeart extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: heart,
-        ),
+        child: Padding(padding: const EdgeInsets.all(4), child: heart),
       ),
     );
   }
@@ -123,9 +116,7 @@ class ProfileCompletionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isFull
-                          ? 'Profile complete'
-                          : 'Complete your profile',
+                      isFull ? 'Profile complete' : 'Complete your profile',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
@@ -136,8 +127,8 @@ class ProfileCompletionCard extends StatelessWidget {
                       isFull
                           ? 'All health details are on file.'
                           : incompleteLabels.isEmpty
-                              ? '$percent% complete — keep going!'
-                              : 'Missing: ${incompleteLabels.take(3).join(', ')}${incompleteLabels.length > 3 ? '…' : ''}',
+                          ? '$percent% complete — keep going!'
+                          : 'Missing: ${incompleteLabels.take(3).join(', ')}${incompleteLabels.length > 3 ? '…' : ''}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: AppPalette.textMuted(context),
                         fontSize: 10,

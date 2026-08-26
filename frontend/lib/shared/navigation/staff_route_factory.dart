@@ -16,11 +16,11 @@ class StaffRouteFactory {
   StaffRouteFactory._();
 
   static Widget messages(StaffRouteConfig config) => StaffMessagesView(
-        currentRoute: config.messagesRoute!,
-        destinations: config.destinations.cast(),
-        profileRoute: config.profileRoute,
-        threadRouteName: config.chatThreadRoute!,
-      );
+    currentRoute: config.messagesRoute!,
+    destinations: config.destinations.cast(),
+    profileRoute: config.profileRoute,
+    threadRouteName: config.chatThreadRoute!,
+  );
 
   static Widget chatThread(StaffRouteConfig config, String conversationId) =>
       StaffChatThreadView(
@@ -30,7 +30,8 @@ class StaffRouteFactory {
         profileRoute: config.profileRoute,
       );
 
-  static Widget notifications(StaffRouteConfig config) => StaffNotificationsView(
+  static Widget notifications(StaffRouteConfig config) =>
+      StaffNotificationsView(
         currentRoute: config.notificationsRoute,
         destinations: config.destinations.cast(),
         profileRoute: config.profileRoute,
@@ -38,15 +39,15 @@ class StaffRouteFactory {
       );
 
   static Widget profile(StaffRouteConfig config) => StaffProfileView(
-        currentRoute: config.profileRoute,
-        destinations: config.destinations.cast(),
-        notificationsRoute: config.notificationsRoute,
-      );
+    currentRoute: config.profileRoute,
+    destinations: config.destinations.cast(),
+    notificationsRoute: config.notificationsRoute,
+  );
 
   static Widget support(StaffRouteConfig config) => SupportQueueScreen(
-        currentRoute: config.currentRoute,
-        destinations: config.destinations,
-        profileRoute: config.profileRoute,
-        notificationsRoute: config.notificationsRoute,
-      );
+    currentRoute: config.currentRoute,
+    destinations: config.destinations,
+    profileRoute: config.profileRoute,
+    notificationsRoute: config.notificationsRoute,
+  );
 }

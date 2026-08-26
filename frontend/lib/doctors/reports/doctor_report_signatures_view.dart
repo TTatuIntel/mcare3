@@ -85,7 +85,8 @@ class _DoctorReportSignaturesListState
         child: EmptyStateView(
           icon: AppIcons.approval,
           title: 'No reports awaiting signature',
-          message: _error ??
+          message:
+              _error ??
               'Reports nominated to you appear here once the patient has '
                   'approved the disclosure.',
           compact: true,
@@ -258,8 +259,9 @@ class _SignBodyState extends State<_SignBody> {
   Future<void> _preview() async {
     setState(() => _busy = true);
     try {
-      final data =
-          await DoctorApi.instance.previewReportRequest(widget.request.id);
+      final data = await DoctorApi.instance.previewReportRequest(
+        widget.request.id,
+      );
       final doc = data?['document'];
       if (!mounted) return;
       if (doc is! Map) {
@@ -311,8 +313,10 @@ class _SignBodyState extends State<_SignBody> {
 
     setState(() => _busy = true);
     try {
-      await DoctorApi.instance
-          .declineReportRequest(widget.request.id, reason: reason);
+      await DoctorApi.instance.declineReportRequest(
+        widget.request.id,
+        reason: reason,
+      );
       if (!mounted) return;
       widget.onChanged?.call();
       Navigator.of(context, rootNavigator: true).pop();
@@ -346,9 +350,10 @@ class _SignBodyState extends State<_SignBody> {
               value: r.consentedAt == null
                   ? 'Not granted'
                   : '${dossierDateTime(r.consentedAt)} '
-                      '(${dossierHumanize(r.consentMethod)})',
-              valueColor:
-                  r.consentedAt == null ? AppColors.critical : AppColors.success,
+                        '(${dossierHumanize(r.consentMethod)})',
+              valueColor: r.consentedAt == null
+                  ? AppColors.critical
+                  : AppColors.success,
               emphasise: true,
             ),
           ],
@@ -358,10 +363,7 @@ class _SignBodyState extends State<_SignBody> {
           icon: AppIcons.catalog,
           trailing: '${r.sectionLabels.length}',
           children: [
-            DossierChips(
-              labels: r.sectionLabels,
-              color: AppColors.brandIndigo,
-            ),
+            DossierChips(labels: r.sectionLabels, color: AppColors.brandIndigo),
           ],
         ),
         AppButton(

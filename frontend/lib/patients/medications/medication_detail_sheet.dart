@@ -231,10 +231,10 @@ class _SourceChip extends StatelessWidget {
       child: Text(
         source.label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: source.color,
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-            ),
+          color: source.color,
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
+        ),
       ),
     );
   }
@@ -257,17 +257,17 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],

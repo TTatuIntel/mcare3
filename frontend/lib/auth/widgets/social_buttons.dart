@@ -131,7 +131,11 @@ class _AppleChip extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.apple, size: iconSize, color: AppPalette.ink(context)),
+                Icon(
+                  Icons.apple,
+                  size: iconSize,
+                  color: AppPalette.ink(context),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Apple',
@@ -171,9 +175,8 @@ class _GoogleLogo extends StatelessWidget {
         height: size,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) => CustomPaint(
-          painter: _GoogleLogoPainter(),
-        ),
+        errorBuilder: (_, __, ___) =>
+            CustomPaint(painter: _GoogleLogoPainter()),
       ),
     );
   }
@@ -268,8 +271,8 @@ class OrDivider extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           ),
         ),
         Expanded(child: Divider(color: AppPalette.border(context))),

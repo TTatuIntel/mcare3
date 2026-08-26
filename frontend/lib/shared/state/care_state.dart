@@ -65,7 +65,10 @@ class CareState extends ChangeNotifier {
 
   /// Persisting variant of [requestCare]. POSTs to the API and inserts the
   /// server-canonical row.
-  Future<CareRequest> requestCareRemote(CareProvider p, {String? reason}) async {
+  Future<CareRequest> requestCareRemote(
+    CareProvider p, {
+    String? reason,
+  }) async {
     if (!AppEnv.backendEnabled) {
       requestCare(p, reason: reason);
       return _requests.first;
@@ -74,7 +77,8 @@ class CareState extends ChangeNotifier {
       providerId: p.id,
       reason: reason,
     );
-    final canonical = saved ??
+    final canonical =
+        saved ??
         CareRequest(
           id: 'r_${DateTime.now().millisecondsSinceEpoch}',
           providerId: p.id,

@@ -48,7 +48,9 @@ class _VitalHistoryViewState extends State<VitalHistoryView> {
   @override
   Widget build(BuildContext context) {
     final vital = widget.vital;
-    final weekStart = DateTime.now().subtract(const Duration(days: _historyDays));
+    final weekStart = DateTime.now().subtract(
+      const Duration(days: _historyDays),
+    );
     final rangeLabel =
         '${DateFormat.MMMd().format(weekStart)} – ${DateFormat.MMMd().format(DateTime.now())}';
 
@@ -82,7 +84,10 @@ class _VitalHistoryViewState extends State<VitalHistoryView> {
               const SizedBox(height: AppSpacing.md),
               StaggeredEntry(
                 index: 1,
-                child: _FilterRow(value: _filter, onChanged: (v) => setState(() => _filter = v)),
+                child: _FilterRow(
+                  value: _filter,
+                  onChanged: (v) => setState(() => _filter = v),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               StaggeredEntry(
@@ -105,7 +110,9 @@ class _VitalHistoryViewState extends State<VitalHistoryView> {
                       message: _filter != null
                           ? 'Try another filter or log a new reading.'
                           : 'Log a reading and it appears here for 7 days.',
-                      actionLabel: _filter != null ? null : 'Request older report',
+                      actionLabel: _filter != null
+                          ? null
+                          : 'Request older report',
                       onAction: _filter != null
                           ? null
                           : () => RequestVitalReportSheet.show(context),
@@ -233,7 +240,11 @@ class _FilterRow extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _Chip(label: 'All', selected: value == null, onTap: () => onChanged(null)),
+          _Chip(
+            label: 'All',
+            selected: value == null,
+            onTap: () => onChanged(null),
+          ),
           const SizedBox(width: AppSpacing.xs),
           _Chip(
             label: 'Normal',
@@ -329,11 +340,11 @@ class _GroupedList extends StatelessWidget {
                 child: Text(
                   e.key,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
-                        letterSpacing: 0.3,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ),
               GlassCard(
@@ -383,8 +394,8 @@ class _HistoryRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: r.risk == RiskLevel.normal
                 ? (AppPalette.isDark(context)
-                    ? AppColors.darkSurfaceAlt.withOpacity(0.65)
-                    : Colors.white.withOpacity(0.28))
+                      ? AppColors.darkSurfaceAlt.withOpacity(0.65)
+                      : Colors.white.withOpacity(0.28))
                 : r.risk.softBg(context).withOpacity(0.35),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             border: Border.all(

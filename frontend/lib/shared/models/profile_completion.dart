@@ -19,10 +19,7 @@ class ProfileCompletionItem {
 
 /// Profile completeness score (0–100) for the heart indicator.
 class ProfileCompletionResult {
-  const ProfileCompletionResult({
-    required this.percent,
-    required this.items,
-  });
+  const ProfileCompletionResult({required this.percent, required this.items});
 
   final int percent;
   final List<ProfileCompletionItem> items;
@@ -60,13 +57,12 @@ class ProfileCompletion {
     PatientHealthProfile? health,
     List<EmergencyContact> contacts = const [],
     List<VitalKey> assignedVitals = const [],
-  }) =>
-      forUser(
-        user: user,
-        health: health,
-        contacts: contacts,
-        assignedVitals: assignedVitals,
-      );
+  }) => forUser(
+    user: user,
+    health: health,
+    contacts: contacts,
+    assignedVitals: assignedVitals,
+  );
 
   static ProfileCompletionResult _result(List<ProfileCompletionItem> items) {
     final total = items.fold<int>(0, (sum, i) => sum + i.weight);
@@ -109,7 +105,8 @@ class ProfileCompletion {
       ),
       ProfileCompletionItem(
         label: 'Height & weight',
-        complete: health != null &&
+        complete:
+            health != null &&
             health.heightCm >= 50 &&
             health.heightCm <= 250 &&
             health.weightKg >= 20 &&
@@ -118,7 +115,8 @@ class ProfileCompletion {
       ),
       ProfileCompletionItem(
         label: 'Home address',
-        complete: health != null &&
+        complete:
+            health != null &&
             health.address != null &&
             health.address!.trim().isNotEmpty,
         weight: 10,
@@ -130,13 +128,15 @@ class ProfileCompletion {
       ),
       ProfileCompletionItem(
         label: 'Allergies reviewed',
-        complete: health != null &&
+        complete:
+            health != null &&
             (health.allergies.isNotEmpty || health.noKnownAllergies),
         weight: 10,
       ),
       ProfileCompletionItem(
         label: 'Medications reviewed',
-        complete: health != null &&
+        complete:
+            health != null &&
             (health.currentMedications.isNotEmpty ||
                 health.noCurrentMedications),
         weight: 10,
@@ -173,17 +173,22 @@ class ProfileCompletion {
       ),
     ];
     if (user.role == UserRole.doctor) {
-      items.add(ProfileCompletionItem(
-        label: 'Specialty',
-        complete: user.specialty != null && user.specialty!.trim().isNotEmpty,
-        weight: 20,
-      ));
-      items.add(ProfileCompletionItem(
-        label: 'Licence number',
-        complete: user.licenseNumber != null &&
-            user.licenseNumber!.trim().isNotEmpty,
-        weight: 20,
-      ));
+      items.add(
+        ProfileCompletionItem(
+          label: 'Specialty',
+          complete: user.specialty != null && user.specialty!.trim().isNotEmpty,
+          weight: 20,
+        ),
+      );
+      items.add(
+        ProfileCompletionItem(
+          label: 'Licence number',
+          complete:
+              user.licenseNumber != null &&
+              user.licenseNumber!.trim().isNotEmpty,
+          weight: 20,
+        ),
+      );
     }
     return _result(items);
   }

@@ -95,8 +95,9 @@ class StaffAssistantWorkspaceSection extends StatelessWidget {
                     icon: AppIcons.home,
                     title: 'Assistant overview',
                     subtitle: 'Your delegated dashboard',
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(RouteNames.assistantDashboard),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.assistantDashboard),
                   ),
                   for (final area in areas)
                     StaffListRow(
@@ -118,10 +119,13 @@ class StaffAssistantWorkspaceSection extends StatelessWidget {
                       subtitle: AdminWorkspaceCounts.activeSos > 0
                           ? '${AdminWorkspaceCounts.activeSos} active emergency event${AdminWorkspaceCounts.activeSos == 1 ? '' : 's'}'
                           : 'No active emergencies',
-                      pill: AdminWorkspaceCounts.activeSos > 0 ? '${AdminWorkspaceCounts.activeSos}' : null,
+                      pill: AdminWorkspaceCounts.activeSos > 0
+                          ? '${AdminWorkspaceCounts.activeSos}'
+                          : null,
                       pillColor: AppColors.critical,
-                      onTap: () =>
-                          Navigator.of(context).pushNamed(RouteNames.assistantSos),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.assistantSos),
                     ),
                   StaffListRow(
                     icon: AppIcons.alert,
@@ -129,8 +133,9 @@ class StaffAssistantWorkspaceSection extends StatelessWidget {
                     subtitle: AdminWorkspaceCounts.openAlerts > 0
                         ? '${AdminWorkspaceCounts.openAlerts} need attention'
                         : 'No open alerts',
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(RouteNames.assistantAlerts),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.assistantAlerts),
                   ),
                   StaffListRow(
                     icon: AppIcons.support,
@@ -138,8 +143,9 @@ class StaffAssistantWorkspaceSection extends StatelessWidget {
                     subtitle: AdminWorkspaceCounts.openSupport > 0
                         ? '${AdminWorkspaceCounts.openSupport} open tickets'
                         : 'Inbox clear',
-                    onTap: () => Navigator.of(context)
-                        .pushNamed(RouteNames.assistantSupport),
+                    onTap: () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.assistantSupport),
                   ),
                 ],
               ),
@@ -191,16 +197,16 @@ class _MetricChip extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                ),
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

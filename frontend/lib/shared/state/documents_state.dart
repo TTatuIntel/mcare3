@@ -31,7 +31,10 @@ class DocumentsState extends ChangeNotifier {
   }
 
   void rename(String id, String title) {
-    replaceLocal(id, _items.firstWhere((d) => d.id == id).copyWith(title: title));
+    replaceLocal(
+      id,
+      _items.firstWhere((d) => d.id == id).copyWith(title: title),
+    );
   }
 
   void replaceLocal(String id, MedicalDocument updated) {

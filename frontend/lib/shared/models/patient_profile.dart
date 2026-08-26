@@ -2,27 +2,27 @@ enum BloodType { aPos, aNeg, bPos, bNeg, oPos, oNeg, abPos, abNeg, unknown }
 
 extension BloodTypeX on BloodType {
   String get label => switch (this) {
-        BloodType.aPos => 'A+',
-        BloodType.aNeg => 'A−',
-        BloodType.bPos => 'B+',
-        BloodType.bNeg => 'B−',
-        BloodType.oPos => 'O+',
-        BloodType.oNeg => 'O−',
-        BloodType.abPos => 'AB+',
-        BloodType.abNeg => 'AB−',
-        BloodType.unknown => 'Unknown',
-      };
+    BloodType.aPos => 'A+',
+    BloodType.aNeg => 'A−',
+    BloodType.bPos => 'B+',
+    BloodType.bNeg => 'B−',
+    BloodType.oPos => 'O+',
+    BloodType.oNeg => 'O−',
+    BloodType.abPos => 'AB+',
+    BloodType.abNeg => 'AB−',
+    BloodType.unknown => 'Unknown',
+  };
 }
 
 enum Gender { female, male, nonBinary, preferNotToSay }
 
 extension GenderX on Gender {
   String get label => switch (this) {
-        Gender.female => 'Female',
-        Gender.male => 'Male',
-        Gender.nonBinary => 'Non-binary',
-        Gender.preferNotToSay => 'Prefer not to say',
-      };
+    Gender.female => 'Female',
+    Gender.male => 'Male',
+    Gender.nonBinary => 'Non-binary',
+    Gender.preferNotToSay => 'Prefer not to say',
+  };
 }
 
 class PatientHealthProfile {
@@ -51,8 +51,10 @@ class PatientHealthProfile {
   List<String> currentMedications;
   String? address;
   bool locationConsent;
+
   /// Patient confirmed allergy status (including "none known").
   bool noKnownAllergies;
+
   /// Patient confirmed medication status (including "none").
   bool noCurrentMedications;
 
@@ -152,15 +154,15 @@ class NotificationPreferences {
   bool emailEnabled;
 
   Map<String, dynamic> toJson() => {
-        'vitalAlerts': vitalAlerts,
-        'appointmentReminders': appointmentReminders,
-        'medicationReminders': medicationReminders,
-        'messages': messages,
-        'reports': reports,
-        'pushEnabled': pushEnabled,
-        'smsEnabled': smsEnabled,
-        'emailEnabled': emailEnabled,
-      };
+    'vitalAlerts': vitalAlerts,
+    'appointmentReminders': appointmentReminders,
+    'medicationReminders': medicationReminders,
+    'messages': messages,
+    'reports': reports,
+    'pushEnabled': pushEnabled,
+    'smsEnabled': smsEnabled,
+    'emailEnabled': emailEnabled,
+  };
 
   factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
     return NotificationPreferences(
@@ -187,10 +189,8 @@ class NotificationPreferences {
   }) {
     return NotificationPreferences(
       vitalAlerts: vitalAlerts ?? this.vitalAlerts,
-      appointmentReminders:
-          appointmentReminders ?? this.appointmentReminders,
-      medicationReminders:
-          medicationReminders ?? this.medicationReminders,
+      appointmentReminders: appointmentReminders ?? this.appointmentReminders,
+      medicationReminders: medicationReminders ?? this.medicationReminders,
       messages: messages ?? this.messages,
       reports: reports ?? this.reports,
       pushEnabled: pushEnabled ?? this.pushEnabled,
@@ -200,13 +200,13 @@ class NotificationPreferences {
   }
 
   List<bool> get channelValues => [
-        vitalAlerts,
-        appointmentReminders,
-        medicationReminders,
-        messages,
-        reports,
-        pushEnabled,
-        smsEnabled,
-        emailEnabled,
-      ];
+    vitalAlerts,
+    appointmentReminders,
+    medicationReminders,
+    messages,
+    reports,
+    pushEnabled,
+    smsEnabled,
+    emailEnabled,
+  ];
 }

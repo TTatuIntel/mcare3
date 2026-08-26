@@ -57,7 +57,8 @@ class StaffState extends ChangeNotifier {
 
   List<StaffPatient> get patients => List.unmodifiable(_patients);
   List<StaffAlert> get alerts => List.unmodifiable(_alerts);
-  List<StaffPrescription> get prescriptions => List.unmodifiable(_prescriptions);
+  List<StaffPrescription> get prescriptions =>
+      List.unmodifiable(_prescriptions);
   List<StaffAppointment> get appointments => List.unmodifiable(_appointments);
   List<ClinicalReport> get reports => List.unmodifiable(_reports);
   List<DirectoryUser> get users => List.unmodifiable(_users);
@@ -70,8 +71,7 @@ class StaffState extends ChangeNotifier {
   List<StaffPatientDocument> get patientDocuments =>
       List.unmodifiable(_documents);
   List<StaffPatientSos> get patientSos => List.unmodifiable(_sosEvents);
-  List<StaffPatientRequest> get patientRequests =>
-      List.unmodifiable(_requests);
+  List<StaffPatientRequest> get patientRequests => List.unmodifiable(_requests);
   List<StaffPatientVitalReading> get patientVitalReadings =>
       List.unmodifiable(_vitalReadings);
 
@@ -170,16 +170,14 @@ class StaffState extends ChangeNotifier {
       _requests.where((r) => r.patientId == patientId).toList();
 
   List<StaffPatientVitalReading> vitalsForPatient(String patientId) {
-    final list =
-        _vitalReadings.where((v) => v.patientId == patientId).toList();
+    final list = _vitalReadings.where((v) => v.patientId == patientId).toList();
     list.sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
     return list;
   }
 
-  Set<VitalKey> assignedVitalsForPatient(String patientId) =>
-      Set.unmodifiable(
-        _assignedVitalsByPatient[patientId] ?? const <VitalKey>{},
-      );
+  Set<VitalKey> assignedVitalsForPatient(String patientId) => Set.unmodifiable(
+    _assignedVitalsByPatient[patientId] ?? const <VitalKey>{},
+  );
 
   String? assignedVitalsNoteForPatient(String patientId) {
     final note = _assignedVitalsNoteFor(patientId);
@@ -213,11 +211,13 @@ class StaffState extends ChangeNotifier {
     if (detail == null) return;
 
     if (trimmed == null || trimmed.isEmpty) {
-      _clinicalDetails[patientId] =
-          detail.copyWith(clearAssignedVitalsNote: true);
+      _clinicalDetails[patientId] = detail.copyWith(
+        clearAssignedVitalsNote: true,
+      );
     } else {
-      _clinicalDetails[patientId] =
-          detail.copyWith(assignedVitalsNote: trimmed);
+      _clinicalDetails[patientId] = detail.copyWith(
+        assignedVitalsNote: trimmed,
+      );
     }
   }
 
@@ -257,7 +257,8 @@ class StaffState extends ChangeNotifier {
     String? note,
   }) {
     _vitalOverrides.removeWhere(
-        (o) => o.patientId == patientId && o.vital == vital);
+      (o) => o.patientId == patientId && o.vital == vital,
+    );
     final entry = PatientVitalThreshold(
       patientId: patientId,
       vital: vital,
@@ -279,7 +280,8 @@ class StaffState extends ChangeNotifier {
   void clearPatientThreshold(String patientId, VitalKey vital) {
     final before = _vitalOverrides.length;
     _vitalOverrides.removeWhere(
-        (o) => o.patientId == patientId && o.vital == vital);
+      (o) => o.patientId == patientId && o.vital == vital,
+    );
     if (_vitalOverrides.length != before) notifyListeners();
   }
 
@@ -474,32 +476,33 @@ class StaffState extends ChangeNotifier {
   void _seedDefaultVitalCatalog() {
     _vitalCatalog
       ..clear()
-      ..addAll(VitalKey.values.map((v) {
-        final r = VitalRanges.defaults[v]!;
-        final enabled = v == VitalKey.bloodPressure ||
-            v == VitalKey.bloodGlucose;
-        return VitalCatalogEntry(
-          id: v.name,
-          vital: v,
-          normalMin: r.normalMin,
-          normalMax: r.normalMax,
-          warningLow: r.warningLow,
-          warningHigh: r.warningHigh,
-          criticalLow: r.criticalLow,
-          criticalHigh: r.criticalHigh,
-          enabled: enabled,
-          createdBy: 'system',
-          createdAt: DateTime(2024),
-        );
-      }));
+      ..addAll(
+        VitalKey.values.map((v) {
+          final r = VitalRanges.defaults[v]!;
+          final enabled =
+              v == VitalKey.bloodPressure || v == VitalKey.bloodGlucose;
+          return VitalCatalogEntry(
+            id: v.name,
+            vital: v,
+            normalMin: r.normalMin,
+            normalMax: r.normalMax,
+            warningLow: r.warningLow,
+            warningHigh: r.warningHigh,
+            criticalLow: r.criticalLow,
+            criticalHigh: r.criticalHigh,
+            enabled: enabled,
+            createdBy: 'system',
+            createdAt: DateTime(2024),
+          );
+        }),
+      );
   }
 
   List<StaffAppointment> appointmentsForPatient(String patientId) {
     final patient = patientById(patientId);
     if (patient == null) return const [];
     return _appointments
-        .where((a) =>
-            a.patientId == patientId || a.patientName == patient.name)
+        .where((a) => a.patientId == patientId || a.patientName == patient.name)
         .toList();
   }
 
@@ -511,11 +514,9 @@ class StaffState extends ChangeNotifier {
   }
 
   List<StaffAppointment> appointmentsForDoctorCaseload() {
-    final assignedIds =
-        assignedPatientsForDoctor().map((p) => p.id).toSet();
+    final assignedIds = assignedPatientsForDoctor().map((p) => p.id).toSet();
     return _appointments
-        .where((a) =>
-            a.patientId != null && assignedIds.contains(a.patientId))
+        .where((a) => a.patientId != null && assignedIds.contains(a.patientId))
         .toList();
   }
 
@@ -539,7 +540,8 @@ class StaffState extends ChangeNotifier {
       reason: reason,
       status: status,
       durationMinutes: durationMinutes,
-      locationOrLink: locationOrLink ??
+      locationOrLink:
+          locationOrLink ??
           (type == AppointmentType.virtual
               ? 'https://meet.mcare.app/$id'
               : null),
@@ -655,10 +657,10 @@ class StaffState extends ChangeNotifier {
   }
 
   static String _apiType(AppointmentType type) => switch (type) {
-        AppointmentType.inPerson => 'inPerson',
-        AppointmentType.virtual => 'virtual',
-        AppointmentType.phone => 'phone',
-      };
+    AppointmentType.inPerson => 'inPerson',
+    AppointmentType.virtual => 'virtual',
+    AppointmentType.phone => 'phone',
+  };
 
   List<ClinicalReport> reportsForPatient(String patientId) {
     final patient = patientById(patientId);
@@ -666,10 +668,9 @@ class StaffState extends ChangeNotifier {
     return _reports.where((r) => r.patientName == patient.name).toList();
   }
 
-  int openAlertCountForPatient(String patientId) =>
-      alertsForPatient(patientId)
-          .where((a) => !a.acknowledged && !a.resolved)
-          .length;
+  int openAlertCountForPatient(String patientId) => alertsForPatient(
+    patientId,
+  ).where((a) => !a.acknowledged && !a.resolved).length;
 
   List<StaffMealPlan> mealPlansForPatient(String patientId) =>
       _mealPlans.where((m) => m.patientId == patientId).toList();
@@ -691,24 +692,25 @@ class StaffState extends ChangeNotifier {
           notes: plan.notes,
         )
         .then((data) {
-      if (data != null) {
-        final raw = (data['meal_plan'] as Map?)?.cast<String, dynamic>();
-        if (raw != null) {
-          raw['patient_id'] ??= plan.patientId;
-          raw['patient_name'] ??= plan.patientName;
-          final i = _mealPlans.indexWhere((m) => m.id == plan.id);
-          if (i != -1) {
-            _mealPlans[i] = StaffMapper.mealPlanFromApi(raw);
-            notifyListeners();
+          if (data != null) {
+            final raw = (data['meal_plan'] as Map?)?.cast<String, dynamic>();
+            if (raw != null) {
+              raw['patient_id'] ??= plan.patientId;
+              raw['patient_name'] ??= plan.patientName;
+              final i = _mealPlans.indexWhere((m) => m.id == plan.id);
+              if (i != -1) {
+                _mealPlans[i] = StaffMapper.mealPlanFromApi(raw);
+                notifyListeners();
+              }
+            }
           }
-        }
-      }
-      return true;
-    }).catchError((_) {
-      _mealPlans.removeWhere((m) => m.id == plan.id);
-      notifyListeners();
-      return false;
-    });
+          return true;
+        })
+        .catchError((_) {
+          _mealPlans.removeWhere((m) => m.id == plan.id);
+          notifyListeners();
+          return false;
+        });
   }
 
   Future<bool> removeMealPlan(String id) {
@@ -1156,7 +1158,8 @@ class StaffState extends ChangeNotifier {
           patientName: 'Wangari Njeri',
           title: 'Hypertensive emergency follow-up',
           createdAt: now.subtract(const Duration(days: 1)),
-          body: 'Patient presented with BP 172/108. Advised immediate ED transfer.',
+          body:
+              'Patient presented with BP 172/108. Advised immediate ED transfer.',
         ),
       ]);
 
@@ -1315,7 +1318,8 @@ class StaffState extends ChangeNotifier {
           patientName: 'Amara Okonkwo',
           title: 'Low-sodium lunch',
           mealType: MealType.lunch,
-          description: 'Limit sodium to <500 mg per meal. Include lean protein.',
+          description:
+              'Limit sodium to <500 mg per meal. Include lean protein.',
           calories: 450,
           protein: '35g',
           carbs: '50g',
@@ -1418,7 +1422,8 @@ class StaffState extends ChangeNotifier {
         SystemConfigSection(
           key: 'two_factor_required',
           title: 'Require 2FA for staff',
-          description: 'All admin, assistant and doctor accounts must use TOTP.',
+          description:
+              'All admin, assistant and doctor accounts must use TOTP.',
           category: 'Access',
           value: false,
         ),
@@ -1742,8 +1747,11 @@ class StaffState extends ChangeNotifier {
           ? null
           : PatientProfileMapper.healthFromApi(healthJson),
       emergencyContacts: contactsRaw
-          .map((e) =>
-              PatientProfileMapper.contactFromApi((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) => PatientProfileMapper.contactFromApi(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList(),
       assignedVitals: assigned,
       assignedVitalsNote: assignmentNoteRaw?.trim(),
@@ -1849,8 +1857,11 @@ class StaffState extends ChangeNotifier {
           ? null
           : PatientProfileMapper.healthFromApi(healthJson),
       emergencyContacts: contactsRaw
-          .map((e) =>
-              PatientProfileMapper.contactFromApi((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) => PatientProfileMapper.contactFromApi(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList(),
       assignedVitals: assigned,
       assignedVitalsNote: assignmentNoteRaw?.trim(),
@@ -1879,25 +1890,25 @@ class StaffState extends ChangeNotifier {
     final removedOverrideSnapshot = removed.isEmpty
         ? const <PatientVitalThreshold>[]
         : _vitalOverrides
-            .where(
-              (o) => o.patientId == patientId && removed.contains(o.vital),
-            )
-            .map(
-              (o) => PatientVitalThreshold(
-                patientId: o.patientId,
-                vital: o.vital,
-                normalMin: o.normalMin,
-                normalMax: o.normalMax,
-                warningLow: o.warningLow,
-                warningHigh: o.warningHigh,
-                criticalLow: o.criticalLow,
-                criticalHigh: o.criticalHigh,
-                setBy: o.setBy,
-                updatedAt: o.updatedAt,
-                note: o.note,
-              ),
-            )
-            .toList(growable: false);
+              .where(
+                (o) => o.patientId == patientId && removed.contains(o.vital),
+              )
+              .map(
+                (o) => PatientVitalThreshold(
+                  patientId: o.patientId,
+                  vital: o.vital,
+                  normalMin: o.normalMin,
+                  normalMax: o.normalMax,
+                  warningLow: o.warningLow,
+                  warningHigh: o.warningHigh,
+                  criticalLow: o.criticalLow,
+                  criticalHigh: o.criticalHigh,
+                  setBy: o.setBy,
+                  updatedAt: o.updatedAt,
+                  note: o.note,
+                ),
+              )
+              .toList(growable: false);
 
     _assignedVitalsByPatient[patientId] = next;
 
@@ -1919,9 +1930,7 @@ class StaffState extends ChangeNotifier {
     } else {
       _setAssignedVitalsNote(patientId, noteValue);
       final patient = patientById(patientId);
-      if (patient != null &&
-          noteValue != null &&
-          noteValue.isNotEmpty) {
+      if (patient != null && noteValue != null && noteValue.isNotEmpty) {
         _clinicalDetails[patientId] = StaffPatientClinicalDetail(
           patientId: patientId,
           name: patient.name,
@@ -1945,8 +1954,7 @@ class StaffState extends ChangeNotifier {
     try {
       final role = AuthState.instance.user?.role;
       final vitalKeys = next.map((v) => v.name).toList();
-      final keys = (role == UserRole.admin ||
-              role == UserRole.mcareAssistant)
+      final keys = (role == UserRole.admin || role == UserRole.mcareAssistant)
           ? await AdminApi.instance.updateAssignedVitals(
               patientUserId: patientId,
               vitalKeys: vitalKeys,
@@ -1957,9 +1965,7 @@ class StaffState extends ChangeNotifier {
               vitalKeys: vitalKeys,
               note: noteValue,
             );
-      final synced = keys
-          .map(PatientProfileMapper.vitalKeyFromApi)
-          .toSet();
+      final synced = keys.map(PatientProfileMapper.vitalKeyFromApi).toSet();
       _assignedVitalsByPatient[patientId] = synced;
       final d = _clinicalDetails[patientId];
       if (d != null) {
@@ -2024,13 +2030,16 @@ class StaffState extends ChangeNotifier {
     final activePatients = caseload.length;
     final assignedIds = caseload.map((p) => p.id).toSet();
     final activeAlerts = _alerts
-        .where((a) =>
-            !a.acknowledged &&
-            !a.resolved &&
-            assignedIds.contains(a.patientId))
+        .where(
+          (a) =>
+              !a.acknowledged &&
+              !a.resolved &&
+              assignedIds.contains(a.patientId),
+        )
         .length;
-    final pendingApprovals =
-        _approvals.where((a) => a.status == 'pending').length;
+    final pendingApprovals = _approvals
+        .where((a) => a.status == 'pending')
+        .length;
     // Deltas require a historical baseline the client does not have offline, so
     // they are omitted here (the API path supplies real trends when available).
     return [
@@ -2065,8 +2074,9 @@ class StaffState extends ChangeNotifier {
     final openAlerts = _alerts
         .where((a) => !a.acknowledged && !a.resolved)
         .length;
-    final pendingApprovals =
-        _approvals.where((a) => a.status == 'pending').length;
+    final pendingApprovals = _approvals
+        .where((a) => a.status == 'pending')
+        .length;
     // Deltas require a historical baseline the client does not have offline, so
     // they are omitted here (the API path supplies real trends when available).
     return [
@@ -2097,8 +2107,7 @@ class StaffState extends ChangeNotifier {
   void _recomputeUnreadAlerts() {
     for (final p in _patients) {
       p.unreadAlerts = _alerts
-          .where((a) =>
-              a.patientId == p.id && !a.acknowledged && !a.resolved)
+          .where((a) => a.patientId == p.id && !a.acknowledged && !a.resolved)
           .length;
     }
   }
@@ -2109,7 +2118,8 @@ class StaffState extends ChangeNotifier {
   /// Called from every mutation that changes alert/SOS/request status.
   void _syncToNotificationCenter() {
     final user = AuthState.instance.user;
-    final isStaff = user != null &&
+    final isStaff =
+        user != null &&
         (user.role == UserRole.doctor ||
             user.role == UserRole.admin ||
             user.role == UserRole.mcareAssistant);
@@ -2124,19 +2134,21 @@ class StaffState extends ChangeNotifier {
     for (final a in _alerts) {
       if (!assigned.contains(a.patientId)) continue;
       if (a.resolved) continue;
-      items.add(AppNotification(
-        id: 'staff_alert_${a.id}',
-        kind: a.severity == RiskLevel.critical
-            ? NotificationKind.vitalAlert
-            : NotificationKind.vitalAlert,
-        title: '${a.patientName} · ${a.vital.label} ${a.severity.label}',
-        body: '${a.vital.shortLabel} ${a.value}',
-        createdAt: a.createdAt,
-        read: a.acknowledged,
-        resolved: a.resolved,
-        resolvedAt: a.resolved ? DateTime.now() : null,
-        actionRoute: RouteNames.doctorAlerts,
-      ));
+      items.add(
+        AppNotification(
+          id: 'staff_alert_${a.id}',
+          kind: a.severity == RiskLevel.critical
+              ? NotificationKind.vitalAlert
+              : NotificationKind.vitalAlert,
+          title: '${a.patientName} · ${a.vital.label} ${a.severity.label}',
+          body: '${a.vital.shortLabel} ${a.value}',
+          createdAt: a.createdAt,
+          read: a.acknowledged,
+          resolved: a.resolved,
+          resolvedAt: a.resolved ? DateTime.now() : null,
+          actionRoute: RouteNames.doctorAlerts,
+        ),
+      );
     }
 
     for (final s in _sosEvents) {
@@ -2147,39 +2159,39 @@ class StaffState extends ChangeNotifier {
         UserRole.mcareAssistant => RouteNames.assistantSos,
         _ => RouteNames.doctorSos,
       };
-      items.add(AppNotification(
-        id: 'staff_sos_${s.id}',
-        kind: NotificationKind.sos,
-        title: 'SOS · ${_patientNameFor(s.patientId)}',
-        body: s.locationLabel == null
-            ? s.kindLabel
-            : '${s.kindLabel} · ${s.locationLabel}',
-        createdAt: s.triggeredAt,
-        read: !s.isActive,
-        resolved: !s.isActive,
-        resolvedAt: s.isActive ? null : DateTime.now(),
-        actionRoute: sosRoute,
-        actionArguments: {
-          'patientId': s.patientId,
-          'eventId': s.id,
-        },
-      ));
+      items.add(
+        AppNotification(
+          id: 'staff_sos_${s.id}',
+          kind: NotificationKind.sos,
+          title: 'SOS · ${_patientNameFor(s.patientId)}',
+          body: s.locationLabel == null
+              ? s.kindLabel
+              : '${s.kindLabel} · ${s.locationLabel}',
+          createdAt: s.triggeredAt,
+          read: !s.isActive,
+          resolved: !s.isActive,
+          resolvedAt: s.isActive ? null : DateTime.now(),
+          actionRoute: sosRoute,
+          actionArguments: {'patientId': s.patientId, 'eventId': s.id},
+        ),
+      );
     }
 
     for (final r in _requests) {
       if (!assigned.contains(r.patientId)) continue;
-      items.add(AppNotification(
-        id: 'staff_req_${r.id}',
-        kind: NotificationKind.careRequest,
-        title: '${_patientNameFor(r.patientId)} · ${r.type}',
-        body: r.summary,
-        createdAt: r.createdAt,
-        read: !r.isPending,
-        resolved: r.status == 'fulfilled',
-        resolvedAt:
-            r.status == 'fulfilled' ? DateTime.now() : null,
-        actionRoute: RouteNames.doctorInbox,
-      ));
+      items.add(
+        AppNotification(
+          id: 'staff_req_${r.id}',
+          kind: NotificationKind.careRequest,
+          title: '${_patientNameFor(r.patientId)} · ${r.type}',
+          body: r.summary,
+          createdAt: r.createdAt,
+          read: !r.isPending,
+          resolved: r.status == 'fulfilled',
+          resolvedAt: r.status == 'fulfilled' ? DateTime.now() : null,
+          actionRoute: RouteNames.doctorInbox,
+        ),
+      );
     }
 
     // Upcoming appointments within the next 24 hours
@@ -2187,16 +2199,18 @@ class StaffState extends ChangeNotifier {
     for (final a in _appointments) {
       if (a.patientId != null && !assigned.contains(a.patientId)) continue;
       if (!a.isUpcoming || a.startAt.isAfter(soon)) continue;
-      items.add(AppNotification(
-        id: 'staff_appt_${a.id}',
-        kind: NotificationKind.appointment,
-        title: '${a.patientName} · ${a.type.label}',
-        body: 'Scheduled ${_shortTime(a.startAt)}',
-        createdAt: a.startAt.subtract(const Duration(hours: 1)),
-        read: false,
-        resolved: false,
-        actionRoute: RouteNames.doctorAppointments,
-      ));
+      items.add(
+        AppNotification(
+          id: 'staff_appt_${a.id}',
+          kind: NotificationKind.appointment,
+          title: '${a.patientName} · ${a.type.label}',
+          body: 'Scheduled ${_shortTime(a.startAt)}',
+          createdAt: a.startAt.subtract(const Duration(hours: 1)),
+          read: false,
+          resolved: false,
+          actionRoute: RouteNames.doctorAppointments,
+        ),
+      );
     }
 
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -2210,8 +2224,7 @@ class StaffState extends ChangeNotifier {
     return '$h:$m $suffix';
   }
 
-  String _patientNameFor(String id) =>
-      patientById(id)?.name ?? 'Patient';
+  String _patientNameFor(String id) => patientById(id)?.name ?? 'Patient';
 
   void clear() {
     _patients.clear();
@@ -2486,25 +2499,27 @@ class StaffState extends ChangeNotifier {
           startDate: rx.issuedAt,
         )
         .then((data) {
-      if (data != null) {
-        final rxJson = (data['prescription'] as Map?)?.cast<String, dynamic>();
-        if (rxJson != null) {
-          rxJson['patient_id'] ??= rx.patientId;
-          rxJson['patient_name'] ??= rx.patientName;
-          rxJson['drug'] ??= rxJson['name'];
-          final i = _prescriptions.indexWhere((p) => p.id == rx.id);
-          if (i != -1) {
-            _prescriptions[i] = StaffMapper.prescriptionFromApi(rxJson);
-            notifyListeners();
+          if (data != null) {
+            final rxJson = (data['prescription'] as Map?)
+                ?.cast<String, dynamic>();
+            if (rxJson != null) {
+              rxJson['patient_id'] ??= rx.patientId;
+              rxJson['patient_name'] ??= rx.patientName;
+              rxJson['drug'] ??= rxJson['name'];
+              final i = _prescriptions.indexWhere((p) => p.id == rx.id);
+              if (i != -1) {
+                _prescriptions[i] = StaffMapper.prescriptionFromApi(rxJson);
+                notifyListeners();
+              }
+            }
           }
-        }
-      }
-      return true;
-    }).catchError((_) {
-      _prescriptions.removeWhere((p) => p.id == rx.id);
-      notifyListeners();
-      return false;
-    });
+          return true;
+        })
+        .catchError((_) {
+          _prescriptions.removeWhere((p) => p.id == rx.id);
+          notifyListeners();
+          return false;
+        });
   }
 
   Future<bool> addReport(ClinicalReport report, {String? patientUserId}) {
@@ -2527,23 +2542,24 @@ class StaffState extends ChangeNotifier {
           publish: report.published,
         )
         .then((data) {
-      if (data != null) {
-        final repJson = (data['report'] as Map?)?.cast<String, dynamic>();
-        if (repJson != null) {
-          repJson['patient_name'] ??= report.patientName;
-          final i = _reports.indexWhere((r) => r.id == report.id);
-          if (i != -1) {
-            _reports[i] = StaffMapper.reportFromApi(repJson);
-            notifyListeners();
+          if (data != null) {
+            final repJson = (data['report'] as Map?)?.cast<String, dynamic>();
+            if (repJson != null) {
+              repJson['patient_name'] ??= report.patientName;
+              final i = _reports.indexWhere((r) => r.id == report.id);
+              if (i != -1) {
+                _reports[i] = StaffMapper.reportFromApi(repJson);
+                notifyListeners();
+              }
+            }
           }
-        }
-      }
-      return true;
-    }).catchError((_) {
-      _reports.removeWhere((r) => r.id == report.id);
-      notifyListeners();
-      return false;
-    });
+          return true;
+        })
+        .catchError((_) {
+          _reports.removeWhere((r) => r.id == report.id);
+          notifyListeners();
+          return false;
+        });
   }
 
   Future<bool> publishReport(String id) {
@@ -2627,16 +2643,16 @@ class StaffState extends ChangeNotifier {
   }
 
   Future<bool> acceptCareRequestRemote(String id) => _doctorMutation(
-        apply: () => setCareRequest(id, 'accepted'),
-        revert: () => setCareRequest(id, 'pending'),
-        apiCall: () => DoctorApi.instance.acceptCareRequest(id),
-      );
+    apply: () => setCareRequest(id, 'accepted'),
+    revert: () => setCareRequest(id, 'pending'),
+    apiCall: () => DoctorApi.instance.acceptCareRequest(id),
+  );
 
   Future<bool> declineCareRequestRemote(String id) => _doctorMutation(
-        apply: () => setCareRequest(id, 'declined'),
-        revert: () => setCareRequest(id, 'pending'),
-        apiCall: () => DoctorApi.instance.declineCareRequest(id),
-      );
+    apply: () => setCareRequest(id, 'declined'),
+    revert: () => setCareRequest(id, 'pending'),
+    apiCall: () => DoctorApi.instance.declineCareRequest(id),
+  );
 
   void addAssignment(CareAssignment a) {
     _assignments.insert(0, a);
@@ -2704,8 +2720,7 @@ class StaffState extends ChangeNotifier {
 
     if (!AppEnv.backendEnabled) return;
     try {
-      final raw =
-          await _patchVitalCatalogEntry(id, {'enabled': enabled});
+      final raw = await _patchVitalCatalogEntry(id, {'enabled': enabled});
       if (raw != null) {
         _replaceCatalogEntry(StaffMapper.vitalCatalogEntryFromApi(raw));
       }
@@ -2793,7 +2808,8 @@ class StaffState extends ChangeNotifier {
   }
 
   /// Persisting variant for role changes. Reason is required by backend audit.
-  Future<void> changeUserRoleRemote(String id, {
+  Future<void> changeUserRoleRemote(
+    String id, {
     required String newRole,
     required String reason,
   }) async {
@@ -2816,7 +2832,10 @@ class StaffState extends ChangeNotifier {
   }
 
   /// Reject a healthworker via AdminApi.
-  Future<void> rejectApplicationRemote(String userId, {required String reason}) async {
+  Future<void> rejectApplicationRemote(
+    String userId, {
+    required String reason,
+  }) async {
     if (!AppEnv.backendEnabled) return;
     await AdminApi.instance.rejectApplication(userId, reason: reason);
     for (final a in _approvals) {
@@ -2829,7 +2848,10 @@ class StaffState extends ChangeNotifier {
   }
 
   /// Route a care request to a provider.
-  Future<void> routeCareRequestRemote(String requestId, {String? providerId}) async {
+  Future<void> routeCareRequestRemote(
+    String requestId, {
+    String? providerId,
+  }) async {
     if (!AppEnv.backendEnabled) return;
     await AdminApi.instance.routeCareRequest(requestId, providerId: providerId);
   }

@@ -33,10 +33,12 @@ class PatientProfileMapper {
       heightCm: (json['height_cm'] as num).toDouble(),
       weightKg: (json['weight_kg'] as num).toDouble(),
       allergies: List<String>.from(json['allergies'] as List? ?? []),
-      chronicConditions:
-          List<String>.from(json['chronic_conditions'] as List? ?? []),
-      currentMedications:
-          List<String>.from(json['current_medications'] as List? ?? []),
+      chronicConditions: List<String>.from(
+        json['chronic_conditions'] as List? ?? [],
+      ),
+      currentMedications: List<String>.from(
+        json['current_medications'] as List? ?? [],
+      ),
       address: json['address'] as String?,
       locationConsent: json['location_consent'] as bool? ?? false,
       noKnownAllergies: json['no_known_allergies'] as bool? ?? false,

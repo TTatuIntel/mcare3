@@ -19,8 +19,7 @@ class DoseDetailSheet {
     return GlassSheet.show(
       context,
       title: dose.name,
-      subtitle:
-          '${dose.dosage} · ${DateFormat.jm().format(dose.scheduledAt)}',
+      subtitle: '${dose.dosage} · ${DateFormat.jm().format(dose.scheduledAt)}',
       child: _Body(dose: dose),
     );
   }
@@ -70,10 +69,7 @@ class _BodyState extends State<_Body> {
 
   void _requestRefill() {
     Navigator.of(context).pop();
-    AppToast.success(
-      context,
-      'Refill request sent for ${widget.dose.name}.',
-    );
+    AppToast.success(context, 'Refill request sent for ${widget.dose.name}.');
   }
 
   @override
@@ -85,8 +81,10 @@ class _BodyState extends State<_Body> {
     return AnimatedBuilder(
       animation: MedicationsState.instance,
       builder: (context, _) {
-        final current = MedicationsState.instance.doses
-            .firstWhere((d) => d.id == widget.dose.id, orElse: () => widget.dose);
+        final current = MedicationsState.instance.doses.firstWhere(
+          (d) => d.id == widget.dose.id,
+          orElse: () => widget.dose,
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,7 +94,9 @@ class _BodyState extends State<_Body> {
               decoration: BoxDecoration(
                 color: current.status.color.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: current.status.color.withOpacity(0.25)),
+                border: Border.all(
+                  color: current.status.color.withOpacity(0.25),
+                ),
               ),
               child: Row(
                 children: [
@@ -119,7 +119,9 @@ class _BodyState extends State<_Body> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          DateFormat.MMMEd().add_jm().format(current.scheduledAt),
+                          DateFormat.MMMEd().add_jm().format(
+                            current.scheduledAt,
+                          ),
                           style: theme.textTheme.labelMedium?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -220,7 +222,9 @@ class _BodyState extends State<_Body> {
                 _StatusAction(
                   status: DoseStatus.skipped,
                   selected: _status == DoseStatus.skipped,
-                  onTap: _saving ? null : () => _applyStatus(DoseStatus.skipped),
+                  onTap: _saving
+                      ? null
+                      : () => _applyStatus(DoseStatus.skipped),
                 ),
                 _StatusAction(
                   status: DoseStatus.missed,
@@ -230,7 +234,9 @@ class _BodyState extends State<_Body> {
                 _StatusAction(
                   status: DoseStatus.pending,
                   selected: _status == DoseStatus.pending,
-                  onTap: _saving ? null : () => _applyStatus(DoseStatus.pending),
+                  onTap: _saving
+                      ? null
+                      : () => _applyStatus(DoseStatus.pending),
                 ),
                 if (med != null &&
                     (med.isRefillLow ||
@@ -244,7 +250,9 @@ class _BodyState extends State<_Body> {
             if (med != null &&
                 (med.isRefillLow || med.refillsLeft != null)) ...[
               AppButton(
-                label: med.isRefillLow ? 'Request refill now' : 'Request refill',
+                label: med.isRefillLow
+                    ? 'Request refill now'
+                    : 'Request refill',
                 icon: AppIcons.report,
                 variant: AppButtonVariant.secondary,
                 expand: true,
@@ -299,10 +307,10 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         status.label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: status.color,
-              fontWeight: FontWeight.w800,
-              fontSize: 10,
-            ),
+          color: status.color,
+          fontWeight: FontWeight.w800,
+          fontSize: 10,
+        ),
       ),
     );
   }
@@ -350,9 +358,9 @@ class _StatusAction extends StatelessWidget {
               Text(
                 status.label,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: status.color,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: status.color,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -362,11 +370,11 @@ class _StatusAction extends StatelessWidget {
   }
 
   IconData _statusIcon(DoseStatus s) => switch (s) {
-        DoseStatus.taken => AppIcons.check,
-        DoseStatus.skipped => AppIcons.alert,
-        DoseStatus.missed => AppIcons.alert,
-        DoseStatus.pending => AppIcons.time,
-      };
+    DoseStatus.taken => AppIcons.check,
+    DoseStatus.skipped => AppIcons.alert,
+    DoseStatus.missed => AppIcons.alert,
+    DoseStatus.pending => AppIcons.time,
+  };
 }
 
 class _RefillAction extends StatelessWidget {
@@ -398,9 +406,9 @@ class _RefillAction extends StatelessWidget {
               Text(
                 'Refill',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -426,18 +434,18 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                  ),
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ],

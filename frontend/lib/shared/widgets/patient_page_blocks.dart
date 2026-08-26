@@ -16,10 +16,10 @@ class PatientDateHeader extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.4,
-          ),
+        color: AppPalette.textMuted(context),
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.4,
+      ),
     );
   }
 }
@@ -137,11 +137,7 @@ class PatientQuickAction extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Icon(
-                      icon,
-                      size: 17,
-                      color: accent,
-                    ),
+                    Icon(icon, size: 17, color: accent),
                     if (badge != null)
                       Positioned(
                         right: -7,
@@ -153,8 +149,9 @@ class PatientQuickAction extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: badgeColor ?? accent,
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusPill),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusPill,
+                            ),
                           ),
                           child: Text(
                             badge!,
@@ -203,7 +200,11 @@ class PatientQuickActionsBar extends StatelessWidget {
         children: [
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0)
-              Container(height: 28, width: 1, color: AppPalette.border(context)),
+              Container(
+                height: 28,
+                width: 1,
+                color: AppPalette.border(context),
+              ),
             Expanded(child: children[i]),
           ],
         ],
@@ -216,7 +217,11 @@ class PatientQuickActionsBar extends StatelessWidget {
         children: [
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0)
-              Container(height: 28, width: 1, color: AppPalette.border(context)),
+              Container(
+                height: 28,
+                width: 1,
+                color: AppPalette.border(context),
+              ),
             SizedBox(width: 72, child: children[i]),
           ],
         ],

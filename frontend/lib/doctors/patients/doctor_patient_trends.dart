@@ -42,10 +42,7 @@ class _TrendsPanel extends StatelessWidget {
           children: [
             SectionLabel(title: 'Vital trends', icon: AppIcons.trend),
             for (final entry in grouped.entries) ...[
-              _VitalTrendCard(
-                vitalKey: entry.key,
-                readings: entry.value,
-              ),
+              _VitalTrendCard(vitalKey: entry.key, readings: entry.value),
               const SizedBox(height: AppSpacing.sm),
             ],
           ],
@@ -56,10 +53,7 @@ class _TrendsPanel extends StatelessWidget {
 }
 
 class _VitalTrendCard extends StatelessWidget {
-  const _VitalTrendCard({
-    required this.vitalKey,
-    required this.readings,
-  });
+  const _VitalTrendCard({required this.vitalKey, required this.readings});
 
   final VitalKey vitalKey;
   final List<StaffPatientVitalReading> readings;
@@ -99,8 +93,8 @@ class _VitalTrendCard extends StatelessWidget {
                 child: Text(
                   vitalKey.label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               RiskBadge(risk: latest.risk),
@@ -114,23 +108,23 @@ class _VitalTrendCard extends StatelessWidget {
               Text(
                 latestDisplay,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: color,
-                    ),
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 vitalKey.unit,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
+                  color: AppPalette.textMuted(context),
+                ),
               ),
               const Spacer(),
               Text(
                 latestDate,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
+                  color: AppPalette.textMuted(context),
+                ),
               ),
             ],
           ),
@@ -140,8 +134,12 @@ class _VitalTrendCard extends StatelessWidget {
               height: 72,
               child: LineChart(
                 LineChartData(
-                  minY: points.map((p) => p.y).reduce((a, b) => a < b ? a : b) * 0.95,
-                  maxY: points.map((p) => p.y).reduce((a, b) => a > b ? a : b) * 1.05,
+                  minY:
+                      points.map((p) => p.y).reduce((a, b) => a < b ? a : b) *
+                      0.95,
+                  maxY:
+                      points.map((p) => p.y).reduce((a, b) => a > b ? a : b) *
+                      1.05,
                   gridData: const FlGridData(show: false),
                   borderData: FlBorderData(show: false),
                   titlesData: const FlTitlesData(show: false),
@@ -156,11 +154,11 @@ class _VitalTrendCard extends StatelessWidget {
                         show: true,
                         getDotPainter: (spot, pct, bar, idx) =>
                             FlDotCirclePainter(
-                          radius: 3,
-                          color: color,
-                          strokeWidth: 0,
-                          strokeColor: Colors.transparent,
-                        ),
+                              radius: 3,
+                              color: color,
+                              strokeWidth: 0,
+                              strokeColor: Colors.transparent,
+                            ),
                       ),
                       belowBarData: BarAreaData(
                         show: true,
@@ -176,8 +174,8 @@ class _VitalTrendCard extends StatelessWidget {
               child: Text(
                 '${points.length} reading${points.length == 1 ? '' : 's'}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
+                  color: AppPalette.textMuted(context),
+                ),
               ),
             ),
           ],

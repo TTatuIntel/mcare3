@@ -70,7 +70,10 @@ class _McareLoadingMarkState extends State<McareLoadingMark>
   void initState() {
     super.initState();
     _reduceMotion = WidgetsBinding
-        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
     _ctrl = AnimationController(vsync: this, duration: AppMotion.pulseCycle);
     if (_reduceMotion) {
       _ctrl.value = 0.5;
@@ -101,7 +104,8 @@ class _McareLoadingMarkState extends State<McareLoadingMark>
     final fontSize = h * 0.72;
     final mono = widget.color;
     final accent = mono ?? Theme.of(context).colorScheme.primary;
-    final ink = mono ??
+    final ink =
+        mono ??
         (Theme.of(context).brightness == Brightness.dark
             ? AppColors.darkInk
             : AppColors.brandInk);
@@ -125,8 +129,14 @@ class _McareLoadingMarkState extends State<McareLoadingMark>
               height: 1.0,
             ),
             children: [
-              TextSpan(text: 'm', style: TextStyle(color: accent)),
-              TextSpan(text: 'Care', style: TextStyle(color: ink)),
+              TextSpan(
+                text: 'm',
+                style: TextStyle(color: accent),
+              ),
+              TextSpan(
+                text: 'Care',
+                style: TextStyle(color: ink),
+              ),
             ],
           ),
         ),
@@ -152,10 +162,8 @@ class _McareLoadingMarkState extends State<McareLoadingMark>
         ? mark
         : AnimatedBuilder(
             animation: _ctrl,
-            builder: (_, child) => Transform.scale(
-              scale: _beatScale(_ctrl.value),
-              child: child,
-            ),
+            builder: (_, child) =>
+                Transform.scale(scale: _beatScale(_ctrl.value), child: child),
             child: mark,
           );
 

@@ -71,7 +71,10 @@ class MessagesState extends ChangeNotifier {
     required String role,
     String? specialty,
   }) async {
-    final existing = conversationForPatient(patientId: userId, patientName: name);
+    final existing = conversationForPatient(
+      patientId: userId,
+      patientName: name,
+    );
     if (existing != null) return existing.id;
 
     if (!AppEnv.backendEnabled) {
@@ -152,8 +155,10 @@ class MessagesState extends ChangeNotifier {
           return serverMsg.id;
         }
       } else if (_usesStaffInbox) {
-        final json =
-            await AdminApi.instance.sendMessage(conversationId, body: body);
+        final json = await AdminApi.instance.sendMessage(
+          conversationId,
+          body: body,
+        );
         if (json != null) {
           final serverMsg = PatientDomainMapper.messageFromApi(
             json,
@@ -184,8 +189,9 @@ class MessagesState extends ChangeNotifier {
   Future<void> markRead(String conversationId) async {
     final list = _threads[conversationId];
     if (list != null) {
-      _threads[conversationId] =
-          list.map((m) => m.copyWith(read: true)).toList();
+      _threads[conversationId] = list
+          .map((m) => m.copyWith(read: true))
+          .toList();
     }
     final i = _conversations.indexWhere((c) => c.id == conversationId);
     if (i != -1 && _conversations[i].unreadCount > 0) {
@@ -251,6 +257,7 @@ class MessagesState extends ChangeNotifier {
       unreadCount: msg.senderId == 'me' ? 0 : old.unreadCount + 1,
     );
     _conversations.sort(
-        (a, b) => b.lastMessage.sentAt.compareTo(a.lastMessage.sentAt));
+      (a, b) => b.lastMessage.sentAt.compareTo(a.lastMessage.sentAt),
+    );
   }
 }
