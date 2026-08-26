@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../doctors/alerts/doctor_alert_resolve_sheet.dart';
 import '../auth/auth_state.dart';
-import '../constants/route_names.dart';
 import '../models/user_role.dart';
 import '../navigation/sos_navigation.dart';
 import '../state/staff_state.dart';
@@ -11,6 +10,7 @@ import '../theme/app_spacing.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_icons.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/staff_patient_profile_sheet.dart';
 import 'alert_center.dart';
 
 /// The urgent queue, presented as a popup that can actually be worked.
@@ -125,8 +125,10 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
           AppToast.success(context, 'Acknowledged. It stays on your board '
               'until resolved.');
         } else if (item.sos != null) {
-          final ok = await StaffState.instance
-              .resolveSos(item.sos!.id, status: 'acknowledged');
+          final ok = await StaffState.instance.updateSosForCurrentRole(
+            item.sos!.id,
+            status: 'acknowledged',
+          );
           if (!mounted) return;
           if (!ok) {
             AppToast.error(context, 'Could not acknowledge — try again.');
@@ -139,42 +141,59 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
 
   Future<void> _resolve(UrgentItem item) => _run(() async {
         final alert = item.alert;
-        if (alert == null) {
-          // SOS closes out directly rather than through the clinical form.
-          final ok = await StaffState.instance
-              .resolveSos(item.sos!.id, status: 'resolved');
-          if (!mounted) return;
-          if (ok) AppToast.success(context, 'Emergency closed.');
-          _advance();
-          return;
-        }
+        if (alert == null) return;
         final done = await DoctorAlertResolveFlow.resolve(context, alert);
         if (!mounted) return;
         if (done) _advance();
       });
 
+  /// Taking an SOS means owning it and entering the responder workspace. It
+  /// must never silently mean "resolved"; closing an emergency stays an
+  /// explicit action inside the responder flow.
+  Future<void> _respondToSos(UrgentItem item) => _run(() async {
+        if (!item.acknowledged) {
+          final ok = await StaffState.instance.updateSosForCurrentRole(
+            item.sos!.id,
+            status: 'acknowledged',
+          );
+          if (!mounted) return;
+          if (!ok) {
+            AppToast.error(context, 'Could not take ownership — try again.');
+            return;
+          }
+        }
+
+        final navigator = Navigator.of(context, rootNavigator: true);
+        final pageContext = navigator.context;
+        navigator.pop();
+        await Future<void>.delayed(Duration.zero);
+        if (!pageContext.mounted) return;
+        await SosNavigation.openRespond(
+          pageContext,
+          patientId: item.patientId,
+          eventId: item.sos!.id,
+        );
+      });
+
   Future<void> _openPatient(UrgentItem item) async {
     final navigator = Navigator.of(context, rootNavigator: true);
-    // Leaving the popup is not attending — snooze so it returns if ignored.
+    final pageContext = navigator.context;
+    // Reviewing is active work, but not acknowledgement. Give the responder
+    // time to inspect it; the queue brings it back if it is still ignored.
     AlertCenter.instance.snooze(item.id);
     navigator.pop();
+    await Future<void>.delayed(Duration.zero);
+    if (!pageContext.mounted) return;
 
-    // SOS has its own responder flow per role; reuse it rather than guessing.
-    if (item.sos != null) {
-      await SosNavigation.openRespond(
-        navigator.context,
-        patientId: item.patientId,
-        eventId: item.sos!.id,
-      );
-      return;
-    }
-
-    final route = switch (AuthState.instance.user?.role) {
-      UserRole.doctor => RouteNames.doctorPatientChart,
-      UserRole.mcareAssistant => RouteNames.assistantUserDetail,
-      _ => RouteNames.adminUserDetail,
-    };
-    navigator.pushNamed(route, arguments: item.patientId);
+    final role = AuthState.instance.user?.role;
+    await StaffPatientProfileSheet.show(
+      pageContext,
+      patientId: item.patientId,
+      patientName: item.patientName,
+      loadFromAdmin:
+          role == UserRole.admin || role == UserRole.mcareAssistant,
+      urgentItem: item,
+    );
   }
 
   @override
@@ -237,7 +256,9 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
                           item: item,
                           busy: _busy,
                           onAcknowledge: () => _acknowledge(item),
-                          onResolve: () => _resolve(item),
+                          onResolve: () => item.isSos
+                              ? _respondToSos(item)
+                              : _resolve(item),
                           onOpen: () => _openPatient(item),
                           onSnooze: () {
                             AlertCenter.instance.snooze(item.id);

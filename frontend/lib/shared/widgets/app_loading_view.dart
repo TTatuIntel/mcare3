@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../theme/app_motion.dart';
@@ -20,10 +18,9 @@ enum AppLoadingVariant {
 
 /// Full-page loading placeholder.
 ///
-/// Gated by [AppMotion.skeletonDelay] so a fast load paints its real content
-/// directly instead of flashing a placeholder. The gate is deliberately much
-/// shorter than [AppMotion.loaderDelay] used by [DelayedLoader]: a skeleton
-/// preserves layout, so it does not read as a flash the way a spinner does.
+/// The parent owns the real loading state. This view starts fading in as soon
+/// as it is mounted and is removed as soon as the parent has content; no timer
+/// delays or extends the operation it represents.
 class AppLoadingView extends StatelessWidget {
   const AppLoadingView({
     super.key,
@@ -31,7 +28,6 @@ class AppLoadingView extends StatelessWidget {
     this.itemCount = 4,
     this.padding,
     this.variant = AppLoadingVariant.skeleton,
-    this.delay = AppMotion.skeletonDelay,
   });
 
   final String? message;
@@ -39,66 +35,22 @@ class AppLoadingView extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final AppLoadingVariant variant;
 
-  /// Wait this long before painting anything.
-  final Duration delay;
-
   @override
   Widget build(BuildContext context) {
-    return _LoadingGate(
-      delay: delay,
-      child: switch (variant) {
-        AppLoadingVariant.skeleton => _SkeletonBody(
-            message: message,
-            itemCount: itemCount,
-            padding: padding,
-          ),
-        AppLoadingVariant.pulse => _PulseBody(message: message),
-      },
-    );
-  }
-}
-
-/// Holds an empty box until [delay] elapses, then fades its child in.
-class _LoadingGate extends StatefulWidget {
-  const _LoadingGate({required this.delay, required this.child});
-
-  final Duration delay;
-  final Widget child;
-
-  @override
-  State<_LoadingGate> createState() => _LoadingGateState();
-}
-
-class _LoadingGateState extends State<_LoadingGate> {
-  Timer? _timer;
-  bool _open = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.delay <= Duration.zero) {
-      _open = true;
-      return;
-    }
-    _timer = Timer(widget.delay, () {
-      if (!mounted) return;
-      setState(() => _open = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: _open ? 1 : 0,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
       duration: AppMotion.crossFade,
       curve: AppMotion.easeOut,
-      child: _open ? widget.child : const SizedBox.expand(),
+      builder: (context, opacity, child) =>
+          Opacity(opacity: opacity, child: child),
+      child: switch (variant) {
+        AppLoadingVariant.skeleton => _SkeletonBody(
+          message: message,
+          itemCount: itemCount,
+          padding: padding,
+        ),
+        AppLoadingVariant.pulse => _PulseBody(message: message),
+      },
     );
   }
 }

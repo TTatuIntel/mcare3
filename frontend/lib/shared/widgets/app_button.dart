@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
+import 'loading/mcare_pulse.dart';
 
 enum AppButtonVariant { primary, secondary, ghost, danger, icon }
 
@@ -19,6 +20,7 @@ class AppButton extends StatefulWidget {
     this.variant = AppButtonVariant.primary,
     this.size = AppButtonSize.md,
     this.loading = false,
+    this.loadingLabel,
     this.expand = false,
     this.semanticLabel,
   });
@@ -30,12 +32,13 @@ class AppButton extends StatefulWidget {
     this.onPressed,
     this.size = AppButtonSize.md,
     this.loading = false,
+    this.loadingLabel,
     this.semanticLabel,
-  })  : label = '',
-        icon = icon,
-        trailingIcon = null,
-        variant = AppButtonVariant.icon,
-        expand = false;
+  }) : label = '',
+       icon = icon,
+       trailingIcon = null,
+       variant = AppButtonVariant.icon,
+       expand = false;
 
   final String label;
   final VoidCallback? onPressed;
@@ -44,6 +47,7 @@ class AppButton extends StatefulWidget {
   final AppButtonVariant variant;
   final AppButtonSize size;
   final bool loading;
+  final String? loadingLabel;
   final bool expand;
   final String? semanticLabel;
 
@@ -62,26 +66,62 @@ class _AppButtonState extends State<AppButton> {
     final style = _resolveStyle(context, accent, disabled);
 
     final padding = switch (widget.size) {
-      AppButtonSize.sm =>
-        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      AppButtonSize.md =>
-        const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      AppButtonSize.lg =>
-        const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      AppButtonSize.sm => const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      AppButtonSize.md => const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 12,
+      ),
+      AppButtonSize.lg => const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 16,
+      ),
     };
 
     final textStyle = switch (widget.size) {
       AppButtonSize.sm => theme.textTheme.labelMedium,
       AppButtonSize.md => theme.textTheme.labelLarge,
-      AppButtonSize.lg =>
-        theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      AppButtonSize.lg => theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
     };
 
-    Widget child;
-    if (widget.variant == AppButtonVariant.icon) {
-      child = Icon(widget.icon, size: 20, color: style.fg);
+    final busyLabel = widget.loadingLabel ?? _defaultLoadingLabel(widget.label);
+    Widget buttonContent;
+    if (widget.loading) {
+      buttonContent = widget.variant == AppButtonVariant.icon
+          ? McarePulse(
+              size: McarePulseSize.micro,
+              color: style.fg,
+              semanticLabel: null,
+            )
+          : Row(
+              key: const ValueKey('app-button-loading'),
+              mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                McarePulse(
+                  size: McarePulseSize.inline,
+                  color: style.fg,
+                  semanticLabel: null,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(
+                  child: Text(
+                    busyLabel,
+                    style: textStyle?.copyWith(color: style.fg),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            );
+    } else if (widget.variant == AppButtonVariant.icon) {
+      buttonContent = Icon(widget.icon, size: 20, color: style.fg);
     } else {
-      child = Row(
+      buttonContent = Row(
+        key: const ValueKey('app-button-ready'),
         mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -103,11 +143,6 @@ class _AppButtonState extends State<AppButton> {
         ],
       );
     }
-
-    // A button in flight keeps its label and simply stops responding. The
-    // "something is happening" signal belongs on the screen (McareBusyOverlay),
-    // not swapped into the control the user just pressed — replacing the label
-    // loses the affordance and makes the button look broken.
 
     final radius = widget.variant == AppButtonVariant.icon
         ? BorderRadius.circular(AppSpacing.radiusPill)
@@ -152,7 +187,14 @@ class _AppButtonState extends State<AppButton> {
                 padding: widget.variant == AppButtonVariant.icon
                     ? const EdgeInsets.all(10)
                     : padding,
-                child: Center(child: child),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.crossFade,
+                    switchInCurve: AppMotion.easeOut,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: buttonContent,
+                  ),
+                ),
               ),
             ),
           ),
@@ -161,13 +203,31 @@ class _AppButtonState extends State<AppButton> {
     );
 
     return Semantics(
-      label: widget.semanticLabel ?? widget.label,
+      label: widget.loading
+          ? busyLabel
+          : (widget.semanticLabel ?? widget.label),
+      liveRegion: widget.loading,
       button: true,
       enabled: !disabled,
-      child: widget.expand
-          ? SizedBox(width: double.infinity, child: btn)
-          : btn,
+      child: widget.expand ? SizedBox(width: double.infinity, child: btn) : btn,
     );
+  }
+
+  String _defaultLoadingLabel(String label) {
+    final normalized = label.trim().toLowerCase();
+    if (normalized.startsWith('sign in')) return 'Signing in…';
+    if (normalized.startsWith('save')) return 'Saving…';
+    if (normalized.startsWith('send')) return 'Sending…';
+    if (normalized.startsWith('create')) return 'Creating…';
+    if (normalized.startsWith('update')) return 'Updating…';
+    if (normalized.startsWith('upload')) return 'Uploading…';
+    if (normalized.startsWith('download')) return 'Downloading…';
+    if (normalized.startsWith('delete')) return 'Deleting…';
+    if (normalized.startsWith('verify')) return 'Verifying…';
+    if (normalized.startsWith('submit')) return 'Submitting…';
+    if (normalized.startsWith('refresh')) return 'Refreshing…';
+    if (label.trim().isEmpty) return 'Working…';
+    return '${label.trim()}…';
   }
 
   _BtnStyle _resolveStyle(BuildContext context, Color accent, bool disabled) {
@@ -203,10 +263,7 @@ class _AppButtonState extends State<AppButton> {
           border: Border.all(color: accent.withOpacity(0.4), width: 1.2),
         );
       case AppButtonVariant.ghost:
-        return _BtnStyle(
-          bg: Colors.transparent,
-          fg: accent,
-        );
+        return _BtnStyle(bg: Colors.transparent, fg: accent);
       case AppButtonVariant.danger:
         return _BtnStyle(
           gradient: const LinearGradient(

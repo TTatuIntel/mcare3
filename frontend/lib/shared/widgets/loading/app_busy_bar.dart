@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../core/async/app_busy.dart';
@@ -7,24 +5,16 @@ import '../../theme/app_motion.dart';
 
 /// Slim indeterminate bar pinned to the top of the app.
 ///
-/// Driven by [AppBusy], which [ApiClient] feeds automatically. It only becomes
-/// visible once a request has been in flight for [delay] — so the ordinary
-/// fast call is silent, and the bar is a genuine signal that the app is
-/// waiting on the network rather than frozen.
+/// Driven directly by [AppBusy], which [ApiClient] feeds automatically. The
+/// fade mirrors the real request edge; no show or minimum-visible timer can
+/// outlive the work it represents. It stays hidden while the primary blocking
+/// overlay is active so the app never presents two global loaders at once.
 ///
 /// Mount once, around the app's `child` in `MaterialApp.builder`.
 class AppBusyBar extends StatefulWidget {
-  const AppBusyBar({
-    super.key,
-    required this.child,
-    this.delay = AppMotion.loaderDelay,
-    this.minVisible = AppMotion.loaderMinVisible,
-    this.thickness = 2.5,
-  });
+  const AppBusyBar({super.key, required this.child, this.thickness = 2.5});
 
   final Widget child;
-  final Duration delay;
-  final Duration minVisible;
   final double thickness;
 
   @override
@@ -34,81 +24,44 @@ class AppBusyBar extends StatefulWidget {
 class _AppBusyBarState extends State<AppBusyBar>
     with SingleTickerProviderStateMixin {
   late final AnimationController _sweep;
-  Timer? _showTimer;
-  Timer? _hideTimer;
   bool _visible = false;
-  DateTime? _shownAt;
   bool _reduceMotion = false;
 
   @override
   void initState() {
     super.initState();
     _reduceMotion = WidgetsBinding
-        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
-    _sweep = AnimationController(
-      vsync: this,
-      duration: AppMotion.busySweep,
-    );
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations;
+    _sweep = AnimationController(vsync: this, duration: AppMotion.busySweep);
     AppBusy.instance.addListener(_onBusyChanged);
-    if (AppBusy.instance.isBusy) _scheduleShow();
+    _visible = _shouldShow;
+    if (_visible && !_reduceMotion) _sweep.repeat();
   }
 
   @override
   void dispose() {
     AppBusy.instance.removeListener(_onBusyChanged);
-    _showTimer?.cancel();
-    _hideTimer?.cancel();
     _sweep.dispose();
     super.dispose();
   }
 
   void _onBusyChanged() {
     if (!mounted) return;
-    if (AppBusy.instance.isBusy) {
-      _scheduleShow();
+    final next = _shouldShow;
+    if (next == _visible) return;
+    if (next) {
+      if (!_reduceMotion) _sweep.repeat();
     } else {
-      _scheduleHide();
-    }
-  }
-
-  void _scheduleShow() {
-    _hideTimer?.cancel();
-    _hideTimer = null;
-    if (_visible) return;
-    _showTimer?.cancel();
-    _showTimer = Timer(widget.delay, () {
-      if (!mounted || !AppBusy.instance.isBusy) return;
-      if (!_reduceMotion && !_sweep.isAnimating) _sweep.repeat();
-      setState(() {
-        _visible = true;
-        _shownAt = DateTime.now();
-      });
-    });
-  }
-
-  void _scheduleHide() {
-    _showTimer?.cancel();
-    _showTimer = null;
-    if (!_visible) return;
-
-    final shownAt = _shownAt;
-    final elapsed =
-        shownAt == null ? widget.minVisible : DateTime.now().difference(shownAt);
-    final remaining = widget.minVisible - elapsed;
-
-    void hide() {
-      if (!mounted || AppBusy.instance.isBusy) return;
       _sweep.stop();
-      setState(() => _visible = false);
     }
-
-    if (remaining <= Duration.zero) {
-      hide();
-      return;
-    }
-    _hideTimer?.cancel();
-    _hideTimer = Timer(remaining, hide);
+    setState(() => _visible = next);
   }
+
+  bool get _shouldShow =>
+      AppBusy.instance.isBusy && !AppBusy.instance.isBlocking;
 
   @override
   Widget build(BuildContext context) {
@@ -127,18 +80,16 @@ class _AppBusyBarState extends State<AppBusyBar>
               curve: AppMotion.easeOut,
               child: SizedBox(
                 height: widget.thickness,
-                child: _visible
-                    ? AnimatedBuilder(
-                        animation: _sweep,
-                        builder: (_, __) => CustomPaint(
-                          painter: _BusySweepPainter(
-                            progress: _reduceMotion ? 0.5 : _sweep.value,
-                            color: accent,
-                            isStatic: _reduceMotion,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                child: AnimatedBuilder(
+                  animation: _sweep,
+                  builder: (_, __) => CustomPaint(
+                    painter: _BusySweepPainter(
+                      progress: _reduceMotion ? 0.5 : _sweep.value,
+                      color: accent,
+                      isStatic: _reduceMotion,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/api/auth_api.dart';
+import '../core/async/app_busy.dart';
 import '../core/env/app_env.dart';
 import '../shared/auth/auth_state.dart';
 import '../shared/constants/route_names.dart';
@@ -20,8 +21,7 @@ class OtpView extends StatefulWidget {
 }
 
 class _OtpViewState extends State<OtpView> {
-  final _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final _controllers = List.generate(6, (_) => TextEditingController());
   final _nodes = List.generate(6, (_) => FocusNode());
   bool _loading = false;
   int _resendIn = 30;
@@ -60,32 +60,35 @@ class _OtpViewState extends State<OtpView> {
     }
     setState(() => _loading = true);
     try {
-      if (AppEnv.backendEnabled) {
-        final user = AuthState.instance.user;
-        final identifier = user?.email ?? user?.phone ?? '';
-        final data = await AuthApi.instance.verifyOtp(
-          identifier: identifier.isNotEmpty ? identifier : 'demo@mcare.health',
-          code: _code,
-          purpose: widget.isEmail ? 'email_verify' : 'login',
-        );
-        if (!mounted) return;
-        if (data != null && data['token'] != null) {
-          AppToast.success(context, 'Verified.');
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            RouteNames.patientDashboard,
-            (_) => false,
-          );
-          return;
-        }
-      } else {
-        await Future.delayed(const Duration(milliseconds: 600));
-      }
-      if (!mounted) return;
-      AppToast.success(context, 'Verified.');
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        RouteNames.patientDashboard,
-        (_) => false,
+      final verifiedByApi = await AppBusy.instance.run(
+        () async {
+          if (AppEnv.backendEnabled) {
+            final user = AuthState.instance.user;
+            final identifier = user?.email ?? user?.phone ?? '';
+            final data = await AuthApi.instance.verifyOtp(
+              identifier: identifier.isNotEmpty
+                  ? identifier
+                  : 'demo@mcare.health',
+              code: _code,
+              purpose: widget.isEmail ? 'email_verify' : 'login',
+            );
+            return data != null && data['token'] != null;
+          } else {
+            await Future.delayed(const Duration(milliseconds: 600));
+            return true;
+          }
+        },
+        blocking: true,
+        message: 'Verifying your account…',
       );
+      if (!mounted) return;
+      if (verifiedByApi) {
+        AppToast.success(context, 'Verified.');
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RouteNames.patientDashboard, (_) => false);
+        return;
+      }
     } catch (_) {
       if (mounted) AppToast.error(context, 'Invalid or expired code.');
     } finally {
@@ -117,13 +120,14 @@ class _OtpViewState extends State<OtpView> {
                   maxLength: 1,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w700),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
                   decoration: InputDecoration(
                     counterText: '',
                     contentPadding: EdgeInsets.zero,
                     enabledBorder: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusMd),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       borderSide: BorderSide(color: AppPalette.border(context)),
                     ),
                   ),
@@ -139,6 +143,7 @@ class _OtpViewState extends State<OtpView> {
           const SizedBox(height: AppSpacing.xl),
           AppButton(
             label: 'Verify',
+            loadingLabel: 'Verifying…',
             size: AppButtonSize.lg,
             expand: true,
             loading: _loading,
@@ -155,9 +160,7 @@ class _OtpViewState extends State<OtpView> {
                       AppToast.info(context, 'Code resent.');
                     },
               child: Text(
-                _resendIn > 0
-                    ? 'Resend code in ${_resendIn}s'
-                    : 'Resend code',
+                _resendIn > 0 ? 'Resend code in ${_resendIn}s' : 'Resend code',
               ),
             ),
           ),

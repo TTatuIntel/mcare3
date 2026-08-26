@@ -223,10 +223,7 @@ class _McareAppState extends State<McareApp> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        AuthState.instance,
-        SettingsState.instance,
-      ]),
+      animation: Listenable.merge([AuthState.instance, SettingsState.instance]),
       builder: (context, _) {
         final accent =
             AuthState.instance.user?.role.accent ?? AppColors.brandIndigo;
@@ -250,9 +247,8 @@ class _McareAppState extends State<McareApp> {
           },
           builder: (context, child) => ColoredBox(
             color: AppPalette.scaffoldBg(context),
-            // Surfaces a slim top bar when an API call outlives
-            // AppMotion.loaderDelay, so a slow network reads as "working"
-            // rather than "frozen". Silent for fast calls.
+            // Surfaces a slim top bar for attended API work so a slow network
+            // reads as "working" rather than "frozen".
             // Two layers, two jobs: the bar is ambient feedback for reads,
             // the overlay is the visible "working on it" for user actions.
             // BootSplashGate is outermost of the three so the loading mark
@@ -286,9 +282,7 @@ class _McareAppState extends State<McareApp> {
     final name = (parsedUri != null && parsedUri.path.isNotEmpty)
         ? parsedUri.path
         : rawName;
-    final linkParams = <String, String>{
-      ...?parsedUri?.queryParameters,
-    };
+    final linkParams = <String, String>{...?parsedUri?.queryParameters};
     Widget page;
 
     switch (name) {
@@ -308,7 +302,8 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.resetPassword:
         page = ResetPasswordView(
-          args: ResetPasswordArgs.tryParse(settings.arguments) ??
+          args:
+              ResetPasswordArgs.tryParse(settings.arguments) ??
               ResetPasswordArgs.tryParse(linkParams),
         );
         break;
@@ -319,7 +314,8 @@ class _McareAppState extends State<McareApp> {
         page = const PendingApprovalView();
         break;
       case RouteNames.acceptInvite:
-        final token = (settings.arguments as String?) ??
+        final token =
+            (settings.arguments as String?) ??
             linkParams['token'] ??
             Uri.base.queryParameters['token'];
         page = AcceptInviteView(token: token);
@@ -327,7 +323,8 @@ class _McareAppState extends State<McareApp> {
       case RouteNames.externalDoctor:
         // Token can arrive as a navigation argument (in-app) or in the URL
         // query string (emergency link opened in an outside doctor's browser).
-        final extToken = (settings.arguments as String?) ??
+        final extToken =
+            (settings.arguments as String?) ??
             linkParams['token'] ??
             Uri.base.queryParameters['token'];
         page = ExternalDoctorView(token: extToken);
@@ -362,7 +359,8 @@ class _McareAppState extends State<McareApp> {
         );
         break;
       case RouteNames.patientVitalHistory:
-        final vital = VitalDetailArgs.tryParse(settings.arguments)?.vital ??
+        final vital =
+            VitalDetailArgs.tryParse(settings.arguments)?.vital ??
             settings.arguments as VitalKey? ??
             VitalKey.heartRate;
         page = _PatientGuarded(child: VitalHistoryView(vital: vital));
@@ -383,15 +381,18 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.patientMedicationDetail:
         final medId = settings.arguments as String? ?? '';
-        page = _PatientGuarded(child: MedicationDetailView(medicationId: medId));
+        page = _PatientGuarded(
+          child: MedicationDetailView(medicationId: medId),
+        );
         break;
       case RouteNames.patientAppointments:
         page = const _PatientGuarded(child: AppointmentsView());
         break;
       case RouteNames.patientAppointmentDetail:
         final apptId = settings.arguments as String? ?? '';
-        page =
-            _PatientGuarded(child: AppointmentDetailView(appointmentId: apptId));
+        page = _PatientGuarded(
+          child: AppointmentDetailView(appointmentId: apptId),
+        );
         break;
       case RouteNames.patientDocuments:
         page = const _PatientGuarded(child: DocumentsView());
@@ -723,7 +724,9 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.assistantUserDetail:
         final asstUid = settings.arguments as String? ?? '';
-        page = _AssistantGuarded(child: AssistantUserDetailView(userId: asstUid));
+        page = _AssistantGuarded(
+          child: AssistantUserDetailView(userId: asstUid),
+        );
         break;
       case RouteNames.assistantSupport:
         page = const _AssistantGuarded(child: AssistantSupportView());
@@ -813,11 +816,10 @@ class _PatientGuarded extends StatelessWidget {
   const _PatientGuarded({required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) =>
-      RoleGuard(
-        allowed: const [UserRole.patient],
-        child: PatientOnboardingGate(child: child),
-      );
+  Widget build(BuildContext context) => RoleGuard(
+    allowed: const [UserRole.patient],
+    child: PatientOnboardingGate(child: child),
+  );
 }
 
 class _DoctorGuarded extends StatelessWidget {
@@ -825,13 +827,13 @@ class _DoctorGuarded extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => RoleGuard(
-        allowed: const [UserRole.doctor],
-        child: StaffProfileGate(
-          completeProfileRoute: RouteNames.doctorCompleteProfile,
-          forcePasswordRoute: RouteNames.doctorForcePassword,
-          child: child,
-        ),
-      );
+    allowed: const [UserRole.doctor],
+    child: StaffProfileGate(
+      completeProfileRoute: RouteNames.doctorCompleteProfile,
+      forcePasswordRoute: RouteNames.doctorForcePassword,
+      child: child,
+    ),
+  );
 }
 
 class _AdminGuarded extends StatelessWidget {
@@ -839,13 +841,13 @@ class _AdminGuarded extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => RoleGuard(
-        allowed: const [UserRole.admin],
-        child: StaffProfileGate(
-          completeProfileRoute: RouteNames.adminCompleteProfile,
-          forcePasswordRoute: RouteNames.adminForcePassword,
-          child: child,
-        ),
-      );
+    allowed: const [UserRole.admin],
+    child: StaffProfileGate(
+      completeProfileRoute: RouteNames.adminCompleteProfile,
+      forcePasswordRoute: RouteNames.adminForcePassword,
+      child: child,
+    ),
+  );
 }
 
 class _AssistantGuarded extends StatelessWidget {
@@ -853,13 +855,13 @@ class _AssistantGuarded extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => RoleGuard(
-        allowed: const [UserRole.mcareAssistant],
-        child: StaffProfileGate(
-          completeProfileRoute: RouteNames.assistantCompleteProfile,
-          forcePasswordRoute: RouteNames.assistantForcePassword,
-          child: child,
-        ),
-      );
+    allowed: const [UserRole.mcareAssistant],
+    child: StaffProfileGate(
+      completeProfileRoute: RouteNames.assistantCompleteProfile,
+      forcePasswordRoute: RouteNames.assistantForcePassword,
+      child: child,
+    ),
+  );
 }
 
 class _NotFoundView extends StatelessWidget {
@@ -883,15 +885,23 @@ class _NotFoundView extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(AppIcons.error,
-                            size: 48, color: AppPalette.textMuted(context)),
+                        Icon(
+                          AppIcons.error,
+                          size: 48,
+                          color: AppPalette.textMuted(context),
+                        ),
                         const SizedBox(height: 12),
-                        Text('Page not found',
-                            style: Theme.of(context).textTheme.headlineMedium),
+                        Text(
+                          'Page not found',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
                         const SizedBox(height: 8),
                         TextButton(
-                          onPressed: () => Navigator.of(context)
-                              .pushNamedAndRemoveUntil(RouteNames.home, (_) => false),
+                          onPressed: () =>
+                              Navigator.of(context).pushNamedAndRemoveUntil(
+                                RouteNames.home,
+                                (_) => false,
+                              ),
                           child: const Text('Back home'),
                         ),
                       ],

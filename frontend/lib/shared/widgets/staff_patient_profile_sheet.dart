@@ -3,16 +3,20 @@ import 'package:intl/intl.dart';
 
 import '../../core/api/admin_api.dart';
 import '../../core/env/app_env.dart';
+import '../../doctors/alerts/doctor_alert_resolve_sheet.dart';
 import '../../doctors/vitals/doctor_assign_vitals_sheet.dart';
+import '../../shared/alerts/alert_center.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/models/patient_profile.dart';
 import '../../shared/models/sos.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/models/vital.dart';
+import '../../shared/navigation/sos_navigation.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_icons.dart';
+import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
@@ -35,6 +39,7 @@ class StaffPatientProfileSheet {
     required String patientId,
     String? patientName,
     bool loadFromAdmin = false,
+    UrgentItem? urgentItem,
   }) {
     final detail = StaffState.instance.patientClinicalDetail(patientId);
     final patient = StaffState.instance.patientById(patientId);
@@ -42,12 +47,15 @@ class StaffPatientProfileSheet {
 
     return GlassSheet.show<void>(
       context,
-      title: 'Patient profile',
-      subtitle: name,
+      title: urgentItem == null ? 'Patient profile' : 'Patient care context',
+      subtitle: urgentItem == null
+          ? name
+          : '$name · ${urgentItem.isSos ? 'SOS' : 'active alert'}',
       child: _ProfileBody(
         patientId: patientId,
         fallbackName: name,
         loadFromAdmin: loadFromAdmin,
+        urgentItem: urgentItem,
       ),
     );
   }
@@ -58,11 +66,13 @@ class _ProfileBody extends StatefulWidget {
     required this.patientId,
     required this.fallbackName,
     required this.loadFromAdmin,
+    this.urgentItem,
   });
 
   final String patientId;
   final String fallbackName;
   final bool loadFromAdmin;
+  final UrgentItem? urgentItem;
 
   @override
   State<_ProfileBody> createState() => _ProfileBodyState();
@@ -154,6 +164,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                     ? null
                     : _error,
                 onRetry: _error == null ? null : _fetch,
+                urgentItem: widget.urgentItem,
               ),
           ],
         );
@@ -200,6 +211,7 @@ class _ProfileContent extends StatelessWidget {
     required this.health,
     required this.banner,
     required this.onRetry,
+    required this.urgentItem,
   });
 
   final String name;
@@ -210,12 +222,17 @@ class _ProfileContent extends StatelessWidget {
   final PatientHealthProfile? health;
   final String? banner;
   final VoidCallback? onRetry;
+  final UrgentItem? urgentItem;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (urgentItem != null) ...[
+          _UrgentCareContext(item: urgentItem!),
+          const SizedBox(height: AppSpacing.md),
+        ],
         if (banner != null) ...[
           _StaleBanner(message: banner!, onRetry: onRetry),
           const SizedBox(height: AppSpacing.sm),
@@ -477,6 +494,224 @@ class _ProfileContent extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Pins the reason this patient was opened above their clinical profile. It
+/// reads the live queue on every rebuild so acknowledgement feedback is
+/// immediate and a resolved item cannot keep showing actionable controls.
+class _UrgentCareContext extends StatefulWidget {
+  const _UrgentCareContext({required this.item});
+  final UrgentItem item;
+
+  @override
+  State<_UrgentCareContext> createState() => _UrgentCareContextState();
+}
+
+class _UrgentCareContextState extends State<_UrgentCareContext> {
+  bool _busy = false;
+
+  UrgentItem? get _liveItem {
+    for (final item in AlertCenter.instance.openQueue) {
+      if (item.id == widget.item.id) return item;
+    }
+    return null;
+  }
+
+  Future<bool> _acknowledge(UrgentItem item) async {
+    final ok = item.alert != null
+        ? await StaffState.instance.acknowledgeAlert(item.alert!.id)
+        : await StaffState.instance.updateSosForCurrentRole(
+            item.sos!.id,
+            status: 'acknowledged',
+          );
+    if (!mounted) return false;
+    if (ok) {
+      AppToast.success(
+        context,
+        'Acknowledged — the case remains open until resolved.',
+      );
+    } else {
+      AppToast.error(context, 'Could not acknowledge — try again.');
+    }
+    return ok;
+  }
+
+  Future<void> _acknowledgeOnly(UrgentItem item) async {
+    setState(() => _busy = true);
+    await _acknowledge(item);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _continue(UrgentItem item) async {
+    setState(() => _busy = true);
+    if (item.isSos) {
+      if (!item.acknowledged && !await _acknowledge(item)) {
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+      if (!mounted) return;
+      final navigator = Navigator.of(context, rootNavigator: true);
+      final pageContext = navigator.context;
+      navigator.pop();
+      await Future<void>.delayed(Duration.zero);
+      if (!pageContext.mounted) return;
+      await SosNavigation.openRespond(
+        pageContext,
+        patientId: item.patientId,
+        eventId: item.sos!.id,
+      );
+      return;
+    }
+
+    if (item.alert != null) {
+      await DoctorAlertResolveFlow.resolve(context, item.alert!);
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: AlertCenter.instance,
+      builder: (context, _) {
+        final live = _liveItem;
+        final item = live ?? widget.item;
+        final isOpen = live != null;
+        final accent = item.kind == UrgentKind.warningVital
+            ? AppColors.warning
+            : AppColors.critical;
+        final status = !isOpen
+            ? 'RESOLVED'
+            : item.acknowledged
+                ? 'ACKNOWLEDGED'
+                : 'NEEDS RESPONSE';
+
+        return Semantics(
+          container: true,
+          label: '${item.isSos ? 'SOS' : 'Alert'} care context',
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.5),
+                width: 1.4,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      height: 38,
+                      width: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        item.isSos ? AppIcons.sos : AppIcons.alert,
+                        size: 19,
+                        color: accent,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.isSos ? 'SOS EMERGENCY' : 'ACTIVE VITAL ALERT',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: accent,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  fontSize: 9.5,
+                                ),
+                          ),
+                          Text(
+                            item.title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (isOpen ? accent : AppColors.success)
+                            .withValues(alpha: 0.12),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
+                      ),
+                      child: Text(
+                        status,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: isOpen ? accent : AppColors.success,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 8.5,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (item.detail.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    item.detail,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  'Raised ${DateFormat.yMMMd().add_jm().format(item.createdAt)}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                        fontSize: 10,
+                      ),
+                ),
+                if (isOpen) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  if (!item.acknowledged) ...[
+                    AppButton(
+                      label: 'Acknowledge',
+                      icon: AppIcons.checkMark,
+                      variant: AppButtonVariant.secondary,
+                      expand: true,
+                      loading: _busy,
+                      onPressed: _busy ? null : () => _acknowledgeOnly(item),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  AppButton(
+                    label: item.isSos
+                        ? 'Continue emergency response'
+                        : 'Resolve alert',
+                    icon: item.isSos ? AppIcons.sos : AppIcons.check,
+                    variant: AppButtonVariant.danger,
+                    expand: true,
+                    loading: _busy,
+                    onPressed: _busy ? null : () => _continue(item),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

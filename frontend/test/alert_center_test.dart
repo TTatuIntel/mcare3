@@ -45,7 +45,11 @@ void main() {
         resolved: resolved,
       );
 
-  void seed(List<StaffPatient> patients, List<StaffAlert> alerts) {
+  void seed(
+    List<StaffPatient> patients,
+    List<StaffAlert> alerts, {
+    List<StaffPatientSos> sosEvents = const [],
+  }) {
     StaffState.instance.seedFromApi(
       patients: patients,
       alerts: alerts,
@@ -54,7 +58,7 @@ void main() {
       reports: const [],
       vitalRequests: const [],
       careRequests: const [],
-      sosEvents: const [],
+      sosEvents: sosEvents,
     );
   }
 
@@ -124,6 +128,36 @@ void main() {
         reason: 'an owned alert must not keep interrupting');
     expect(AlertCenter.instance.openQueue, hasLength(1),
         reason: 'acknowledging is not finishing — it stays visible');
+  });
+
+  test('SOS acknowledgement takes ownership without closing the emergency',
+      () async {
+    seed(
+      [patient('p1')],
+      const [],
+      sosEvents: [
+        StaffPatientSos(
+          id: 's1',
+          patientId: 'p1',
+          patientName: 'Patient p1',
+          kind: 'medical',
+          status: 'active',
+          triggeredAt: DateTime.now(),
+        ),
+      ],
+    );
+
+    final ok = await StaffState.instance.updateSosForCurrentRole(
+      's1',
+      status: 'acknowledged',
+    );
+
+    expect(ok, isTrue);
+    expect(StaffState.instance.patientSos.single.status, 'acknowledged');
+    expect(AlertCenter.instance.openQueue, hasLength(1),
+        reason: 'acknowledging is ownership, not emergency resolution');
+    expect(AlertCenter.instance.popQueue, isEmpty,
+        reason: 'an owned SOS must stop interrupting the responder');
   });
 
   test('resolving removes it entirely', () {

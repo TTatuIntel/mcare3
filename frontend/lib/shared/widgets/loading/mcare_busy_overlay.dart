@@ -1,4 +1,5 @@
-import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -7,159 +8,180 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import 'mcare_loading_mark.dart';
+import 'mcare_pulse.dart';
 
-/// On-screen "working on it" indicator.
+/// Full-screen mCare loading treatment for genuinely critical work.
 ///
-/// Appears over the content area — not inside the control the user pressed —
-/// whenever a user-initiated write ([AppBusy.isMutating]) outlives
-/// [AppMotion.loaderDelay]. Sign in, save, submit, delete: the button keeps
-/// its label and goes quiet, and this is what tells the user the app is busy.
+/// Visibility is a direct projection of [AppBusy.isBlocking]: there is no
+/// display delay and no minimum timer. Authentication, initialisation, and
+/// critical page preparation opt into that state; ordinary reads use the slim
+/// busy bar and small writes use their control's inline loading treatment.
 ///
-/// It absorbs input while visible, which also makes double-submits impossible.
-/// Background polling and ordinary screen reads never trigger it.
-///
-/// Mount once, around the app's `child` in `MaterialApp.builder`.
-class McareBusyOverlay extends StatefulWidget {
-  const McareBusyOverlay({
-    super.key,
-    required this.child,
-    this.delay = AppMotion.loaderDelay,
-    this.minVisible = AppMotion.loaderMinVisible,
-  });
+/// Mount once around the app's `child` in `MaterialApp.builder`.
+class McareBusyOverlay extends StatelessWidget {
+  const McareBusyOverlay({super.key, required this.child});
 
   final Widget child;
-  final Duration delay;
-  final Duration minVisible;
-
-  @override
-  State<McareBusyOverlay> createState() => _McareBusyOverlayState();
-}
-
-class _McareBusyOverlayState extends State<McareBusyOverlay> {
-  Timer? _showTimer;
-  Timer? _hideTimer;
-  bool _visible = false;
-  DateTime? _shownAt;
-
-  @override
-  void initState() {
-    super.initState();
-    AppBusy.instance.addListener(_onBusyChanged);
-    if (AppBusy.instance.isMutating) _scheduleShow();
-  }
-
-  @override
-  void dispose() {
-    AppBusy.instance.removeListener(_onBusyChanged);
-    _showTimer?.cancel();
-    _hideTimer?.cancel();
-    super.dispose();
-  }
-
-  void _onBusyChanged() {
-    if (!mounted) return;
-    if (AppBusy.instance.isMutating) {
-      _scheduleShow();
-    } else {
-      _scheduleHide();
-    }
-  }
-
-  void _scheduleShow() {
-    _hideTimer?.cancel();
-    _hideTimer = null;
-    if (_visible) return;
-    _showTimer?.cancel();
-    _showTimer = Timer(widget.delay, () {
-      if (!mounted || !AppBusy.instance.isMutating) return;
-      setState(() {
-        _visible = true;
-        _shownAt = DateTime.now();
-      });
-    });
-  }
-
-  void _scheduleHide() {
-    _showTimer?.cancel();
-    _showTimer = null;
-    if (!_visible) return;
-
-    final shownAt = _shownAt;
-    final elapsed =
-        shownAt == null ? widget.minVisible : DateTime.now().difference(shownAt);
-    final remaining = widget.minVisible - elapsed;
-
-    void hide() {
-      if (!mounted || AppBusy.instance.isMutating) return;
-      setState(() => _visible = false);
-    }
-
-    if (remaining <= Duration.zero) {
-      hide();
-      return;
-    }
-    _hideTimer?.cancel();
-    _hideTimer = Timer(remaining, hide);
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        widget.child,
-        if (_visible)
-          Positioned.fill(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: AppMotion.crossFade,
-              curve: AppMotion.easeOut,
-              builder: (context, t, child) => Opacity(opacity: t, child: child),
-              // Absorbs taps, so the user cannot fire the same action twice.
-              child: const _BusyScrim(),
+    return AnimatedBuilder(
+      animation: AppBusy.instance,
+      builder: (context, _) {
+        final blocking = AppBusy.instance.isBlocking;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            child,
+            Positioned.fill(
+              child: IgnorePointer(
+                // The outgoing visual may finish its fade, but interaction is
+                // restored the instant the real loading state finishes.
+                ignoring: !blocking,
+                child: AnimatedSwitcher(
+                  duration: AppMotion.crossFade,
+                  reverseDuration: AppMotion.crossFade,
+                  switchInCurve: AppMotion.easeOut,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: blocking
+                      ? _BusyScrim(
+                          key: const ValueKey('mcare-busy-active'),
+                          message: AppBusy.instance.blockingMessage,
+                        )
+                      : const SizedBox.expand(key: ValueKey('mcare-busy-idle')),
+                ),
+              ),
             ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
 
 class _BusyScrim extends StatelessWidget {
-  const _BusyScrim();
+  const _BusyScrim({super.key, this.message});
+
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return AbsorbPointer(
-      child: ColoredBox(
-        color: (dark ? AppColors.darkScaffoldBg : AppColors.scaffoldBg)
-            .withValues(alpha: 0.72),
-        child: Center(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: dark ? AppColors.darkSurface : AppColors.surface,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(
-                color: dark ? AppColors.darkBorder : AppColors.border,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: dark ? 0.42 : 0.10),
-                  blurRadius: 28,
-                  offset: const Offset(0, 10),
+    final status = message ?? 'Loading information…';
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = math.max(
+          136.0,
+          math.min(184.0, constraints.maxWidth - AppSpacing.huge),
+        );
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // The underlying page remains recognisable, preserving visual
+            // continuity while clearly marking it as temporarily unavailable.
+            ClipRect(
+              key: const ValueKey('mcare-busy-backdrop'),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+                child: ColoredBox(
+                  color: (dark ? Colors.black : Colors.white).withValues(
+                    alpha: dark ? 0.24 : 0.22,
+                  ),
                 ),
-              ],
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.xxl,
-                vertical: AppSpacing.xl,
               ),
-              child: McareLoadingMark(size: McareMarkSize.medium),
             ),
-          ),
-        ),
-      ),
+            Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.96, end: 1),
+                duration: AppMotion.itemEntry,
+                curve: AppMotion.easeOut,
+                builder: (context, scale, child) =>
+                    Transform.scale(scale: scale, child: child),
+                child: SizedBox(
+                  key: const ValueKey('mcare-busy-glass'),
+                  width: cardWidth,
+                  height: 142,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: dark ? 0.30 : 0.12,
+                          ),
+                          blurRadius: 30,
+                          spreadRadius: -6,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color:
+                                (dark
+                                        ? AppColors.darkSurface
+                                        : AppColors.surface)
+                                    .withValues(alpha: dark ? 0.72 : 0.70),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusXl,
+                            ),
+                            border: Border.all(
+                              color: (dark ? Colors.white : AppColors.surface)
+                                  .withValues(alpha: dark ? 0.18 : 0.86),
+                            ),
+                          ),
+                          child: Semantics(
+                            container: true,
+                            liveRegion: true,
+                            label: status,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const McareLoadingMark(
+                                  size: McareMarkSize.medium,
+                                  semanticLabel: null,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                const McarePulse(
+                                  size: McarePulseSize.small,
+                                  semanticLabel: null,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                  ),
+                                  child: Text(
+                                    status,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: AppPalette.ink(context),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

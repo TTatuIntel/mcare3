@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/async/app_busy.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/services/auth_service.dart';
 import '../shared/theme/app_colors.dart';
@@ -39,9 +40,13 @@ class _LoginViewState extends State<LoginView> {
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final result = await AuthService.instance.signInWithPassword(
-      identifier: _identifier.text.trim(),
-      password: _password.text,
+    final result = await AppBusy.instance.run(
+      () => AuthService.instance.signInWithPassword(
+        identifier: _identifier.text.trim(),
+        password: _password.text,
+      ),
+      blocking: true,
+      message: 'Signing you in…',
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -162,6 +167,7 @@ class _LoginViewState extends State<LoginView> {
             const SizedBox(height: AuthFormLayout.sectionGap),
             AppButton(
               label: 'Sign in',
+              loadingLabel: 'Signing in…',
               size: AuthFormLayout.buttonSize,
               loading: _loading,
               expand: true,

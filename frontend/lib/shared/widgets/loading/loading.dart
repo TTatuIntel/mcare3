@@ -2,7 +2,7 @@
 ///
 /// * [McareLoadingMark] — the wordmark + lifeline, the default indicator.
 /// * [McarePulse] — the lifeline alone, for very tight spaces.
-/// * [DelayedLoader] / [InlineBusy] — show an indicator only for real delays.
+/// * [DelayedLoader] / [InlineBusy] — state-synchronised local indicators.
 /// * [McareBusyOverlay] — on-screen indicator for user-initiated writes.
 /// * [AppBusyBar] — global top bar fed by in-flight API requests.
 /// * [McareEcgPath] — the shared lifeline geometry.

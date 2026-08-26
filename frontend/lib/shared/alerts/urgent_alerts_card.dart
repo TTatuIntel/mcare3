@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../doctors/alerts/doctor_alert_resolve_sheet.dart';
+import '../navigation/sos_navigation.dart';
 import '../state/staff_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -220,10 +221,19 @@ class _UrgentRowState extends State<_UrgentRow> {
     try {
       final ok = item.alert != null
           ? await StaffState.instance.acknowledgeAlert(item.alert!.id)
-          : await StaffState.instance
-              .resolveSos(item.sos!.id, status: 'acknowledged');
+          : await StaffState.instance.updateSosForCurrentRole(
+              item.sos!.id,
+              status: 'acknowledged',
+            );
       if (!mounted) return;
-      if (!ok) AppToast.error(context, 'Could not acknowledge — try again.');
+      if (ok) {
+        AppToast.success(
+          context,
+          'Acknowledged — this stays open until resolved.',
+        );
+      } else {
+        AppToast.error(context, 'Could not acknowledge — try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -236,10 +246,11 @@ class _UrgentRowState extends State<_UrgentRow> {
       if (item.alert != null) {
         await DoctorAlertResolveFlow.resolve(context, item.alert!);
       } else {
-        final ok = await StaffState.instance
-            .resolveSos(item.sos!.id, status: 'resolved');
-        if (!mounted) return;
-        if (ok) AppToast.success(context, 'Emergency closed.');
+        await SosNavigation.openRespond(
+          context,
+          patientId: item.patientId,
+          eventId: item.sos!.id,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -335,7 +346,7 @@ class _UrgentRowState extends State<_UrgentRow> {
                 icon: const Icon(AppIcons.checkMark, size: 17),
               ),
             IconButton(
-              tooltip: 'Resolve',
+              tooltip: item.isSos ? 'Respond to SOS' : 'Resolve',
               onPressed: _resolve,
               visualDensity: VisualDensity.compact,
               icon: Icon(AppIcons.check, size: 17, color: accent),

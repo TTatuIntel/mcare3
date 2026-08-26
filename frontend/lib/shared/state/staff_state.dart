@@ -1695,6 +1695,22 @@ class StaffState extends ChangeNotifier {
     );
   }
 
+  /// Updates an SOS through the API owned by the signed-in staff role.
+  ///
+  /// SOS surfaces are shared by doctors, admins, and assistants. Centralising
+  /// this switch prevents a shared action from accidentally calling the
+  /// doctor endpoint while an admin or assistant is signed in.
+  Future<bool> updateSosForCurrentRole(
+    String id, {
+    String status = 'resolved',
+  }) {
+    final role = AuthState.instance.user?.role;
+    if (role == UserRole.admin || role == UserRole.mcareAssistant) {
+      return adminResolveSos(id, status: status);
+    }
+    return resolveSos(id, status: status);
+  }
+
   /// Merges per-patient detail from `GET /doctor/patients/{id}`.
   void mergePatientDetail(String patientId, Map<String, dynamic> data) {
     final patientJson =

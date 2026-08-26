@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
+import '../core/async/app_busy.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/services/auth_service.dart';
 import '../shared/theme/app_colors.dart';
@@ -49,9 +50,7 @@ class RegisterView extends StatefulWidget {
               children: [
                 FadeTransition(
                   opacity: curved,
-                  child: ModalScrim(
-                    onTap: () => Navigator.of(ctx).pop(),
-                  ),
+                  child: ModalScrim(onTap: () => Navigator.of(ctx).pop()),
                 ),
                 SafeArea(
                   child: Align(
@@ -107,12 +106,16 @@ class _RegisterViewState extends State<RegisterView> {
     String? password,
   }) async {
     setState(() => _loading = true);
-    final result = await AuthService.instance.registerPatient(
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      phone: phone ?? '',
-      password: password ?? _password.text,
+    final result = await AppBusy.instance.run(
+      () => AuthService.instance.registerPatient(
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone ?? '',
+        password: password ?? _password.text,
+      ),
+      blocking: true,
+      message: 'Creating your account…',
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -156,7 +159,10 @@ class _RegisterViewState extends State<RegisterView> {
       AppToast.error(context, result.errorMessage ?? 'Google sign-up failed.');
       return;
     }
-    AppToast.success(context, 'Signed up with Google! Let\'s set up your profile.');
+    AppToast.success(
+      context,
+      'Signed up with Google! Let\'s set up your profile.',
+    );
     AuthService.instance.completeNavigation(context, result);
   }
 
@@ -178,7 +184,10 @@ class _RegisterViewState extends State<RegisterView> {
       AppToast.error(context, result.errorMessage ?? 'Apple sign-up failed.');
       return;
     }
-    AppToast.success(context, 'Signed up with Apple! Let\'s set up your profile.');
+    AppToast.success(
+      context,
+      'Signed up with Apple! Let\'s set up your profile.',
+    );
     AuthService.instance.completeNavigation(context, result);
   }
 
@@ -297,6 +306,7 @@ class _RegisterViewState extends State<RegisterView> {
           SizedBox(height: compact ? AppSpacing.sm : AppSpacing.lg),
           AppButton(
             label: compact ? 'Create account' : 'Create patient account',
+            loadingLabel: 'Creating your account…',
             size: btnSize,
             expand: true,
             loading: _loading,
@@ -319,7 +329,7 @@ class _RegisterViewState extends State<RegisterView> {
       subtitle: compact
           ? 'Track vitals, get alerts and stay connected.'
           : 'Track your vitals, get instant alerts and stay connected to your '
-              'care team — all in one place.',
+                'care team — all in one place.',
       footer: _footer(context, compact: compact),
       maxCardWidth: compact ? 380 : 460,
       child: compact
@@ -338,10 +348,7 @@ class _RegisterViewState extends State<RegisterView> {
 
     final viewInsets = MediaQuery.viewInsetsOf(context);
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final maxHeight = math.max(
-      320.0,
-      screenHeight * 0.90 - viewInsets.bottom,
-    );
+    final maxHeight = math.max(320.0, screenHeight * 0.90 - viewInsets.bottom);
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
@@ -522,8 +529,7 @@ class _ClinicianNoticeState extends State<_ClinicianNotice> {
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const TextSpan(
-                    text:
-                        'Your account is provisioned by your administrator. ',
+                    text: 'Your account is provisioned by your administrator. ',
                   ),
                   TextSpan(
                     text: 'Sign in here.',

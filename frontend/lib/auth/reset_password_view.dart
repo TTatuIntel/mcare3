@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/api/auth_api.dart';
+import '../core/async/app_busy.dart';
 import '../core/env/app_env.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/theme/app_spacing.dart';
@@ -93,15 +94,21 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
 
     setState(() => _loading = true);
     try {
-      if (AppEnv.backendEnabled) {
-        await AuthApi.instance.resetPassword(
-          email: email,
-          token: token,
-          password: _password.text,
-        );
-      } else {
-        await Future.delayed(const Duration(milliseconds: 600));
-      }
+      await AppBusy.instance.run(
+        () async {
+          if (AppEnv.backendEnabled) {
+            await AuthApi.instance.resetPassword(
+              email: email,
+              token: token,
+              password: _password.text,
+            );
+          } else {
+            await Future.delayed(const Duration(milliseconds: 600));
+          }
+        },
+        blocking: true,
+        message: 'Updating your password…',
+      );
       if (!mounted) return;
       setState(() => _done = true);
     } catch (_) {
@@ -169,6 +176,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
         const SizedBox(height: AppSpacing.xl),
         AppButton(
           label: 'Update password',
+          loadingLabel: 'Updating your password…',
           size: AppButtonSize.lg,
           expand: true,
           loading: _loading,
@@ -177,8 +185,8 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
         const SizedBox(height: AppSpacing.md),
         Center(
           child: TextButton(
-            onPressed: () => Navigator.of(context)
-                .pushReplacementNamed(RouteNames.login),
+            onPressed: () =>
+                Navigator.of(context).pushReplacementNamed(RouteNames.login),
             child: const Text('Back to sign in'),
           ),
         ),

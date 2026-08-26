@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api/auth_api.dart';
+import '../core/async/app_busy.dart';
 import '../core/env/app_env.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/theme/app_spacing.dart';
@@ -35,11 +36,17 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
     }
     setState(() => _loading = true);
     try {
-      if (AppEnv.backendEnabled) {
-        await AuthApi.instance.forgotPassword(_id.text.trim());
-      } else {
-        await Future.delayed(const Duration(milliseconds: 600));
-      }
+      await AppBusy.instance.run(
+        () async {
+          if (AppEnv.backendEnabled) {
+            await AuthApi.instance.forgotPassword(_id.text.trim());
+          } else {
+            await Future.delayed(const Duration(milliseconds: 600));
+          }
+        },
+        blocking: true,
+        message: 'Sending reset instructions…',
+      );
       if (!mounted) return;
       setState(() => _sent = true);
     } catch (_) {
@@ -75,6 +82,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
         const SizedBox(height: AppSpacing.lg),
         AppButton(
           label: 'Send reset link',
+          loadingLabel: 'Sending reset instructions…',
           size: AppButtonSize.lg,
           expand: true,
           loading: _loading,
