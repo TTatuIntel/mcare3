@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../async/app_busy.dart';
+import '../async/request_cache.dart';
 import '../env/app_env.dart';
 import 'api_error_messages.dart';
 
@@ -14,7 +15,12 @@ class ApiClient {
 
   String? _token;
 
-  void setToken(String? token) => _token = token;
+  void setToken(String? token) {
+    // Identity change: drop every cached response so one account's data can
+    // never be served to another.
+    if (_token != token) RequestCache.instance.clear();
+    _token = token;
+  }
   String? get token => _token;
 
   Map<String, String> get _headers => {
@@ -29,16 +35,37 @@ class ApiClient {
     return '$base$p';
   }
 
+  /// GET a JSON endpoint.
+  ///
+  /// Pass [cacheFor] to serve repeat reads of the same path from memory for
+  /// that long, and to collapse identical concurrent reads into one request.
+  /// Left null (the default) every call hits the network exactly as before —
+  /// caching never changes behaviour unless a caller opts in.
   Future<Map<String, dynamic>> get(
     String path, {
     bool allowWhenBackendDisabled = false,
+    Duration? cacheFor,
+    bool forceRefresh = false,
   }) async {
     if (!AppEnv.backendEnabled && !allowWhenBackendDisabled) {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
-    return _send(http
+
+    Future<Map<String, dynamic>> request() => _send(http
         .get(Uri.parse(_url(path)), headers: _headers)
         .timeout(AppEnv.apiTimeout));
+
+    if (cacheFor == null) return request();
+
+    // Keyed by token as well as path: a cached response must never leak
+    // across accounts if a different user signs in.
+    final key = 'GET $path#${_token?.hashCode ?? 0}';
+    return RequestCache.instance.read(
+      key,
+      request,
+      ttl: cacheFor,
+      forceRefresh: forceRefresh,
+    );
   }
 
   Future<Map<String, dynamic>> post(

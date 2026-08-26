@@ -99,6 +99,7 @@ import 'l10n/app_localizations.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_icons.dart';
+import 'core/async/request_cache.dart';
 import 'shared/widgets/app_error_fallback.dart';
 import 'shared/widgets/app_page_route.dart';
 import 'shared/widgets/bubble_background.dart';
@@ -120,6 +121,7 @@ Future<void> main() async {
   PushNotificationService.instance.init();
   // Role modules register logout cleanup here so shared/auth stays decoupled.
   AuthState.addLogoutCleanup(CriticalAlertPopup.reset);
+  AuthState.addLogoutCleanup(RequestCache.instance.clear);
   runApp(const McareApp());
 }
 

@@ -140,6 +140,8 @@ class _McareLoadingMarkState extends State<McareLoadingMark>
               color: accent,
               stroke: stroke,
               isStatic: _reduceMotion,
+              // The mark is never wide enough for the full-length trace.
+              compact: true,
             ),
           ),
         ),

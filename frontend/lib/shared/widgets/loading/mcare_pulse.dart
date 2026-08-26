@@ -87,6 +87,8 @@ class _McarePulseState extends State<McarePulse>
       color: color,
       stroke: widget.size.stroke,
       isStatic: _reduceMotion,
+      compact: widget.size == McarePulseSize.micro ||
+          widget.size == McarePulseSize.inline,
     );
 
     final canvas = SizedBox(
@@ -110,12 +112,16 @@ class McarePulsePainter extends CustomPainter {
     required this.color,
     required this.stroke,
     required this.isStatic,
+    this.compact = false,
   }) : super(repaint: progress);
 
   final Animation<double> progress;
   final Color color;
   final double stroke;
   final bool isStatic;
+
+  /// Use the compact waveform so the spike survives at small sizes.
+  final bool compact;
 
   /// Length of the bright comet as a fraction of the whole trace.
   static const double _cometFraction = 0.24;
@@ -127,7 +133,7 @@ class McarePulsePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
 
-    final path = McareEcgPath.build(size);
+    final path = McareEcgPath.build(size, compact: compact);
     final metrics = path.computeMetrics().toList();
     if (metrics.isEmpty) return;
     final metric = metrics.first;
@@ -194,5 +200,8 @@ class McarePulsePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant McarePulsePainter old) =>
-      old.color != color || old.stroke != stroke || old.isStatic != isStatic;
+      old.color != color ||
+      old.stroke != stroke ||
+      old.isStatic != isStatic ||
+      old.compact != compact;
 }

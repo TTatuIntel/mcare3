@@ -36,13 +36,38 @@ class McareEcgPath {
     Offset(108, 14),
   ];
 
+  /// Compact viewBox width. Same waveform, far less flat baseline, so the QRS
+  /// spike stays readable when the mark is only 20–40px wide.
+  static const double compactViewWidth = 60;
+
+  /// Control points for the compact trace, in compact-view units.
+  static const List<Offset> _compactPoints = <Offset>[
+    Offset(0, 14),
+    Offset(13, 14),
+    Offset(15, 12), // P wave
+    Offset(17, 14),
+    Offset(23, 14),
+    Offset(25, 17), // Q
+    Offset(29, 2), // R
+    Offset(33, 22), // S
+    Offset(35, 14),
+    Offset(41, 14),
+    Offset(60, 14),
+  ];
+
   /// Builds the lifeline scaled proportionally into [size].
-  static Path build(Size size) {
-    final sx = size.width / viewWidth;
+  ///
+  /// Set [compact] for small indicators: the full logo path is 118 units wide
+  /// with the QRS complex spanning only ~9 of them, so below roughly 40px the
+  /// spike collapses into the baseline and the mark stops reading as a
+  /// heartbeat. The compact trace keeps the same waveform in 60 units.
+  static Path build(Size size, {bool compact = false}) {
+    final points = compact ? _compactPoints : _points;
+    final sx = size.width / (compact ? compactViewWidth : viewWidth);
     final sy = size.height / viewHeight;
-    final path = Path()..moveTo(_points.first.dx * sx, _points.first.dy * sy);
-    for (var i = 1; i < _points.length; i++) {
-      path.lineTo(_points[i].dx * sx, _points[i].dy * sy);
+    final path = Path()..moveTo(points.first.dx * sx, points.first.dy * sy);
+    for (var i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx * sx, points[i].dy * sy);
     }
     return path;
   }

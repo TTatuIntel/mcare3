@@ -10,8 +10,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
 import 'document_pdf_view_stub.dart'
-import 'loading/loading.dart';
     if (dart.library.html) 'document_pdf_view_web.dart' as pdf_view;
+import 'loading/loading.dart';
 
 /// In-app preview for PDFs and images — authenticated, no public storage URL.
 class DocumentPreviewPanel extends StatefulWidget {
