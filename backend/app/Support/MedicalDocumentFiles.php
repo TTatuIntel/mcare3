@@ -39,7 +39,7 @@ class MedicalDocumentFiles
     public static function storeUploadedFile(Request $request, int $ownerUserId): array
     {
         $f = $request->file('file');
-        $path = $f->store('documents/'.$ownerUserId, 'public');
+        $path = $f->store('documents/'.$ownerUserId, self::privateDiskName());
 
         return ['path' => $path, 'size' => $f->getSize()];
     }
@@ -47,7 +47,11 @@ class MedicalDocumentFiles
     public static function deleteStoredFile(?string $path): void
     {
         if ($path) {
-            Storage::disk('public')->delete($path);
+            Storage::disk(self::privateDiskName())->delete($path);
+            // Compatibility cleanup for files created before private storage.
+            if (self::privateDiskName() !== 'public') {
+                Storage::disk('public')->delete($path);
+            }
         }
     }
 
@@ -61,7 +65,7 @@ class MedicalDocumentFiles
             ], 404);
         }
 
-        if (! Storage::disk('public')->exists($document->storage_path)) {
+        if (! self::exists($document->storage_path)) {
             return response()->json([
                 'success' => false,
                 'data' => null,
@@ -74,7 +78,7 @@ class MedicalDocumentFiles
 
     public static function stream(MedicalDocument $document): StreamedResponse
     {
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(self::diskContaining($document->storage_path));
 
         $mime = $disk->mimeType($document->storage_path) ?: 'application/octet-stream';
         $filename = basename($document->storage_path);
@@ -116,7 +120,7 @@ class MedicalDocumentFiles
         return database_path('fixtures/sample-medical-document.pdf');
     }
 
-    /** Copy demo fixture into public storage for seed/repair flows. */
+    /** Copy a demo fixture into the configured private storage disk. */
     public static function storeFixtureCopy(
         int $ownerUserId,
         string $title,
@@ -130,7 +134,7 @@ class MedicalDocumentFiles
 
         $slug = Str::slug(Str::limit($title, 40, '')) ?: 'document';
         $relative = 'documents/'.$ownerUserId.'/'.$slug.'-'.Str::random(8).'.'.$ext;
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(self::privateDiskName());
 
         if ($ext === 'pdf') {
             $source = self::fixturePath();
@@ -146,5 +150,29 @@ class MedicalDocumentFiles
         }
 
         return ['path' => $relative, 'size' => $disk->size($relative)];
+    }
+
+    public static function privateDiskName(): string
+    {
+        return (string) config('mcare.private_disk', 'local');
+    }
+
+    public static function exists(?string $path): bool
+    {
+        if (! $path) {
+            return false;
+        }
+
+        return Storage::disk(self::privateDiskName())->exists($path)
+            || (self::privateDiskName() !== 'public' && Storage::disk('public')->exists($path));
+    }
+
+    public static function diskContaining(string $path): string
+    {
+        if (Storage::disk(self::privateDiskName())->exists($path)) {
+            return self::privateDiskName();
+        }
+
+        return 'public';
     }
 }

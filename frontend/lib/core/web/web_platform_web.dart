@@ -13,6 +13,13 @@ void localStorageSet(String key, String value) =>
 
 void localStorageRemove(String key) => web.window.localStorage.removeItem(key);
 
+String? sessionStorageGet(String key) => web.window.sessionStorage.getItem(key);
+
+void sessionStorageSet(String key, String value) =>
+    web.window.sessionStorage.setItem(key, value);
+
+void sessionStorageRemove(String key) => web.window.sessionStorage.removeItem(key);
+
 web.AudioContext? _audioContext;
 web.OscillatorNode? _oscillator;
 

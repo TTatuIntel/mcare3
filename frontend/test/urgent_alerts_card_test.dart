@@ -394,8 +394,61 @@ void main() {
     expect(find.text('Care requests'), findsOneWidget);
     expect(find.text('5'), findsOneWidget);
 
-    // No board behind a quiet note — there is nothing to expand into.
-    expect(find.byTooltip('Show all 2'), findsNothing);
+    // The dropdown remains useful while the queue is clear: it opens the
+    // bounded overview behind the rotating line instead of disappearing.
+    expect(find.byTooltip('Show dashboard overview'), findsOneWidget);
+    await tester.tap(find.byTooltip('Show dashboard overview'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byTooltip('Collapse'), findsOneWidget);
+    expect(find.text('Nothing urgent outstanding'), findsWidgets);
+    expect(find.text('Care requests'), findsWidgets);
+
+    await unmount(tester);
+  });
+
+  testWidgets('quiet statistics rotate in the same footprint without a card', (
+    tester,
+  ) async {
+    seed(const []);
+    await pumpCard(
+      tester,
+      quiet: const [
+        QuietNote(
+          title: 'Operations overview',
+          detail: '3 open work items in your scope',
+          icon: Icons.insights_rounded,
+          accent: Color(0xFF6750A4),
+        ),
+        QuietNote(
+          title: 'People on mCare',
+          detail: '18 active patients · 26 registered users',
+          icon: Icons.groups_2_rounded,
+          accent: Color(0xFF3B82F6),
+        ),
+      ],
+    );
+    final height = tester.getSize(find.byType(UrgentAlertsCard)).height;
+
+    expect(find.text('1/3'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(UrgentAlertsCard),
+        matching: find.byType(GlassCard),
+      ),
+      findsNothing,
+    );
+
+    await nextTurn(tester);
+    expect(find.text('Operations overview'), findsOneWidget);
+    expect(find.text('2/3'), findsOneWidget);
+    expect(tester.getSize(find.byType(UrgentAlertsCard)).height, height);
+
+    await nextTurn(tester);
+    expect(find.text('People on mCare'), findsOneWidget);
+    expect(find.text('3/3'), findsOneWidget);
+    expect(tester.getSize(find.byType(UrgentAlertsCard)).height, height);
 
     await unmount(tester);
   });

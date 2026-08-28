@@ -16,12 +16,19 @@ class GoogleOAuth
         return (string) config('services.google.redirect_uri');
     }
 
-    public static function buildAuthorizeUrl(string $returnTo, bool $createAccount): string
+    public static function buildAuthorizeUrl(
+        string $returnTo,
+        bool $createAccount,
+        bool $remember = false,
+        ?string $deviceName = null,
+    ): string
     {
         $state = Str::random(48);
         Cache::put("google_oauth:{$state}", [
             'return_to' => $returnTo,
             'create_account' => $createAccount,
+            'remember' => $remember,
+            'device_name' => $deviceName,
         ], now()->addMinutes(10));
 
         $query = http_build_query([

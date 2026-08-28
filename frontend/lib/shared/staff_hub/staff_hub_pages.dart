@@ -50,6 +50,7 @@ class StaffHubHomePage extends StatelessWidget {
         // rather than holding the top of the screen to report an absence.
         UrgentAlertsCard(
           quiet: [
+            // Actionable work gets the first turns after the all-clear state.
             for (final item in snapshot.workItems.where((i) => i.count > 0))
               QuietNote(
                 title: item.title,
@@ -59,6 +60,46 @@ class StaffHubHomePage extends StatelessWidget {
                 count: item.count,
                 onTap: () => openRoute(item.route),
               ),
+            // Then the same full-width stage becomes a compact operational
+            // pulse. These are derived from the signed-in role's existing
+            // snapshot, so delegated assistants never see undelegated data.
+            QuietNote(
+              title: 'Operations overview',
+              detail: snapshot.openWorkCount == 0
+                  ? 'No open work in your current scope'
+                  : '${snapshot.openWorkCount} open work ${snapshot.openWorkCount == 1 ? 'item' : 'items'} in your scope',
+              icon: AppIcons.analytics,
+              accent: role.accent,
+              onTap: () => openSection(StaffHubSection.work),
+            ),
+            if (snapshot.totalUsers > 0)
+              QuietNote(
+                title: 'People on mCare',
+                detail:
+                    '${snapshot.activePatients} active patients · ${snapshot.totalUsers} registered users',
+                icon: AppIcons.patients,
+                accent: AppColors.info,
+                onTap: snapshot.peopleLinks.isEmpty
+                    ? null
+                    : () => openSection(StaffHubSection.people),
+              ),
+            if (snapshot.role == UserRole.admin && snapshot.activeStaff > 0)
+              QuietNote(
+                title: 'Care team',
+                detail:
+                    '${snapshot.activeStaff} active staff · ${snapshot.doctorsCount} doctors · ${snapshot.assistantsCount} assistants',
+                icon: AppIcons.careTeam,
+                accent: AppColors.adminPurple,
+                onTap: () => openSection(StaffHubSection.people),
+              ),
+            QuietNote(
+              title: 'Application access',
+              detail:
+                  '${snapshot.peopleLinks.length} people tools · ${snapshot.moreLinks.length} platform tools available',
+              icon: AppIcons.system,
+              accent: AppColors.tempTeal,
+              onTap: () => openSection(StaffHubSection.more),
+            ),
           ],
         ),
         const StaffHubSectionHeading(

@@ -81,6 +81,8 @@ GoogleRedirectAuthResult? tryConsumeRedirectAuth() {
       token: data['token'] as String?,
       user: user is Map ? Map<String, dynamic>.from(user) : null,
       hasHealthProfile: data['has_health_profile'] == true,
+      remember: data['remember'] == true,
+      expiresAt: DateTime.tryParse(data['expires_at']?.toString() ?? ''),
     );
   } catch (_) {
     _clearUrlHash();
@@ -179,6 +181,8 @@ Future<String?> promptGoogleIdToken(
 Future<void> beginRedirectSignIn({
   required String apiBaseUrl,
   required bool createAccount,
+  required bool remember,
+  required String deviceName,
 }) async {
   _normalizeOriginIfNeeded();
 
@@ -199,7 +203,9 @@ Future<void> beginRedirectSignIn({
       final url =
           '$base/auth/google/redirect?'
           'return_to=${Uri.encodeComponent(returnTo)}'
-          '&create_account=${createAccount ? 1 : 0}';
+          '&create_account=${createAccount ? 1 : 0}'
+          '&remember=${remember ? 1 : 0}'
+          '&device_name=${Uri.encodeQueryComponent(deviceName)}';
       web.window.location.href = url;
     },
     onCancel: finish,

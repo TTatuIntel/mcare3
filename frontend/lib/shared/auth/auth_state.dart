@@ -130,6 +130,8 @@ class AuthState extends ChangeNotifier {
       token: activeToken,
       user: userMap,
       hasHealthProfile: stored?.hasHealthProfile ?? false,
+      remember: stored?.remember ?? false,
+      expiresAt: stored?.expiresAt,
     );
   }
 

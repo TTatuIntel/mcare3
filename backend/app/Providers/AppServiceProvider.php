@@ -41,11 +41,23 @@ class AppServiceProvider extends ServiceProvider
         // Auth: 5/min/IP AND 5/15min per submitted email pair.
         // Two Limit objects → both must pass.
         RateLimiter::for('auth-login', function (Request $request) {
-            $email = (string) $request->input('email', '');
+            $identifier = strtolower(trim((string) $request->input(
+                'identifier',
+                $request->input('email', ''),
+            )));
 
             return [
                 Limit::perMinute(5)->by('ip:'.$request->ip()),
-                Limit::perMinutes(15, 5)->by('email:'.strtolower($email)),
+                Limit::perMinutes(15, 5)->by('identity:'.hash('sha256', $identifier)),
+            ];
+        });
+
+        RateLimiter::for('auth-otp', function (Request $request) {
+            $identifier = strtolower(trim((string) $request->input('identifier', '')));
+
+            return [
+                Limit::perMinute(6)->by('otp-ip:'.$request->ip()),
+                Limit::perMinutes(15, 6)->by('otp-identity:'.hash('sha256', $identifier)),
             ];
         });
 

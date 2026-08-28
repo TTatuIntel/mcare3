@@ -5,6 +5,7 @@ import '../core/api/auth_api.dart';
 import '../core/async/app_busy.dart';
 import '../core/env/app_env.dart';
 import '../shared/auth/auth_state.dart';
+import '../shared/services/auth_service.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_spacing.dart';
@@ -72,7 +73,11 @@ class _OtpViewState extends State<OtpView> {
               code: _code,
               purpose: widget.isEmail ? 'email_verify' : 'login',
             );
-            return data != null && data['token'] != null;
+            if (data == null) return false;
+            final result = await AuthService.instance.completeOtpPayload(data);
+            if (!result.isSuccess) return false;
+            if (mounted) AuthService.instance.completeNavigation(context, result);
+            return true;
           } else {
             await Future.delayed(const Duration(milliseconds: 600));
             return true;
@@ -84,9 +89,12 @@ class _OtpViewState extends State<OtpView> {
       if (!mounted) return;
       if (verifiedByApi) {
         AppToast.success(context, 'Verified.');
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil(RouteNames.patientDashboard, (_) => false);
+        if (!AppEnv.backendEnabled) {
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            RouteNames.patientDashboard,
+            (_) => false,
+          );
+        }
         return;
       }
     } catch (_) {
@@ -154,10 +162,22 @@ class _OtpViewState extends State<OtpView> {
             child: TextButton(
               onPressed: _resendIn > 0
                   ? null
-                  : () {
+                  : () async {
                       setState(() => _resendIn = 30);
                       _tick();
-                      AppToast.info(context, 'Code resent.');
+                      try {
+                        final user = AuthState.instance.user;
+                        await AuthApi.instance.resendOtp(
+                          identifier: user?.email ?? '',
+                        );
+                        if (context.mounted) {
+                          AppToast.info(context, 'Verification code resent.');
+                        }
+                      } catch (_) {
+                        if (context.mounted) {
+                          AppToast.error(context, 'Could not resend the code.');
+                        }
+                      }
                     },
               child: Text(
                 _resendIn > 0 ? 'Resend code in ${_resendIn}s' : 'Resend code',

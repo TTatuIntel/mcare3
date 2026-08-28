@@ -44,6 +44,7 @@ class _LoginViewState extends State<LoginView> {
       () => AuthService.instance.signInWithPassword(
         identifier: _identifier.text.trim(),
         password: _password.text,
+        remember: _remember,
       ),
       blocking: true,
       message: 'Signing you in…',
@@ -70,6 +71,7 @@ class _LoginViewState extends State<LoginView> {
   final result = await AuthService.instance.signInWithGoogle(
       context: context,
       createAccount: false,
+      remember: _remember,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -87,6 +89,7 @@ class _LoginViewState extends State<LoginView> {
     final result = await AuthService.instance.signInWithApple(
       context: context,
       createAccount: false,
+      remember: _remember,
     );
     if (!mounted) return;
     setState(() => _loading = false);

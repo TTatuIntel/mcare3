@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/settings_api.dart';
 import '../../core/env/app_env.dart';
+import '../../core/push/push_notification_service.dart';
 import '../../l10n/app_language.dart';
 import '../models/patient_profile.dart';
 import '../services/settings_storage.dart';
@@ -125,6 +126,9 @@ class SettingsState extends ChangeNotifier {
       _loaded = true;
       notifyListeners();
       _cacheLocal();
+      await PushNotificationService.instance.setEnabled(
+        _notifications.pushEnabled,
+      );
     } catch (_) {
       // Non-fatal — keep whatever local/default settings are already applied.
     }
@@ -261,6 +265,11 @@ class SettingsState extends ChangeNotifier {
 
   void _persist() {
     _cacheLocal();
+    unawaited(
+      PushNotificationService.instance.setEnabled(
+        _notifications.pushEnabled,
+      ),
+    );
     if (AppEnv.backendEnabled) {
       unawaited(SettingsApi.instance.save(_remotePayload()));
     }

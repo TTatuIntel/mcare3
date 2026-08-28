@@ -15,7 +15,15 @@ class CareController extends Controller
     public function providers()
     {
         return $this->success([
-            'providers' => CareProvider::orderBy('name')->get()->map->toApiArray()->all(),
+            'providers' => CareProvider::query()
+                ->whereHas('user', fn ($query) => $query
+                    ->where('role', 'doctor')
+                    ->where('approval_status', 'active')
+                    ->whereNotNull('email_verified_at'))
+                ->orderBy('name')
+                ->get()
+                ->map->toApiArray()
+                ->all(),
         ]);
     }
 
@@ -26,6 +34,13 @@ class CareController extends Controller
             'reason' => 'nullable|string|max:200',
         ]);
         $provider = CareProvider::findOrFail($data['provider_id']);
+        if (! $provider->user()
+            ->where('role', 'doctor')
+            ->where('approval_status', 'active')
+            ->whereNotNull('email_verified_at')
+            ->exists()) {
+            return $this->error('That care provider is not currently available.', 422);
+        }
         $req = $request->user()->careRequests()->create([
             'provider_id' => $provider->id,
             'provider_name' => $provider->name,

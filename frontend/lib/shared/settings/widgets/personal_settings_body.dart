@@ -9,6 +9,7 @@ import '../../widgets/app_page_route.dart';
 import '../../widgets/patient_page_blocks.dart';
 import '../../widgets/section_label.dart';
 import 'appearance_settings_section.dart';
+import 'account_security_settings_section.dart';
 import 'notification_settings_section.dart';
 import 'settings_hero.dart';
 import 'settings_quick_actions.dart';
@@ -183,6 +184,16 @@ class PersonalSettingsBody extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _wrap(8, privacySection!),
         ],
+        const SizedBox(height: AppSpacing.md),
+        _wrap(
+          9,
+          const SectionLabel(
+            title: 'Account security',
+            icon: AppIcons.lock,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _wrap(10, const AccountSecuritySettingsSection()),
         ...trailingSections,
         SizedBox(height: bottomSpacing),
       ],

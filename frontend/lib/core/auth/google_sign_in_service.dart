@@ -89,7 +89,11 @@ class GoogleSignInService {
   }
 
   /// Full-page OAuth via Laravel when GSI is unavailable.
-  Future<void> beginRedirectSignIn({required bool createAccount}) async {
+  Future<void> beginRedirectSignIn({
+    required bool createAccount,
+    required bool remember,
+    required String deviceName,
+  }) async {
     if (!isConfigured) {
       throw StateError(
         'Google client ID missing. Set MCARE_GOOGLE_CLIENT_ID in dart-define.',
@@ -103,6 +107,8 @@ class GoogleSignInService {
     await platform.beginRedirectSignIn(
       apiBaseUrl: AppEnv.apiBaseUrl,
       createAccount: createAccount,
+      remember: remember,
+      deviceName: deviceName,
     );
   }
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CareAssignment;
 use App\Models\FcmToken;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -11,15 +12,14 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Delivers Firebase Cloud Messaging pushes. Supports:
- * - Legacy server key (FCM_SERVER_KEY) for quick local setup
- * - HTTP v1 via service-account JSON (FCM_SERVICE_ACCOUNT_PATH)
+ * Uses Firebase HTTP v1 with a service account. The retired legacy server-key
+ * API is deliberately not treated as configured.
  */
 class FcmPushService
 {
     public static function isConfigured(): bool
     {
-        return filled(config('services.fcm.server_key'))
-            || self::serviceAccount() !== null;
+        return self::isV1Configured();
     }
 
     public static function isV1Configured(): bool
@@ -38,7 +38,13 @@ class FcmPushService
         array $data = [],
         string $priority = 'high',
     ): void {
-        if (! self::isConfigured() || $userIds === []) {
+        if (! self::isConfigured() || $userIds === [] || ! self::platformPushEnabled()) {
+            return;
+        }
+
+        $kind = (string) ($data['kind'] ?? 'general');
+        $userIds = self::pushEligibleUserIds($userIds, $kind);
+        if ($userIds === []) {
             return;
         }
 
@@ -74,19 +80,49 @@ class FcmPushService
             ->map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v))
             ->all();
 
-        if (self::serviceAccount() !== null) {
-            foreach (array_chunk($tokens, 500) as $chunk) {
-                foreach ($chunk as $token) {
-                    self::sendV1($token, $title, $body, $data, $priority);
-                }
+        foreach (array_chunk($tokens, 500) as $chunk) {
+            foreach ($chunk as $token) {
+                self::sendV1($token, $title, $body, $data, $priority);
             }
-
-            return;
         }
+    }
 
-        foreach (array_chunk($tokens, 1000) as $chunk) {
-            self::sendLegacy($chunk, $title, $body, $data, $priority);
-        }
+    /** @param list<int|string> $userIds @return list<int> */
+    public static function pushEligibleUserIds(array $userIds, string $kind): array
+    {
+        $preferenceKey = match ($kind) {
+            'alert', 'vital_critical', 'sos', 'sos_resolved' => 'vitalAlerts',
+            'appointment' => 'appointmentReminders',
+            'medication', 'medication_reminder' => 'medicationReminders',
+            'message' => 'messages',
+            'report', 'report_ready' => 'reports',
+            default => null,
+        };
+
+        return User::query()
+            ->with('settings:user_id,payload')
+            ->whereIn('id', $userIds)
+            ->get(['id'])
+            ->filter(function (User $user) use ($preferenceKey) {
+                $notifications = (array) data_get($user->settings?->payload, 'notifications', []);
+                if (($notifications['pushEnabled'] ?? true) !== true) {
+                    return false;
+                }
+
+                return $preferenceKey === null
+                    || ($notifications[$preferenceKey] ?? true) === true;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    private static function platformPushEnabled(): bool
+    {
+        $setting = SystemSetting::query()->where('key', 'push_notifications')->value('value');
+
+        return $setting === null || (bool) $setting;
     }
 
     /**
@@ -116,47 +152,6 @@ class FcmPushService
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
-    }
-
-    /**
-     * @param  list<string>  $tokens
-     */
-    private static function sendLegacy(
-        array $tokens,
-        string $title,
-        string $body,
-        array $data,
-        string $priority,
-    ): void {
-        $key = config('services.fcm.server_key');
-        if (! $key) {
-            return;
-        }
-
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'key='.$key,
-                'Content-Type' => 'application/json',
-            ])->post('https://fcm.googleapis.com/fcm/send', [
-                'registration_ids' => $tokens,
-                'priority' => $priority,
-                'notification' => [
-                    'title' => $title,
-                    'body' => $body,
-                    'sound' => 'default',
-                ],
-                'data' => $data,
-            ]);
-
-            if (! $response->successful()) {
-                Log::warning('FCM legacy push failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('FCM legacy push error', ['message' => $e->getMessage()]);
-        }
     }
 
     private static function sendV1(

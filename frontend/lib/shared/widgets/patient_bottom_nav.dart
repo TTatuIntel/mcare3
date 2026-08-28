@@ -229,12 +229,7 @@ class PatientSideRail extends StatelessWidget {
                       size: 32,
                       semanticLabel: 'mCare',
                     )
-                  : const BrandLogo(
-                      height: BrandLogo.railHeight,
-                      tappable: true,
-                      animateHeartbeat: false,
-                      showLifeline: false,
-                    ),
+                  : const BrandLogo(height: BrandLogo.railHeight),
             ),
             const SizedBox(height: AppSpacing.sm),
             ...PatientBottomNav.destinations.map(

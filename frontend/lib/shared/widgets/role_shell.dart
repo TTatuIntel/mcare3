@@ -556,11 +556,7 @@ class _SideRail extends StatelessWidget {
                       size: 32,
                       semanticLabel: 'mCare',
                     )
-                  : const BrandLogo(
-                      height: BrandLogo.railHeight,
-                      animateHeartbeat: false,
-                      showLifeline: false,
-                    ),
+                  : const BrandLogo(height: BrandLogo.railHeight),
             ),
             if (user != null && !compact) _RoleBadge(role: user.role),
             const SizedBox(height: AppSpacing.lg),

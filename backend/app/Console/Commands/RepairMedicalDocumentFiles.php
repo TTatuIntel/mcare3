@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Models\MedicalDocument;
 use App\Support\MedicalDocumentFiles;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 
 class RepairMedicalDocumentFiles extends Command
 {
@@ -15,12 +14,11 @@ class RepairMedicalDocumentFiles extends Command
 
     public function handle(): int
     {
-        $disk = Storage::disk('public');
         $repaired = 0;
 
         foreach (MedicalDocument::query()->orderBy('id')->cursor() as $document) {
             $missing = ! $document->storage_path;
-            $orphaned = $document->storage_path && ! $disk->exists($document->storage_path);
+            $orphaned = $document->storage_path && ! MedicalDocumentFiles::exists($document->storage_path);
 
             if (! $missing && ! $orphaned) {
                 continue;

@@ -151,6 +151,7 @@ class _RegisterViewState extends State<RegisterView> {
     final result = await AuthService.instance.signInWithGoogle(
       context: context,
       createAccount: true,
+      remember: true,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -176,6 +177,7 @@ class _RegisterViewState extends State<RegisterView> {
     final result = await AuthService.instance.signInWithApple(
       context: context,
       createAccount: true,
+      remember: true,
     );
     if (!mounted) return;
     setState(() => _loading = false);

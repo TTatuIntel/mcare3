@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -195,6 +196,24 @@ class User extends Authenticatable
     public function careAssignments(): HasMany
     {
         return $this->hasMany(CareAssignment::class, 'patient_user_id');
+    }
+
+    public function providerProfile(): HasOne
+    {
+        return $this->hasOne(CareProvider::class);
+    }
+
+    /** Assignments this clinician owns through their provider profile. */
+    public function providerAssignments(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            CareAssignment::class,
+            CareProvider::class,
+            'user_id',
+            'provider_id',
+            'id',
+            'id',
+        );
     }
 
     public function vitalReportRequests(): HasMany

@@ -132,8 +132,12 @@ class GoogleAccountPickerSheet {
         Navigator.of(context).pop(MockGoogleAccount.fromCredentials(creds));
         return;
       }
+      // Only reached with the backend disabled: there is no server to record
+      // a device against and nothing to remember past the demo session.
       await GoogleSignInService.instance.beginRedirectSignIn(
         createAccount: createAccount,
+        remember: false,
+        deviceName: 'mCare demo',
       );
     } catch (e) {
       if (!context.mounted) return;

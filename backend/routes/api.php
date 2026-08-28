@@ -70,6 +70,7 @@ Route::prefix('auth')->group(function () {
         Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
         Route::post('accept-invite', [AuthController::class, 'acceptInvite']);
     });
+    Route::post('resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:auth-otp');
     Route::post('google', [AuthController::class, 'google'])->middleware('throttle:20,1');
     Route::get('google/redirect', [AuthController::class, 'googleRedirect']);
     Route::get('google/callback', [AuthController::class, 'googleCallback']);
@@ -78,6 +79,9 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
+        Route::get('sessions', [AuthController::class, 'sessions']);
+        Route::delete('sessions/{tokenId}', [AuthController::class, 'revokeSession']);
+        Route::post('logout-other-sessions', [AuthController::class, 'logoutOtherSessions']);
         Route::post('change-password', [AuthController::class, 'changePassword']);
         Route::post('change-email', [AuthController::class, 'changeEmail']);
         Route::put('profile', [AuthController::class, 'updateProfile']);
@@ -103,7 +107,7 @@ Route::prefix('external')->group(function () {
 });
 
 // README §6.5: general authenticated API — 120/min/user (named `api-general`).
-Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general'])->group(function () {
+Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:api-general'])->group(function () {
     Route::post('fcm-tokens', [FcmTokenController::class, 'store']);
     Route::delete('fcm-tokens', [FcmTokenController::class, 'destroy']);
 
@@ -117,7 +121,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general'])->g
     Route::post('me/notification-states/read-all', [StaffNotificationStateController::class, 'readAll']);
 });
 
-Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general', 'role:patient'])->prefix('patient')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:api-general', 'role:patient'])->prefix('patient')->group(function () {
     Route::get('session', [PatientSessionController::class, 'show']);
 
     Route::get('profile', [PatientProfileController::class, 'show']);
@@ -181,7 +185,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general', 'ro
 
 });
 
-Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general', 'role:doctor'])->prefix('doctor')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:api-general', 'role:doctor'])->prefix('doctor')->group(function () {
     Route::get('session', [DoctorSessionController::class, 'show']);
 
     Route::get('patients/{patient}', [DoctorPatientController::class, 'show']);
@@ -251,7 +255,7 @@ Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general', 'ro
     Route::post('conversations/{conversation}/read', [DoctorMessagesController::class, 'markRead']);
 });
 
-Route::middleware(['auth:sanctum', 'account.active', 'throttle:api-general', 'role:admin,mcare_assistant'])->prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:api-general', 'role:admin,mcare_assistant'])->prefix('admin')->group(function () {
     Route::get('session', [AdminSessionController::class, 'show']);
 
     // System-wide vital alerts

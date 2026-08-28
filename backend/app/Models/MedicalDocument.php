@@ -45,7 +45,7 @@ class MedicalDocument extends Model
     public function toApiArray(): array
     {
         $hasFile = $this->storage_path
-            && Storage::disk('public')->exists($this->storage_path);
+            && \App\Support\MedicalDocumentFiles::exists($this->storage_path);
 
         return [
             'id' => (string) $this->id,

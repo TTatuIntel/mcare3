@@ -51,6 +51,9 @@ class _ForceChangePasswordViewState extends State<ForceChangePasswordView> {
       token: stored.token,
       user: userMap,
       hasHealthProfile: stored.hasHealthProfile,
+      // Changing a password is not a place to quietly change how long the
+      // session lasts — keep whatever the user chose when they signed in.
+      remember: stored.remember,
     );
   }
 

@@ -97,10 +97,14 @@ class PatientSessionService {
       );
       final token = ApiClient.instance.token;
       if (token != null) {
+        // Re-saving after a profile edit must not silently promote a
+        // browser-session login into a remembered one.
+        final stored = await AuthStorage.read();
         await AuthStorage.save(
           token: token,
           user: userMap,
           hasHealthProfile: ProfileState.instance.health != null,
+          remember: stored?.remember ?? false,
         );
       }
     }

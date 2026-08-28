@@ -44,6 +44,13 @@ class PatientExternalAccessController extends Controller
 
         $user = $request->user();
 
+        if (data_get($user->settings?->payload, 'privacy_allow_external_access') === false) {
+            return $this->error(
+                'External doctor access is disabled in your privacy settings.',
+                403,
+            );
+        }
+
         // Cap concurrent active links so a lost phone can't mint unlimited access.
         $active = ExternalAccessToken::query()
             ->where('patient_user_id', $user->id)

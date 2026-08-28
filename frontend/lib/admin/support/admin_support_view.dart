@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/admin_api.dart';
+import '../../core/api/staff_mapper.dart';
+import '../../core/env/app_env.dart';
 import '../../core/api/patient_domain_mapper.dart';
 import '../../shared/account/account_preferences_list.dart';
 import '../../shared/auth/auth_state.dart';
@@ -70,6 +72,37 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
       SupportState.instance.seed(tickets);
     } catch (_) {
       // Cached tickets from login sync remain visible.
+    }
+    await _ensureStaffDirectory();
+  }
+
+  /// Load the staff directory if this session has not already.
+  ///
+  /// Assigning a ticket needs the roster, and the roster only ever arrived
+  /// from the Users screen — the admin session payload does not carry it. Open
+  /// Support straight from the dashboard and the assignee menu had nobody in
+  /// it to choose, so a ticket could be read but never handed to anyone.
+  ///
+  /// Fetched once and only while empty, so the thirty-second ticket poll does
+  /// not turn into a second request; a failure leaves the queue working, since
+  /// reading tickets must never depend on the directory answering.
+  Future<void> _ensureStaffDirectory() async {
+    if (!AppEnv.backendEnabled) return;
+    if (StaffState.instance.users.isNotEmpty) return;
+    try {
+      final data = await AdminApi.instance.listUsers(perPage: 100);
+      final rows = data['users'] as List? ?? const [];
+      StaffState.instance.mergeUsers(
+        rows
+            .map(
+              (e) => StaffMapper.directoryUserFromApiFull(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
+      );
+    } catch (_) {
+      // The current assignee is still named from the ticket itself.
     }
   }
 
@@ -640,6 +673,59 @@ class _AssignmentCard extends StatelessWidget {
   final bool assigning;
   final ValueChanged<String?> onChanged;
 
+  /// The menu, guaranteed to contain exactly one item for the current value.
+  ///
+  /// A ticket carries who it is assigned to; the menu is built from the staff
+  /// directory, which is a different list with a different lifetime. The
+  /// directory arrives only from `GET /admin/users`, so opening Support
+  /// straight from the dashboard leaves it empty — and an assigned ticket then
+  /// handed the dropdown a value none of its items matched, which is an
+  /// assertion, not a mis-render: the whole sheet came up as a red screen and
+  /// the ticket could not be read at all.
+  ///
+  /// The same gap opens whenever the assignee is no longer assignable — they
+  /// were suspended, or their role changed since the assignment. The ticket
+  /// already knows their name, so the current assignee is always represented,
+  /// whether or not the directory can account for them.
+  List<DropdownMenuItem<String?>> _items() {
+    final items = <DropdownMenuItem<String?>>[
+      const DropdownMenuItem<String?>(value: null, child: Text('Unassigned')),
+    ];
+
+    // Two items sharing a value trips the same assertion from the other side.
+    final seen = <String>{};
+    for (final user in assignableStaff) {
+      if (!seen.add(user.id)) continue;
+      items.add(
+        DropdownMenuItem<String?>(
+          value: user.id,
+          child: Text(
+            '${user.name} · ${user.role.label}',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+
+    final current = assignedTo;
+    if (current != null && current.isNotEmpty && !seen.contains(current)) {
+      // Named from the ticket, and said plainly: this claims nothing about
+      // why the directory does not list them.
+      items.insert(
+        1,
+        DropdownMenuItem<String?>(
+          value: current,
+          child: Text(
+            assignedToName ?? 'Currently assigned',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -715,20 +801,7 @@ class _AssignmentCard extends StatelessWidget {
                   color: AppPalette.ink(context),
                   fontWeight: FontWeight.w600,
                 ),
-                items: [
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('Unassigned'),
-                  ),
-                  for (final u in assignableStaff)
-                    DropdownMenuItem<String?>(
-                      value: u.id,
-                      child: Text(
-                        '${u.name} · ${u.role.label}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
+                items: _items(),
                 onChanged: assigning ? null : onChanged,
               ),
             ),

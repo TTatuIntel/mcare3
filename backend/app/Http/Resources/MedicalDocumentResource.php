@@ -3,9 +3,9 @@
 namespace App\Http\Resources;
 
 use App\Models\MedicalDocument;
+use App\Support\MedicalDocumentFiles;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class MedicalDocumentResource extends JsonResource
 {
@@ -20,8 +20,7 @@ class MedicalDocumentResource extends JsonResource
         /** @var MedicalDocument $d */
         $d = $this->resource;
 
-        $hasFile = $d->storage_path
-            && Storage::disk('public')->exists($d->storage_path);
+        $hasFile = MedicalDocumentFiles::exists($d->storage_path);
 
         return [
             'id' => (string) $d->id,

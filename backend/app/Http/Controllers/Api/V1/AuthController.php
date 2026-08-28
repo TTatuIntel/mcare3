@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\EmailVerificationMail;
 use App\Mail\PasswordResetMail;
 use App\Models\EmailVerificationCode;
+use App\Models\CareProvider;
 use App\Models\User;
 use App\Models\UserInvite;
 use App\Support\ApiResponse;
@@ -33,6 +34,8 @@ class AuthController extends Controller
             'phone' => 'nullable|string|max:30',
             'password' => 'required|string|min:8',
             'role' => 'nullable|in:patient',
+            'remember' => 'sometimes|boolean',
+            'device_name' => 'sometimes|nullable|string|max:120',
         ]);
 
         $user = User::create([
@@ -44,10 +47,16 @@ class AuthController extends Controller
             'role' => 'patient',
             'approval_status' => 'active',
             'password' => $data['password'],
-            'email_verified_at' => now(),
+            'email_verified_at' => null,
         ]);
 
-        return $this->authPayload($user, 'Account created successfully.', 201);
+        $this->sendVerificationCode($user);
+
+        return $this->authPayload(
+            $user,
+            'Account created. Enter the verification code sent to your email.',
+            201,
+        );
     }
 
     public function login(Request $request)
@@ -55,6 +64,8 @@ class AuthController extends Controller
         $data = $request->validate([
             'identifier' => 'required|string',
             'password' => 'required|string',
+            'remember' => 'sometimes|boolean',
+            'device_name' => 'sometimes|nullable|string|max:120',
         ]);
 
         $identifier = trim($data['identifier']);
@@ -119,6 +130,8 @@ class AuthController extends Controller
             'email' => 'nullable|email',
             'first_name' => 'nullable|string|max:100',
             'last_name' => 'nullable|string|max:100',
+            'remember' => 'sometimes|boolean',
+            'device_name' => 'sometimes|nullable|string|max:120',
         ]);
 
         $isMock = str_starts_with($data['id_token'], 'mock');
@@ -156,6 +169,8 @@ class AuthController extends Controller
             'email' => 'nullable|email',
             'first_name' => 'nullable|string|max:100',
             'last_name' => 'nullable|string|max:100',
+            'remember' => 'sometimes|boolean',
+            'device_name' => 'sometimes|nullable|string|max:120',
         ]);
 
         if (str_starts_with($data['id_token'], 'mock')) {
@@ -188,6 +203,8 @@ class AuthController extends Controller
         $data = $request->validate([
             'return_to' => 'required|url',
             'create_account' => 'sometimes|boolean',
+            'remember' => 'sometimes|boolean',
+            'device_name' => 'sometimes|nullable|string|max:120',
         ]);
 
         if (! config('services.google.client_id') || ! config('services.google.client_secret')) {
@@ -201,6 +218,8 @@ class AuthController extends Controller
         return redirect(GoogleOAuth::buildAuthorizeUrl(
             $data['return_to'],
             $request->boolean('create_account'),
+            $request->boolean('remember'),
+            $data['device_name'] ?? null,
         ));
     }
 
@@ -213,6 +232,8 @@ class AuthController extends Controller
         $oauth = $state !== '' ? \Illuminate\Support\Facades\Cache::pull("google_oauth:{$state}") : null;
         $returnTo = is_array($oauth) ? ($oauth['return_to'] ?? '/') : '/';
         $createAccount = is_array($oauth) ? (bool) ($oauth['create_account'] ?? false) : false;
+        $remember = is_array($oauth) ? (bool) ($oauth['remember'] ?? false) : false;
+        $deviceName = is_array($oauth) ? ($oauth['device_name'] ?? null) : null;
 
         if ($request->filled('error')) {
             return redirect($this->googleReturnUrl($returnTo, [
@@ -249,10 +270,13 @@ class AuthController extends Controller
             return redirect($this->googleReturnUrl($returnTo, ['error' => $message]));
         }
 
-        $token = $user->createToken('mcare-web')->plainTextToken;
+        $issued = $this->issueToken($user, $remember, $deviceName);
+        $user->recordLogin($request->ip());
 
         return redirect($this->googleReturnUrl($returnTo, [
-            'token' => $token,
+            'token' => $issued['token'],
+            'expires_at' => $issued['expires_at'],
+            'remember' => $remember,
             'user' => $user->toApiArray(),
             'has_health_profile' => $user->healthProfile()->exists(),
         ]));
@@ -580,11 +604,20 @@ class AuthController extends Controller
         $record = EmailVerificationCode::query()
             ->where('user_id', $user->id)
             ->where('purpose', $purpose)
-            ->where('code', $data['code'])
             ->orderByDesc('created_at')
             ->first();
 
-        if (! $record || ! $record->isValid()) {
+        $matches = $record && $record->isValid()
+            && ((str_starts_with($record->code, '$2') && Hash::check($data['code'], $record->code))
+                || hash_equals((string) $record->code, $data['code']));
+
+        if (! $matches) {
+            if ($record && $record->isValid()) {
+                $record->increment('attempts');
+                if ((int) $record->fresh()->attempts >= 5) {
+                    $record->update(['used_at' => now()]);
+                }
+            }
             return $this->error('Invalid or expired verification code.', 422);
         }
 
@@ -594,6 +627,26 @@ class AuthController extends Controller
         }
 
         return $this->authPayload($user, 'Verified successfully.');
+    }
+
+    public function resendOtp(Request $request)
+    {
+        $data = $request->validate([
+            'identifier' => 'required|string',
+            'purpose' => 'nullable|string|in:email_verify',
+        ]);
+
+        $identifier = trim($data['identifier']);
+        $user = User::query()
+            ->where('email', strtolower($identifier))
+            ->orWhere('phone', $identifier)
+            ->first();
+
+        if ($user && $user->email_verified_at === null) {
+            $this->sendVerificationCode($user);
+        }
+
+        return $this->success(null, 'If verification is required, a new code was sent.');
     }
 
     public function acceptInvite(Request $request)
@@ -649,6 +702,55 @@ class AuthController extends Controller
         return $this->success(null, 'Signed out.');
     }
 
+    public function sessions(Request $request)
+    {
+        $currentId = $request->user()->currentAccessToken()?->id;
+        $sessions = $request->user()->tokens()
+            ->orderByDesc('last_used_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($token) => [
+                'id' => (string) $token->id,
+                'name' => $token->name,
+                'current' => (int) $token->id === (int) $currentId,
+                'created_at' => $token->created_at?->toIso8601String(),
+                'last_used_at' => $token->last_used_at?->toIso8601String(),
+                'expires_at' => $token->expires_at?->toIso8601String(),
+            ])
+            ->values();
+
+        return $this->success(['sessions' => $sessions]);
+    }
+
+    public function revokeSession(Request $request, int $tokenId)
+    {
+        $token = $request->user()->tokens()->whereKey($tokenId)->first();
+        if (! $token) {
+            return $this->error('Session not found.', 404);
+        }
+
+        $current = (int) $request->user()->currentAccessToken()?->id === $tokenId;
+        $token->delete();
+
+        return $this->success(['current_session_revoked' => $current], 'Session revoked.');
+    }
+
+    public function logoutOtherSessions(Request $request)
+    {
+        $data = $request->validate(['current_password' => 'required|string']);
+        $user = $request->user();
+        if (! $user->password || ! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Current password is incorrect.'],
+            ]);
+        }
+
+        $currentId = $user->currentAccessToken()?->id;
+        $user->tokens()->when($currentId, fn ($query) => $query->where('id', '!=', $currentId))->delete();
+
+        return $this->success(null, 'Other sessions signed out.');
+    }
+
     public function updateProfile(Request $request)
     {
         $data = $request->validate([
@@ -679,6 +781,9 @@ class AuthController extends Controller
         }
 
         $user->update($updates);
+        if ($user->role === 'doctor') {
+            CareProvider::resolveForUser($user->id);
+        }
 
         return $this->success(['user' => $user->fresh()->toApiArray()], 'Profile updated.');
     }
@@ -715,19 +820,7 @@ class AuthController extends Controller
             'email_verified_at' => null,
         ]);
 
-        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        EmailVerificationCode::create([
-            'user_id' => $user->id,
-            'code' => $code,
-            'purpose' => 'email_verify',
-            'expires_at' => now()->addMinutes(30),
-        ]);
-
-        try {
-            Mail::to($newEmail)->send(new EmailVerificationMail($user->fresh(), $code));
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        $this->sendVerificationCode($user->fresh());
 
         return $this->success([
             'user' => $user->fresh()->toApiArray(),
@@ -797,14 +890,21 @@ class AuthController extends Controller
 
     private function authPayload(User $user, string $message, int $status = 200)
     {
-        $token = $user->createToken('mcare-web')->plainTextToken;
+        $remember = request()->boolean('remember');
+        $issued = $this->issueToken(
+            $user,
+            $remember,
+            request()->input('device_name'),
+        );
 
         // Single funnel for password, OTP, invite, Google, and Apple sign-ins,
         // so the account dossier's login trail is complete however they got in.
         $user->recordLogin(request()->ip());
 
         $payload = [
-            'token' => $token,
+            'token' => $issued['token'],
+            'expires_at' => $issued['expires_at'],
+            'remember' => $remember,
             'user' => $user->toApiArray(),
             'has_health_profile' => $user->healthProfile()->exists(),
         ];
@@ -816,5 +916,61 @@ class AuthController extends Controller
         }
 
         return $this->success($payload, $message, $status);
+    }
+
+    /** @return array{token: string, expires_at: string} */
+    private function issueToken(User $user, bool $remember, mixed $deviceName = null): array
+    {
+        $minutes = max(5, (int) config(
+            $remember ? 'mcare.auth.remember_token_minutes' : 'mcare.auth.session_token_minutes',
+            $remember ? 43200 : 480,
+        ));
+        $expiresAt = now()->addMinutes($minutes);
+        $name = trim((string) $deviceName);
+        if ($name === '') {
+            $name = 'mCare '.(request()->userAgent() ?: 'device');
+        }
+        $name = Str::limit($name, 120, '');
+
+        $created = $user->createToken($name, ['*'], $expiresAt);
+
+        $maximum = max(1, (int) config('mcare.auth.max_device_sessions', 10));
+        $user->tokens()
+            ->where('id', '!=', $created->accessToken->id)
+            ->orderByDesc('last_used_at')
+            ->orderByDesc('created_at')
+            ->skip($maximum - 1)
+            ->take(100)
+            ->get()
+            ->each->delete();
+
+        return [
+            'token' => $created->plainTextToken,
+            'expires_at' => $expiresAt->toIso8601String(),
+        ];
+    }
+
+    private function sendVerificationCode(User $user): void
+    {
+        $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        EmailVerificationCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', 'email_verify')
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+
+        EmailVerificationCode::create([
+            'user_id' => $user->id,
+            'code' => Hash::make($plainCode),
+            'purpose' => 'email_verify',
+            'expires_at' => now()->addMinutes(15),
+            'attempts' => 0,
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new EmailVerificationMail($user, $plainCode));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

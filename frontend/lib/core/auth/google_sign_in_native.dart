@@ -14,6 +14,8 @@ Future<void> ensureGoogleSignInLoaded() async {}
 Future<void> beginRedirectSignIn({
   required String apiBaseUrl,
   required bool createAccount,
+  required bool remember,
+  required String deviceName,
 }) async {
   throw UnsupportedError('Redirect-based Google Sign-In is web-only.');
 }

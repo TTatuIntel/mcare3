@@ -11,6 +11,23 @@ return [
     'frontend_url' => rtrim((string) env('FRONTEND_URL', 'http://localhost:8090'), '/'),
 
     /*
+    | API tokens are always finite. A normal sign-in is intentionally short;
+    | "remember me" extends the same revocable Sanctum token, it does not
+    | create a second password or an unbounded browser session.
+    */
+    'auth' => [
+        'session_token_minutes' => (int) env('MCARE_SESSION_TOKEN_MINUTES', 480),
+        'remember_token_minutes' => (int) env('MCARE_REMEMBER_TOKEN_MINUTES', 43200),
+        'max_device_sessions' => (int) env('MCARE_MAX_DEVICE_SESSIONS', 10),
+    ],
+
+    /*
+    | Clinical documents and staff credentials must use a private disk. The
+    | local disk maps to storage/app/private; production may set this to s3.
+    */
+    'private_disk' => env('MCARE_PRIVATE_DISK', 'local'),
+
+    /*
     |--------------------------------------------------------------------------
     | Mock social sign-in (local demo only)
     |--------------------------------------------------------------------------

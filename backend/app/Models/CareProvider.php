@@ -50,7 +50,7 @@ class CareProvider extends Model
         // request" action. Fall back to a neutral label instead.
         $specialty = trim((string) ($user?->specialty ?? ''));
 
-        return static::firstOrCreate(
+        return static::updateOrCreate(
             ['user_id' => $userId],
             [
                 'name' => $user?->fullName() ?? 'Care Provider',

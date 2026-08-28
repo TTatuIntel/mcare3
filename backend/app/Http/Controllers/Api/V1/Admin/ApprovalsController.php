@@ -55,11 +55,12 @@ class ApprovalsController extends Controller
         ]);
 
         if ($user->credential_document_path) {
+            Storage::disk(config('mcare.private_disk', 'local'))->delete($user->credential_document_path);
             Storage::disk('public')->delete($user->credential_document_path);
         }
 
         $uploaded = $data['file'];
-        $path = $uploaded->store('credentials/'.$user->id, 'public');
+        $path = $uploaded->store('credentials/'.$user->id, config('mcare.private_disk', 'local'));
         $name = $uploaded->getClientOriginalName();
 
         $user->update([
@@ -87,11 +88,16 @@ class ApprovalsController extends Controller
             return $this->error('No credential document on file.', 404);
         }
 
-        if (! Storage::disk('public')->exists($user->credential_document_path)) {
+        $diskName = Storage::disk(config('mcare.private_disk', 'local'))
+            ->exists($user->credential_document_path)
+                ? config('mcare.private_disk', 'local')
+                : 'public';
+
+        if (! Storage::disk($diskName)->exists($user->credential_document_path)) {
             return $this->error('Credential file missing from storage.', 404);
         }
 
-        return Storage::disk('public')->response(
+        return Storage::disk($diskName)->response(
             $user->credential_document_path,
             $user->credential_document_name ?? 'credential',
         );
@@ -107,6 +113,14 @@ class ApprovalsController extends Controller
             return $this->error('Application is not pending.', 422);
         }
 
+        // An approved clinician has never signed in: the account was opened
+        // for them by an administrator and has sat in pending_approval ever
+        // since. Issuing credentials here, to the address the account was
+        // opened with, is what turns an approval into something the person
+        // can act on. It used to write an in-app notice to an account that
+        // could not be opened to read it.
+        $temporaryPassword = Str::random(12);
+
         // Persist the decision on the account itself, not just in the audit
         // log, so the dossier can show who approved this person and when.
         $user->update([
@@ -116,13 +130,33 @@ class ApprovalsController extends Controller
             'approval_note' => $data['note'] ?? null,
             'rejected_at' => null,
             'rejection_reason' => null,
+            'password' => Hash::make($temporaryPassword),
+            // Not optional. A password an administrator has seen is not the
+            // user's password; it stops working once they set their own.
+            'must_change_password' => true,
+            'failed_login_attempts' => 0,
+            'locked_until' => null,
         ]);
+
+        // Anything issued before this decision is void.
+        $user->tokens()->delete();
+
+        $emailSent = $this->dispatchMail(
+            $user,
+            new TemporaryCredentialsMail(
+                $user,
+                $temporaryPassword,
+                (string) config('mcare.frontend_url'),
+                approved: true,
+            ),
+        );
 
         AppNotification::create([
             'user_id' => $user->id,
             'kind' => 'approval',
             'title' => 'You\'re approved',
-            'body' => 'Welcome to mCare — your account is active.',
+            'body' => 'Welcome to mCare — your account is active. Check your '
+                .'email for your temporary sign-in password.',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -132,10 +166,22 @@ class ApprovalsController extends Controller
             'approval.granted',
             $user->fullName().' ('.$user->roleToClient().')',
             'activity',
-            ['target_user_id' => $user->id, 'note' => $data['note'] ?? null],
+            [
+                'target_user_id' => $user->id,
+                'note' => $data['note'] ?? null,
+                'credentials_emailed' => $emailSent,
+            ],
         );
 
-        return $this->success(['user' => $user->fresh()->toApiArray()], 'Approved.');
+        return $this->success(
+            [
+                'user' => $user->fresh()->toApiArray(),
+                'email_sent' => $emailSent,
+            ],
+            $emailSent
+                ? 'Approved. Sign-in details emailed to '.$user->email.'.'
+                : 'Approved, but the email could not be sent. Use a password reset to try again.',
+        );
     }
 
     public function reject(Request $request, User $user)

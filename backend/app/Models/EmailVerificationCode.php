@@ -11,6 +11,7 @@ class EmailVerificationCode extends Model
         'user_id',
         'code',
         'purpose',
+        'attempts',
         'expires_at',
         'used_at',
     ];
@@ -20,6 +21,7 @@ class EmailVerificationCode extends Model
         return [
             'expires_at' => 'datetime',
             'used_at' => 'datetime',
+            'attempts' => 'integer',
         ];
     }
 

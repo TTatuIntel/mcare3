@@ -42,6 +42,10 @@ class UserSettingsController extends Controller
         $setting->payload = array_merge($payload, $validated);
         $setting->save();
 
+        if (data_get($validated, 'notifications.pushEnabled') === false) {
+            $request->user()->fcmTokens()->delete();
+        }
+
         return $this->success($setting->payload, 'Settings saved.');
     }
 }

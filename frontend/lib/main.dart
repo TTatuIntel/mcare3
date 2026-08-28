@@ -125,7 +125,7 @@ Future<void> main() async {
   if (kIsWeb) {
     GoogleSignInService.instance.warmUp();
   }
-  PushNotificationService.instance.init();
+  await PushNotificationService.instance.init();
   // Role modules register logout cleanup here so shared/auth stays decoupled.
   AuthState.addLogoutCleanup(CriticalAlertPopup.reset);
   AuthState.addLogoutCleanup(RequestCache.instance.clear);

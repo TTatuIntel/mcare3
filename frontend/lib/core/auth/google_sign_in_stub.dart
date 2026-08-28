@@ -10,6 +10,8 @@ GoogleRedirectAuthResult? tryConsumeRedirectAuth() => null;
 Future<void> beginRedirectSignIn({
   required String apiBaseUrl,
   required bool createAccount,
+  required bool remember,
+  required String deviceName,
 }) async {
   throw UnsupportedError('Google Sign-In is only available on Flutter web.');
 }

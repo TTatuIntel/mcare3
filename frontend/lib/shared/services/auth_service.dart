@@ -31,15 +31,30 @@ class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
 
+  String get _deviceName {
+    if (kIsWeb) return 'mCare Web';
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'mCare Android',
+      TargetPlatform.iOS => 'mCare iPhone/iPad',
+      TargetPlatform.macOS => 'mCare macOS',
+      TargetPlatform.windows => 'mCare Windows',
+      TargetPlatform.linux => 'mCare Linux',
+      TargetPlatform.fuchsia => 'mCare device',
+    };
+  }
+
   /// Email/password sign-in (mock or API).
   Future<AuthFlowResult> signInWithPassword({
     required String identifier,
     required String password,
+    bool remember = false,
   }) async {
     if (AppEnv.backendEnabled) {
       return _apiPostAuth('/auth/login', {
         'identifier': identifier,
         'password': password,
+        'remember': remember,
+        'device_name': _deviceName,
       });
     }
     if (!AppEnv.demoDataEnabled) {
@@ -99,9 +114,13 @@ class AuthService {
   Future<AuthFlowResult> signInWithGoogle({
     required BuildContext context,
     bool createAccount = false,
+    bool remember = false,
   }) async {
     if (GoogleSignInService.instance.isConfigured && AppEnv.backendEnabled) {
-      return _googleSignInWithGsi(createAccount: createAccount);
+      return _googleSignInWithGsi(
+        createAccount: createAccount,
+        remember: remember,
+      );
     }
 
     if (AppEnv.backendEnabled) {
@@ -127,6 +146,7 @@ class AuthService {
         firstName: account.firstName,
         lastName: account.lastName,
         createAccount: createAccount,
+        remember: remember,
       );
     }
 
@@ -137,6 +157,8 @@ class AuthService {
         'email': account.email,
         'first_name': account.firstName,
         'last_name': account.lastName,
+        'remember': remember,
+        'device_name': _deviceName,
       });
     }
 
@@ -160,6 +182,7 @@ class AuthService {
   /// Primary web flow: Google Identity Services → Laravel `/auth/google`.
   Future<AuthFlowResult> _googleSignInWithGsi({
     required bool createAccount,
+    required bool remember,
   }) async {
     try {
       final creds = await GoogleSignInService.instance.requestCredentials();
@@ -170,12 +193,16 @@ class AuthService {
         firstName: creds.firstName,
         lastName: creds.lastName,
         createAccount: createAccount,
+        remember: remember,
       );
     } on StateError catch (e) {
       return AuthFlowResult.failed(e.message);
     } catch (error) {
       if (kIsWeb) {
-        return _googleSignInWithReal(createAccount: createAccount);
+        return _googleSignInWithReal(
+          createAccount: createAccount,
+          remember: remember,
+        );
       }
       return AuthFlowResult.failed(
         ApiErrorMessages.sanitize(error.toString()),
@@ -185,10 +212,13 @@ class AuthService {
 
   Future<AuthFlowResult> _googleSignInWithReal({
     required bool createAccount,
+    required bool remember,
   }) async {
     try {
       await GoogleSignInService.instance.beginRedirectSignIn(
         createAccount: createAccount,
+        remember: remember,
+        deviceName: _deviceName,
       );
       return AuthFlowResult.userCancelled;
     } catch (e) {
@@ -276,6 +306,8 @@ class AuthService {
       token: token,
       user: result.user!,
       hasProfile: hasProfile,
+      remember: result.remember,
+      expiresAt: result.expiresAt,
     );
     return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
   }
@@ -284,11 +316,15 @@ class AuthService {
     required String token,
     required Map<String, dynamic> user,
     required bool hasProfile,
+    required bool remember,
+    DateTime? expiresAt,
   }) async {
     await AuthStorage.save(
       token: token,
       user: user,
       hasHealthProfile: hasProfile,
+      remember: remember,
+      expiresAt: expiresAt,
     );
   }
 
@@ -335,12 +371,45 @@ class AuthService {
   Future<void> refreshAssistantPermissions() =>
       _ensureAssistantPermissionsLoaded();
 
+  /// Completes the same secure session hydration after public OTP verification
+  /// that password and social sign-in use.
+  Future<AuthFlowResult> completeOtpPayload(Map<String, dynamic> data) async {
+    final token = data['token'] as String?;
+    final userMap = data['user'] as Map<String, dynamic>?;
+    if (token == null || userMap == null) {
+      return AuthFlowResult.failed('Invalid verification response.');
+    }
+    ApiClient.instance.setToken(token);
+    final user = AppUser.fromJson(userMap);
+    AuthState.instance.signIn(user);
+    final hasProfile = data['has_health_profile'] == true;
+    if (user.role == UserRole.patient) {
+      if (hasProfile) {
+        await PatientSessionService.instance.syncFromApi();
+      } else {
+        ProfileState.instance.clear(confirmedMissing: true);
+      }
+    } else {
+      await _seedStaffSession(user.role);
+    }
+    await _persistSession(
+      token: token,
+      user: userMap,
+      hasProfile: hasProfile,
+      remember: data['remember'] == true,
+      expiresAt: DateTime.tryParse(data['expires_at']?.toString() ?? ''),
+    );
+    await PushNotificationService.instance.registerAfterLogin();
+    return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
+  }
+
   Future<AuthFlowResult> _googleSignInWithToken({
     required String idToken,
     required String email,
     required String firstName,
     required String lastName,
     required bool createAccount,
+    required bool remember,
   }) async {
     final body = {
       'id_token': idToken,
@@ -348,6 +417,8 @@ class AuthService {
       'email': email,
       'first_name': firstName,
       'last_name': lastName,
+      'remember': remember,
+      'device_name': _deviceName,
     };
 
     if (AppEnv.backendEnabled) {
@@ -383,6 +454,7 @@ class AuthService {
     required String firstName,
     required String lastName,
     required bool createAccount,
+    required bool remember,
   }) {
     return _apiPostAuth('/auth/apple', {
       'id_token': idToken,
@@ -390,6 +462,8 @@ class AuthService {
       'email': email,
       'first_name': firstName,
       'last_name': lastName,
+      'remember': remember,
+      'device_name': _deviceName,
     });
   }
 
@@ -419,6 +493,7 @@ class AuthService {
   Future<AuthFlowResult> signInWithApple({
     required BuildContext context,
     bool createAccount = false,
+    bool remember = false,
   }) async {
     if (AppleSignInService.instance.isConfigured && AppEnv.backendEnabled) {
       try {
@@ -430,6 +505,7 @@ class AuthService {
           firstName: creds.firstName ?? '',
           lastName: creds.lastName ?? '',
           createAccount: createAccount,
+          remember: remember,
         );
       } on ApiException catch (e) {
         return AuthFlowResult.failed(ApiErrorMessages.sanitize(e.message));
@@ -524,6 +600,7 @@ class AuthService {
   }
 
   String _routeAfterAuth(AppUser user, bool seededProfile) {
+    if (!user.emailVerified) return RouteNames.verifyEmail;
     switch (user.role) {
       case UserRole.patient:
         if (user.mustChangePassword) return RouteNames.patientForcePassword;
@@ -577,6 +654,8 @@ class AuthService {
       _applyAssistantPermissions(data);
       unawaited(SettingsState.instance.pullRemote());
       final hasProfile = data['has_health_profile'] == true;
+      final remember = data['remember'] == true || body['remember'] == true;
+      final expiresAt = DateTime.tryParse(data['expires_at']?.toString() ?? '');
       if (user.role == UserRole.patient) {
         if (hasProfile) {
           await PatientSessionService.instance.syncFromApi();
@@ -592,6 +671,8 @@ class AuthService {
           token: token,
           user: userMap,
           hasProfile: hasProfile,
+          remember: remember,
+          expiresAt: expiresAt,
         );
       }
       return AuthFlowResult.signedIn(user, seededProfile: hasProfile);

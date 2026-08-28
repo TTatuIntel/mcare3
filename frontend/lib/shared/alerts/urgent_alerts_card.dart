@@ -220,12 +220,15 @@ class _UrgentAlertsCardState extends State<UrgentAlertsCard> {
             _NotificationLine(
               showing: showing,
               others: announcements.length - 1,
+              position: (_turn % announcements.length) + 1,
+              total: announcements.length,
               expanded: _expanded,
               animate: !reduceMotion,
-              // Only the urgent queue has a board behind it to open.
-              onToggle: urgent
-                  ? () => setState(() => _expanded = !_expanded)
-                  : null,
+              urgent: urgent,
+              // The chevron always earns its place: it opens the actionable
+              // queue during an incident and the compact operational overview
+              // while the queue is clear.
+              onToggle: () => setState(() => _expanded = !_expanded),
             ),
             // The board, on request. Same rows, same actions, same fixed
             // viewport — just no longer the default state of the page.
@@ -238,9 +241,10 @@ class _UrgentAlertsCardState extends State<UrgentAlertsCard> {
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topCenter,
-              child: !(_expanded && urgent)
+              child: !_expanded
                   ? const SizedBox(width: double.infinity)
-                  : Column(
+                  : urgent
+                  ? Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: AppSpacing.sm),
@@ -269,6 +273,10 @@ class _UrgentAlertsCardState extends State<UrgentAlertsCard> {
                           _OpenFullListLink(route: alertsRoute),
                         ],
                       ],
+                    )
+                  : _QuietOverview(
+                      announcements: announcements,
+                      maxRows: maxRows,
                     ),
             ),
             // The rule the card's border used to be — it separates the
@@ -360,8 +368,11 @@ class _NotificationLine extends StatelessWidget {
   const _NotificationLine({
     required this.showing,
     required this.others,
+    required this.position,
+    required this.total,
     required this.expanded,
     required this.animate,
+    required this.urgent,
     required this.onToggle,
   });
 
@@ -369,11 +380,13 @@ class _NotificationLine extends StatelessWidget {
 
   /// How many more are waiting their turn.
   final int others;
+  final int position;
+  final int total;
   final bool expanded;
   final bool animate;
+  final bool urgent;
 
-  /// Null when there is no board behind the line to open.
-  final VoidCallback? onToggle;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -413,7 +426,7 @@ class _NotificationLine extends StatelessWidget {
             ],
           ),
         ),
-        if (others > 0 && !expanded)
+        if (urgent && others > 0 && !expanded)
           Container(
             margin: const EdgeInsets.only(left: AppSpacing.sm),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -433,51 +446,71 @@ class _NotificationLine extends StatelessWidget {
       ],
     );
 
-    return Row(
-      children: [
-        // Everything but the chevron is the tap target: on a bare line there
-        // is no card edge to aim at, so the target is the line itself.
-        Expanded(
-          child: Semantics(
-            button: showing.onTap != null,
-            liveRegion: true,
-            label: '${showing.title}. ${showing.detail}.',
-            child: InkWell(
-              onTap: showing.onTap,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                // Turns cross-fade in place, so the line never jumps and the
-                // page below it never moves.
-                child: animate
-                    ? AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 260),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeIn,
-                        layoutBuilder: (current, previous) => Stack(
-                          alignment: Alignment.centerLeft,
-                          children: [...previous, ?current],
-                        ),
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.35),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
+    // This consumes the section's former top/bottom whitespace instead of
+    // introducing a new surface or growing the dashboard. The result reads as
+    // a full-width information stage, not a thin card floating inside it.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 64),
+      child: Row(
+        children: [
+          // Everything but the chevron is the tap target: on a bare line there
+          // is no card edge to aim at, so the target is the line itself.
+          Expanded(
+            child: Semantics(
+              button: showing.onTap != null,
+              liveRegion: true,
+              label: '${showing.title}. ${showing.detail}.',
+              child: InkWell(
+                onTap: showing.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  // Turns cross-fade in place, so the line never jumps and the
+                  // page below it never moves.
+                  child: animate
+                      ? AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeIn,
+                          layoutBuilder: (current, previous) => Stack(
+                            alignment: Alignment.centerLeft,
+                            children: [...previous, ?current],
                           ),
-                        ),
-                        child: body,
-                      )
-                    : body,
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: const Offset(0, 0.35),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                          child: body,
+                        )
+                      : body,
+                ),
               ),
             ),
           ),
-        ),
-        if (onToggle != null)
+          if (!urgent && total > 1 && !expanded)
+            Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.sm),
+              child: Text(
+                '$position/$total',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textMuted(context),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                ),
+              ),
+            ),
           IconButton(
-            tooltip: expanded ? 'Collapse' : 'Show all ${others + 1}',
+            tooltip: expanded
+                ? 'Collapse'
+                : urgent
+                ? 'Show all ${others + 1}'
+                : 'Show dashboard overview',
             onPressed: onToggle,
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints.tightFor(width: 36, height: 36),
@@ -487,7 +520,8 @@ class _NotificationLine extends StatelessWidget {
               color: accent,
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -499,9 +533,135 @@ class _SectionRule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.lg),
+    padding: const EdgeInsets.only(bottom: AppSpacing.lg),
     child: Divider(height: 1, thickness: 1, color: AppPalette.border(context)),
   );
+}
+
+/// The non-urgent counterpart to the queue board.
+///
+/// It gives the persistent chevron a useful, honest destination and caps its
+/// viewport at [maxRows], so even a rich admin snapshot cannot push the task
+/// grid arbitrarily far down the page. Like the collapsed stage, it is drawn
+/// directly on the page rather than inside another card.
+class _QuietOverview extends StatefulWidget {
+  const _QuietOverview({required this.announcements, required this.maxRows});
+
+  final List<_Announcement> announcements;
+  final int maxRows;
+
+  @override
+  State<_QuietOverview> createState() => _QuietOverviewState();
+}
+
+class _QuietOverviewState extends State<_QuietOverview> {
+  static const double _rowExtent = 44;
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.announcements;
+    final visibleRows = items.length.clamp(1, widget.maxRows).toInt();
+    final scrolls = items.length > widget.maxRows;
+
+    final list = ListView.builder(
+      controller: _controller,
+      physics: scrolls
+          ? const ClampingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemExtent: _rowExtent,
+      itemCount: items.length,
+      itemBuilder: (context, index) => _QuietOverviewRow(item: items[index]),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: SizedBox(
+        height: visibleRows * _rowExtent,
+        child: scrolls
+            ? Scrollbar(
+                controller: _controller,
+                thumbVisibility: true,
+                child: list,
+              )
+            : list,
+      ),
+    );
+  }
+}
+
+class _QuietOverviewRow extends StatelessWidget {
+  const _QuietOverviewRow({required this.item});
+
+  final _Announcement item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: item.onTap != null,
+      label: '${item.title}. ${item.detail}.',
+      child: InkWell(
+        onTap: item.onTap,
+        child: Row(
+          children: [
+            Icon(item.icon, size: 16, color: item.accent),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    item.detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (item.badge > 0) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '${item.badge}',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: item.accent,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+            if (item.onTap != null) ...[
+              const SizedBox(width: AppSpacing.xs),
+              Icon(
+                AppIcons.chevronRight,
+                size: 17,
+                color: AppPalette.textMuted(context),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _CountBadge extends StatelessWidget {

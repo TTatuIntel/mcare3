@@ -553,12 +553,7 @@ class _HubTopBar extends StatelessWidget implements PreferredSizeWidget {
           child: Row(
             children: [
               if (tier.isMobile)
-                const BrandLogo(
-                  height: 30,
-                  tappable: false,
-                  animateHeartbeat: false,
-                  showLifeline: false,
-                )
+                const BrandLogo(height: 30, tappable: false)
               else
                 Text(
                   role == UserRole.admin
@@ -647,12 +642,7 @@ class _DesktopNavigation extends StatelessWidget {
                         size: 32,
                         semanticLabel: 'mCare',
                       )
-                    : const BrandLogo(
-                        height: 36,
-                        tappable: false,
-                        animateHeartbeat: false,
-                        showLifeline: false,
-                      ),
+                    : const BrandLogo(height: 36, tappable: false),
               ),
               const SizedBox(height: AppSpacing.xl),
               for (final destination in StaffHubSection.values) ...[

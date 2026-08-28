@@ -28,6 +28,7 @@ class PushNotificationService {
   FirebaseMessaging? _messaging;
   String? _token;
   bool _initialized = false;
+  RemoteMessage? _pendingLaunchMessage;
 
   String? get token => _token;
 
@@ -42,18 +43,9 @@ class PushNotificationService {
 
       _messaging = FirebaseMessaging.instance;
 
-      final settings = await _messaging!.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        return;
-      }
-
-      if (kIsWeb) {
+      if (!kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS)) {
         await _messaging!.setForegroundNotificationPresentationOptions(
           alert: true,
           badge: true,
@@ -63,21 +55,12 @@ class PushNotificationService {
 
       FirebaseMessaging.onMessage.listen(_onForegroundMessage);
       FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpened);
+      _pendingLaunchMessage = await _messaging!.getInitialMessage();
 
       _messaging!.onTokenRefresh.listen((t) async {
         _token = t;
         await _registerToken(t);
       });
-
-      _token = await _messaging!.getToken(
-        vapidKey: kIsWeb && AppEnv.firebaseVapidKey.isNotEmpty
-            ? AppEnv.firebaseVapidKey
-            : null,
-      );
-
-      if (_token != null && ApiClient.instance.token != null) {
-        await _registerToken(_token!);
-      }
 
       _initialized = true;
     } catch (e) {
@@ -86,7 +69,25 @@ class PushNotificationService {
   }
 
   Future<void> registerAfterLogin() async {
+    await setEnabled(true);
+  }
+
+  Future<void> setEnabled(bool enabled) async {
     if (!_initialized) await init();
+    if (!enabled) {
+      await unregisterOnLogout();
+      return;
+    }
+    if (_messaging == null || ApiClient.instance.token == null) return;
+
+    final permission = await _messaging!.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+    if (permission.authorizationStatus == AuthorizationStatus.denied) return;
+
     if (_token == null && _messaging != null) {
       _token = await _messaging!.getToken(
         vapidKey: kIsWeb && AppEnv.firebaseVapidKey.isNotEmpty
@@ -96,6 +97,13 @@ class PushNotificationService {
     }
     if (_token != null) {
       await _registerToken(_token!);
+    }
+    final launchMessage = _pendingLaunchMessage;
+    _pendingLaunchMessage = null;
+    if (launchMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onMessageOpened(launchMessage);
+      });
     }
   }
 
@@ -138,11 +146,11 @@ class PushNotificationService {
         _handleSosPush(message.data);
       case 'alert':
       case 'vital_critical':
-        _handleAlertPush(message.data, fromTap: true);
+        _handleAlertPush(message.data);
       case 'appointment':
-        _handleAppointmentPush(message.data, fromTap: true);
+        _handleAppointmentPush(message.data);
       case 'message':
-        _handleMessagePush(message.data, fromTap: true);
+        _handleMessagePush(message.data);
     }
   }
 
@@ -154,11 +162,11 @@ class PushNotificationService {
         _handleSosPush(message.data, fromTap: true);
       case 'alert':
       case 'vital_critical':
-        _handleAlertPush(message.data);
+        _handleAlertPush(message.data, fromTap: true);
       case 'appointment':
-        _handleAppointmentPush(message.data);
+        _handleAppointmentPush(message.data, fromTap: true);
       case 'message':
-        _handleMessagePush(message.data);
+        _handleMessagePush(message.data, fromTap: true);
     }
   }
 

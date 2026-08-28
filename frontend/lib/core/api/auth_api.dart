@@ -42,6 +42,28 @@ class AuthApi {
     return res['data'] as Map<String, dynamic>?;
   }
 
+  Future<void> resendOtp({required String identifier}) async {
+    if (!AppEnv.backendEnabled) return;
+    await ApiClient.instance.post(
+      '/auth/resend-otp',
+      body: {'identifier': identifier, 'purpose': 'email_verify'},
+      allowWhenBackendDisabled: true,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> sessions() async {
+    final res = await ApiClient.instance.get('/auth/sessions');
+    final data = res['data'] as Map<String, dynamic>?;
+    return (data?['sessions'] as List? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Future<void> revokeSession(String id) async {
+    await ApiClient.instance.delete('/auth/sessions/$id');
+  }
+
   Future<Map<String, dynamic>?> acceptInvite({
     required String token,
     required String password,
