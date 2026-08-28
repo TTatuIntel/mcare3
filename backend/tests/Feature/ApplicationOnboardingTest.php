@@ -194,7 +194,7 @@ class ApplicationOnboardingTest extends TestCase
         // Self-service exists and is untouched by any of the above: the
         // account owner is never dependent on an administrator to get back in.
         $this->postJson('/api/v1/auth/forgot-password', [
-            'email' => 'dr.wanjiru@mcare.health',
+            'identifier' => 'dr.wanjiru@mcare.health',
         ])->assertOk();
     }
 }
