@@ -58,6 +58,7 @@ class AppIcons {
   static const IconData alert = Icons.warning_amber_rounded;
   static const IconData check = Icons.check_circle_rounded;
   static const IconData checkMark = Icons.check_rounded;
+  static const IconData acknowledge = Icons.pan_tool_alt_rounded;
   static const IconData trendUp = Icons.trending_up_rounded;
   static const IconData trendDown = Icons.trending_down_rounded;
   static const IconData trend = Icons.show_chart_rounded;

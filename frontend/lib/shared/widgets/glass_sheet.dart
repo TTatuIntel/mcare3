@@ -326,17 +326,24 @@ class _SheetPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: bodyMax),
-                    child: SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.xl,
-                        AppSpacing.lg,
-                        AppSpacing.xl,
-                        AppSpacing.xl,
+                  // Flexible, not just capped: headerEstimate is a guess, and
+                  // a title or subtitle that wraps to an extra line makes the
+                  // real header taller than it. Capped alone that overflowed
+                  // the panel by those few pixels; flexible lets the scroll
+                  // view give them back instead.
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: bodyMax),
+                      child: SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.xl,
+                          AppSpacing.lg,
+                          AppSpacing.xl,
+                          AppSpacing.xl,
+                        ),
+                        child: child,
                       ),
-                      child: child,
                     ),
                   ),
                 ],

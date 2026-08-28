@@ -10,6 +10,17 @@ use App\Models\CareRequest;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
+/**
+ * RETIRED — no route points here.
+ *
+ * Care-request triage is an admin / mCare-assistant responsibility. A doctor
+ * sees the care team they were assigned to and never makes the accept or
+ * decline decision, so `doctor/care-requests/{id}/accept|decline` were removed
+ * from routes/api.php. DoctorCareRequestDecisionTest pins that they stay gone.
+ *
+ * The class is kept only so the work in it is not lost; do not wire it back
+ * up. If nothing here is worth salvaging, delete the file.
+ */
 class DoctorCareRequestsController extends Controller
 {
     use ApiResponse;
@@ -83,10 +94,16 @@ class DoctorCareRequestsController extends Controller
         return $this->success(['request' => $careRequest->fresh()->toApiArray()], 'Request declined.');
     }
 
+    /**
+     * The provider identity this doctor acts as.
+     *
+     * Resolved rather than looked up: a doctor created by admin invite has no
+     * `care_providers` row until something makes one, and refusing to act on a
+     * request that was addressed to them is indistinguishable, from their side,
+     * from the Accept button being broken.
+     */
     private function myProvider(Request $request): CareProvider
     {
-        $p = CareProvider::where('user_id', $request->user()->id)->first();
-        abort_unless($p !== null, 409, 'No care provider profile on file.');
-        return $p;
+        return CareProvider::resolveForUser($request->user()->id);
     }
 }

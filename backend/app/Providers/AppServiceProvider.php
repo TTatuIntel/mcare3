@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Observers\RealtimeModelObserver;
+use App\Services\RealtimeSignalService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -23,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerRateLimiters();
+
+        foreach (RealtimeSignalService::observedModels() as $model) {
+            $model::observe(RealtimeModelObserver::class);
+        }
     }
 
     /**
@@ -38,14 +44,14 @@ class AppServiceProvider extends ServiceProvider
             $email = (string) $request->input('email', '');
 
             return [
-                Limit::perMinute(5)->by('ip:' . $request->ip()),
-                Limit::perMinutes(15, 5)->by('email:' . strtolower($email)),
+                Limit::perMinute(5)->by('ip:'.$request->ip()),
+                Limit::perMinutes(15, 5)->by('email:'.strtolower($email)),
             ];
         });
 
         // External code exchange — brute-forceable, keep tight.
         RateLimiter::for('external-resolve', function (Request $request) {
-            return Limit::perMinute(6)->by('ip:' . $request->ip());
+            return Limit::perMinute(6)->by('ip:'.$request->ip());
         });
 
         // External-doctor writes: scoped per token (path segment), not per IP,
@@ -53,14 +59,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('external-write', function (Request $request) {
             $token = (string) $request->route('token', '');
 
-            return Limit::perMinute(30)->by('external-token:' . $token);
+            return Limit::perMinute(30)->by('external-token:'.$token);
         });
 
         // General authenticated API — per-user cap, IP fallback for guests.
         RateLimiter::for('api-general', function (Request $request) {
             $key = $request->user()
-                ? 'user:' . $request->user()->getAuthIdentifier()
-                : 'ip:' . $request->ip();
+                ? 'user:'.$request->user()->getAuthIdentifier()
+                : 'ip:'.$request->ip();
 
             return Limit::perMinute(120)->by($key);
         });
@@ -68,8 +74,8 @@ class AppServiceProvider extends ServiceProvider
         // Client-fallback polling endpoint (§7.1) — 1/30s/user.
         RateLimiter::for('poll-fallback', function (Request $request) {
             $key = $request->user()
-                ? 'user:' . $request->user()->getAuthIdentifier()
-                : 'ip:' . $request->ip();
+                ? 'user:'.$request->user()->getAuthIdentifier()
+                : 'ip:'.$request->ip();
 
             return Limit::perMinutes(1, 2)->by($key);
         });

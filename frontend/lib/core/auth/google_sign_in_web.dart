@@ -99,6 +99,8 @@ void _clearUrlHash() {
 Future<String?> promptGoogleIdToken(
   String clientId, {
   bool selectAccount = true,
+  String serverClientId = '',
+  String iosClientId = '',
 }) async {
   await ensureGoogleSignInLoaded();
   final gsi = _accountsId();

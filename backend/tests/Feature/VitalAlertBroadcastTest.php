@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Events\RealtimeDataChanged;
 use App\Events\VitalAlertBroadcast;
 use App\Models\User;
 use App\Models\VitalCatalog;
@@ -13,8 +14,8 @@ use Tests\TestCase;
 
 /**
  * README §13 realtime row — verifies the VitalAlertBroadcast event is
- * dispatched when a vital alert is created. Broadcaster is `null` in the
- * test env (phpunit.xml), so this asserts the dispatch, not the delivery.
+ * dispatched when a vital alert is created and a real broadcaster is
+ * configured. This asserts dispatch, not network delivery.
  */
 class VitalAlertBroadcastTest extends TestCase
 {
@@ -24,6 +25,13 @@ class VitalAlertBroadcastTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(ThrottleRequests::class);
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.app_id' => 'test-app',
+            'broadcasting.connections.reverb.key' => 'test-key',
+            'broadcasting.connections.reverb.secret' => 'test-secret',
+        ]);
+        Event::fake([RealtimeDataChanged::class]);
 
         VitalCatalog::create([
             'vital_key' => 'heart_rate',
@@ -39,7 +47,7 @@ class VitalAlertBroadcastTest extends TestCase
 
     public function test_critical_reading_dispatches_broadcast_event(): void
     {
-        Event::fake([VitalAlertBroadcast::class]);
+        Event::fake([VitalAlertBroadcast::class, RealtimeDataChanged::class]);
 
         $patient = User::factory()->role('patient')->create();
         Sanctum::actingAs($patient);
@@ -58,7 +66,7 @@ class VitalAlertBroadcastTest extends TestCase
 
     public function test_normal_reading_does_not_dispatch_broadcast(): void
     {
-        Event::fake([VitalAlertBroadcast::class]);
+        Event::fake([VitalAlertBroadcast::class, RealtimeDataChanged::class]);
 
         $patient = User::factory()->role('patient')->create();
         Sanctum::actingAs($patient);
@@ -88,5 +96,10 @@ class VitalAlertBroadcastTest extends TestCase
         $this->assertSame('private-user.'.$patient->id, $channels[0]->name);
         $this->assertSame('private-care-team.'.$patient->id, $channels[1]->name);
         $this->assertSame('vital.alert', $event->broadcastAs());
+
+        $payload = $event->broadcastWith();
+        $this->assertSame(['vitals', 'alerts', 'notifications'], $payload['domains']);
+        $this->assertArrayNotHasKey('patient_id', $payload);
+        $this->assertArrayNotHasKey('reading', $payload);
     }
 }

@@ -88,9 +88,13 @@ class PatientSessionController extends Controller
 
             'conversations' => $user->conversations()
                 ->with(['messages' => fn ($q) => $q->orderByDesc('sent_at')->limit(1)])
-                ->orderByDesc('last_message_at')
+                ->withCount(['messages as unread_messages_count' => fn ($q) => $q
+                    ->where('sender_user_id', '!=', $user->id)
+                    ->where('read', false)])
+                ->withMax('messages', 'sent_at')
+                ->orderByDesc('messages_max_sent_at')
                 ->get()
-                ->map->toApiArray()
+                ->map(fn ($conversation) => $conversation->toApiArray($user))
                 ->all(),
 
             'notifications' => $user->appNotifications()

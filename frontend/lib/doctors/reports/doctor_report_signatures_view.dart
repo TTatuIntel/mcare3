@@ -4,6 +4,7 @@ import '../../admin/reports/patient_report_document_view.dart';
 import '../../admin/reports/report_reason_prompt.dart';
 import '../../core/api/doctor_api.dart';
 import '../../core/env/app_env.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/models/patient_report_request.dart';
 import '../../shared/theme/app_colors.dart';
@@ -33,8 +34,8 @@ class DoctorReportSignaturesList extends StatefulWidget {
       _DoctorReportSignaturesListState();
 }
 
-class _DoctorReportSignaturesListState
-    extends State<DoctorReportSignaturesList> {
+class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
+    with RealtimeRefreshMixin<DoctorReportSignaturesList> {
   List<PatientReportRequestItem> _items = const [];
   bool _loading = true;
   String? _error;
@@ -42,6 +43,7 @@ class _DoctorReportSignaturesListState
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'reports'}, _load);
     _load();
   }
 

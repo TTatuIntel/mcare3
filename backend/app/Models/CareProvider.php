@@ -44,11 +44,17 @@ class CareProvider extends Model
     {
         $user = User::find($userId);
 
+        // `users.specialty` is nullable but `care_providers.specialty` is not,
+        // so a doctor who never filled in a specialty used to blow this up with
+        // a NOT NULL violation — surfacing as a 500 on the admin's "route this
+        // request" action. Fall back to a neutral label instead.
+        $specialty = trim((string) ($user?->specialty ?? ''));
+
         return static::firstOrCreate(
             ['user_id' => $userId],
             [
                 'name' => $user?->fullName() ?? 'Care Provider',
-                'specialty' => $user?->specialty,
+                'specialty' => $specialty !== '' ? $specialty : 'General practice',
             ],
         );
     }

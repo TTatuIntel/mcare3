@@ -42,6 +42,7 @@ class StaffAlertsScreen extends StatefulWidget {
     required this.profileRoute,
     required this.notificationsRoute,
     this.subtitle = 'System-wide vital alerts across all patients',
+    this.initialStatusFilter = 'open',
   });
 
   final String currentRoute;
@@ -49,6 +50,11 @@ class StaffAlertsScreen extends StatefulWidget {
   final String profileRoute;
   final String notificationsRoute;
   final String subtitle;
+
+  /// Which status chip the screen lands on. Deep links from the dashboard
+  /// pass 'all' so an operator who asked for every alert is not dropped into
+  /// the open-only view and left wondering where the rest went.
+  final String initialStatusFilter;
 
   @override
   State<StaffAlertsScreen> createState() => _StaffAlertsScreenState();
@@ -74,7 +80,10 @@ class _StaffAlertsScreenState extends State<StaffAlertsScreen> {
 
   final _searchCtrl = TextEditingController();
   final Set<String> _busyAlertIds = <String>{};
-  String _statusFilter = 'open';
+  late String _statusFilter =
+      _statusOptions.any((o) => o.value == widget.initialStatusFilter)
+      ? widget.initialStatusFilter
+      : 'open';
   String _query = '';
   bool _refreshing = false;
   DateTime? _lastSyncedAt;

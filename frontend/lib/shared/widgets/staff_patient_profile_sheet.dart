@@ -24,13 +24,14 @@ import '../../shared/widgets/section_label.dart';
 import 'app_button.dart';
 import 'dossier/user_dossier_sheet.dart';
 import 'glass_sheet.dart';
+import 'patient_chart/patient_chart_body.dart';
 
-/// Read-only full patient profile for doctors and admin assistants.
+/// The shared patient-chart entry point for doctors and admin staff.
 ///
-/// The sheet opens immediately with whatever cached state exists; the admin
-/// profile fetch runs *after* the sheet is on screen, so tapping a row never
-/// blocks the UI. The body watches [StaffState] and re-renders as soon as the
-/// merge lands.
+/// Every place that used to open the account-oriented profile now lands on
+/// the windowed clinical chart. The cached record is still used for the title
+/// so the sheet opens immediately; vitals, medication, alerts, SOS history,
+/// care contacts, location, notes and reports then load together.
 class StaffPatientProfileSheet {
   StaffPatientProfileSheet._();
 
@@ -47,15 +48,16 @@ class StaffPatientProfileSheet {
 
     return GlassSheet.show<void>(
       context,
-      title: urgentItem == null ? 'Patient profile' : 'Patient care context',
+      title: urgentItem == null ? 'Patient chart' : 'Patient care context',
       subtitle: urgentItem == null
           ? name
           : '$name · ${urgentItem.isSos ? 'SOS' : 'active alert'}',
-      child: _ProfileBody(
+      child: PatientChartBody(
         patientId: patientId,
         fallbackName: name,
-        loadFromAdmin: loadFromAdmin,
-        urgentItem: urgentItem,
+        header: urgentItem == null
+            ? null
+            : _UrgentCareContext(item: urgentItem),
       ),
     );
   }
@@ -66,13 +68,11 @@ class _ProfileBody extends StatefulWidget {
     required this.patientId,
     required this.fallbackName,
     required this.loadFromAdmin,
-    this.urgentItem,
   });
 
   final String patientId;
   final String fallbackName;
   final bool loadFromAdmin;
-  final UrgentItem? urgentItem;
 
   @override
   State<_ProfileBody> createState() => _ProfileBodyState();
@@ -162,7 +162,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 health: health,
                 banner: _error == null || hasAnyData ? null : _error,
                 onRetry: _error == null ? null : _fetch,
-                urgentItem: widget.urgentItem,
+                urgentItem: null,
               ),
           ],
         );

@@ -127,15 +127,19 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: AppPalette.textMuted(context)),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: AppSpacing.sm),
         if (hint != null)
           Text(
             hint!,
@@ -162,10 +166,20 @@ class _VitalRow extends StatelessWidget {
   final bool locked;
   final ValueChanged<bool>? onChanged;
 
+  /// What the row says under the vital name: who requires it, or the unit
+  /// plus the reading count already on file so the choice has context.
+  String _subtitle() {
+    if (locked) return 'Required by your care team';
+    final logged = VitalsState.instance.forVital(vital).length;
+    if (logged == 0) return '${vital.unit} \u00b7 no readings yet';
+    return '${vital.unit} \u00b7 $logged reading${logged == 1 ? '' : 's'} logged';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = vital.accent;
+    final latest = VitalsState.instance.latestOf(vital);
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -174,12 +188,12 @@ class _VitalRow extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: tracked
-            ? accent.withOpacity(0.06)
+            ? accent.withValues(alpha: 0.06)
             : AppPalette.surfaceAlt(context),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         border: Border.all(
           color: tracked
-              ? accent.withOpacity(0.28)
+              ? accent.withValues(alpha: 0.28)
               : AppPalette.border(context),
         ),
       ),
@@ -189,7 +203,7 @@ class _VitalRow extends StatelessWidget {
             height: 34,
             width: 34,
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.14),
+              color: accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
             child: Icon(vital.icon, color: accent, size: 17),
@@ -207,7 +221,9 @@ class _VitalRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  locked ? 'Required by your care team' : vital.unit,
+                  _subtitle(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: locked ? accent : AppPalette.textMuted(context),
                     fontWeight: locked ? FontWeight.w600 : FontWeight.w500,
@@ -217,13 +233,39 @@ class _VitalRow extends StatelessWidget {
               ],
             ),
           ),
+          if (latest != null) ...[
+            const SizedBox(width: AppSpacing.xs),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: latest.formatValue(),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' ${vital.unit}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+            ),
+          ],
           if (locked)
             Padding(
               padding: const EdgeInsets.only(left: AppSpacing.sm),
               child: Icon(
                 AppIcons.lock,
                 size: 16,
-                color: accent.withOpacity(0.85),
+                color: accent.withValues(alpha: 0.85),
               ),
             )
           else
@@ -231,7 +273,7 @@ class _VitalRow extends StatelessWidget {
               scale: 0.85,
               child: Switch.adaptive(
                 value: tracked,
-                activeColor: accent,
+                activeThumbColor: accent,
                 onChanged: onChanged,
               ),
             ),

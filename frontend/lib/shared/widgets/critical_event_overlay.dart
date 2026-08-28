@@ -3,24 +3,38 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../alerts/alert_center.dart';
-import '../alerts/urgent_alert_dialog.dart';
+import '../alerts/urgent_alert_banner.dart';
 import '../auth/auth_state.dart';
 import '../models/user_role.dart';
 
-/// App-wide listener that surfaces the urgent queue.
+/// App-wide mount point for the urgent queue.
 ///
-/// Rewritten to sit on top of [AlertCenter]. The previous version seeded
-/// itself on first run and swallowed everything already outstanding, which is
-/// why opening the app never showed anything, and it dropped an alert
-/// permanently once dismissed. Now:
+/// Sits on top of [AlertCenter], which owns scope, the escalation ladder,
+/// snoozing and ringing:
 ///
 ///   • On open, anything unattended in scope is due immediately.
 ///   • Anything left unattended returns on an escalating ladder.
 ///   • Critical vitals ring the device alongside SOS, and the ring stops
 ///     as soon as the queue is owned or the session ends.
+///
+/// What reaches the screen is [UrgentAlertBanners] — a stack of tappable
+/// notifications that never blocks the page. It used to be a full-screen
+/// modal, which covered whatever the user had just signed in to reach and,
+/// because the ladder re-presents unattended items, tore itself down and
+/// rebuilt over their work.
 class CriticalEventOverlay extends StatefulWidget {
-  const CriticalEventOverlay({super.key, required this.child});
+  const CriticalEventOverlay({
+    super.key,
+    required this.child,
+    this.currentRoute,
+  });
+
   final Widget child;
+
+  /// The route being shown. The SOS hub and the alerts board *are* the urgent
+  /// queue, so floating a duplicate of it over them is noise — and it sits on
+  /// top of the very controls used to work the queue.
+  final String? currentRoute;
 
   @override
   State<CriticalEventOverlay> createState() => _CriticalEventOverlayState();
@@ -35,7 +49,10 @@ class _CriticalEventOverlayState extends State<CriticalEventOverlay>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    AlertCenter.instance.addListener(_maybeSurface);
+    // Deliberately not an AlertCenter listener: _maybeSurface notifies the
+    // engine, so listening to it here would be a notify → listen → notify
+    // loop. The banner layer is the listener; this widget only supplies the
+    // clock and the lifecycle nudges the engine cannot see for itself.
 
     // Cold open: give the first session sync a beat to land, then surface
     // whatever is already outstanding rather than silently absorbing it.
@@ -56,7 +73,6 @@ class _CriticalEventOverlayState extends State<CriticalEventOverlay>
     _coldOpen?.cancel();
     _poll?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    AlertCenter.instance.removeListener(_maybeSurface);
     super.dispose();
   }
 
@@ -73,13 +89,20 @@ class _CriticalEventOverlayState extends State<CriticalEventOverlay>
         role == UserRole.mcareAssistant;
   }
 
+  /// Nudge the engine so anything whose escalation window has elapsed is
+  /// re-evaluated. The banner layer listens to [AlertCenter] and picks the
+  /// items up from there — nothing is pushed on top of the user here.
   void _maybeSurface() {
     if (!mounted || !_isStaff) return;
-    if (AlertCenter.instance.isPresenting) return;
-    if (AlertCenter.instance.dueNow.isEmpty) return;
-    UrgentAlertDialog.maybeShow(context);
+    AlertCenter.instance.refresh();
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    if (!_isStaff) return widget.child;
+    return UrgentAlertBanners(
+      currentRoute: widget.currentRoute,
+      child: widget.child,
+    );
+  }
 }

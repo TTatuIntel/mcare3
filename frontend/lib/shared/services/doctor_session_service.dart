@@ -17,6 +17,7 @@ class DoctorSessionService {
 
   Future<bool> syncFromApi({bool background = false}) async {
     if (!AppEnv.backendEnabled) {
+      if (!AppEnv.demoDataEnabled) return false;
       StaffState.instance.seedDemo();
       MessagesState.instance.seed(
         conversations: MockData.seedDoctorConversations(),
@@ -40,58 +41,70 @@ class DoctorSessionService {
     }
 
     final patients = (data['caseload'] as List? ?? const [])
-        .map((e) => StaffMapper.patientFromApi((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => StaffMapper.patientFromApi((e as Map).cast<String, dynamic>()),
+        )
         .toList();
     final alerts = (data['alerts'] as List? ?? const [])
-        .map((e) => StaffMapper.alertFromApi((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => StaffMapper.alertFromApi((e as Map).cast<String, dynamic>()),
+        )
         .toList();
     final appointments = (data['appointments'] as List? ?? const [])
-        .map((e) => StaffMapper.appointmentFromApi((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => StaffMapper.appointmentFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
         .toList();
     final prescriptions = (data['prescriptions'] as List? ?? const [])
-        .map((e) => StaffMapper.prescriptionFromApi((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => StaffMapper.prescriptionFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
         .toList();
     final reports = (data['reports'] as List? ?? const [])
-        .map((e) => StaffMapper.reportFromApi((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => StaffMapper.reportFromApi((e as Map).cast<String, dynamic>()),
+        )
         .toList();
     final vitalRequests = (data['vital_report_requests'] as List? ?? const [])
-        .map((e) => StaffMapper.vitalReportRequestFromApi(
-              (e as Map).cast<String, dynamic>(),
-            ))
+        .map(
+          (e) => StaffMapper.vitalReportRequestFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
         .toList();
-    final careRequests = (data['care_requests'] as List? ?? const [])
-        .map((e) => StaffMapper.careRequestFromApi(
-              (e as Map).cast<String, dynamic>(),
-            ))
-        .toList();
-    final sosEvents = (data['sos_events'] as List? ?? const [])
-        .map((e) {
-          final m = (e as Map).cast<String, dynamic>();
-          return StaffMapper.sosFromApi(
-            m,
-            patientId: (m['patient_id'] ?? '').toString(),
-          );
-        })
-        .toList();
+    final sosEvents = (data['sos_events'] as List? ?? const []).map((e) {
+      final m = (e as Map).cast<String, dynamic>();
+      return StaffMapper.sosFromApi(
+        m,
+        patientId: (m['patient_id'] ?? '').toString(),
+      );
+    }).toList();
     final vitalCatalog = (data['vital_catalog'] as List? ?? const [])
-        .map((e) => StaffMapper.vitalCatalogEntryFromApi(
-              (e as Map).cast<String, dynamic>(),
-            ))
+        .map(
+          (e) => StaffMapper.vitalCatalogEntryFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
         .toList();
     final mealPlans = (data['meal_plans'] as List? ?? const [])
-        .map((e) => StaffMapper.mealPlanFromApi(
-              (e as Map).cast<String, dynamic>(),
-            ))
+        .map(
+          (e) =>
+              StaffMapper.mealPlanFromApi((e as Map).cast<String, dynamic>()),
+        )
         .toList();
-    final vitalReadings = (data['vital_readings'] as List? ?? const [])
-        .map((e) {
-          final m = (e as Map).cast<String, dynamic>();
-          return StaffMapper.vitalReadingFromApi(
-            m,
-            patientId: (m['patient_id'] ?? '').toString(),
-          );
-        })
-        .toList();
+    final vitalReadings = (data['vital_readings'] as List? ?? const []).map((
+      e,
+    ) {
+      final m = (e as Map).cast<String, dynamic>();
+      return StaffMapper.vitalReadingFromApi(
+        m,
+        patientId: (m['patient_id'] ?? '').toString(),
+      );
+    }).toList();
 
     StaffState.instance.seedFromApi(
       patients: patients,
@@ -100,7 +113,9 @@ class DoctorSessionService {
       prescriptions: prescriptions,
       reports: reports,
       vitalRequests: vitalRequests,
-      careRequests: careRequests,
+      // Triage belongs to admins and mCare assistants; the doctor session
+      // deliberately carries no pending care requests.
+      careRequests: const [],
       sosEvents: sosEvents,
       vitalCatalog: vitalCatalog,
       mealPlans: mealPlans,

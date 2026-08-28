@@ -22,103 +22,238 @@ class _PatientStatusStrip extends StatelessWidget {
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final topAlert = primaryAlert.isEmpty ? null : primaryAlert.first;
 
+    final theme = Theme.of(context);
+    final metrics = <_PatientStatusMetric>[
+      _PatientStatusMetric(
+        icon: AppIcons.alert,
+        label: 'Open alerts',
+        value: '$openAlerts',
+        color: openAlerts > 0 ? AppColors.warning : AppColors.success,
+        onTap: () => onNavigate(DoctorPatientSection.alerts),
+      ),
+      _PatientStatusMetric(
+        icon: AppIcons.vitals,
+        label: 'Recent vitals',
+        value: '${PatientVitalFeed.collect(patientId).length}',
+        color: AppColors.doctorGreen,
+        onTap: () => onNavigate(DoctorPatientSection.vitals),
+      ),
+      _PatientStatusMetric(
+        icon: AppIcons.prescription,
+        label: 'Prescriptions',
+        value: '${s.prescriptionsForPatient(patientId).length}',
+        color: AppColors.brandIndigo,
+        onTap: () => onNavigate(DoctorPatientSection.prescriptions),
+      ),
+      _PatientStatusMetric(
+        icon: AppIcons.appointment,
+        label: 'Appointments',
+        value: '$apptCount',
+        color: AppColors.info,
+        onTap: () => onNavigate(DoctorPatientSection.appointments),
+      ),
+      _PatientStatusMetric(
+        icon: AppIcons.document,
+        label: 'Documents',
+        value: '${s.documentsForPatient(patientId).length}',
+        color: AppColors.weightSlate,
+        onTap: () => onNavigate(DoctorPatientSection.documents),
+      ),
+    ];
+
     return GlassCard(
       frosted: true,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSpacing.sm,
-      ),
+      background: AppPalette.surface(context),
+      border: Border.all(color: AppColors.doctorGreen.withValues(alpha: 0.22)),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RiskBadge(risk: patient.risk, dense: true),
+              Container(
+                height: 38,
+                width: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.doctorGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  AppIcons.chart,
+                  size: 19,
+                  color: AppColors.doctorGreen,
+                ),
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (patient.hasCondition)
-                      Text(
-                        patient.condition,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     Text(
-                      'Last reading ${DateFormat.MMMd().add_jm().format(patient.lastReading)}',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      'Clinical snapshot',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      patient.hasCondition
+                          ? patient.condition
+                          : 'No condition recorded',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: AppPalette.textMuted(context),
                         fontWeight: FontWeight.w600,
-                        fontSize: 10,
+                        height: 1.25,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              if (sos)
-                _MiniChip(
-                  label: 'SOS',
-                  color: AppColors.critical,
-                  onTap: () => onNavigate(DoctorPatientSection.sos),
+              const SizedBox(width: AppSpacing.sm),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  RiskBadge(risk: patient.risk),
+                  if (sos) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    _MiniChip(
+                      label: 'ACTIVE SOS',
+                      color: AppColors.critical,
+                      onTap: () => onNavigate(DoctorPatientSection.sos),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Icon(
+                AppIcons.time,
+                size: 14,
+                color: AppPalette.textMuted(context),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  'Last reading ${DateFormat.MMMd().add_jm().format(patient.lastReading)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+              ),
             ],
           ),
           if (topAlert != null) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             _InsightLine(
               icon: AppIcons.alert,
               color: topAlert.severity.color,
               text:
-                  '${topAlert.vital.label} ${topAlert.value} Â· ${topAlert.severity.label}',
+                  '${topAlert.vital.label} ${topAlert.value} · ${topAlert.severity.label}',
               onTap: () => onNavigate(DoctorPatientSection.alerts),
             ),
           ],
-          const SizedBox(height: AppSpacing.xs),
-          Divider(height: 1, color: AppPalette.border(context)),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: [
-              PatientHeroStat(
-                label: 'Alerts',
-                value: '$openAlerts',
-                accent: openAlerts > 0 ? AppColors.warning : null,
-                onTap: () => onNavigate(DoctorPatientSection.alerts),
-              ),
-              const PatientHeroStatDivider(),
-              PatientHeroStat(
-                label: 'Vitals',
-                value: '${PatientVitalFeed.collect(patientId).length}',
-                onTap: () => onNavigate(DoctorPatientSection.vitals),
-              ),
-              const PatientHeroStatDivider(),
-              PatientHeroStat(
-                label: 'Rx',
-                value: '${s.prescriptionsForPatient(patientId).length}',
-                onTap: () => onNavigate(DoctorPatientSection.prescriptions),
-              ),
-              const PatientHeroStatDivider(),
-              PatientHeroStat(
-                label: 'Appts',
-                value: '$apptCount',
-                accent: apptCount > 0 ? AppColors.info : null,
-                onTap: () => onNavigate(DoctorPatientSection.appointments),
-              ),
-              const PatientHeroStatDivider(),
-              PatientHeroStat(
-                label: 'Docs',
-                value: '${s.documentsForPatient(patientId).length}',
-                onTap: () => onNavigate(DoctorPatientSection.documents),
-              ),
-            ],
+          const SizedBox(height: AppSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 620 ? 5 : 3;
+              const gap = AppSpacing.xs;
+              final tileWidth =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (final metric in metrics)
+                    SizedBox(width: tileWidth, child: metric),
+                ],
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PatientStatusMetric extends StatelessWidget {
+  const _PatientStatusMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: '$label, $value',
+      child: Material(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 76),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: color.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 15, color: color),
+                    const Spacer(),
+                    Text(
+                      value,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.ink(context),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -322,7 +457,7 @@ class _OverviewPanel extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      'Active SOS â€” respond now',
+                      'Active SOS — respond now',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: AppColors.critical,
                         fontWeight: FontWeight.w800,
@@ -365,7 +500,7 @@ class _OverviewPanel extends StatelessWidget {
                         icon: AppIcons.prescription,
                         iconColor: AppColors.brandIndigo,
                         title: '${p.drug} ${p.dosage}',
-                        subtitle: '${p.frequency} Â· ${p.duration}',
+                        subtitle: '${p.frequency} · ${p.duration}',
                         pill: p.status,
                         pillColor: AppColors.success,
                       ),
@@ -387,7 +522,7 @@ class _OverviewPanel extends StatelessWidget {
               patientId: patientId,
               patientName: patientName,
             ),
-            emptyHint: 'No visits scheduled â€” schedule appointment',
+            emptyHint: 'No visits scheduled — schedule appointment',
             child: apptPreview.isEmpty
                 ? null
                 : StaffListCard(
@@ -398,7 +533,7 @@ class _OverviewPanel extends StatelessWidget {
                             iconColor: AppColors.info,
                             title: DateFormat.MMMd().add_jm().format(a.startAt),
                             subtitle:
-                                '${a.type.label}${a.reason != null ? ' Â· ${a.reason}' : ''}',
+                                '${a.type.label}${a.reason != null ? ' · ${a.reason}' : ''}',
                             onTap: () => DoctorAppointmentFlows.openDetail(
                               context,
                               a.id,
@@ -414,7 +549,7 @@ class _OverviewPanel extends StatelessWidget {
   }
 }
 
-/// Compact, tappable overview block â€” header navigates; avoids duplicate
+/// Compact, tappable overview block — header navigates; avoids duplicate
 /// stat grids and redundant section labels.
 class _OverviewFeedCard extends StatelessWidget {
   const _OverviewFeedCard({
@@ -595,7 +730,7 @@ class _VitalsList extends StatelessWidget {
               iconColor: v.risk.color,
               title: v.vital.label,
               subtitle:
-                  '${v.value} Â· ${DateFormat.MMMd().add_jm().format(v.recordedAt)}',
+                  '${v.value} · ${DateFormat.MMMd().add_jm().format(v.recordedAt)}',
               pill: v.risk.label,
               pillColor: v.risk.color,
             ),
@@ -639,7 +774,7 @@ class _DocumentsPanel extends StatelessWidget {
                     iconColor: AppColors.weightSlate,
                     title: d.title,
                     subtitle:
-                        '${d.category} Â· ${DateFormat.MMMd().format(d.uploadedAt)}',
+                        '${d.category} · ${DateFormat.MMMd().format(d.uploadedAt)}',
                     pill: 'View',
                     pillColor: AppColors.info,
                     onTap: () => _showDocumentSheet(context, d),
@@ -718,7 +853,7 @@ class _PrescriptionsPanel extends StatelessWidget {
                     iconColor: AppColors.brandIndigo,
                     title: '${p.drug} ${p.dosage}',
                     subtitle:
-                        '${p.frequency} Â· ${DateFormat.MMMd().format(p.issuedAt)}',
+                        '${p.frequency} · ${DateFormat.MMMd().format(p.issuedAt)}',
                     pill: p.status,
                     pillColor: AppColors.success,
                   ),
@@ -782,8 +917,8 @@ class _AlertsList extends StatelessWidget {
               iconColor: a.severity.color,
               title: a.vital.label,
               subtitle:
-                  '${a.value} Â· ${DateFormat.MMMd().add_jm().format(a.createdAt)}'
-                  '${a.resolved && a.resolutionAction != null ? ' Â· ${formatAlertResolutionAction(a)}' : ''}',
+                  '${a.value} · ${DateFormat.MMMd().add_jm().format(a.createdAt)}'
+                  '${a.resolved && a.resolutionAction != null ? ' · ${formatAlertResolutionAction(a)}' : ''}',
               pill: a.resolved
                   ? 'Resolved'
                   : (a.acknowledged ? 'Ack' : a.severity.label),
@@ -938,7 +1073,7 @@ class _SosPanel extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
                   if (e.status == 'active')
                     AppButton(
-                      label: 'Acknowledge â€” on my way',
+                      label: 'Acknowledge — on my way',
                       variant: AppButtonVariant.secondary,
                       expand: true,
                       onPressed: () => _update(context, e.id, 'acknowledged'),
@@ -1000,7 +1135,7 @@ class _SosPanel extends StatelessWidget {
                         : AppPalette.textMuted(context),
                     title: e.kindLabel,
                     subtitle:
-                        '${DateFormat.MMMd().add_jm().format(e.triggeredAt)}${e.locationLabel != null ? ' Â· ${e.locationLabel}' : ''}${e.respondedBy != null ? ' Â· ${e.respondedBy}' : ''}',
+                        '${DateFormat.MMMd().add_jm().format(e.triggeredAt)}${e.locationLabel != null ? ' · ${e.locationLabel}' : ''}${e.respondedBy != null ? ' · ${e.respondedBy}' : ''}',
                     pill: e.status,
                     pillColor: e.isActive
                         ? AppColors.critical
@@ -1159,7 +1294,7 @@ class _AppointmentsPanel extends StatelessWidget {
       icon: a.type.icon,
       iconColor: a.status.color,
       title: DateFormat.MMMEd().add_jm().format(a.startAt),
-      subtitle: '${a.type.label}${a.reason != null ? ' Â· ${a.reason}' : ''}',
+      subtitle: '${a.type.label}${a.reason != null ? ' · ${a.reason}' : ''}',
       pill: a.isUpcoming ? _appointmentPill(a.startAt, now) : a.status.label,
       pillColor: a.isUpcoming ? AppColors.success : a.status.color,
       onTap: () => DoctorAppointmentFlows.openDetail(context, a.id),

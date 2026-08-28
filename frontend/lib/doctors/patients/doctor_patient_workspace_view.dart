@@ -28,7 +28,6 @@ import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/medical_document_viewer_body.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
-import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/risk_badge.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
@@ -50,7 +49,7 @@ part 'doctor_patient_panels.dart';
 part 'doctor_patient_detail_panels.dart';
 part 'doctor_patient_trends.dart';
 
-/// Patient-centered workspace â€” most doctor tools live here, not the main nav.
+/// Patient-centered workspace — most doctor tools live here, not the main nav.
 class DoctorPatientWorkspaceView extends StatefulWidget {
   const DoctorPatientWorkspaceView({
     super.key,
@@ -70,7 +69,8 @@ class DoctorPatientWorkspaceView extends StatefulWidget {
       _DoctorPatientWorkspaceViewState();
 }
 
-class _DoctorPatientWorkspaceViewState extends State<DoctorPatientWorkspaceView> {
+class _DoctorPatientWorkspaceViewState
+    extends State<DoctorPatientWorkspaceView> {
   late DoctorPatientSection _section = widget.initialSection;
   var _respondSheetShown = false;
 
@@ -103,10 +103,10 @@ class _DoctorPatientWorkspaceViewState extends State<DoctorPatientWorkspaceView>
     return {
       DoctorPatientSection.alerts: s.openAlertCountForPatient(patientId),
       DoctorPatientSection.sos: s.hasActiveSos(patientId) ? 1 : 0,
-      DoctorPatientSection.appointments:
-          s.appointmentsForPatient(patientId).length,
-      DoctorPatientSection.documents:
-          s.documentsForPatient(patientId).length,
+      DoctorPatientSection.appointments: s
+          .appointmentsForPatient(patientId)
+          .length,
+      DoctorPatientSection.documents: s.documentsForPatient(patientId).length,
       DoctorPatientSection.messages: conv?.unreadCount ?? 0,
       DoctorPatientSection.meals: s.mealPlansForPatient(patientId).length,
     };
@@ -159,8 +159,7 @@ class _DoctorPatientWorkspaceViewState extends State<DoctorPatientWorkspaceView>
               icon: AppIcons.chevronLeft,
               size: AppButtonSize.sm,
               variant: AppButtonVariant.ghost,
-              onPressed: () => Navigator.of(context)
-                  .pushNamedAndRemoveUntil(
+              onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(
                 RouteNames.doctorPatients,
                 (_) => false,
               ),
@@ -229,7 +228,7 @@ class _DoctorPatientWorkspaceViewState extends State<DoctorPatientWorkspaceView>
   }
 }
 
-/// Back-compat alias â€” routes still reference [DoctorPatientChartView].
+/// Back-compat alias — routes still reference [DoctorPatientChartView].
 class DoctorPatientChartView extends StatelessWidget {
   const DoctorPatientChartView({
     super.key,
@@ -242,8 +241,7 @@ class DoctorPatientChartView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DoctorPatientWorkspaceView(
-        patientId: patientId,
-        initialSection: initialSection,
-      );
+    patientId: patientId,
+    initialSection: initialSection,
+  );
 }
-

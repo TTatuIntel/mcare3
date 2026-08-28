@@ -8,7 +8,7 @@ import '../../shared/models/vital.dart';
 import '../../shared/state/sos_state.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/widgets/app_toast.dart';
-import '../../shared/alerts/urgent_alert_dialog.dart';
+import '../../shared/alerts/alert_center.dart';
 import '../env/app_env.dart';
 import 'background_session_sync.dart';
 import 'realtime_channel.dart';
@@ -20,11 +20,9 @@ import 'realtime_channel.dart';
 /// - Only rebuilds UI when session data actually changed
 /// - Surfaces toasts only for new critical alerts / SOS events
 ///
-/// README §7.1 target end-state: once Reverb WebSockets are the primary
-/// delivery channel, this poller drops to [fallbackInterval] and becomes a
-/// reconciliation sweep for missed events after reconnect — not a delivery
-/// mechanism. The [fallbackInterval] constant is defined now so the switch
-/// is a one-line change in [_scheduleNext] once the WS client lands.
+/// When all Reverb subscriptions are confirmed this automatically drops to
+/// [fallbackInterval] and becomes a reconciliation sweep for missed events.
+/// A disconnect immediately restores normal/urgent polling.
 class SessionPoller {
   SessionPoller._();
   static final SessionPoller instance = SessionPoller._();
@@ -33,8 +31,7 @@ class SessionPoller {
   static const Duration urgentInterval = Duration(seconds: 8);
   static const Duration initialDelay = Duration(seconds: 3);
 
-  /// Post-Reverb reconciliation sweep interval (§7.1). Not yet active —
-  /// see class doc.
+  /// Post-Reverb reconciliation sweep interval (§7.1).
   static const Duration fallbackInterval = Duration(minutes: 5);
 
   Timer? _timer;
@@ -74,10 +71,19 @@ class SessionPoller {
     Future.microtask(_tick);
   }
 
+  /// Called by [RealtimeChannel] after subscription or disconnect.
+  void onRealtimeStatusChanged({bool refresh = false}) {
+    if (_context == null) return;
+    _scheduleNext();
+    if (refresh) triggerNow();
+  }
+
   void _scheduleNext() {
     _timer?.cancel();
     final user = AuthState.instance.user;
-    final interval = user?.role == UserRole.patient
+    final interval = RealtimeChannel.instance.isSubscribed
+        ? fallbackInterval
+        : user?.role == UserRole.patient
         ? (SosState.instance.hasActiveSos ? urgentInterval : normalInterval)
         : (_activeSos > 0 || _openAlerts > 0 ? urgentInterval : normalInterval);
     _timer = Timer(interval, () async {
@@ -168,7 +174,9 @@ class SessionPoller {
       if (role == UserRole.doctor ||
           role == UserRole.admin ||
           role == UserRole.mcareAssistant) {
-        UrgentAlertDialog.maybeShow(ctx);
+        // Hand it to the engine; the banner layer decides what appears.
+        // Pushing a popup from here is what used to cover the page.
+        AlertCenter.instance.refresh();
       }
     }
   }

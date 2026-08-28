@@ -15,7 +15,8 @@ class ApiErrorMessages {
     if (_looksLikeDatabaseFailure(lower)) {
       return 'Database or API server is offline. '
           'Start MySQL and the Laravel API in XAMPP, '
-          'or run in demo mode with MCARE_USE_BACKEND=false.';
+          'or explicitly run UI fixture mode with MCARE_USE_BACKEND=false '
+          'and MCARE_ALLOW_DEMO_DATA=true.';
     }
 
     if (_looksLikeNetworkFailure(lower)) {

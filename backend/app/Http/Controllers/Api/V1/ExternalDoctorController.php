@@ -10,6 +10,7 @@ use App\Models\Medication;
 use App\Models\VitalCatalog;
 use App\Models\VitalReading;
 use App\Services\VitalAlertNotifier;
+use App\Services\RealtimeSignalService;
 use App\Support\ApiResponse;
 use App\Support\MedicalDocumentFiles;
 use App\Support\VitalRisk;
@@ -106,6 +107,9 @@ class ExternalDoctorController extends Controller
         return $this->success([
             'token' => $token,
             'expires_at' => $access->expires_at->toIso8601String(),
+            'realtime_channel' => RealtimeSignalService::enabled()
+                ? 'private-external.'.$access->id
+                : null,
             'catalog' => $catalog,
             'patient' => [
                 'id' => (string) $patient->id,

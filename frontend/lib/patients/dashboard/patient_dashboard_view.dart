@@ -14,6 +14,8 @@ import '../../shared/models/vital.dart';
 import '../../shared/state/appointments_state.dart';
 import '../../shared/state/medications_state.dart';
 import '../../shared/state/notification_state.dart';
+import '../../shared/state/profile_state.dart';
+import '../../shared/state/sos_state.dart';
 import '../../shared/state/vitals_state.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
@@ -28,6 +30,7 @@ import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/risk_badge.dart';
 import '../../shared/widgets/section_label.dart';
 import '../vitals/submit_vital_sheet.dart';
+import '../vitals/vital_preferences_sheet.dart';
 import '../medications/log_dose_sheet.dart';
 
 part 'patient_dashboard_home_sections.dart';
@@ -219,7 +222,7 @@ class _CareActivityFeedState extends State<_CareActivityFeed> {
         icon: AppIcons.trend,
         title: 'Nothing here yet',
         message:
-            'Log vitals, take medications, or book a visit â€” activity will show up here.',
+            'Log vitals, take medications, or book a visit — activity will show up here.',
         actionLabel: 'Log a vital',
         onAction: () => SubmitVitalSheet.show(context),
         compact: true,
@@ -396,7 +399,7 @@ class _AppointmentFeedRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '$dayLabel Â· $time',
+                    '$dayLabel · $time',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppPalette.textMuted(context),
                     ),

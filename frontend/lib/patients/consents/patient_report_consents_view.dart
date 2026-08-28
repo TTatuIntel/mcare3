@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/report_consents_api.dart';
 import '../../core/env/app_env.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/patient_report_request.dart';
 import '../../shared/theme/app_colors.dart';
@@ -32,7 +33,8 @@ class PatientReportConsentsView extends StatefulWidget {
       _PatientReportConsentsViewState();
 }
 
-class _PatientReportConsentsViewState extends State<PatientReportConsentsView> {
+class _PatientReportConsentsViewState extends State<PatientReportConsentsView>
+    with RealtimeRefreshMixin<PatientReportConsentsView> {
   List<PatientReportRequestItem> _items = const [];
   bool _loading = true;
   String? _error;
@@ -40,6 +42,7 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView> {
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'reports'}, _load);
     _load();
   }
 

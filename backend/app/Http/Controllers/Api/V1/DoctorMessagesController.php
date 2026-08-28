@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Conversation;
+use App\Models\User;
+use App\Services\RealtimeSignalService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -18,20 +20,27 @@ class DoctorMessagesController extends Controller
         $caseloadIds = DoctorAccess::caseloadPatientIds($doctor);
 
         $conversations = Conversation::query()
-            ->where(function ($q) use ($doctor, $caseloadIds) {
-                $q->where('participant_user_id', $doctor->id);
-                if ($caseloadIds) {
-                    $q->orWhereIn('user_id', $caseloadIds);
-                }
+            ->where(function ($q) use ($doctor) {
+                $q->where('participant_user_id', $doctor->id)
+                    ->orWhere('user_id', $doctor->id);
             })
-            ->with(['user', 'messages' => fn ($q) => $q->latest('sent_at')->limit(1)])
-            ->orderByDesc('last_message_at')
+            ->where(function ($q) use ($doctor, $caseloadIds) {
+                $q->where('user_id', $doctor->id)
+                    ->orWhereIn('user_id', $caseloadIds)
+                    ->orWhereHas('user', fn ($owner) => $owner->where('role', '!=', 'patient'));
+            })
+            ->with(['user', 'participant', 'messages' => fn ($q) => $q->latest('sent_at')->limit(1)])
+            ->withCount(['messages as unread_messages_count' => fn ($q) => $q
+                ->where('sender_user_id', '!=', $doctor->id)
+                ->where('read', false)])
+            ->withMax('messages', 'sent_at')
+            ->orderByDesc('messages_max_sent_at')
             ->limit(200)
             ->get();
 
         return $this->success([
             'conversations' => $conversations->map(
-                fn (Conversation $c) => $this->conversationForDoctor($c, $doctor->id)
+                fn (Conversation $c) => $this->conversationForDoctor($c, $doctor)
             )->all(),
         ]);
     }
@@ -40,13 +49,12 @@ class DoctorMessagesController extends Controller
     {
         $this->assertDoctorCanAccess($request->user(), $conversation);
 
+        $messages = $conversation->messages()->orderBy('sent_at')->get();
+        $conversation->setRelation('messages', $messages);
+
         return $this->success([
-            'conversation' => $this->conversationForDoctor($conversation, $request->user()->id),
-            'messages' => $conversation->messages()
-                ->orderBy('sent_at')
-                ->get()
-                ->map->toApiArray()
-                ->all(),
+            'conversation' => $this->conversationForDoctor($conversation, $request->user()),
+            'messages' => $messages->map->toApiArray()->all(),
         ]);
     }
 
@@ -63,10 +71,9 @@ class DoctorMessagesController extends Controller
             'conversation_id' => $conversation->id,
             'sender_user_id' => $doctor->id,
             'body' => $data['body'],
-            'read' => true,
+            'read' => false,
             'sent_at' => now(),
         ]);
-        $conversation->update(['last_message_at' => $msg->sent_at]);
 
         DoctorAccess::audit(
             $doctor,
@@ -86,7 +93,7 @@ class DoctorMessagesController extends Controller
             ->where('sender_user_id', '!=', $request->user()->id)
             ->where('read', false)
             ->update(['read' => true]);
-        $conversation->update(['unread_count' => 0]);
+        RealtimeSignalService::forModel($conversation, 'updated', ['messages']);
 
         return $this->success(null, 'Marked read.');
     }
@@ -94,29 +101,40 @@ class DoctorMessagesController extends Controller
     private function assertDoctorCanAccess($doctor, Conversation $conversation): void
     {
         $caseloadIds = DoctorAccess::caseloadPatientIds($doctor);
-        $allowed = $conversation->participant_user_id === $doctor->id
+        $directParticipant = $conversation->participant_user_id === $doctor->id
+            || $conversation->user_id === $doctor->id;
+        $ownerRole = $conversation->relationLoaded('user')
+            ? $conversation->user?->role
+            : $conversation->user()->value('role');
+        $allowedOwner = $conversation->user_id === $doctor->id
+            || $ownerRole !== 'patient'
             || in_array($conversation->user_id, $caseloadIds, true);
+        $allowed = $directParticipant && $allowedOwner;
         abort_unless($allowed, 403, 'Conversation not in your caseload.');
     }
 
-    private function conversationForDoctor(Conversation $c, int $doctorId): array
+    private function conversationForDoctor(Conversation $c, User $doctor): array
     {
-        $patient = $c->user;
-        $last = $c->messages->first()
-            ?? $c->messages()->latest('sent_at')->first();
+        $owner = $c->relationLoaded('user') ? $c->user : $c->user()->first();
+        $participant = $c->relationLoaded('participant')
+            ? $c->participant
+            : $c->participant()->first();
+        $counterparty = (int) $c->user_id === (int) $doctor->id
+            ? $participant
+            : $owner;
+        $base = $c->toApiArray($doctor);
 
-        return [
-            'id' => (string) $c->id,
-            'patient_id' => (string) $c->user_id,
-            'patient_name' => $patient ? $patient->fullName() : '',
+        return array_merge($base, [
+            'patient_id' => $counterparty?->role === 'patient'
+                ? (string) $counterparty->id
+                : null,
+            'patient_name' => $counterparty?->fullName() ?? '',
             'participant' => [
-                'id' => (string) $c->user_id,
-                'name' => $patient ? $patient->fullName() : ($c->participant_name ?? 'Patient'),
-                'role' => 'patient',
-                'specialty' => null,
+                'id' => $counterparty ? (string) $counterparty->id : '',
+                'name' => $counterparty?->fullName() ?? $c->participant_name,
+                'role' => $counterparty?->role ?? $c->participant_role,
+                'specialty' => $counterparty?->specialty ?? $c->participant_specialty,
             ],
-            'last_message' => $last?->toApiArray(),
-            'unread_count' => $c->unread_count,
-        ];
+        ]);
     }
 }

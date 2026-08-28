@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/admin_api.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/navigation/staff_destinations.dart';
 import '../../shared/theme/app_colors.dart';
@@ -22,11 +23,11 @@ class AdminSecurityView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SecurityIncidentsScreen(
-        currentRoute: RouteNames.adminSecurity,
-        destinations: StaffDestinations.admin(),
-        profileRoute: RouteNames.adminProfile,
-        notificationsRoute: RouteNames.adminNotifications,
-      );
+    currentRoute: RouteNames.adminSecurity,
+    destinations: StaffDestinations.admin(),
+    profileRoute: RouteNames.adminProfile,
+    notificationsRoute: RouteNames.adminNotifications,
+  );
 }
 
 /// Unified security feed — SOS events + security audit entries.
@@ -49,7 +50,8 @@ class SecurityIncidentsScreen extends StatefulWidget {
       _SecurityIncidentsScreenState();
 }
 
-class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen> {
+class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen>
+    with RealtimeRefreshMixin<SecurityIncidentsScreen> {
   List<Map<String, dynamic>> _incidents = [];
   bool _loading = true;
   bool _showResolved = false;
@@ -57,6 +59,7 @@ class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen> {
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'sos', 'audit'}, _load);
     _load();
   }
 
@@ -78,10 +81,10 @@ class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen> {
   }
 
   Color _severityColor(String? severity) => switch (severity) {
-        'critical' => AppColors.critical,
-        'high' => AppColors.warning,
-        _ => AppColors.info,
-      };
+    'critical' => AppColors.critical,
+    'high' => AppColors.warning,
+    _ => AppColors.info,
+  };
 
   String _title(Map<String, dynamic> item) {
     if (item['source'] == 'audit') {
@@ -93,7 +96,9 @@ class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen> {
   String _subtitle(Map<String, dynamic> item) {
     final at = item['happened_at'] ?? item['triggered_at'];
     final when = at is String
-        ? DateFormat.MMMd().add_jm().format(DateTime.tryParse(at) ?? DateTime.now())
+        ? DateFormat.MMMd().add_jm().format(
+            DateTime.tryParse(at) ?? DateTime.now(),
+          )
         : '';
     if (item['source'] == 'audit') {
       return '${item['actor']} → ${item['target']} · $when';
@@ -151,10 +156,7 @@ class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen> {
                 },
               ),
               const Spacer(),
-              IconButton(
-                icon: const Icon(AppIcons.refresh),
-                onPressed: _load,
-              ),
+              IconButton(icon: const Icon(AppIcons.refresh), onPressed: _load),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -168,45 +170,44 @@ class _SecurityIncidentsScreenState extends State<SecurityIncidentsScreen> {
             child: _loading
                 ? const AppLoadingView()
                 : _incidents.isEmpty
-                    ? const GlassCard(
+                ? const GlassCard(
+                    frosted: true,
+                    child: EmptyStateView(
+                      icon: AppIcons.security,
+                      title: 'No incidents',
+                      message: 'Security events will appear here.',
+                      compact: true,
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: _incidents.length,
+                    separatorBuilder: (ctx, i) =>
+                        const SizedBox(height: AppSpacing.xs),
+                    itemBuilder: (context, i) {
+                      final item = _incidents[i];
+                      final severity = item['severity'] as String?;
+                      return GlassCard(
                         frosted: true,
-                        child: EmptyStateView(
-                          icon: AppIcons.security,
-                          title: 'No incidents',
-                          message: 'Security events will appear here.',
-                          compact: true,
+                        child: StaffListRow(
+                          icon: item['source'] == 'sos'
+                              ? AppIcons.sos
+                              : AppIcons.security,
+                          iconColor: _severityColor(severity),
+                          title: _title(item),
+                          subtitle: _subtitle(item),
+                          pill: severity ?? item['source'] as String?,
+                          pillColor: _severityColor(severity),
+                          trailing: !_showResolved && item['source'] == 'sos'
+                              ? AppButton(
+                                  label: 'Resolve',
+                                  size: AppButtonSize.sm,
+                                  onPressed: () => _resolve(item),
+                                )
+                              : null,
                         ),
-                      )
-                    : ListView.separated(
-                        itemCount: _incidents.length,
-                        separatorBuilder: (ctx, i) =>
-                            const SizedBox(height: AppSpacing.xs),
-                        itemBuilder: (context, i) {
-                          final item = _incidents[i];
-                          final severity = item['severity'] as String?;
-                          return GlassCard(
-                            frosted: true,
-                            child: StaffListRow(
-                              icon: item['source'] == 'sos'
-                                  ? AppIcons.sos
-                                  : AppIcons.security,
-                              iconColor: _severityColor(severity),
-                              title: _title(item),
-                              subtitle: _subtitle(item),
-                              pill: severity ?? item['source'] as String?,
-                              pillColor: _severityColor(severity),
-                              trailing: !_showResolved &&
-                                      item['source'] == 'sos'
-                                  ? AppButton(
-                                      label: 'Resolve',
-                                      size: AppButtonSize.sm,
-                                      onPressed: () => _resolve(item),
-                                    )
-                                  : null,
-                            ),
-                          );
-                        },
-                      ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

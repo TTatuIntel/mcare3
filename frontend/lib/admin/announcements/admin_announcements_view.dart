@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/admin_api.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/navigation/staff_destinations.dart';
 import '../../shared/theme/app_colors.dart';
@@ -21,11 +22,11 @@ class AdminAnnouncementsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnnouncementsScreen(
-        currentRoute: RouteNames.adminAnnouncements,
-        destinations: StaffDestinations.admin(),
-        profileRoute: RouteNames.adminProfile,
-        notificationsRoute: RouteNames.adminNotifications,
-      );
+    currentRoute: RouteNames.adminAnnouncements,
+    destinations: StaffDestinations.admin(),
+    profileRoute: RouteNames.adminProfile,
+    notificationsRoute: RouteNames.adminNotifications,
+  );
 }
 
 /// Platform announcements — create, schedule, publish to audiences.
@@ -47,7 +48,8 @@ class AnnouncementsScreen extends StatefulWidget {
   State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
 }
 
-class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
+class _AnnouncementsScreenState extends State<AnnouncementsScreen>
+    with RealtimeRefreshMixin<AnnouncementsScreen> {
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
   String? _error;
@@ -64,6 +66,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'announcements'}, _load);
     _load();
   }
 
@@ -111,11 +114,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 prefixIcon: AppIcons.announcements,
               ),
               const SizedBox(height: AppSpacing.sm),
-              AppTextField(
-                controller: bodyCtrl,
-                label: 'Body',
-                maxLines: 4,
-              ),
+              AppTextField(controller: bodyCtrl, label: 'Body', maxLines: 4),
               const SizedBox(height: AppSpacing.sm),
               DropdownButtonFormField<String>(
                 initialValue: audience,
@@ -168,10 +167,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     try {
       await AdminApi.instance.publishAnnouncement(id, publish: publish);
       if (!mounted) return;
-      AppToast.show(
-        context,
-        message: publish ? 'Published.' : 'Unpublished.',
-      );
+      AppToast.show(context, message: publish ? 'Published.' : 'Unpublished.');
     } catch (e) {
       if (mounted) AppToast.error(context, 'Could not update: $e');
     }
@@ -190,8 +186,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   Future<void> _edit(Map<String, dynamic> item) async {
-    final titleCtrl =
-        TextEditingController(text: item['title'] as String? ?? '');
+    final titleCtrl = TextEditingController(
+      text: item['title'] as String? ?? '',
+    );
     final bodyCtrl = TextEditingController(text: item['body'] as String? ?? '');
     String audience = item['audience'] as String? ?? 'all';
 
@@ -211,11 +208,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 prefixIcon: AppIcons.announcements,
               ),
               const SizedBox(height: AppSpacing.sm),
-              AppTextField(
-                controller: bodyCtrl,
-                label: 'Body',
-                maxLines: 4,
-              ),
+              AppTextField(controller: bodyCtrl, label: 'Body', maxLines: 4),
               const SizedBox(height: AppSpacing.sm),
               DropdownButtonFormField<String>(
                 initialValue: audience,
@@ -237,14 +230,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     return;
                   }
                   try {
-                    await AdminApi.instance.updateAnnouncement(
-                      item['id'] as String,
-                      {
-                        'title': titleCtrl.text.trim(),
-                        'body': bodyCtrl.text.trim(),
-                        'audience': audience,
-                      },
-                    );
+                    await AdminApi.instance
+                        .updateAnnouncement(item['id'] as String, {
+                          'title': titleCtrl.text.trim(),
+                          'body': bodyCtrl.text.trim(),
+                          'audience': audience,
+                        });
                     if (ctx.mounted) Navigator.of(ctx).pop(true);
                   } catch (e) {
                     if (ctx.mounted) {
@@ -285,97 +276,92 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       body: _loading
           ? const AppLoadingView()
           : _error != null
-              ? EmptyStateView(
-                  icon: AppIcons.alert,
-                  title: 'Could not load',
-                  message: _error!,
-                  actionLabel: 'Retry',
-                  onAction: _load,
-                )
-              : _items.isEmpty
-                  ? const EmptyStateView(
-                      icon: AppIcons.announcements,
-                      title: 'No announcements',
-                      message: 'Create a draft to broadcast platform updates.',
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.only(bottom: 88),
-                      itemCount: _items.length,
-                      separatorBuilder: (_, i) =>
-                          const SizedBox(height: AppSpacing.xs),
-                      itemBuilder: (context, i) {
-                        final item = _items[i];
-                        final published =
-                            item['is_published'] as bool? ?? false;
-                        final live = item['is_live'] as bool? ?? false;
-                        return GlassCard(
-                          frosted: true,
-                          child: StaffListRow(
-                            icon: AppIcons.announcements,
-                            iconColor: live
-                                ? AppColors.success
-                                : AppPalette.textMuted(context),
-                            title: item['title'] as String? ?? '',
-                            subtitle:
-                                '${item['audience']} · ${published ? (live ? 'Live' : 'Scheduled') : 'Draft'}',
-                            pill: published ? 'Published' : 'Draft',
-                            pillColor: published
-                                ? AppColors.success
-                                : AppColors.warning,
-                            onTap: () => GlassSheet.show(
-                              context,
-                              title: item['title'] as String? ?? '',
-                              subtitle: item['audience'] as String? ?? '',
-                              child: Padding(
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    Text(item['body'] as String? ?? ''),
-                                    const SizedBox(height: AppSpacing.lg),
-                                    AppButton(
-                                      label: published
-                                          ? 'Unpublish'
-                                          : 'Publish',
-                                      icon: published
-                                          ? AppIcons.visibilityOff
-                                          : AppIcons.check,
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                        _togglePublish(item);
-                                      },
-                                    ),
-                                    const SizedBox(height: AppSpacing.sm),
-                                    if (!published)
-                                      AppButton(
-                                        label: 'Edit draft',
-                                        icon: AppIcons.edit,
-                                        variant: AppButtonVariant.secondary,
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                          _edit(item);
-                                        },
-                                      ),
-                                    if (!published)
-                                      const SizedBox(height: AppSpacing.sm),
-                                    AppButton(
-                                      label: 'Delete',
-                                      icon: AppIcons.delete,
-                                      variant: AppButtonVariant.danger,
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                        _delete(item);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
+          ? EmptyStateView(
+              icon: AppIcons.alert,
+              title: 'Could not load',
+              message: _error!,
+              actionLabel: 'Retry',
+              onAction: _load,
+            )
+          : _items.isEmpty
+          ? const EmptyStateView(
+              icon: AppIcons.announcements,
+              title: 'No announcements',
+              message: 'Create a draft to broadcast platform updates.',
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: _items.length,
+              separatorBuilder: (_, i) => const SizedBox(height: AppSpacing.xs),
+              itemBuilder: (context, i) {
+                final item = _items[i];
+                final published = item['is_published'] as bool? ?? false;
+                final live = item['is_live'] as bool? ?? false;
+                return GlassCard(
+                  frosted: true,
+                  child: StaffListRow(
+                    icon: AppIcons.announcements,
+                    iconColor: live
+                        ? AppColors.success
+                        : AppPalette.textMuted(context),
+                    title: item['title'] as String? ?? '',
+                    subtitle:
+                        '${item['audience']} · ${published ? (live ? 'Live' : 'Scheduled') : 'Draft'}',
+                    pill: published ? 'Published' : 'Draft',
+                    pillColor: published
+                        ? AppColors.success
+                        : AppColors.warning,
+                    onTap: () => GlassSheet.show(
+                      context,
+                      title: item['title'] as String? ?? '',
+                      subtitle: item['audience'] as String? ?? '',
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(item['body'] as String? ?? ''),
+                            const SizedBox(height: AppSpacing.lg),
+                            AppButton(
+                              label: published ? 'Unpublish' : 'Publish',
+                              icon: published
+                                  ? AppIcons.visibilityOff
+                                  : AppIcons.check,
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                _togglePublish(item);
+                              },
                             ),
-                          ),
-                        );
-                      },
+                            const SizedBox(height: AppSpacing.sm),
+                            if (!published)
+                              AppButton(
+                                label: 'Edit draft',
+                                icon: AppIcons.edit,
+                                variant: AppButtonVariant.secondary,
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _edit(item);
+                                },
+                              ),
+                            if (!published)
+                              const SizedBox(height: AppSpacing.sm),
+                            AppButton(
+                              label: 'Delete',
+                              icon: AppIcons.delete,
+                              variant: AppButtonVariant.danger,
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                _delete(item);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

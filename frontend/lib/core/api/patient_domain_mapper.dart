@@ -405,46 +405,44 @@ class PatientDomainMapper {
     double? secondaryValue,
     DateTime? recordedAt,
     String? note,
-  }) =>
-      {
-        'vital_key': vital.name,
-        'value': value,
-        if (secondaryValue != null) 'secondary_value': secondaryValue,
-        if (recordedAt != null) 'recorded_at': recordedAt.toIso8601String(),
-        if (note != null) 'note': note,
-      };
+  }) => {
+    'vital_key': vital.name,
+    'value': value,
+    if (secondaryValue != null) 'secondary_value': secondaryValue,
+    if (recordedAt != null) 'recorded_at': recordedAt.toIso8601String(),
+    if (note != null) 'note': note,
+  };
 
   static Map<String, dynamic> medicationToApi(Medication med) => {
-        'name': med.name,
-        'dosage': med.dosage,
-        'frequency': med.frequency,
-        'form': med.form,
-        'instructions': med.instructions,
-        'prescribed_by': med.prescribedBy,
-        'start_date': med.startDate.toIso8601String(),
-        if (med.endDate != null) 'end_date': med.endDate!.toIso8601String(),
-        if (med.expiryDate != null)
-          'expiry_date': med.expiryDate!.toIso8601String(),
-        if (med.refillsLeft != null) 'refills_left': med.refillsLeft,
-        'source': med.source.name,
-      };
+    'name': med.name,
+    'dosage': med.dosage,
+    'frequency': med.frequency,
+    'form': med.form,
+    'instructions': med.instructions,
+    'prescribed_by': med.prescribedBy,
+    'start_date': med.startDate.toIso8601String(),
+    if (med.endDate != null) 'end_date': med.endDate!.toIso8601String(),
+    if (med.expiryDate != null)
+      'expiry_date': med.expiryDate!.toIso8601String(),
+    if (med.refillsLeft != null) 'refills_left': med.refillsLeft,
+    'source': med.source.name,
+  };
 
   static Map<String, dynamic> doseStatusToApi(DoseStatus status) => {
-        'status': status.name,
-        if (status == DoseStatus.taken)
-          'taken_at': DateTime.now().toIso8601String(),
-      };
+    'status': status.name,
+    if (status == DoseStatus.taken)
+      'taken_at': DateTime.now().toIso8601String(),
+  };
 
   static Map<String, dynamic> appointmentToApi(Appointment appt) => {
-        'doctor_name': appt.doctorName,
-        'doctor_specialty': appt.doctorSpecialty,
-        'scheduled_at': appt.scheduledAt.toIso8601String(),
-        'duration_minutes': appt.durationMinutes,
-        'type': appt.type.name,
-        if (appt.reason != null) 'reason': appt.reason,
-        if (appt.locationOrLink != null)
-          'location_or_link': appt.locationOrLink,
-      };
+    'doctor_name': appt.doctorName,
+    'doctor_specialty': appt.doctorSpecialty,
+    'scheduled_at': appt.scheduledAt.toIso8601String(),
+    'duration_minutes': appt.durationMinutes,
+    'type': appt.type.name,
+    if (appt.reason != null) 'reason': appt.reason,
+    if (appt.locationOrLink != null) 'location_or_link': appt.locationOrLink,
+  };
 
   static Map<String, dynamic> documentMetaToApi({
     required String title,
@@ -452,28 +450,25 @@ class PatientDomainMapper {
     required DocumentFileType fileType,
     String? description,
     String? sharedWithDoctorId,
-  }) =>
-      {
-        'title': title,
-        'category': category.name,
-        'file_type': fileType.name,
-        if (description != null) 'description': description,
-        if (sharedWithDoctorId != null)
-          'shared_with_doctor_id': sharedWithDoctorId,
-      };
+  }) => {
+    'title': title,
+    'category': category.name,
+    'file_type': fileType.name,
+    if (description != null) 'description': description,
+    if (sharedWithDoctorId != null) 'shared_with_doctor_id': sharedWithDoctorId,
+  };
 
   static Map<String, dynamic> supportTicketToApi({
     required String subject,
     required String description,
     required TicketCategory category,
     TicketPriority priority = TicketPriority.normal,
-  }) =>
-      {
-        'subject': subject,
-        'description': description,
-        'category': category.name,
-        'priority': priority.name,
-      };
+  }) => {
+    'subject': subject,
+    'description': description,
+    'category': category.name,
+    'priority': priority.name,
+  };
 
   static Map<String, dynamic> sosTriggerToApi({
     required EmergencyKind kind,
@@ -481,25 +476,23 @@ class PatientDomainMapper {
     double? latitude,
     double? longitude,
     String? note,
-  }) =>
-      {
-        'kind': kind.name,
-        if (locationLabel != null) 'location_label': locationLabel,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        if (note != null) 'note': note,
-      };
+  }) => {
+    'kind': kind.name,
+    if (locationLabel != null) 'location_label': locationLabel,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+    if (note != null) 'note': note,
+  };
 
   static Map<String, dynamic> vitalReportRequestToApi({
     required DateTime from,
     required DateTime to,
     required List<VitalKey> vitals,
     String? note,
-  }) =>
-      {
-        'range_from': from.toIso8601String(),
-        'range_to': to.toIso8601String(),
-        'vitals': vitals.map((v) => v.name).toList(),
-        if (note != null) 'note': note,
-      };
+  }) => {
+    'range_from': from.toIso8601String(),
+    'range_to': to.toIso8601String(),
+    'vitals': vitals.map((v) => v.name).toList(),
+    if (note != null) 'note': note,
+  };
 }

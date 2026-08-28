@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../shared/auth/auth_state.dart';
+import '../../shared/models/user_role.dart';
 import '../api/api_client.dart';
 import '../env/app_env.dart';
 import 'session_poller.dart';
@@ -21,11 +22,10 @@ import 'session_poller.dart';
 /// app runs REST/polling only. This keeps local dev unaffected until the
 /// Reverb server is actually up.
 ///
-/// Event handling is intentionally minimal: when a `vital.alert` frame
-/// arrives, we trigger [SessionPoller.triggerNow] which refreshes the
-/// same state stores the REST path populates. That keeps the state
-/// layer completely unaware of the WS channel — one code path, two
-/// delivery mechanisms.
+/// `session.changed` events carry domain names only. They trigger the same
+/// authenticated REST hydration path used by polling, while independently
+/// loaded screens can listen to [changes]. Legacy `vital.alert` frames remain
+/// supported during deployment upgrades.
 class RealtimeChannel {
   RealtimeChannel._();
   static final RealtimeChannel instance = RealtimeChannel._();
@@ -33,9 +33,25 @@ class RealtimeChannel {
   WebSocketChannel? _socket;
   StreamSubscription<dynamic>? _sub;
   Timer? _reconnectTimer;
+  Timer? _refreshDebounce;
   String? _socketId;
   bool _attached = false;
+  bool _subscribed = false;
+  bool _everSubscribed = false;
   int _backoffSeconds = 2;
+  final Set<String> _requiredChannels = {};
+  final Set<String> _confirmedChannels = {};
+  final Set<String> _pendingDomains = {};
+  final StreamController<Set<String>> _changes =
+      StreamController<Set<String>>.broadcast(sync: true);
+
+  /// True only after every required private channel is authorised and Reverb
+  /// confirms the subscriptions. Polling remains the primary path otherwise.
+  bool get isSubscribed => _attached && _subscribed;
+
+  /// Domain-level invalidation stream for screens that own an endpoint outside
+  /// the role session payload (analytics, announcements, consent flows, etc.).
+  Stream<Set<String>> get changes => _changes.stream;
 
   /// Connect if realtime is enabled and a user is signed in. Idempotent —
   /// calling repeatedly with the same session is a no-op.
@@ -54,9 +70,13 @@ class RealtimeChannel {
   /// Tear down the WS connection. Safe to call from anywhere including
   /// hot-restart / logout paths.
   void detach() {
+    final wasSubscribed = _subscribed;
     _attached = false;
+    _subscribed = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _refreshDebounce?.cancel();
+    _refreshDebounce = null;
     _sub?.cancel();
     _sub = null;
     try {
@@ -66,11 +86,21 @@ class RealtimeChannel {
     }
     _socket = null;
     _socketId = null;
+    _requiredChannels.clear();
+    _confirmedChannels.clear();
+    _pendingDomains.clear();
+    if (wasSubscribed) {
+      SessionPoller.instance.onRealtimeStatusChanged();
+    }
   }
 
   Future<void> _connect() async {
+    _subscribed = false;
+    _requiredChannels.clear();
+    _confirmedChannels.clear();
+    final base = AppEnv.wsUrl.replaceAll(RegExp(r'/+$'), '');
     final endpoint =
-        '${AppEnv.wsUrl}/app/${AppEnv.wsAppKey}'
+        '$base/app/${AppEnv.wsAppKey}'
         '?protocol=7&client=mcare&version=1.0.0&flash=false';
     try {
       _socket = WebSocketChannel.connect(Uri.parse(endpoint));
@@ -97,12 +127,35 @@ class RealtimeChannel {
 
     final event = frame['event'] as String? ?? '';
 
+    if (event == 'pusher:ping') {
+      _socket?.sink.add(jsonEncode({'event': 'pusher:pong', 'data': {}}));
+      return;
+    }
+
     if (event == 'pusher:connection_established') {
       final data = _decodeInnerData(frame['data']);
       _socketId = data['socket_id'] as String?;
       // Success reset backoff.
       _backoffSeconds = 2;
-      _subscribeUserChannels();
+      unawaited(_subscribeUserChannels());
+      return;
+    }
+
+    if (event == 'pusher_internal:subscription_succeeded') {
+      final channel = frame['channel'] as String?;
+      if (channel != null) _confirmedChannels.add(channel);
+      if (_requiredChannels.isNotEmpty &&
+          _confirmedChannels.containsAll(_requiredChannels)) {
+        final reconnect = _everSubscribed;
+        _everSubscribed = true;
+        _subscribed = true;
+        SessionPoller.instance.onRealtimeStatusChanged(refresh: reconnect);
+      }
+      return;
+    }
+
+    if (event == 'pusher_internal:subscription_error') {
+      _scheduleReconnect('subscription error');
       return;
     }
 
@@ -113,8 +166,22 @@ class RealtimeChannel {
     }
 
     // App events use `broadcastAs()` names — see backend/app/Events.
-    if (event == 'vital.alert') {
-      SessionPoller.instance.triggerNow();
+    if (event == 'vital.alert' || event == 'session.changed') {
+      final payload = _decodeInnerData(frame['data']);
+      final domains = payload['domains'];
+      if (domains is List) {
+        _pendingDomains.addAll(domains.whereType<String>());
+      } else if (event == 'vital.alert') {
+        _pendingDomains.addAll(const ['vitals', 'alerts', 'notifications']);
+      }
+      _refreshDebounce?.cancel();
+      _refreshDebounce = Timer(const Duration(milliseconds: 250), () {
+        if (_pendingDomains.isNotEmpty) {
+          _changes.add(Set.unmodifiable(_pendingDomains));
+          _pendingDomains.clear();
+        }
+        SessionPoller.instance.triggerNow();
+      });
     }
   }
 
@@ -122,19 +189,35 @@ class RealtimeChannel {
     final userId = AuthState.instance.user?.id;
     if (userId == null || _socketId == null) return;
 
-    await _subscribe('private-user.$userId');
-    await _subscribe('private-care-team.$userId');
+    final role = AuthState.instance.user?.role;
+    _requiredChannels
+      ..clear()
+      ..addAll([
+        'private-user.$userId',
+        'private-app',
+        if (role == UserRole.admin || role == UserRole.mcareAssistant)
+          'private-staff',
+      ]);
+
+    for (final channel in _requiredChannels) {
+      final subscribed = await _subscribe(channel);
+      if (!subscribed) {
+        _scheduleReconnect('channel authorization failed');
+        return;
+      }
+    }
   }
 
-  Future<void> _subscribe(String channelName) async {
+  Future<bool> _subscribe(String channelName) async {
     final auth = await _authorizeChannel(channelName);
-    if (auth == null || _socket == null) return;
+    if (auth == null || _socket == null) return false;
     _socket!.sink.add(
       jsonEncode({
         'event': 'pusher:subscribe',
         'data': {'auth': auth, 'channel': channelName},
       }),
     );
+    return true;
   }
 
   /// Fetches a per-channel auth signature from Laravel's
@@ -179,6 +262,8 @@ class RealtimeChannel {
 
   void _scheduleReconnect(Object? error) {
     if (!_attached) return;
+    final wasSubscribed = _subscribed;
+    _subscribed = false;
     _sub?.cancel();
     _sub = null;
     try {
@@ -186,6 +271,13 @@ class RealtimeChannel {
     } catch (_) {}
     _socket = null;
     _socketId = null;
+    _requiredChannels.clear();
+    _confirmedChannels.clear();
+    _pendingDomains.clear();
+
+    if (wasSubscribed) {
+      SessionPoller.instance.onRealtimeStatusChanged();
+    }
 
     if (kDebugMode) {
       debugPrint(

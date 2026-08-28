@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/admin_api.dart';
 import '../../../core/env/app_env.dart';
+import '../../../core/realtime/realtime_refresh_mixin.dart';
 import '../../auth/auth_state.dart';
 import '../../models/user_dossier.dart';
 import '../../models/user_role.dart';
@@ -54,7 +55,8 @@ class _DossierBody extends StatefulWidget {
   State<_DossierBody> createState() => _DossierBodyState();
 }
 
-class _DossierBodyState extends State<_DossierBody> {
+class _DossierBodyState extends State<_DossierBody>
+    with RealtimeRefreshMixin<_DossierBody> {
   UserDossier? _dossier;
   bool _loading = true;
   String? _error;
@@ -63,6 +65,17 @@ class _DossierBodyState extends State<_DossierBody> {
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {
+      'profile',
+      'vitals',
+      'medications',
+      'appointments',
+      'documents',
+      'care',
+      'reports',
+      'alerts',
+      'audit',
+    }, _load);
     // Fetch after first frame so the sheet animates in immediately.
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }

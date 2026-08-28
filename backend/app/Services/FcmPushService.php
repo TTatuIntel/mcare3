@@ -22,6 +22,12 @@ class FcmPushService
             || self::serviceAccount() !== null;
     }
 
+    public static function isV1Configured(): bool
+    {
+        return filled(config('services.fcm.project_id'))
+            && self::serviceAccount() !== null;
+    }
+
     /**
      * @param  list<int|string>  $userIds
      */
@@ -207,9 +213,12 @@ class FcmPushService
                 );
 
             if (! $response->successful()) {
+                if (self::isPermanentTokenFailure($response->status(), $response->json())) {
+                    FcmToken::query()->where('token', $token)->delete();
+                }
                 Log::warning('FCM v1 push failed', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'reason' => (string) ($response->json('error.status') ?? 'unknown'),
                 ]);
             }
         } catch (\Throwable $e) {
@@ -260,13 +269,43 @@ class FcmPushService
     private static function serviceAccount(): ?array
     {
         $path = config('services.fcm.service_account_path');
-        if (! $path || ! is_readable($path)) {
+        if (! $path) {
+            return null;
+        }
+
+        if (! str_starts_with($path, '/') && ! preg_match('/^[A-Za-z]:[\\\\\/]/', $path)) {
+            $path = base_path($path);
+        }
+        if (! is_readable($path)) {
             return null;
         }
 
         $json = json_decode((string) file_get_contents($path), true);
 
-        return is_array($json) ? $json : null;
+        if (! is_array($json)
+            || ! filled($json['client_email'] ?? null)
+            || ! filled($json['private_key'] ?? null)) {
+            return null;
+        }
+
+        return $json;
+    }
+
+    private static function isPermanentTokenFailure(int $status, mixed $body): bool
+    {
+        if (! is_array($body)) {
+            $body = [];
+        }
+        $reason = (string) data_get($body, 'error.status', '');
+        $details = collect(data_get($body, 'error.details', []));
+        $fcmDetail = $details->first(
+            fn ($detail) => is_array($detail) && isset($detail['errorCode']),
+        );
+        $fcmCode = is_array($fcmDetail) ? ($fcmDetail['errorCode'] ?? null) : null;
+
+        return $status === 404
+            || $reason === 'NOT_FOUND'
+            || $fcmCode === 'UNREGISTERED';
     }
 
     private static function base64Url(string $value): string

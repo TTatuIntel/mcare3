@@ -25,8 +25,8 @@ class LoginView extends StatefulWidget {
 
 class _LoginViewState extends State<LoginView> {
   final _formKey = GlobalKey<FormState>();
-  final _identifier = TextEditingController(text: 'admin@mcare.health');
-  final _password = TextEditingController(text: 'demo-password');
+  final _identifier = TextEditingController();
+  final _password = TextEditingController();
   bool _loading = false;
   bool _remember = true;
 

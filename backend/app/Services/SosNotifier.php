@@ -142,12 +142,6 @@ class SosNotifier
 
     private static function kindLabel(string $kind): string
     {
-        return match ($kind) {
-            'medical' => 'Medical emergency',
-            'accident' => 'Accident',
-            'fall' => 'Fall',
-            'panic' => 'Panic',
-            default => 'Emergency',
-        };
+        return SosEvent::kindLabel($kind);
     }
 }

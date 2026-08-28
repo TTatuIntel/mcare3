@@ -7,6 +7,7 @@ use App\Models\CareProvider;
 use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\RealtimeSignalService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -23,14 +24,21 @@ class ConversationsController extends Controller
     {
         $me = $request->user();
 
-        $query = Conversation::query()->orderByDesc('last_message_at')->limit(200);
+        $query = Conversation::query()
+            ->with(['user', 'participant', 'messages' => fn ($q) => $q->latest('sent_at')->limit(1)])
+            ->withCount(['messages as unread_messages_count' => fn ($q) => $q
+                ->where('sender_user_id', '!=', $me->id)
+                ->where('read', false)])
+            ->withMax('messages', 'sent_at')
+            ->orderByDesc('messages_max_sent_at')
+            ->limit(200);
 
         // Assistants only see conversations they are a direct participant of;
         // admins see all conversations for full oversight.
         if ($me->role !== 'admin') {
             $query->where(function ($q) use ($me) {
                 $q->where('participant_user_id', $me->id)
-                  ->orWhere('user_id', $me->id);
+                    ->orWhere('user_id', $me->id);
             });
         }
 
@@ -65,8 +73,6 @@ class ConversationsController extends Controller
                     'participant_name' => $me->fullName(),
                     'participant_role' => $me->role,
                     'participant_specialty' => null,
-                    'unread_count' => 0,
-                    'last_message_at' => now(),
                 ],
             );
         } else {
@@ -80,8 +86,6 @@ class ConversationsController extends Controller
                     'participant_name' => $target->fullName(),
                     'participant_role' => $target->role,
                     'participant_specialty' => $provider?->specialty,
-                    'unread_count' => 0,
-                    'last_message_at' => now(),
                 ],
             );
         }
@@ -95,7 +99,7 @@ class ConversationsController extends Controller
 
     public function thread(Request $request, Conversation $conversation)
     {
-        $this->ensureParticipant($request, $conversation);
+        $this->ensureCanView($request, $conversation);
 
         $messages = $conversation->messages()->orderBy('sent_at')->get()
             ->map(fn (ChatMessage $m) => $m->toApiArray());
@@ -105,7 +109,7 @@ class ConversationsController extends Controller
 
     public function send(Request $request, Conversation $conversation)
     {
-        $this->ensureParticipant($request, $conversation);
+        $this->ensureDirectParticipant($request, $conversation);
 
         $data = $request->validate([
             'body' => 'required|string|max:4000',
@@ -119,32 +123,35 @@ class ConversationsController extends Controller
             'sent_at' => now(),
         ]);
 
-        $conversation->update([
-            'last_message_at' => now(),
-            'unread_count' => $conversation->unread_count + 1,
-        ]);
-
         return $this->success(['message' => $message->toApiArray()], 'Sent.', 201);
     }
 
     public function markRead(Request $request, Conversation $conversation)
     {
-        $this->ensureParticipant($request, $conversation);
+        $this->ensureDirectParticipant($request, $conversation);
 
         $conversation->messages()
             ->where('sender_user_id', '!=', $request->user()->id)
             ->where('read', false)
             ->update(['read' => true]);
 
-        $conversation->update(['unread_count' => 0]);
+        RealtimeSignalService::forModel($conversation, 'updated', ['messages']);
 
         return $this->success(['conversation_id' => (string) $conversation->id], 'Marked read.');
     }
 
-    private function ensureParticipant(Request $request, Conversation $conversation): void
+    private function ensureCanView(Request $request, Conversation $conversation): void
     {
         $me = $request->user();
-        if ($me->role === 'admin') return;
+        if ($me->role === 'admin') {
+            return;
+        }
+        $this->ensureDirectParticipant($request, $conversation);
+    }
+
+    private function ensureDirectParticipant(Request $request, Conversation $conversation): void
+    {
+        $me = $request->user();
         if ($conversation->participant_user_id !== $me->id && $conversation->user_id !== $me->id) {
             abort(response()->json([
                 'success' => false,

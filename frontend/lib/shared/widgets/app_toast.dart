@@ -25,6 +25,9 @@ class AppToast {
     required String message,
     AppToastKind kind = AppToastKind.info,
     Duration duration = defaultDuration,
+    String? title,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     _dismiss(immediate: true);
 
@@ -36,6 +39,9 @@ class AppToast {
       builder: (ctx) => _GlassToastBanner(
         message: message,
         kind: kind,
+        title: title,
+        actionLabel: actionLabel,
+        onAction: onAction,
         onStateCreated: (state) => _activeState = state,
       ),
     );
@@ -71,17 +77,38 @@ class AppToast {
       show(c, message: msg, kind: AppToastKind.info);
   static void warn(BuildContext c, String msg) =>
       show(c, message: msg, kind: AppToastKind.warning);
+
+  static void notification(
+    BuildContext context, {
+    required String title,
+    required String message,
+    VoidCallback? onOpen,
+  }) => show(
+    context,
+    title: title,
+    message: message,
+    kind: AppToastKind.info,
+    duration: const Duration(seconds: 6),
+    actionLabel: onOpen == null ? null : 'Open',
+    onAction: onOpen,
+  );
 }
 
 class _GlassToastBanner extends StatefulWidget {
   const _GlassToastBanner({
     required this.message,
     required this.kind,
+    required this.title,
+    required this.actionLabel,
+    required this.onAction,
     required this.onStateCreated,
   });
 
   final String message;
   final AppToastKind kind;
+  final String? title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   final ValueChanged<_GlassToastBannerState> onStateCreated;
 
   @override
@@ -160,93 +187,150 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
       left: AppSpacing.lg,
       right: AppSpacing.lg,
       bottom: bottomInset + 108,
-      child: FadeTransition(
-        opacity: _fade,
-        child: SlideTransition(
-          position: _slide,
-          child: Material(
-            color: Colors.transparent,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                boxShadow: [
-                  BoxShadow(
-                    color: palette.accent.withOpacity(0.2),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
-                    spreadRadius: -4,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.07),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm + 2,
-                    ),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 540),
+          child: FadeTransition(
+            opacity: _fade,
+            child: SlideTransition(
+              position: _slide,
+              child: Semantics(
+                container: true,
+                liveRegion: true,
+                label: [
+                  if (widget.title != null) widget.title!,
+                  widget.message,
+                ].join('. '),
+                child: Material(
+                  color: Colors.transparent,
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppPalette.surface(context).withOpacity(0.94),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                      border: Border.all(
-                        color: palette.accent.withOpacity(0.35),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          height: 38,
-                          width: 38,
-                          decoration: BoxDecoration(
-                            color: palette.soft.withOpacity(0.9),
-                            borderRadius: BorderRadius.circular(
-                              AppSpacing.radiusMd,
-                            ),
-                            border: Border.all(
-                              color: palette.accent.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Icon(
-                            palette.icon,
-                            color: palette.accent,
-                            size: 20,
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: palette.accent.withValues(alpha: 0.2),
+                          blurRadius: 22,
+                          offset: const Offset(0, 10),
+                          spreadRadius: -4,
                         ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Text(
-                            widget.message,
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: AppPalette.ink(context),
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.25,
-                                ),
-                          ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          onPressed: () => AppToast._dismiss(),
-                          icon: Icon(
-                            AppIcons.close,
-                            size: 18,
-                            color: AppPalette.textFaint(context),
-                          ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.07),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm + 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppPalette.surface(
+                              context,
+                            ).withValues(alpha: 0.94),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusLg,
+                            ),
+                            border: Border.all(
+                              color: palette.accent.withValues(alpha: 0.35),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                height: 38,
+                                width: 38,
+                                decoration: BoxDecoration(
+                                  color: palette.soft.withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.radiusMd,
+                                  ),
+                                  border: Border.all(
+                                    color: palette.accent.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  ),
+                                ),
+                                child: Icon(
+                                  palette.icon,
+                                  color: palette.accent,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (widget.title != null)
+                                      Text(
+                                        widget.title!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge
+                                            ?.copyWith(
+                                              color: AppPalette.ink(context),
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                    Text(
+                                      widget.message,
+                                      maxLines: widget.title == null ? 3 : 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelMedium
+                                          ?.copyWith(
+                                            color: widget.title == null
+                                                ? AppPalette.ink(context)
+                                                : AppPalette.textMuted(context),
+                                            fontWeight: widget.title == null
+                                                ? FontWeight.w700
+                                                : FontWeight.w600,
+                                            height: 1.25,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (widget.actionLabel != null &&
+                                  widget.onAction != null)
+                                TextButton(
+                                  onPressed: () {
+                                    final action = widget.onAction!;
+                                    AppToast._dismiss(immediate: true);
+                                    action();
+                                  },
+                                  child: Text(widget.actionLabel!),
+                                ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                onPressed: () => AppToast._dismiss(),
+                                icon: Icon(
+                                  AppIcons.close,
+                                  size: 18,
+                                  color: AppPalette.textFaint(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

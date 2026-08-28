@@ -15,6 +15,7 @@ import '../utils/time_greeting.dart';
 import '../widgets/app_icons.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/critical_event_overlay.dart';
+import '../widgets/messages_button.dart';
 import '../widgets/notification_bell.dart';
 import '../widgets/profile_menu_sheet.dart';
 import '../widgets/responsive.dart';
@@ -163,19 +164,9 @@ class _HubScaffold extends StatelessWidget {
     void openTickets() => openRoute(supportRoute);
     void openMessages() => openRoute(messagesRoute);
 
-    final messagingFab = FloatingActionButton(
-      heroTag: 'staff-hub-messages-fab',
-      tooltip: 'Messages',
-      onPressed: openMessages,
-      backgroundColor: role.accent,
-      foregroundColor: Colors.white,
-      child: const Icon(AppIcons.chat),
-    );
-
     if (!tier.isMobile) {
       return Scaffold(
         backgroundColor: AppPalette.scaffoldBg(context),
-        floatingActionButton: messagingFab,
         body: Row(
           children: [
             _DesktopNavigation(
@@ -187,7 +178,11 @@ class _HubScaffold extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  _HubTopBar(role: role, onOpenTickets: openTickets),
+                  _HubTopBar(
+                    role: role,
+                    onOpenTickets: openTickets,
+                    onOpenMessages: openMessages,
+                  ),
                   Expanded(child: content),
                 ],
               ),
@@ -199,9 +194,12 @@ class _HubScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppPalette.scaffoldBg(context),
-      appBar: _HubTopBar(role: role, onOpenTickets: openTickets),
+      appBar: _HubTopBar(
+        role: role,
+        onOpenTickets: openTickets,
+        onOpenMessages: openMessages,
+      ),
       body: content,
-      floatingActionButton: messagingFab,
       bottomNavigationBar: _MobileNavigation(
         role: role,
         selected: section,
@@ -514,12 +512,20 @@ class _WelcomeRevealState extends State<_WelcomeReveal> {
 }
 
 class _HubTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HubTopBar({required this.role, this.onOpenTickets});
+  const _HubTopBar({
+    required this.role,
+    this.onOpenTickets,
+    this.onOpenMessages,
+  });
 
   final UserRole role;
 
   /// Opens the support / help-desk tickets area. When null the icon is hidden.
   final VoidCallback? onOpenTickets;
+
+  /// Opens the messages inbox. Sits next to the bell so chat stays one tap
+  /// away from every hub section.
+  final VoidCallback? onOpenMessages;
 
   @override
   Size get preferredSize => const Size.fromHeight(76);
@@ -569,6 +575,7 @@ class _HubTopBar extends StatelessWidget implements PreferredSizeWidget {
                   onPressed: onOpenTickets,
                   icon: const Icon(AppIcons.ticket),
                 ),
+              MessagesButton(iconSize: 25, onTap: onOpenMessages),
               const NotificationBell(iconSize: 27),
               const SizedBox(width: AppSpacing.xs),
               Semantics(

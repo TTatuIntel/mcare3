@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Events\RealtimeDataChanged;
 use App\Models\AuditEntry;
 use App\Models\ExternalAccessToken;
 use App\Models\User;
 use App\Models\VitalCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -126,5 +128,54 @@ class ExternalAccessLifecycleTest extends TestCase
 
         $this->assertNotNull($token->fresh()->revoked_at);
         $this->assertSame($auditBefore + 1, AuditEntry::where('action', 'external.link_revoked')->count());
+    }
+
+    public function test_valid_guest_can_authorize_only_its_private_realtime_channel(): void
+    {
+        Event::fake([RealtimeDataChanged::class]);
+
+        $patient = User::factory()->role('patient')->create();
+        $access = ExternalAccessToken::create([
+            'patient_user_id' => $patient->id,
+            'created_by_user_id' => $patient->id,
+            'token' => str_repeat('r', 64),
+            'access_code' => 'LIVE-LINK',
+            'label' => 'realtime',
+            'expires_at' => now()->addDay(),
+        ]);
+
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'public-key',
+            'broadcasting.connections.reverb.secret' => 'private-secret',
+            'broadcasting.connections.reverb.app_id' => 'mcare',
+        ]);
+
+        $channel = 'private-external.'.$access->id;
+        $portal = $this->getJson("/api/v1/external/{$access->token}")
+            ->assertOk()
+            ->assertJsonPath('data.realtime_channel', $channel);
+        $this->assertNotEmpty($portal->json('data.patient'));
+
+        $expected = 'public-key:'.hash_hmac(
+            'sha256',
+            '1234.5678:'.$channel,
+            'private-secret',
+        );
+        $this->postJson("/api/v1/external/{$access->token}/broadcasting/auth", [
+            'socket_id' => '1234.5678',
+            'channel_name' => $channel,
+        ])->assertOk()->assertJsonPath('auth', $expected);
+
+        $this->postJson("/api/v1/external/{$access->token}/broadcasting/auth", [
+            'socket_id' => '1234.5678',
+            'channel_name' => 'private-external.999999',
+        ])->assertForbidden();
+
+        $access->update(['revoked_at' => now()]);
+        $this->postJson("/api/v1/external/{$access->token}/broadcasting/auth", [
+            'socket_id' => '1234.5678',
+            'channel_name' => $channel,
+        ])->assertNotFound();
     }
 }

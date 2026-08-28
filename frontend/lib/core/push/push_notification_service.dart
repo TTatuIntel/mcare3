@@ -1,15 +1,16 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../../firebase_options.dart';
 import '../../shared/auth/auth_state.dart';
+import '../../shared/constants/route_names.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/navigation/root_navigator.dart';
-import '../../shared/services/admin_sos_service.dart';
-import '../../shared/services/doctor_session_service.dart';
-import '../../shared/alerts/urgent_alert_dialog.dart';
+import '../../shared/alerts/alert_center.dart';
 import '../../shared/widgets/app_toast.dart';
+import '../realtime/background_session_sync.dart';
 import '../api/api_client.dart';
 import '../api/fcm_api.dart';
 import '../env/app_env.dart';
@@ -137,11 +138,11 @@ class PushNotificationService {
         _handleSosPush(message.data);
       case 'alert':
       case 'vital_critical':
-        _handleAlertPush(message.data);
+        _handleAlertPush(message.data, fromTap: true);
       case 'appointment':
-        _handleAppointmentPush(message.data);
+        _handleAppointmentPush(message.data, fromTap: true);
       case 'message':
-        _handleMessagePush(message.data);
+        _handleMessagePush(message.data, fromTap: true);
     }
   }
 
@@ -168,37 +169,42 @@ class PushNotificationService {
     final user = AuthState.instance.user;
     if (user == null) return;
 
-    if (user.role == UserRole.doctor) {
-      await DoctorSessionService.instance.syncFromApi();
-    } else if (user.role == UserRole.admin ||
-        user.role == UserRole.mcareAssistant) {
-      await AdminSosService.instance.syncFromApi();
-    } else {
-      return;
-    }
+    await BackgroundSessionSync.refresh(role: user.role, urgent: true);
 
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
 
-    if (data['kind'] == 'sos') {
-      // AlertCenter owns scope, ring policy, and de-duplication now, so a
-      // push and a poll arriving together cannot stack two dialogs.
-      UrgentAlertDialog.maybeShow(ctx);
+    if (_isStaff(user.role) && data['kind'] == 'sos') {
+      // AlertCenter owns scope, ring policy and de-duplication, so a push and
+      // a poll arriving together surface one notification, not two popups.
+      AlertCenter.instance.refresh();
+    }
+
+    final route = _routeForPush(data['kind'] as String? ?? 'sos', user.role);
+    if (fromTap && route != null) {
+      _openRoute(ctx, route, data: data);
+    } else if (!_isStaff(user.role)) {
+      AppToast.notification(
+        ctx,
+        title: data['kind'] == 'sos_resolved'
+            ? 'Emergency update'
+            : 'SOS update',
+        message:
+            (data['message'] as String?) ??
+            'Your emergency status has been updated.',
+        onOpen: route == null ? null : () => _openRoute(ctx, route, data: data),
+      );
     }
   }
 
-  Future<void> _handleAlertPush(Map<String, dynamic> data) async {
+  Future<void> _handleAlertPush(
+    Map<String, dynamic> data, {
+    bool fromTap = false,
+  }) async {
     final user = AuthState.instance.user;
     if (user == null) return;
 
-    if (user.role == UserRole.doctor) {
-      await DoctorSessionService.instance.syncFromApi();
-    } else if (user.role == UserRole.admin ||
-        user.role == UserRole.mcareAssistant) {
-      await AdminSosService.instance.syncFromApi();
-    } else {
-      return;
-    }
+    await BackgroundSessionSync.refresh(role: user.role, urgent: true);
 
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
@@ -209,33 +215,134 @@ class PushNotificationService {
         ? '$patientName · ${isCritical ? 'Critical alert' : 'New alert'}'
         : (isCritical ? 'Critical patient alert' : 'New patient alert');
 
+    final route = _routeForPush(data['kind'] as String? ?? 'alert', user.role);
+    if (fromTap && route != null) {
+      _openRoute(ctx, route, data: data);
+      return;
+    }
+
+    if (_isStaff(user.role)) {
+      // The shared urgent banner owns staff alert presentation and prevents a
+      // push plus Reverb invalidation from drawing the same alert twice.
+      AlertCenter.instance.refresh();
+      return;
+    }
+
     AppToast.show(
       ctx,
+      title: isCritical ? 'Critical vital alert' : 'Vital alert',
       message: message,
       kind: isCritical ? AppToastKind.error : AppToastKind.warning,
+      duration: const Duration(seconds: 7),
+      actionLabel: route == null ? null : 'Open',
+      onAction: route == null ? null : () => _openRoute(ctx, route, data: data),
     );
   }
 
-  Future<void> _handleAppointmentPush(Map<String, dynamic> data) async {
+  Future<void> _handleAppointmentPush(
+    Map<String, dynamic> data, {
+    bool fromTap = false,
+  }) async {
     final user = AuthState.instance.user;
-    if (user == null || user.role != UserRole.doctor) return;
-    await DoctorSessionService.instance.syncFromApi();
+    if (user == null) return;
+    await BackgroundSessionSync.refresh(role: user.role);
 
     final ctx = rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
 
     final patientName = data['patient_name'] as String?;
-    AppToast.info(
+    final route = _routeForPush('appointment', user.role);
+    if (fromTap && route != null) {
+      _openRoute(ctx, route, data: data);
+      return;
+    }
+    AppToast.notification(
       ctx,
-      patientName != null
+      title: 'Appointment updated',
+      message: patientName != null
           ? 'Appointment updated · $patientName'
           : 'Appointment updated',
+      onOpen: route == null ? null : () => _openRoute(ctx, route, data: data),
     );
   }
 
-  Future<void> _handleMessagePush(Map<String, dynamic> data) async {
+  Future<void> _handleMessagePush(
+    Map<String, dynamic> data, {
+    bool fromTap = false,
+  }) async {
     final user = AuthState.instance.user;
-    if (user == null || user.role != UserRole.doctor) return;
-    await DoctorSessionService.instance.syncFromApi();
+    if (user == null) return;
+    await BackgroundSessionSync.refresh(role: user.role);
+
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    final route = _routeForPush('message', user.role);
+    if (fromTap && route != null) {
+      _openRoute(ctx, route, data: data);
+      return;
+    }
+    AppToast.notification(
+      ctx,
+      title: 'New message',
+      message:
+          (data['message'] as String?) ??
+          (data['sender_name'] == null
+              ? 'A new care message is waiting.'
+              : 'Message from ${data['sender_name']}'),
+      onOpen: route == null ? null : () => _openRoute(ctx, route, data: data),
+    );
+  }
+
+  bool _isStaff(UserRole role) =>
+      role == UserRole.doctor ||
+      role == UserRole.admin ||
+      role == UserRole.mcareAssistant;
+
+  String? _routeForPush(String kind, UserRole role) => switch (kind) {
+    'sos' || 'sos_resolved' => switch (role) {
+      UserRole.patient => RouteNames.patientSos,
+      UserRole.doctor => RouteNames.doctorSos,
+      UserRole.admin => RouteNames.adminSos,
+      UserRole.mcareAssistant => RouteNames.assistantSos,
+      _ => null,
+    },
+    'alert' || 'vital_critical' => switch (role) {
+      UserRole.patient => RouteNames.patientVitals,
+      UserRole.doctor => RouteNames.doctorAlerts,
+      UserRole.admin => RouteNames.adminAlerts,
+      UserRole.mcareAssistant => RouteNames.assistantAlerts,
+      _ => null,
+    },
+    'appointment' => switch (role) {
+      UserRole.patient => RouteNames.patientAppointments,
+      UserRole.doctor => RouteNames.doctorAppointments,
+      UserRole.admin => RouteNames.adminCareRequests,
+      UserRole.mcareAssistant => RouteNames.assistantCareRequests,
+      _ => null,
+    },
+    'message' => switch (role) {
+      UserRole.patient => RouteNames.patientMessages,
+      UserRole.doctor => RouteNames.doctorMessages,
+      UserRole.admin => RouteNames.adminMessages,
+      UserRole.mcareAssistant => RouteNames.assistantMessages,
+      _ => null,
+    },
+    _ => null,
+  };
+
+  void _openRoute(
+    BuildContext context,
+    String route, {
+    required Map<String, dynamic> data,
+  }) {
+    if (!context.mounted) return;
+    Navigator.of(context).pushNamed(
+      route,
+      arguments: {
+        if (data['patient_id'] != null) 'patientId': data['patient_id'],
+        if (data['event_id'] != null) 'eventId': data['event_id'],
+        if (data['alert_id'] != null) 'alertId': data['alert_id'],
+      },
+    );
   }
 }

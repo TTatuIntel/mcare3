@@ -70,6 +70,10 @@ class VitalAlertNotifier
             'resolved' => false,
         ]);
 
-        VitalAlertBroadcast::dispatch($patient, $reading, $notification);
+        // Do not enqueue broadcast jobs when real-time delivery is unconfigured
+        // (the common local/demo case). REST reconciliation remains available.
+        if (RealtimeSignalService::enabled()) {
+            VitalAlertBroadcast::dispatch($patient, $reading, $notification);
+        }
     }
 }

@@ -160,8 +160,9 @@ class SosRespondContextCard extends StatelessWidget {
                 title: 'Reported location',
                 subtitle: event!.locationLabel!,
                 actionLabel: event!.mapsUrl != null ? 'Open map' : null,
-                onAction:
-                    event!.mapsUrl != null ? () => SosContactActions.map(event!.mapsUrl!) : null,
+                onAction: event!.mapsUrl != null
+                    ? () => SosContactActions.map(event!.mapsUrl!)
+                    : null,
               )
             else
               Text(
@@ -230,11 +231,7 @@ class SosContactActions {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.icon,
-    required this.label,
-    this.trailing,
-  });
+  const _SectionTitle({required this.icon, required this.label, this.trailing});
 
   final IconData icon;
   final String label;
@@ -249,18 +246,18 @@ class _SectionTitle extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.2,
-              ),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
+          ),
         ),
         if (trailing != null) ...[
           const Spacer(),
           Text(
             trailing!,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textFaint(context),
-                  fontWeight: FontWeight.w700,
-                ),
+              color: AppPalette.textFaint(context),
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ],
@@ -328,10 +325,10 @@ class _InfoChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                ),
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
           ),
         ],
       ),
@@ -377,25 +374,22 @@ class _ContactActionRow extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 10,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                  ),
                 ),
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
           ),
           if (actionLabel != null && onAction != null)
-            TextButton(
-              onPressed: onAction,
-              child: Text(actionLabel!),
-            ),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
         ],
       ),
     );
@@ -429,29 +423,29 @@ class _EmergencyContactRow extends StatelessWidget {
                 Text(
                   contact.name,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Text(
                   contact.relationship,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontSize: 10,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontSize: 10,
+                  ),
                 ),
                 Text(
                   contact.phone,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (contact.email != null && contact.email!.isNotEmpty)
                   Text(
                     contact.email!,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.info,
-                          fontSize: 10,
-                        ),
+                      color: AppColors.info,
+                      fontSize: 10,
+                    ),
                   ),
               ],
             ),

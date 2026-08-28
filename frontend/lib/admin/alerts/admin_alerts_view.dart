@@ -5,7 +5,9 @@ import '../../shared/navigation/staff_destinations.dart';
 import '../../shared/staff/staff_alerts_screen.dart';
 
 class AdminAlertsView extends StatelessWidget {
-  const AdminAlertsView({super.key});
+  const AdminAlertsView({super.key, this.initialStatusFilter = 'open'});
+
+  final String initialStatusFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +16,7 @@ class AdminAlertsView extends StatelessWidget {
       destinations: StaffDestinations.admin(),
       profileRoute: RouteNames.adminProfile,
       notificationsRoute: RouteNames.adminNotifications,
+      initialStatusFilter: initialStatusFilter,
     );
   }
 }

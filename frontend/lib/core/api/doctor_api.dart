@@ -136,17 +136,24 @@ class DoctorApi {
   Future<void> escalateVitalReportRequest(String requestId) =>
       _patch('vital-report-requests/$requestId/escalate');
 
-  // Care requests
-  Future<void> acceptCareRequest(String requestId) =>
-      _patch('care-requests/$requestId/accept');
+  // Care-request triage is an admin / mCare-assistant responsibility — a
+  // doctor sees the care team they were assigned to, never the accept or
+  // decline decision. The endpoints these called no longer exist.
 
-  Future<void> declineCareRequest(String requestId, {String? reason}) => _patch(
-    'care-requests/$requestId/decline',
-    body: {if (reason != null) 'reason': reason},
+  Future<void> resolveSos(
+    String eventId, {
+    required String status,
+    String? resolution,
+    String? resolutionNote,
+  }) => _patch(
+    'sos/$eventId',
+    body: {
+      'status': status,
+      if (resolution != null) 'resolution': resolution,
+      if (resolutionNote != null && resolutionNote.trim().isNotEmpty)
+        'resolution_note': resolutionNote.trim(),
+    },
   );
-
-  Future<void> resolveSos(String eventId, {required String status}) =>
-      _patch('sos/$eventId', body: {'status': status});
 
   // Messages
   Future<List<Map<String, dynamic>>> listConversations() async {

@@ -37,6 +37,7 @@ class DoctorPatientQuickLinks extends StatelessWidget {
     DoctorPatientSection.reports,
     DoctorPatientSection.timeline,
     DoctorPatientSection.meals,
+    DoctorPatientSection.medications,
   ];
 
   int get _overflowBadgeTotal {
@@ -55,12 +56,11 @@ class DoctorPatientQuickLinks extends StatelessWidget {
     final chosen = await GlassSheet.show<DoctorPatientSection>(
       context,
       title: 'More patient tools',
-      subtitle: 'Alerts, documents, messages and more',
-      maxHeightFactor: 0.55,
+      subtitle: 'Complete clinical tools for this patient',
+      maxHeightFactor: 0.72,
       child: LayoutBuilder(
         builder: (ctx, constraints) {
-          final tileWidth =
-              (constraints.maxWidth - AppSpacing.sm * 2) / 3;
+          final tileWidth = (constraints.maxWidth - AppSpacing.sm * 2) / 3;
           return Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
@@ -82,8 +82,7 @@ class DoctorPatientQuickLinks extends StatelessWidget {
                     iconColor: s == DoctorPatientSection.sos
                         ? AppColors.critical
                         : null,
-                    onTap: () =>
-                        Navigator.of(ctx, rootNavigator: true).pop(s),
+                    onTap: () => Navigator.of(ctx, rootNavigator: true).pop(s),
                   ),
                 ),
             ],
@@ -98,29 +97,24 @@ class DoctorPatientQuickLinks extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlassCard(
       frosted: true,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: 2,
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < primary.length; i++) ...[
-            if (i > 0)
-              Container(height: 24, width: 1, color: AppPalette.border(context)),
-            Expanded(
-              child: _LinkTile(
-                section: primary[i],
-                selected: selected == primary[i],
-                badge: badges[primary[i]],
-                onTap: () => onSelected(primary[i]),
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Five tools cannot remain legible in one narrow phone row. Use a
+          // 3 + 2 layout on mobile, then return to one row when space allows.
+          final columns = constraints.maxWidth >= 560 ? 5 : 3;
+          final itemWidth = constraints.maxWidth / columns;
+          final items = <Widget>[
+            for (final section in primary)
+              _LinkTile(
+                section: section,
+                selected: selected == section,
+                badge: badges[section],
+                onTap: () => onSelected(section),
               ),
-            ),
-          ],
-          Container(height: 24, width: 1, color: AppPalette.border(context)),
-          Expanded(
-            child: PatientQuickAction(
+            PatientQuickAction(
               icon: AppIcons.more,
-              label: 'More',
+              label: _overflowHasSelection ? selected.label : 'More',
               selected: _overflowHasSelection,
               badge: _overflowBadgeTotal > 0 ? '$_overflowBadgeTotal' : null,
               onTap: () {
@@ -139,8 +133,14 @@ class DoctorPatientQuickLinks extends StatelessWidget {
                 }
               },
             ),
-          ),
-        ],
+          ];
+
+          return Wrap(
+            children: [
+              for (final item in items) SizedBox(width: itemWidth, child: item),
+            ],
+          );
+        },
       ),
     );
   }
@@ -170,8 +170,9 @@ class _LinkTile extends StatelessWidget {
       badgeColor: section == DoctorPatientSection.sos
           ? AppColors.critical
           : AppColors.brandIndigo,
-      iconColor:
-          section == DoctorPatientSection.sos ? AppColors.critical : null,
+      iconColor: section == DoctorPatientSection.sos
+          ? AppColors.critical
+          : null,
       onTap: onTap,
     );
   }

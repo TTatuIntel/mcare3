@@ -33,11 +33,21 @@ import '../reports/patient_report_builder_sheet.dart';
 import '../reports/patient_report_status_sheet.dart';
 
 /// Role options shown in create/change flows — respects assistant grants.
-List<DropdownMenuItem<String>> _creatableRoleItems({String? includeRole}) {
+/// Roles the signed-in staff member may assign.
+///
+/// [allowPatient] is false wherever an *existing* account is being re-roled:
+/// patient accounts are created through patient registration, which also
+/// provisions the clinical record, so converting between patient and staff is
+/// never offered. Creating a brand-new patient still uses the full list.
+List<DropdownMenuItem<String>> _creatableRoleItems({
+  String? includeRole,
+  bool allowPatient = true,
+}) {
   final isAdmin = AuthState.instance.user?.role == UserRole.admin;
   final has = AuthState.instance.hasAssistantPermission;
   final items = <DropdownMenuItem<String>>[
-    const DropdownMenuItem(value: 'patient', child: Text('Patient')),
+    if (allowPatient)
+      const DropdownMenuItem(value: 'patient', child: Text('Patient')),
     const DropdownMenuItem(
       value: 'doctor',
       child: Text('Doctor / Healthworker'),
@@ -1305,19 +1315,22 @@ class AdminUserDetailView extends StatelessWidget {
                       },
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    if (AuthState.instance.hasAssistantPermission(
-                      AssistantPermissions.canChangeUserTypes,
-                    ))
+                    // A patient's role is never editable from the directory:
+                    // promoting a patient account into a clinical or staff role
+                    // would be a back door around invite-based staff onboarding.
+                    // The server refuses it too — this only hides a dead action.
+                    if (user.role != UserRole.patient &&
+                        AuthState.instance.hasAssistantPermission(
+                          AssistantPermissions.canChangeUserTypes,
+                        )) ...[
                       AppButton(
                         label: 'Change role',
                         icon: AppIcons.permissions,
                         variant: AppButtonVariant.secondary,
                         onPressed: () => _changeRole(context, user),
                       ),
-                    if (AuthState.instance.hasAssistantPermission(
-                      AssistantPermissions.canChangeUserTypes,
-                    ))
                       const SizedBox(height: AppSpacing.sm),
+                    ],
                     if (_usesInvite(user.role)) ...[
                       AppButton(
                         label: 'Resend invite',
@@ -1553,7 +1566,10 @@ class AdminUserDetailView extends StatelessWidget {
                 isExpanded: true,
                 underline: const SizedBox.shrink(),
                 onChanged: (v) => setSt(() => selectedRole = v ?? selectedRole),
-                items: _creatableRoleItems(includeRole: selectedRole),
+                items: _creatableRoleItems(
+                  includeRole: selectedRole,
+                  allowPatient: false,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),

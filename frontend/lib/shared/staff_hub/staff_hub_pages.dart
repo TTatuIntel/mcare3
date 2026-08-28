@@ -45,9 +45,22 @@ class StaffHubHomePage extends StatelessWidget {
         StaffHubPermissionNotice(role: role),
         if (role == UserRole.mcareAssistant)
           const SizedBox(height: AppSpacing.lg),
-        // The urgent queue leads the dashboard: what is outstanding, who has
-        // owned it, and the actions to clear it — without leaving this page.
-        const UrgentAlertsCard(),
+        // The urgent queue leads the dashboard, one line at a time. When it
+        // clears, the same line goes on to what the page actually has waiting
+        // rather than holding the top of the screen to report an absence.
+        UrgentAlertsCard(
+          quiet: [
+            for (final item in snapshot.workItems.where((i) => i.count > 0))
+              QuietNote(
+                title: item.title,
+                detail: item.description,
+                icon: item.icon,
+                accent: item.color,
+                count: item.count,
+                onTap: () => openRoute(item.route),
+              ),
+          ],
+        ),
         const StaffHubSectionHeading(
           title: 'Choose a task',
           subtitle: 'A short path to the work that needs attention.',

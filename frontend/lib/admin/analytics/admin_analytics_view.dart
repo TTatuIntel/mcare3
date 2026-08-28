@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/admin_api.dart';
 import '../../core/env/app_env.dart';
 import '../../core/realtime/session_poller.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/navigation/staff_destinations.dart';
 import '../../shared/state/staff_state.dart';
@@ -34,10 +35,31 @@ class AdminAnalyticsView extends StatefulWidget {
   State<AdminAnalyticsView> createState() => _AdminAnalyticsViewState();
 }
 
-class _AdminAnalyticsViewState extends State<AdminAnalyticsView> {
+class _AdminAnalyticsViewState extends State<AdminAnalyticsView>
+    with RealtimeRefreshMixin<AdminAnalyticsView> {
   Key _kpiKey = UniqueKey();
   Key _trendKey = UniqueKey();
   bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    watchRealtime(const {
+      'alerts',
+      'sos',
+      'audit',
+      'profile',
+      'care',
+    }, _reloadFromSignal);
+  }
+
+  Future<void> _reloadFromSignal() async {
+    if (!mounted) return;
+    setState(() {
+      _kpiKey = UniqueKey();
+      _trendKey = UniqueKey();
+    });
+  }
 
   Future<void> _refresh() async {
     if (_refreshing) return;
@@ -57,8 +79,7 @@ class _AdminAnalyticsViewState extends State<AdminAnalyticsView> {
   Widget build(BuildContext context) {
     return RoleShell(
       currentRoute: widget.currentRoute,
-      destinations:
-          (widget.destinations ?? StaffDestinations.admin()).cast(),
+      destinations: (widget.destinations ?? StaffDestinations.admin()).cast(),
       profileRoute: widget.profileRoute,
       notificationsRoute: widget.notificationsRoute,
       title: 'Analytics',
@@ -104,10 +125,7 @@ class _AdminAnalyticsViewState extends State<AdminAnalyticsView> {
                 icon: AppIcons.alert,
                 trailing: '$unack unacknowledged',
               ),
-              _AlertBreakdown(
-                total: alerts,
-                unack: unack,
-              ),
+              _AlertBreakdown(total: alerts, unack: unack),
               const SizedBox(height: AppSpacing.lg),
 
               // Highlights
@@ -117,14 +135,22 @@ class _AdminAnalyticsViewState extends State<AdminAnalyticsView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _bullet(context,
-                        '$patients patients monitored across ${StaffState.instance.assignments.length} care relationships.'),
-                    _bullet(context,
-                        '$unack unacknowledged alert${unack == 1 ? '' : 's'} require attention.'),
-                    _bullet(context,
-                        '${StaffState.instance.approvals.where((a) => a.status == 'pending').length} clinician application${StaffState.instance.approvals.where((a) => a.status == 'pending').length == 1 ? '' : 's'} awaiting approval.'),
-                    _bullet(context,
-                        '${StaffState.instance.audit.where((e) => e.category == 'security').length} security events recorded in the audit log.'),
+                    _bullet(
+                      context,
+                      '$patients patients monitored across ${StaffState.instance.assignments.length} care relationships.',
+                    ),
+                    _bullet(
+                      context,
+                      '$unack unacknowledged alert${unack == 1 ? '' : 's'} require attention.',
+                    ),
+                    _bullet(
+                      context,
+                      '${StaffState.instance.approvals.where((a) => a.status == 'pending').length} clinician application${StaffState.instance.approvals.where((a) => a.status == 'pending').length == 1 ? '' : 's'} awaiting approval.',
+                    ),
+                    _bullet(
+                      context,
+                      '${StaffState.instance.audit.where((e) => e.category == 'security').length} security events recorded in the audit log.',
+                    ),
                   ],
                 ),
               ),
@@ -137,19 +163,18 @@ class _AdminAnalyticsViewState extends State<AdminAnalyticsView> {
   }
 
   Widget _bullet(BuildContext context, String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('•'),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child:
-                  Text(text, style: Theme.of(context).textTheme.bodyMedium),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('•'),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -225,12 +250,14 @@ class _KpiSectionState extends State<_KpiSection> {
         final kpis = _apiKpis ?? StaffState.instance.kpis();
         return StaffKpiGrid(
           tiles: kpis
-              .map((k) => StaffKpiTile(
-                    label: k.label,
-                    value: k.value,
-                    helper: k.helper,
-                    deltaPercent: k.deltaPercent,
-                  ))
+              .map(
+                (k) => StaffKpiTile(
+                  label: k.label,
+                  value: k.value,
+                  helper: k.helper,
+                  deltaPercent: k.deltaPercent,
+                ),
+              )
               .toList(),
         );
       },
@@ -266,9 +293,17 @@ class _LiveTrendSectionState extends State<_LiveTrendSection> {
     final from = to.subtract(const Duration(days: 6));
     try {
       final results = await Future.wait([
-        AdminApi.instance.fetchTimeseries(metric: 'signups', from: from, to: to),
+        AdminApi.instance.fetchTimeseries(
+          metric: 'signups',
+          from: from,
+          to: to,
+        ),
         AdminApi.instance.fetchTimeseries(metric: 'sos', from: from, to: to),
-        AdminApi.instance.fetchTimeseries(metric: 'tickets', from: from, to: to),
+        AdminApi.instance.fetchTimeseries(
+          metric: 'tickets',
+          from: from,
+          to: to,
+        ),
       ]);
       if (!mounted) return;
       setState(() {
@@ -339,10 +374,14 @@ class _TrendRow extends StatelessWidget {
     if (width >= 800) {
       return Row(
         children: charts
-            .map((c) => Expanded(child: Padding(
+            .map(
+              (c) => Expanded(
+                child: Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.sm),
                   child: c,
-                )))
+                ),
+              ),
+            )
             .toList(),
       );
     }
@@ -350,13 +389,15 @@ class _TrendRow extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: charts
-            .map((c) => SizedBox(
-                  width: 200,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.sm),
-                    child: c,
-                  ),
-                ))
+            .map(
+              (c) => SizedBox(
+                width: 200,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: c,
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -402,15 +443,15 @@ class _TrendCard extends StatelessWidget {
           Text(
             '$value',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  color: color,
-                ),
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
           ),
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                ),
+              color: AppPalette.textMuted(context),
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
@@ -475,12 +516,21 @@ class _AlertBreakdown extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _Stat(label: 'Total', value: '$total',
-                  color: AppColors.brandIndigo),
-              _Stat(label: 'Acknowledged', value: '${total - unack}',
-                  color: AppColors.success),
-              _Stat(label: 'Pending', value: '$unack',
-                  color: AppColors.warning),
+              _Stat(
+                label: 'Total',
+                value: '$total',
+                color: AppColors.brandIndigo,
+              ),
+              _Stat(
+                label: 'Acknowledged',
+                value: '${total - unack}',
+                color: AppColors.success,
+              ),
+              _Stat(
+                label: 'Pending',
+                value: '$unack',
+                color: AppColors.warning,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -490,8 +540,7 @@ class _AlertBreakdown extends StatelessWidget {
               value: ackFrac,
               minHeight: 8,
               backgroundColor: AppColors.warning.withValues(alpha: 0.2),
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(AppColors.success),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.success),
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -521,9 +570,9 @@ class _Stat extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
         ),
         Text(
           label,

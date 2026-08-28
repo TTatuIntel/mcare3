@@ -20,12 +20,24 @@ class AdminSessionService {
 
   Future<bool> syncFromApi({bool background = false}) async {
     if (!AppEnv.backendEnabled) {
+      if (!AppEnv.demoDataEnabled) return false;
       StaffState.instance.seedDemo();
       return true;
     }
 
     try {
-      StaffState.instance.clearAdminBuckets();
+      // Deliberately no clear-then-refetch. Emptying the buckets before the
+      // request left the app genuinely holding zero alerts for the length of
+      // the round trip, and every listener that rebuilt in that window — the
+      // queue engine's own ticker, or any other bucket landing first — painted
+      // the dashboard as "no urgent items outstanding" before the alerts came
+      // back. That is the card flashing empty and returning on every poll,
+      // which on an active SOS is every eight seconds.
+      //
+      // Every merge below replaces its bucket wholesale, so a successful sync
+      // still drops rows the server no longer returns. A bucket whose request
+      // fails now keeps what it had, which is the honest answer: a failed
+      // fetch is not the same as an empty list.
       await _pullFromApi();
       return true;
     } catch (_) {
@@ -68,164 +80,184 @@ class AdminSessionService {
   }
 
   Future<void> _syncUsers() => _try(() async {
-        final data = await AdminApi.instance.listUsers(perPage: 100);
-        final rawList = data['users'] as List? ?? const [];
-        final users = rawList
-            .map((e) => StaffMapper.directoryUserFromApiFull(
-                  (e as Map).cast<String, dynamic>(),
-                ))
-            .toList();
-        StaffState.instance.mergeUsers(users);
-      });
+    final data = await AdminApi.instance.listUsers(perPage: 100);
+    final rawList = data['users'] as List? ?? const [];
+    final users = rawList
+        .map(
+          (e) => StaffMapper.directoryUserFromApiFull(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
+    StaffState.instance.mergeUsers(users);
+  });
 
   Future<void> _syncApprovals() => _try(() async {
-        final rows = await AdminApi.instance.listApprovals();
-        final approvals =
-            rows.map((e) => StaffMapper.approvalFromApi(e)).toList();
-        StaffState.instance.mergeApprovals(approvals);
-      });
+    final rows = await AdminApi.instance.listApprovals();
+    final approvals = rows.map((e) => StaffMapper.approvalFromApi(e)).toList();
+    StaffState.instance.mergeApprovals(approvals);
+  });
 
   Future<void> _syncCareRequests() => _try(() async {
-        final rows = await AdminApi.instance.listCareRequests();
-        final items =
-            rows.map((e) => StaffMapper.careRequestFromApi(e)).toList();
-        StaffState.instance.mergeCareRequests(items);
-      });
+    final rows = await AdminApi.instance.listCareRequests();
+    final items = rows.map((e) => StaffMapper.careRequestFromApi(e)).toList();
+    StaffState.instance.mergeCareRequests(items);
+  });
 
   Future<void> _syncAssignments() => _try(() async {
-        final rows = await AdminApi.instance.listAssignments();
-        final items =
-            rows.map((e) => StaffMapper.assignmentFromApi(e)).toList();
-        StaffState.instance.mergeAssignments(items);
-      });
+    final rows = await AdminApi.instance.listAssignments();
+    final items = rows.map((e) => StaffMapper.assignmentFromApi(e)).toList();
+    StaffState.instance.mergeAssignments(items);
+  });
 
   Future<void> _syncAudit() => _try(() async {
-        final data = await AdminApi.instance.listAudit(perPage: 50);
-        final rawList = data['audit'] as List? ?? const [];
-        final entries = rawList
-            .map((e) => StaffMapper.auditFromApi(
-                  (e as Map).cast<String, dynamic>(),
-                ))
-            .toList();
-        StaffState.instance.mergeAudit(entries);
-      });
+    final data = await AdminApi.instance.listAudit(perPage: 50);
+    final rawList = data['audit'] as List? ?? const [];
+    final entries = rawList
+        .map(
+          (e) => StaffMapper.auditFromApi((e as Map).cast<String, dynamic>()),
+        )
+        .toList();
+    StaffState.instance.mergeAudit(entries);
+  });
 
   Future<void> _syncSystemSettings() => _try(() async {
-        final rows = await AdminApi.instance.listSystemSettings();
-        final settings =
-            rows.map((e) => StaffMapper.systemSettingFromApi(e)).toList();
-        if (settings.isNotEmpty) {
-          StaffState.instance.mergeSystemSettings(settings);
-        }
-      });
+    final rows = await AdminApi.instance.listSystemSettings();
+    final settings = rows
+        .map((e) => StaffMapper.systemSettingFromApi(e))
+        .toList();
+    if (settings.isNotEmpty) {
+      StaffState.instance.mergeSystemSettings(settings);
+    }
+  });
 
   Future<void> _syncVitalCatalog() => _try(() async {
-        final role = AuthState.instance.user?.role;
-        if (role == UserRole.mcareAssistant &&
-            !AuthState.instance
-                .hasAssistantPermission('can_manage_vital_catalog')) {
-          return;
-        }
-        final rows = await AdminApi.instance.listVitalCatalog();
-        final entries =
-            rows.map((e) => StaffMapper.vitalCatalogEntryFromApi(e)).toList();
-        StaffState.instance.mergeVitalCatalog(entries);
-      });
+    final role = AuthState.instance.user?.role;
+    if (role == UserRole.mcareAssistant &&
+        !AuthState.instance.hasAssistantPermission(
+          'can_manage_vital_catalog',
+        )) {
+      return;
+    }
+    final rows = await AdminApi.instance.listVitalCatalog();
+    final entries = rows
+        .map((e) => StaffMapper.vitalCatalogEntryFromApi(e))
+        .toList();
+    StaffState.instance.mergeVitalCatalog(entries);
+  });
 
   Future<void> _syncMessages() => _try(() async {
-        final rows = await AdminApi.instance.listConversations();
-        final currentUserId = AuthState.instance.user?.id;
-        final conversations = <Conversation>[];
-        final threads = <String, List<ChatMessage>>{};
-        for (final raw in rows) {
-          final conv = PatientDomainMapper.conversationFromApi(
-            raw,
-            currentUserId: currentUserId,
-          );
-          conversations.add(conv);
-          final last = raw['last_message'] as Map<String, dynamic>?;
-          threads[conv.id] = last == null
-              ? const []
-              : [
-                  PatientDomainMapper.messageFromApi(
-                    last,
-                    currentUserId: currentUserId,
-                  ),
-                ];
-        }
-        MessagesState.instance.seed(
-          conversations: conversations,
-          threads: threads,
-        );
-      });
+    final rows = await AdminApi.instance.listConversations();
+    final currentUserId = AuthState.instance.user?.id;
+    final conversations = <Conversation>[];
+    final threads = <String, List<ChatMessage>>{};
+    for (final raw in rows) {
+      final conv = PatientDomainMapper.conversationFromApi(
+        raw,
+        currentUserId: currentUserId,
+      );
+      conversations.add(conv);
+      final last = raw['last_message'] as Map<String, dynamic>?;
+      threads[conv.id] = last == null
+          ? const []
+          : [
+              PatientDomainMapper.messageFromApi(
+                last,
+                currentUserId: currentUserId,
+              ),
+            ];
+    }
+    MessagesState.instance.seed(conversations: conversations, threads: threads);
+  });
 
   Future<void> _syncSupportTickets() => _try(() async {
-        final rows = await AdminApi.instance.listSupportTickets();
-        final tickets =
-            rows.map((e) => PatientDomainMapper.supportTicketFromApi(e)).toList();
-        SupportState.instance.seed(tickets);
-      });
+    final rows = await AdminApi.instance.listSupportTickets();
+    final tickets = rows
+        .map((e) => PatientDomainMapper.supportTicketFromApi(e))
+        .toList();
+    SupportState.instance.seed(tickets);
+  });
 
   Future<void> _syncAlerts() => _try(() async {
-        final rows = await AdminApi.instance.listAlerts();
-        final alerts =
-            rows.map((e) => StaffMapper.alertFromApi(e)).toList();
-        StaffState.instance.mergeAlerts(alerts);
-      });
+    final rows = await AdminApi.instance.listAlerts();
+    final alerts = rows.map((e) => StaffMapper.alertFromApi(e)).toList();
+    StaffState.instance.mergeAlerts(alerts);
+  });
 
   Future<void> _syncNotifications() => _try(() async {
-        final rows = await AdminApi.instance.listNotifications();
-        final items = rows
-            .map((e) => PatientDomainMapper.notificationFromApi(
-                  (e as Map).cast<String, dynamic>(),
-                ))
-            .toList();
-        NotificationState.instance.mergeAdminApiNotifications(items);
-      });
+    final rows = await AdminApi.instance.listNotifications();
+    final items = rows
+        .map(
+          (e) => PatientDomainMapper.notificationFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
+    NotificationState.instance.mergeAdminApiNotifications(items);
+  });
 
   void _applySessionPayload(Map<String, dynamic> session) {
     final users = session['users'] as List?;
     if (users != null) {
-      StaffState.instance.mergeUsers(users
-          .map((e) => StaffMapper.directoryUserFromApiFull(
+      StaffState.instance.mergeUsers(
+        users
+            .map(
+              (e) => StaffMapper.directoryUserFromApiFull(
                 (e as Map).cast<String, dynamic>(),
-              ))
-          .toList());
+              ),
+            )
+            .toList(),
+      );
     }
 
     final approvals = session['approvals'] as List?;
     if (approvals != null) {
       StaffState.instance.mergeApprovals(
-        approvals.map((e) => StaffMapper.approvalFromApi(
-              (e as Map).cast<String, dynamic>(),
-            )).toList(),
+        approvals
+            .map(
+              (e) => StaffMapper.approvalFromApi(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
       );
     }
 
     final careRequests = session['care_requests'] as List?;
     if (careRequests != null) {
       StaffState.instance.mergeCareRequests(
-        careRequests.map((e) => StaffMapper.careRequestFromApi(
-              (e as Map).cast<String, dynamic>(),
-            )).toList(),
+        careRequests
+            .map(
+              (e) => StaffMapper.careRequestFromApi(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
       );
     }
 
     final assignments = session['assignments'] as List?;
     if (assignments != null) {
       StaffState.instance.mergeAssignments(
-        assignments.map((e) => StaffMapper.assignmentFromApi(
-              (e as Map).cast<String, dynamic>(),
-            )).toList(),
+        assignments
+            .map(
+              (e) => StaffMapper.assignmentFromApi(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
       );
     }
 
     final audit = session['audit'] as List?;
     if (audit != null) {
       StaffState.instance.mergeAudit(
-        audit.map((e) => StaffMapper.auditFromApi(
-              (e as Map).cast<String, dynamic>(),
-            )).toList(),
+        audit
+            .map(
+              (e) =>
+                  StaffMapper.auditFromApi((e as Map).cast<String, dynamic>()),
+            )
+            .toList(),
       );
     }
 
@@ -245,18 +277,26 @@ class AdminSessionService {
     final catalog = session['vital_catalog'] as List?;
     if (catalog != null) {
       StaffState.instance.mergeVitalCatalog(
-        catalog.map((e) => StaffMapper.vitalCatalogEntryFromApi(
-              (e as Map).cast<String, dynamic>(),
-            )).toList(),
+        catalog
+            .map(
+              (e) => StaffMapper.vitalCatalogEntryFromApi(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
       );
     }
 
     final settings = session['system_settings'] as List?;
     if (settings != null && settings.isNotEmpty) {
       StaffState.instance.mergeSystemSettings(
-        settings.map((e) => StaffMapper.systemSettingFromApi(
-              (e as Map).cast<String, dynamic>(),
-            )).toList(),
+        settings
+            .map(
+              (e) => StaffMapper.systemSettingFromApi(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
+            .toList(),
       );
     }
 
@@ -264,9 +304,11 @@ class AdminSessionService {
     if (tickets != null) {
       SupportState.instance.seed(
         tickets
-            .map((e) => PatientDomainMapper.supportTicketFromApi(
-                  (e as Map).cast<String, dynamic>(),
-                ))
+            .map(
+              (e) => PatientDomainMapper.supportTicketFromApi(
+                (e as Map).cast<String, dynamic>(),
+              ),
+            )
             .toList(),
       );
     }
@@ -275,9 +317,10 @@ class AdminSessionService {
     if (alerts != null) {
       StaffState.instance.mergeAlerts(
         alerts
-            .map((e) => StaffMapper.alertFromApi(
-                  (e as Map).cast<String, dynamic>(),
-                ))
+            .map(
+              (e) =>
+                  StaffMapper.alertFromApi((e as Map).cast<String, dynamic>()),
+            )
             .toList(),
       );
     }

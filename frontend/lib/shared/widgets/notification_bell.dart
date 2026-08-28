@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../auth/auth_state.dart';
-import '../navigation/profile_navigation.dart';
 import '../state/notification_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
+import 'notification_preview_sheet.dart';
 
 /// One bell for every role. Listens to the shared NotificationState.
 ///
-/// Default tap opens the signed-in user's role inbox via
-/// [ProfileNavigation.notificationsRouteFor]. Pass [onTap] to override.
+/// Default tap opens a lightweight triage preview with urgent work separated
+/// from ordinary updates and a route to the full role inbox. Pass [onTap] to
+/// override.
 /// Guests / external doctors (no inbox route) are a no-op.
 class NotificationBell extends StatelessWidget {
   const NotificationBell({super.key, this.onTap, this.iconSize = 32});
@@ -31,7 +31,7 @@ class NotificationBell extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.xs),
           constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           tooltip: 'Notifications',
-          onPressed: onTap ?? () => _openInbox(context),
+          onPressed: onTap ?? () => NotificationPreviewSheet.show(context),
           icon: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -75,13 +75,5 @@ class NotificationBell extends StatelessWidget {
         );
       },
     );
-  }
-
-  static void _openInbox(BuildContext context) {
-    final role = AuthState.instance.user?.role;
-    if (role == null) return;
-    final route = ProfileNavigation.notificationsRouteFor(role);
-    if (route == null) return;
-    Navigator.of(context).pushNamed(route);
   }
 }

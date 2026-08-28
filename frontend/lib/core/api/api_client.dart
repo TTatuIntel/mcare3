@@ -13,6 +13,22 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
+  /// The transport every verb below goes through.
+  ///
+  /// This used to be `package:http`'s top-level functions, which open and
+  /// close a client per call and leave no seam for tests: under
+  /// `flutter_test` every request returns 400, so any test touching an
+  /// API-backed mutation saw it fail and roll back. One pooled client keeps
+  /// connections alive in production and lets tests swap in a stub.
+  http.Client _transport = http.Client();
+
+  /// Replaces the HTTP transport. Pass null to restore the real one.
+  ///
+  /// Test-only seam — production code must never call this.
+  void setTransportForTesting(http.Client? client) {
+    _transport = client ?? http.Client();
+  }
+
   String? _token;
 
   void setToken(String? token) {
@@ -53,7 +69,7 @@ class ApiClient {
     }
 
     Future<Map<String, dynamic>> request() => _send(
-      http
+      _transport
           .get(Uri.parse(_url(path)), headers: _headers)
           .timeout(AppEnv.apiTimeout),
     );
@@ -80,7 +96,7 @@ class ApiClient {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
     return _send(
-      http
+      _transport
           .post(
             Uri.parse(_url(path)),
             headers: _headers,
@@ -110,7 +126,7 @@ class ApiClient {
     req.files.addAll(files);
     AppBusy.instance.begin(mutation: true);
     try {
-      final streamed = await req.send().timeout(AppEnv.apiTimeout);
+      final streamed = await _transport.send(req).timeout(AppEnv.apiTimeout);
       final response = await http.Response.fromStream(streamed);
       return _decode(response);
     } finally {
@@ -136,7 +152,7 @@ class ApiClient {
     req.files.addAll(files);
     AppBusy.instance.begin(mutation: true);
     try {
-      final streamed = await req.send().timeout(AppEnv.apiTimeout);
+      final streamed = await _transport.send(req).timeout(AppEnv.apiTimeout);
       final response = await http.Response.fromStream(streamed);
       return _decode(response);
     } finally {
@@ -151,7 +167,7 @@ class ApiClient {
     }
     AppBusy.instance.begin();
     try {
-      final response = await http
+      final response = await _transport
           .get(
             Uri.parse(_url(path)),
             headers: {
@@ -190,7 +206,7 @@ class ApiClient {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
     return _send(
-      http
+      _transport
           .put(
             Uri.parse(_url(path)),
             headers: _headers,
@@ -209,7 +225,7 @@ class ApiClient {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
     return _send(
-      http
+      _transport
           .patch(
             Uri.parse(_url(path)),
             headers: _headers,
@@ -228,7 +244,7 @@ class ApiClient {
       throw UnsupportedError('API disabled — use mock repositories.');
     }
     return _send(
-      http
+      _transport
           .delete(
             Uri.parse(_url(path)),
             headers: _headers,

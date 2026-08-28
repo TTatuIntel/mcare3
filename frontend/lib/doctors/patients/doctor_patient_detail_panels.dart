@@ -4,7 +4,7 @@ void _showDocumentSheet(BuildContext context, StaffPatientDocument doc) {
   GlassSheet.show(
     context,
     title: doc.title,
-    subtitle: '${doc.category} Â· ${DateFormat.yMMMd().format(doc.uploadedAt)}',
+    subtitle: '${doc.category} · ${DateFormat.yMMMd().format(doc.uploadedAt)}',
     maxHeightFactor: 0.92,
     child: _DoctorDocumentViewer(doc: doc),
   );
@@ -235,7 +235,7 @@ class _TimelinePanel extends StatelessWidget {
             (a) => _TimelineItem(
               at: a.createdAt,
               icon: AppIcons.alert,
-              title: 'Alert Â· ${a.vital.label}',
+              title: 'Alert · ${a.vital.label}',
               subtitle: a.value,
             ),
           ),
@@ -272,7 +272,7 @@ class _TimelinePanel extends StatelessWidget {
                     icon: e.icon,
                     title: e.title,
                     subtitle:
-                        '${e.subtitle} Â· ${DateFormat.MMMd().add_jm().format(e.at)}',
+                        '${e.subtitle} · ${DateFormat.MMMd().add_jm().format(e.at)}',
                   ),
                 )
                 .toList(),

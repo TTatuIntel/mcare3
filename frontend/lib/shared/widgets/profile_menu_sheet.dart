@@ -3,10 +3,16 @@ import 'package:flutter/material.dart';
 import '../auth/auth_state.dart';
 import '../constants/route_names.dart';
 import '../models/app_user.dart';
+import '../models/patient_profile.dart';
+import '../models/profile_completion.dart';
+import '../models/sos.dart';
 import '../models/user_role.dart';
 import '../navigation/profile_navigation.dart';
 import '../navigation/root_navigator.dart';
 import '../dashboard/admin_workspace_catalog.dart';
+import '../state/profile_state.dart';
+import '../state/sos_state.dart';
+import '../state/vitals_state.dart';
 import '../settings/widgets/settings_quick_actions.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
@@ -182,19 +188,29 @@ class _Body extends StatefulWidget {
 class _BodyState extends State<_Body> {
   bool _busy = false;
 
+  /// Every store the sheet renders from — auth identity plus the health,
+  /// emergency and vitals data shown in [_AccountSnapshot] — so a background
+  /// sync while the sheet is open refreshes it in place.
+  late final Listenable _sources = Listenable.merge([
+    AuthState.instance,
+    ProfileState.instance,
+    SosState.instance,
+    VitalsState.instance,
+  ]);
+
   @override
   void initState() {
     super.initState();
-    AuthState.instance.addListener(_onAuth);
+    _sources.addListener(_onStoreChanged);
   }
 
   @override
   void dispose() {
-    AuthState.instance.removeListener(_onAuth);
+    _sources.removeListener(_onStoreChanged);
     super.dispose();
   }
 
-  void _onAuth() {
+  void _onStoreChanged() {
     if (mounted) setState(() {});
   }
 
@@ -282,6 +298,8 @@ class _BodyState extends State<_Body> {
           expand: true,
           onPressed: _openEdit,
         ),
+        const SizedBox(height: AppSpacing.lg),
+        _AccountSnapshot(user: user, onOpenRoute: _openRoute),
         if (quick.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
           const SectionLabel(title: 'Quick actions', icon: AppIcons.home),
@@ -435,6 +453,357 @@ class _SignOutButton extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Everything the account sheet knows about the signed-in user, in one place.
+///
+/// The sheet is the account *information* surface: it answers "what does the
+/// system have on me, and am I ready?" without navigating anywhere. Actions
+/// stay in the menu rows below — and never duplicate a destination the primary
+/// navigation already owns (see `ProfileNavigation.menuFor`).
+///
+/// Every value is read from an existing store — [AuthState], [ProfileState],
+/// [SosState], [VitalsState] — and renders "—" / "Not added" when the store has
+/// nothing, so the block is safe for any role and any load state.
+class _AccountSnapshot extends StatelessWidget {
+  const _AccountSnapshot({required this.user, required this.onOpenRoute});
+
+  final AppUser user;
+  final void Function(String route) onOpenRoute;
+
+  static String _statusLabel(ApprovalStatus status) => switch (status) {
+    ApprovalStatus.active => 'Active',
+    ApprovalStatus.pendingApproval => 'Pending approval',
+    ApprovalStatus.suspended => 'Suspended',
+    ApprovalStatus.rejected => 'Rejected',
+  };
+
+  static Color _statusColor(ApprovalStatus status) => switch (status) {
+    ApprovalStatus.active => AppColors.success,
+    ApprovalStatus.pendingApproval => AppColors.warning,
+    ApprovalStatus.suspended || ApprovalStatus.rejected => AppColors.critical,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final isPatient = user.role == UserRole.patient;
+    final health = isPatient ? ProfileState.instance.health : null;
+    final contacts = isPatient
+        ? SosState.instance.contacts
+        : const <EmergencyContact>[];
+    final trackedVitals = VitalsState.instance.tracked.toList();
+    final completion = ProfileCompletion.forUser(
+      user: user,
+      health: health,
+      contacts: contacts,
+      assignedVitals: isPatient ? trackedVitals : const [],
+    );
+    final missing = completion.incompleteItems
+        .map((i) => i.label)
+        .take(3)
+        .toList();
+    final sharesLocation = health?.locationConsent ?? false;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel(title: 'Account details', icon: AppIcons.user),
+        _SnapshotCard(
+          children: [
+            _CompletionMeter(percent: completion.percent, missing: missing),
+            _DetailRow(label: 'Full name', value: user.fullName),
+            _DetailRow(
+              label: 'Email',
+              value: user.email.isEmpty ? '—' : user.email,
+              badge: user.emailVerified ? null : 'Unverified',
+              badgeColor: AppColors.warning,
+            ),
+            _DetailRow(
+              label: 'Phone',
+              value: (user.phone ?? '').trim().isEmpty
+                  ? 'Not added'
+                  : user.phone!.trim(),
+              muted: (user.phone ?? '').trim().isEmpty,
+            ),
+            _DetailRow(
+              label: isPatient ? 'Patient ID' : 'Staff ID',
+              value: user.uniqueId.isEmpty ? '—' : user.uniqueId,
+            ),
+            _DetailRow(label: 'Role', value: user.role.label),
+            _DetailRow(
+              label: 'Account status',
+              value: _statusLabel(user.approvalStatus),
+              valueColor: _statusColor(user.approvalStatus),
+            ),
+            if ((user.specialty ?? '').trim().isNotEmpty)
+              _DetailRow(label: 'Specialty', value: user.specialty!.trim()),
+            if ((user.licenseNumber ?? '').trim().isNotEmpty)
+              _DetailRow(label: 'License', value: user.licenseNumber!.trim()),
+          ],
+        ),
+        if (isPatient) ...[
+          const SizedBox(height: AppSpacing.lg),
+          const SectionLabel(title: 'Health and safety', icon: AppIcons.vitals),
+          _SnapshotCard(
+            children: [
+              if (health == null)
+                const _DetailRow(
+                  label: 'Health profile',
+                  value: 'Not completed yet',
+                  muted: true,
+                )
+              else ...[
+                _DetailRow(label: 'Age', value: '${health.ageYears} yrs'),
+                _DetailRow(label: 'Gender', value: health.gender.label),
+                _DetailRow(label: 'Blood type', value: health.bloodType.label),
+                _DetailRow(
+                  label: 'BMI',
+                  value:
+                      '${health.bmi.toStringAsFixed(1)} · ${health.bmiCategory}',
+                ),
+                _DetailRow(
+                  label: 'Allergies',
+                  value: health.allergies.isNotEmpty
+                      ? health.allergies.join(', ')
+                      : (health.noKnownAllergies
+                            ? 'None known'
+                            : 'Not recorded'),
+                  muted: health.allergies.isEmpty && !health.noKnownAllergies,
+                ),
+                _DetailRow(
+                  label: 'Conditions',
+                  value: health.chronicConditions.isNotEmpty
+                      ? health.chronicConditions.join(', ')
+                      : 'None recorded',
+                  muted: health.chronicConditions.isEmpty,
+                ),
+              ],
+              _DetailRow(
+                label: 'Tracked vitals',
+                value: '${trackedVitals.length}',
+              ),
+              _DetailRow(
+                label: 'Emergency contacts',
+                value: contacts.isEmpty ? 'None added' : '${contacts.length}',
+                muted: contacts.isEmpty,
+              ),
+              _DetailRow(
+                label: 'Location on SOS',
+                value: sharesLocation ? 'Shared with care team' : 'Not shared',
+                valueColor: sharesLocation ? AppColors.success : null,
+                muted: !sharesLocation,
+              ),
+              // Readiness links to the same page the home page's emergency
+              // block opens — information here, the action itself stays there.
+              _SnapshotLink(
+                label: contacts.isEmpty
+                    ? 'Add emergency contacts'
+                    : 'Review emergency setup',
+                onTap: () => onOpenRoute(RouteNames.patientSos),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Bordered container used by the snapshot sections.
+class _SnapshotCard extends StatelessWidget {
+  const _SnapshotCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppPalette.surfaceAlt(context),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppPalette.border(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+}
+
+/// Label to value line. Long values wrap instead of clipping.
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.badge,
+    this.badgeColor,
+    this.valueColor,
+    this.muted = false,
+  });
+
+  final String label;
+  final String value;
+  final String? badge;
+  final Color? badgeColor;
+  final Color? valueColor;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 118,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppPalette.textMuted(context),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color:
+                    valueColor ??
+                    (muted
+                        ? AppPalette.textFaint(context)
+                        : AppPalette.ink(context)),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (badge != null) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: (badgeColor ?? AppColors.warning).withValues(
+                  alpha: 0.12,
+                ),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              child: Text(
+                badge!,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: badgeColor ?? AppColors.warning,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Profile completeness bar shown at the top of the details card.
+class _CompletionMeter extends StatelessWidget {
+  const _CompletionMeter({required this.percent, required this.missing});
+
+  final int percent;
+  final List<String> missing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final complete = percent >= 100;
+    final accent = complete ? AppColors.success : AppColors.brandIndigo;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Profile completeness',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                ),
+              ),
+              Text(
+                '$percent%',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            child: LinearProgressIndicator(
+              value: (percent / 100).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: AppPalette.border(context),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+            ),
+          ),
+          if (!complete && missing.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Still missing: ${missing.join(', ')}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppPalette.textFaint(context),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline text action inside a snapshot card.
+class _SnapshotLink extends StatelessWidget {
+  const _SnapshotLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.brandIndigo,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Icon(AppIcons.chevronRight, size: 16, color: AppColors.brandIndigo),
+          ],
+        ),
+      ),
     );
   }
 }

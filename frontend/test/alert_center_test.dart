@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mcare/core/api/api_client.dart';
 import 'package:mcare/shared/alerts/alert_center.dart';
 import 'package:mcare/shared/auth/auth_state.dart';
 import 'package:mcare/shared/models/app_user.dart';
@@ -16,15 +19,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   StaffPatient patient(String id) => StaffPatient(
-        id: id,
-        name: 'Patient $id',
-        age: 40,
-        sex: 'F',
-        condition: 'Hypertension',
-        risk: RiskLevel.normal,
-        lastReading: DateTime.now(),
-        assignedDoctor: 'Dr. Test',
-      );
+    id: id,
+    name: 'Patient $id',
+    age: 40,
+    sex: 'F',
+    condition: 'Hypertension',
+    risk: RiskLevel.normal,
+    lastReading: DateTime.now(),
+    assignedDoctor: 'Dr. Test',
+  );
 
   StaffAlert alert(
     String id, {
@@ -32,18 +35,17 @@ void main() {
     RiskLevel severity = RiskLevel.critical,
     bool acknowledged = false,
     bool resolved = false,
-  }) =>
-      StaffAlert(
-        id: id,
-        patientId: patientId,
-        patientName: 'Patient $patientId',
-        vital: VitalKey.bloodPressure,
-        value: '190/120',
-        severity: severity,
-        createdAt: DateTime.now(),
-        acknowledged: acknowledged,
-        resolved: resolved,
-      );
+  }) => StaffAlert(
+    id: id,
+    patientId: patientId,
+    patientName: 'Patient $patientId',
+    vital: VitalKey.bloodPressure,
+    value: '190/120',
+    severity: severity,
+    createdAt: DateTime.now(),
+    acknowledged: acknowledged,
+    resolved: resolved,
+  );
 
   void seed(
     List<StaffPatient> patients,
@@ -78,9 +80,22 @@ void main() {
   setUp(() {
     AlertCenter.instance.reset();
     signInAs(UserRole.admin);
+    // Optimistic mutations roll themselves back when the API call throws, and
+    // under flutter_test every real request returns 400. Stub the transport so
+    // an acknowledgement exercises the same path it takes in production.
+    ApiClient.instance.setTransportForTesting(
+      MockClient(
+        (_) async => http.Response(
+          '{"success":true}',
+          200,
+          headers: const {'content-type': 'application/json'},
+        ),
+      ),
+    );
   });
 
   tearDown(() {
+    ApiClient.instance.setTransportForTesting(null);
     AlertCenter.instance.reset();
     StaffState.instance.clear();
   });
@@ -113,52 +128,86 @@ void main() {
     AlertCenter.instance.snooze('alert:a1', const Duration(minutes: 5));
 
     expect(AlertCenter.instance.dueNow, isEmpty);
-    expect(AlertCenter.instance.unattendedCount, 1,
-        reason: 'a snoozed alert is still unattended');
+    expect(
+      AlertCenter.instance.unattendedCount,
+      1,
+      reason: 'a snoozed alert is still unattended',
+    );
 
     // A zero snooze is how "review all" forces the queue back up.
     AlertCenter.instance.snooze('alert:a1', Duration.zero);
     expect(AlertCenter.instance.dueNow, hasLength(1));
   });
 
+  test('forceDue reopens an item that is still inside its backoff', () {
+    seed([patient('p1')], [alert('a1', patientId: 'p1')]);
+
+    AlertCenter.instance.markSurfaced(['alert:a1']);
+    expect(AlertCenter.instance.dueNow, isEmpty);
+
+    // A zero snooze is not enough once an item has climbed the ladder: the
+    // backoff from lastSurfacedAt still holds it down, which is why pressing
+    // "work through N unattended" used to do nothing at all.
+    AlertCenter.instance.snoozeAll(['alert:a1'], Duration.zero);
+    expect(AlertCenter.instance.dueNow, isEmpty);
+
+    // Asking for the queue outranks the ladder.
+    AlertCenter.instance.forceDue(['alert:a1']);
+    expect(AlertCenter.instance.dueNow, hasLength(1));
+  });
+
   test('acknowledging stops the popping but keeps it on the board', () {
     seed([patient('p1')], [alert('a1', patientId: 'p1', acknowledged: true)]);
 
-    expect(AlertCenter.instance.popQueue, isEmpty,
-        reason: 'an owned alert must not keep interrupting');
-    expect(AlertCenter.instance.openQueue, hasLength(1),
-        reason: 'acknowledging is not finishing — it stays visible');
+    expect(
+      AlertCenter.instance.popQueue,
+      isEmpty,
+      reason: 'an owned alert must not keep interrupting',
+    );
+    expect(
+      AlertCenter.instance.openQueue,
+      hasLength(1),
+      reason: 'acknowledging is not finishing — it stays visible',
+    );
   });
 
-  test('SOS acknowledgement takes ownership without closing the emergency',
-      () async {
-    seed(
-      [patient('p1')],
-      const [],
-      sosEvents: [
-        StaffPatientSos(
-          id: 's1',
-          patientId: 'p1',
-          patientName: 'Patient p1',
-          kind: 'medical',
-          status: 'active',
-          triggeredAt: DateTime.now(),
-        ),
-      ],
-    );
+  test(
+    'SOS acknowledgement takes ownership without closing the emergency',
+    () async {
+      seed(
+        [patient('p1')],
+        const [],
+        sosEvents: [
+          StaffPatientSos(
+            id: 's1',
+            patientId: 'p1',
+            patientName: 'Patient p1',
+            kind: 'medical',
+            status: 'active',
+            triggeredAt: DateTime.now(),
+          ),
+        ],
+      );
 
-    final ok = await StaffState.instance.updateSosForCurrentRole(
-      's1',
-      status: 'acknowledged',
-    );
+      final ok = await StaffState.instance.updateSosForCurrentRole(
+        's1',
+        status: 'acknowledged',
+      );
 
-    expect(ok, isTrue);
-    expect(StaffState.instance.patientSos.single.status, 'acknowledged');
-    expect(AlertCenter.instance.openQueue, hasLength(1),
-        reason: 'acknowledging is ownership, not emergency resolution');
-    expect(AlertCenter.instance.popQueue, isEmpty,
-        reason: 'an owned SOS must stop interrupting the responder');
-  });
+      expect(ok, isTrue);
+      expect(StaffState.instance.patientSos.single.status, 'acknowledged');
+      expect(
+        AlertCenter.instance.openQueue,
+        hasLength(1),
+        reason: 'acknowledging is ownership, not emergency resolution',
+      );
+      expect(
+        AlertCenter.instance.popQueue,
+        isEmpty,
+        reason: 'an owned SOS must stop interrupting the responder',
+      );
+    },
+  );
 
   test('resolving removes it entirely', () {
     seed([patient('p1')], [alert('a1', patientId: 'p1', resolved: true)]);
@@ -186,18 +235,35 @@ void main() {
       [patient('p1')],
       [alert('warn', patientId: 'p1', severity: RiskLevel.warning)],
     );
-    expect(AlertCenter.instance.shouldRing, isFalse,
-        reason: 'a warning should not make the phone ring');
+    expect(
+      AlertCenter.instance.shouldRing,
+      isFalse,
+      reason: 'a warning should not make the phone ring',
+    );
 
     seed([patient('p1')], [alert('crit', patientId: 'p1')]);
     expect(AlertCenter.instance.shouldRing, isTrue);
   });
 
-  test('alerts outside the visible scope are never surfaced', () {
-    // Alert references a patient this user cannot see.
+  test('a doctor is never shown a patient outside their caseload', () {
+    signInAs(UserRole.doctor);
+    // The caseload is p1; the alert belongs to someone else's patient.
     seed([patient('p1')], [alert('a1', patientId: 'someone-else')]);
 
     expect(AlertCenter.instance.openQueue, isEmpty);
+  });
+
+  test('an admin is not gated on the loaded patient roster', () {
+    // `/admin/session` ships alerts and SOS but not the patient directory,
+    // which only loads when someone opens Patients. Intersecting the queue
+    // with `patients` therefore emptied it on every other screen — the
+    // dashboard read "No urgent items outstanding" while the bell showed
+    // five, and alerts flickered in and out as navigation happened to
+    // populate the roster. An admin's scope is the platform.
+    seed(const [], [alert('a1', patientId: 'never-loaded')]);
+
+    expect(AlertCenter.instance.openQueue, hasLength(1));
+    expect(AlertCenter.instance.dueNow, hasLength(1));
   });
 
   test('signed-out sessions neither queue nor ring', () {
@@ -207,8 +273,11 @@ void main() {
     AuthState.instance.signOut();
 
     expect(AlertCenter.instance.openQueue, isEmpty);
-    expect(AlertCenter.instance.shouldRing, isFalse,
-        reason: 'ringing is gated on an active session');
+    expect(
+      AlertCenter.instance.shouldRing,
+      isFalse,
+      reason: 'ringing is gated on an active session',
+    );
   });
 
   test('reset clears escalation history so the next user starts clean', () {

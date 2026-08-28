@@ -1,11 +1,9 @@
-import 'dart:async';
-
 import '../../shared/models/user_role.dart';
+import '../../shared/state/staff_state.dart';
 import '../../shared/services/admin_session_service.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/services/doctor_session_service.dart';
 import '../../shared/services/patient_session_service.dart';
-import '../../shared/state/notification_state.dart';
 import '../async/app_busy.dart';
 import '../env/app_env.dart';
 
@@ -24,6 +22,9 @@ abstract final class BackgroundSessionSync {
     if (_inFlight) return false;
 
     _inFlight = true;
+    // Marks the refresh so screens can tell "nothing outstanding" apart from
+    // "not loaded yet" and hold their last known picture instead of blanking.
+    StaffState.instance.beginSync();
     try {
       // Zone-marked as unattended: nothing this sweep does may raise the
       // on-screen indicator or the top bar. The user did not ask for it.
@@ -32,28 +33,20 @@ abstract final class BackgroundSessionSync {
           case UserRole.patient:
             return PatientSessionService.instance.syncFromApi(background: true);
           case UserRole.doctor:
-            final applied =
-                await DoctorSessionService.instance.syncFromApi(background: true);
-            unawaited(NotificationState.instance.loadStaffNotificationStates());
-            return applied;
+            return DoctorSessionService.instance.syncFromApi(background: true);
           case UserRole.mcareAssistant:
             // Keep delegated permissions live: an admin can grant/revoke at any
             // time and the change must reach the assistant without re-login.
             await AuthService.instance.refreshAssistantPermissions();
-            final applied =
-                await AdminSessionService.instance.syncFromApi(background: true);
-            unawaited(NotificationState.instance.loadStaffNotificationStates());
-            return applied;
+            return AdminSessionService.instance.syncFromApi(background: true);
           case UserRole.admin:
-            final applied =
-                await AdminSessionService.instance.syncFromApi(background: true);
-            unawaited(NotificationState.instance.loadStaffNotificationStates());
-            return applied;
+            return AdminSessionService.instance.syncFromApi(background: true);
           default:
             return false;
         }
       });
     } finally {
+      StaffState.instance.endSync();
       _inFlight = false;
     }
   }

@@ -204,13 +204,17 @@ class AssistantSupportView extends StatelessWidget {
 }
 
 class AssistantAlertsView extends StatelessWidget {
-  const AssistantAlertsView({super.key});
+  const AssistantAlertsView({super.key, this.initialStatusFilter = 'open'});
+
+  final String initialStatusFilter;
+
   @override
   Widget build(BuildContext context) => StaffAlertsScreen(
     currentRoute: RouteNames.assistantAlerts,
     destinations: StaffDestinations.assistant(),
     profileRoute: RouteNames.assistantProfile,
     notificationsRoute: RouteNames.assistantNotifications,
+    initialStatusFilter: initialStatusFilter,
   );
 }
 

@@ -464,7 +464,11 @@ class StaffState extends ChangeNotifier {
 
   void mergeVitalCatalog(List<VitalCatalogEntry> entries) {
     if (entries.isEmpty) {
-      if (_vitalCatalog.isEmpty) _seedDefaultVitalCatalog();
+      if (AppEnv.backendEnabled) {
+        _vitalCatalog.clear();
+      } else if (AppEnv.demoDataEnabled && _vitalCatalog.isEmpty) {
+        _seedDefaultVitalCatalog();
+      }
     } else {
       _vitalCatalog
         ..clear()
@@ -1456,9 +1460,9 @@ class StaffState extends ChangeNotifier {
   }
 
   /// API rehydrate — replaces the same buckets `seedDemo()` populates with
-  /// freshly mapped rows from `/doctor/session`. Anything not returned by
-  /// the API (directory users, audit, system config, vital catalog) is
-  /// left untouched — those screens still rely on the mock seed today.
+  /// freshly mapped rows from `/doctor/session`. Admin-only buckets such as
+  /// the global user directory, audit log, and system configuration are not
+  /// part of a live doctor session.
   void seedFromApi({
     required List<StaffPatient> patients,
     required List<StaffAlert> alerts,
@@ -1522,21 +1526,70 @@ class StaffState extends ChangeNotifier {
 
   int _computeApiFingerprint() {
     return Object.hash(
-      _patients.length,
-      Object.hashAll(_patients.map((p) => p.id)),
-      _alerts.length,
       Object.hashAll(
-        _alerts.map((a) => '${a.id}:${a.acknowledged}:${a.resolved}'),
+        _patients.map(
+          (p) =>
+              '${p.id}:${p.name}:${p.age}:${p.sex}:${p.condition}:'
+              '${p.risk.name}:${p.lastReading.toIso8601String()}:'
+              '${p.unreadAlerts}:${p.assignedDoctor}',
+        ),
       ),
-      _appointments.length,
-      _prescriptions.length,
-      _reports.length,
-      _requests.length,
-      _careRequests.length,
-      _sosEvents.length,
-      Object.hashAll(_sosEvents.map((e) => '${e.id}:${e.status}')),
-      _mealPlans.length,
-      _vitalReadings.length,
+      Object.hashAll(
+        _alerts.map(
+          (a) =>
+              '${a.id}:${a.value}:${a.severity.name}:'
+              '${a.acknowledged}:${a.resolved}:${a.resolutionNote}:'
+              '${a.resolutionAction}:${a.resolutionCustomAction}',
+        ),
+      ),
+      Object.hashAll(
+        _appointments.map(
+          (a) =>
+              '${a.id}:${a.startAt.toIso8601String()}:${a.type.name}:'
+              '${a.status.name}:${a.reason}:${a.locationOrLink}:'
+              '${a.cancellationReason}:${a.durationMinutes}',
+        ),
+      ),
+      Object.hashAll(
+        _prescriptions.map(
+          (p) =>
+              '${p.id}:${p.drug}:${p.dosage}:${p.frequency}:'
+              '${p.duration}:${p.status}',
+        ),
+      ),
+      Object.hashAll(
+        _reports.map((r) => '${r.id}:${r.title}:${r.body}:${r.published}'),
+      ),
+      Object.hashAll(
+        _requests.map((r) => '${r.id}:${r.type}:${r.summary}:${r.status}'),
+      ),
+      Object.hashAll(
+        _careRequests.map(
+          (r) =>
+              '${r.id}:${r.status}:${r.assignedProviderId}:'
+              '${r.assignedProviderName}:${r.assignmentRole}:'
+              '${r.decisionNote}:${r.decidedAt?.toIso8601String()}',
+        ),
+      ),
+      Object.hashAll(
+        _sosEvents.map(
+          (e) => '${e.id}:${e.status}:${e.respondedBy}:${e.locationLabel}',
+        ),
+      ),
+      Object.hashAll(
+        _mealPlans.map(
+          (m) =>
+              '${m.id}:${m.title}:${m.description}:${m.calories}:'
+              '${m.protein}:${m.carbs}:${m.fat}:${m.notes}',
+        ),
+      ),
+      Object.hashAll(
+        _vitalReadings.map(
+          (r) =>
+              '${r.id}:${r.patientId}:${r.vital.name}:${r.value}:'
+              '${r.risk.name}:${r.recordedAt.toIso8601String()}:${r.note}',
+        ),
+      ),
     );
   }
 
@@ -1634,6 +1687,13 @@ class StaffState extends ChangeNotifier {
   }
 
   /// Clears admin-specific mock buckets before API hydration.
+  /// Drop every admin-scoped bucket.
+  ///
+  /// Only for leaving the workspace — a role switch or sign-out. It is not a
+  /// refresh step: the admin sync used to call this *before* fetching, so the
+  /// app held zero alerts for the length of the round trip and any rebuild in
+  /// that window painted the dashboard all-clear over live emergencies. Each
+  /// `merge*` replaces its own bucket, which is what a refresh should do.
   void clearAdminBuckets() {
     _users.clear();
     _approvals.clear();
@@ -1643,6 +1703,24 @@ class StaffState extends ChangeNotifier {
     _sosEvents.clear();
     _alerts.clear();
     // Keep vital catalog if already loaded; system settings replaced when fetched.
+  }
+
+  /// How many session refreshes are in flight.
+  ///
+  /// Surfaces on [isSyncing] so a screen can tell "nothing outstanding" apart
+  /// from "not loaded yet" and refuse to render an all-clear it cannot stand
+  /// behind.
+  int _syncDepth = 0;
+
+  bool get isSyncing => _syncDepth > 0;
+
+  void beginSync() {
+    _syncDepth++;
+  }
+
+  void endSync() {
+    if (_syncDepth > 0) _syncDepth--;
+    if (_syncDepth == 0) notifyListeners();
   }
 
   /// Replaces system-wide alert rows from admin session / alerts API.
@@ -1655,7 +1733,12 @@ class StaffState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> adminResolveSos(String id, {String status = 'resolved'}) {
+  Future<bool> adminResolveSos(
+    String id, {
+    String status = 'resolved',
+    String? resolution,
+    String? resolutionNote,
+  }) {
     StaffPatientSos? before;
     for (final e in _sosEvents) {
       if (e.id == id) {
@@ -1696,7 +1779,12 @@ class StaffState extends ChangeNotifier {
           if (i != -1) _sosEvents[i] = before!;
         }
       },
-      apiCall: () => AdminApi.instance.resolveSos(id, status: status),
+      apiCall: () => AdminApi.instance.resolveSos(
+        id,
+        status: status,
+        resolution: resolution,
+        resolutionNote: resolutionNote,
+      ),
     );
   }
 
@@ -1708,12 +1796,24 @@ class StaffState extends ChangeNotifier {
   Future<bool> updateSosForCurrentRole(
     String id, {
     String status = 'resolved',
+    String? resolution,
+    String? resolutionNote,
   }) {
     final role = AuthState.instance.user?.role;
     if (role == UserRole.admin || role == UserRole.mcareAssistant) {
-      return adminResolveSos(id, status: status);
+      return adminResolveSos(
+        id,
+        status: status,
+        resolution: resolution,
+        resolutionNote: resolutionNote,
+      );
     }
-    return resolveSos(id, status: status);
+    return resolveSos(
+      id,
+      status: status,
+      resolution: resolution,
+      resolutionNote: resolutionNote,
+    );
   }
 
   /// Merges per-patient detail from `GET /doctor/patients/{id}`.
@@ -2125,14 +2225,22 @@ class StaffState extends ChangeNotifier {
             user.role == UserRole.mcareAssistant);
     if (!isStaff) return;
 
+    // Doctors are scoped to their caseload. Admins and assistants are not
+    // scoped at all: `/admin/session` ships alerts and SOS but not the patient
+    // roster, so intersecting with `_patients` dropped notifications for every
+    // patient the current screen happened not to have loaded.
     final assigned = user.role == UserRole.doctor
         ? assignedPatientsForDoctor().map((p) => p.id).toSet()
-        : _patients.map((p) => p.id).toSet();
+        : null;
+    // A null patient id means the item is not tied to one (an unassigned
+    // appointment) — it belongs to whoever is looking, as it always did.
+    bool inScope(String? patientId) =>
+        assigned == null || patientId == null || assigned.contains(patientId);
 
     final items = <AppNotification>[];
 
     for (final a in _alerts) {
-      if (!assigned.contains(a.patientId)) continue;
+      if (!inScope(a.patientId)) continue;
       if (a.resolved) continue;
       items.add(
         AppNotification(
@@ -2152,7 +2260,7 @@ class StaffState extends ChangeNotifier {
     }
 
     for (final s in _sosEvents) {
-      if (!assigned.contains(s.patientId)) continue;
+      if (!inScope(s.patientId)) continue;
       final sosRoute = switch (user.role) {
         UserRole.doctor => RouteNames.doctorSos,
         UserRole.admin => RouteNames.adminSos,
@@ -2178,7 +2286,7 @@ class StaffState extends ChangeNotifier {
     }
 
     for (final r in _requests) {
-      if (!assigned.contains(r.patientId)) continue;
+      if (!inScope(r.patientId)) continue;
       items.add(
         AppNotification(
           id: 'staff_req_${r.id}',
@@ -2197,7 +2305,7 @@ class StaffState extends ChangeNotifier {
     // Upcoming appointments within the next 24 hours
     final soon = DateTime.now().add(const Duration(hours: 24));
     for (final a in _appointments) {
-      if (a.patientId != null && !assigned.contains(a.patientId)) continue;
+      if (!inScope(a.patientId)) continue;
       if (!a.isUpcoming || a.startAt.isAfter(soon)) continue;
       items.add(
         AppNotification(
@@ -2366,7 +2474,12 @@ class StaffState extends ChangeNotifier {
     );
   }
 
-  Future<bool> resolveSos(String id, {String status = 'resolved'}) {
+  Future<bool> resolveSos(
+    String id, {
+    String status = 'resolved',
+    String? resolution,
+    String? resolutionNote,
+  }) {
     StaffPatientSos? before;
     for (final e in _sosEvents) {
       if (e.id == id) {
@@ -2407,7 +2520,12 @@ class StaffState extends ChangeNotifier {
           if (i != -1) _sosEvents[i] = before!;
         }
       },
-      apiCall: () => DoctorApi.instance.resolveSos(id, status: status),
+      apiCall: () => DoctorApi.instance.resolveSos(
+        id,
+        status: status,
+        resolution: resolution,
+        resolutionNote: resolutionNote,
+      ),
     );
   }
 
@@ -2642,17 +2760,14 @@ class StaffState extends ChangeNotifier {
     }
   }
 
-  Future<bool> acceptCareRequestRemote(String id) => _doctorMutation(
-    apply: () => setCareRequest(id, 'accepted'),
-    revert: () => setCareRequest(id, 'pending'),
-    apiCall: () => DoctorApi.instance.acceptCareRequest(id),
-  );
-
-  Future<bool> declineCareRequestRemote(String id) => _doctorMutation(
-    apply: () => setCareRequest(id, 'declined'),
-    revert: () => setCareRequest(id, 'pending'),
-    apiCall: () => DoctorApi.instance.declineCareRequest(id),
-  );
+  // The client's vocabulary is approved/rejected — what StaffMapper normalises
+  // the API's accepted/declined into, and what every care-request screen
+  // filters on. Writing the raw server words here left a doctor's own decision
+  // in a state no screen counted until the next session refresh re-mapped it.
+  // A doctor never accepts or declines a care request: triage is an admin /
+  // mCare-assistant decision, and approving one is what creates the care
+  // assignment. The doctor-side accept/decline mutations were removed along
+  // with their endpoints — AdminCareRequestsController owns the live path.
 
   void addAssignment(CareAssignment a) {
     _assignments.insert(0, a);
@@ -2666,6 +2781,12 @@ class StaffState extends ChangeNotifier {
 
   /// Persisting variant of [addAssignment]. Calls the admin API; on success
   /// inserts the canonical row.
+  // An emergency handover no longer goes through the assignment CRUD. It is
+  // one server-side act — see SosResponseApi.handover — because a care-team
+  // member is already assigned, so creating a second row could only ever be
+  // rejected as a duplicate, and because a care_assignments row on its own
+  // never told the receiving provider that an emergency was waiting.
+
   Future<void> createAssignmentRemote({
     required String patientUserId,
     String? providerId,

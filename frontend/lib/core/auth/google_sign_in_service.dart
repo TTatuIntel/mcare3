@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../env/app_env.dart';
 import 'google_redirect_auth_result.dart';
 import 'google_sign_in_stub.dart'
+    if (dart.library.io) 'google_sign_in_native.dart'
     if (dart.library.html) 'google_sign_in_web.dart'
     as platform;
 
@@ -52,7 +53,8 @@ class GoogleSignInCredentials {
   }
 }
 
-/// Google Sign-In — web uses Laravel OAuth redirect; other platforms stub.
+/// Google Sign-In — web uses Google Identity Services and native platforms use
+/// the official Google Sign-In SDK. Every ID token is verified by Laravel.
 class GoogleSignInService {
   GoogleSignInService._();
   static final GoogleSignInService instance = GoogleSignInService._();
@@ -75,10 +77,12 @@ class GoogleSignInService {
   Future<GoogleSignInCredentials?> requestCredentials({
     bool selectAccount = true,
   }) async {
-    if (!isConfigured || !kIsWeb) return null;
+    if (!isConfigured) return null;
     final token = await platform.promptGoogleIdToken(
       AppEnv.googleClientId,
       selectAccount: selectAccount,
+      serverClientId: AppEnv.googleServerClientId,
+      iosClientId: AppEnv.googleIosClientId,
     );
     if (token == null || token.isEmpty) return null;
     return GoogleSignInCredentials.fromIdToken(token);
@@ -108,8 +112,6 @@ class GoogleSignInService {
   }
 
   Future<void> signOut() async {
-    if (kIsWeb) {
-      await platform.revokeGoogleSession();
-    }
+    await platform.revokeGoogleSession();
   }
 }

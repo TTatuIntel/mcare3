@@ -326,6 +326,34 @@ class AuthController extends Controller
     /**
      * Dev fallback when the Flutter mock picker is used with a mock token.
      */
+    /**
+     * Guards the demo sign-in path used by the Flutter account picker.
+     *
+     * A "mock" id_token is accepted without verifying anything, so possession
+     * of an email address would otherwise be enough to mint a session for that
+     * account. It is therefore disabled outside local development, and even
+     * there it may only ever sign in a patient — never a doctor, assistant, or
+     * admin. Returns null when the request may proceed.
+     */
+    private function denyMockSignIn(string $provider, ?User $user)
+    {
+        if (! config('mcare.allow_mock_social_login')) {
+            return $this->error(
+                'Invalid or expired '.$provider.' sign-in. Please try again.',
+                401,
+            );
+        }
+
+        if ($user && $user->role !== 'patient') {
+            return $this->error(
+                'Staff accounts must sign in with their mCare credentials.',
+                403,
+            );
+        }
+
+        return null;
+    }
+
     private function googleMockSignIn(array $data)
     {
         $email = strtolower($data['email'] ?? '');
@@ -334,6 +362,10 @@ class AuthController extends Controller
         }
 
         $user = User::query()->where('email', $email)->first();
+
+        if ($denied = $this->denyMockSignIn('Google', $user)) {
+            return $denied;
+        }
 
         if (! $user && ! ($data['create_account'] ?? false)) {
             return $this->error('No account found. Please register first.', 404);
@@ -434,6 +466,10 @@ class AuthController extends Controller
         }
 
         $user = User::query()->where('email', $email)->first();
+
+        if ($denied = $this->denyMockSignIn('Apple', $user)) {
+            return $denied;
+        }
 
         if (! $user && ! ($data['create_account'] ?? false)) {
             return $this->error('No account found. Please register first.', 404);

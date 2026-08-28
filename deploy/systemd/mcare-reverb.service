@@ -1,0 +1,19 @@
+[Unit]
+Description=mCare Laravel Reverb WebSocket server
+After=network.target redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mcare/backend
+ExecStart=/usr/bin/php artisan reverb:start --host=127.0.0.1 --port=8080
+ExecReload=/bin/kill -USR2 $MAINPID
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

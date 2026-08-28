@@ -43,14 +43,37 @@ class Conversation extends Model
 
     public function toApiArray(?User $viewer = null): array
     {
-        $last = $this->messages()->latest('sent_at')->first();
+        $last = $this->relationLoaded('messages')
+            ? $this->messages->sortByDesc('sent_at')->first()
+            : $this->messages()->latest('sent_at')->first();
 
         return [
             'id' => (string) $this->id,
             'participant' => $this->participantPayload($viewer),
             'last_message' => $last?->toApiArray(),
-            'unread_count' => $this->unread_count,
+            'unread_count' => $this->unreadCountFor($viewer),
         ];
+    }
+
+    private function unreadCountFor(?User $viewer): int
+    {
+        $viewerId = $viewer?->id ?? $this->user_id;
+        $isParticipant = (int) $this->user_id === (int) $viewerId
+            || (int) $this->participant_user_id === (int) $viewerId;
+
+        if (! $isParticipant) {
+            return 0;
+        }
+
+        $precomputed = $this->getAttribute('unread_messages_count');
+        if ($precomputed !== null) {
+            return (int) $precomputed;
+        }
+
+        return $this->messages()
+            ->where('sender_user_id', '!=', $viewerId)
+            ->where('read', false)
+            ->count();
     }
 
     private function participantPayload(?User $viewer): array

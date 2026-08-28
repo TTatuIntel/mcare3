@@ -77,6 +77,15 @@ class ProfileNavigation {
     _ => null,
   };
 
+  /// Messages list for the role — surfaced in the app header next to the bell.
+  static String? messagesRouteFor(UserRole role) => switch (role) {
+    UserRole.patient => RouteNames.patientMessages,
+    UserRole.doctor => RouteNames.doctorMessages,
+    UserRole.admin => RouteNames.adminMessages,
+    UserRole.mcareAssistant => RouteNames.assistantMessages,
+    _ => null,
+  };
+
   static String? completeProfileRouteFor(UserRole role) => switch (role) {
     UserRole.admin => RouteNames.adminCompleteProfile,
     UserRole.mcareAssistant => RouteNames.assistantCompleteProfile,
@@ -251,6 +260,11 @@ class ProfileNavigation {
   ///   2. No "Notifications" row — RoleShell bell already opens inbox.
   ///   3. No "Support" row for admin/assistant — primary nav rail exposes it.
   ///   4. Admin/assistant ops (users, activity) live in [quickActionsFor] only.
+  ///   5. No patient "Emergency SOS" row — SOS is a one-tap action, not a
+  ///      settings destination, so it lives at the end of the patient home page
+  ///      and on the Care tab. The account sheet instead shows SOS *readiness*
+  ///      (contacts, location sharing) in its emergency summary, which links to
+  ///      the same page without duplicating the red action row.
   static List<ProfileMenuEntry> menuFor(UserRole role) {
     final settings = settingsRouteFor(role);
     final support = supportRouteFor(role);
@@ -262,13 +276,6 @@ class ProfileNavigation {
           label: 'My care team',
           subtitle: 'Your doctors and specialists',
           route: RouteNames.patientCareTeam,
-        ),
-        const ProfileMenuEntry(
-          icon: AppIcons.sos,
-          label: 'Emergency SOS',
-          subtitle: 'Trigger help when you need it',
-          route: RouteNames.patientSos,
-          danger: true,
         ),
         if (settings != null)
           ProfileMenuEntry(

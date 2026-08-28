@@ -120,32 +120,50 @@ class PatientQuickAction extends StatelessWidget {
     final ink = AppPalette.ink(context);
     final radius = BorderRadius.circular(AppSpacing.radiusSm);
     return Material(
-      color: selected ? accent.withValues(alpha: 0.08) : Colors.transparent,
+      color: Colors.transparent,
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
         splashColor: accent.withValues(alpha: 0.12),
         highlightColor: accent.withValues(alpha: 0.08),
-        child: SizedBox(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
           width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: 0.11)
+                : Colors.transparent,
+            borderRadius: radius,
+            border: Border.all(
+              color: selected
+                  ? accent.withValues(alpha: 0.34)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: '$label patient section',
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Icon(icon, size: 17, color: accent),
+                    Icon(icon, size: 20, color: accent),
                     if (badge != null)
                       Positioned(
-                        right: -7,
-                        top: -5,
+                        right: -9,
+                        top: -7,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
+                            horizontal: 5,
+                            vertical: 2,
                           ),
                           decoration: BoxDecoration(
                             color: badgeColor ?? accent,
@@ -157,7 +175,7 @@ class PatientQuickAction extends StatelessWidget {
                             badge!,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: Colors.white,
-                              fontSize: 7,
+                              fontSize: 9,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -173,8 +191,9 @@ class PatientQuickAction extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: selected ? accent : ink,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 9,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                    fontSize: 10.5,
+                    height: 1.1,
                   ),
                 ),
               ],

@@ -108,7 +108,7 @@ class PatientVitalFeed {
   }
 }
 
-/// Compact overview block — latest patient vital/alert plus up to five more.
+/// Readable overview block — latest patient vital/alert plus up to five more.
 class DoctorPatientVitalFeed extends StatelessWidget {
   const DoctorPatientVitalFeed({
     super.key,
@@ -148,9 +148,9 @@ class DoctorPatientVitalFeed extends StatelessWidget {
       frosted: true,
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
-        AppSpacing.sm,
         AppSpacing.md,
-        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,37 +159,61 @@ class DoctorPatientVitalFeed extends StatelessWidget {
             onTap: onOpenVitals,
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Row(
                 children: [
                   Container(
-                    height: 28,
-                    width: 28,
+                    height: 36,
+                    width: 36,
                     decoration: BoxDecoration(
-                      color: accent.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     ),
-                    child: Icon(AppIcons.vitals, size: 14, color: accent),
+                    child: Icon(AppIcons.vitals, size: 18, color: accent),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text(
-                      'Vitals & alerts',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vitals & alerts',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Latest readings and clinical alerts',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppPalette.textMuted(context),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (items.isNotEmpty)
-                    Text(
-                      '${items.length}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w700,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
+                      ),
+                      child: Text(
+                        '${items.length}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: AppSpacing.xs),
                   Icon(
                     AppIcons.chevronRight,
                     size: 14,
@@ -211,18 +235,18 @@ class DoctorPatientVitalFeed extends StatelessWidget {
               ),
             )
           else ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             _HeroVitalRow(
               item: latest,
               onTap: () => _openItem(context, latest),
             ),
             if (rest.isNotEmpty) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 child: Divider(height: 1, color: AppPalette.border(context)),
               ),
               for (var i = 0; i < rest.length; i++) ...[
-                if (i > 0) const SizedBox(height: 2),
+                if (i > 0) const SizedBox(height: AppSpacing.xs),
                 _CompactVitalRow(
                   item: rest[i],
                   onTap: () => _openItem(context, rest[i]),
@@ -230,18 +254,18 @@ class DoctorPatientVitalFeed extends StatelessWidget {
               ],
             ],
             if (openCount > 0) ...[
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: AppSpacing.sm),
               InkWell(
                 onTap: onOpenAlerts,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Text(
                     '$openCount need review · open alerts',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppColors.warning,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
                     ),
                   ),
                 ),
@@ -271,22 +295,22 @@ class _HeroVitalRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.md,
           ),
           child: Row(
             children: [
               Container(
-                height: 36,
-                width: 36,
+                height: 42,
+                width: 42,
                 decoration: BoxDecoration(
-                  color: item.vital.accent.withOpacity(0.14),
+                  color: item.vital.accent.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Icon(
                   item.vital.icon,
                   color: item.vital.accent,
-                  size: 18,
+                  size: 21,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -299,14 +323,15 @@ class _HeroVitalRow extends StatelessWidget {
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: AppPalette.textMuted(context),
                         fontWeight: FontWeight.w700,
-                        fontSize: 10,
+                        fontSize: 11,
                       ),
                     ),
                     Text(
                       item.value,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        height: 1.15,
+                        fontSize: 16,
+                        height: 1.2,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -315,7 +340,7 @@ class _HeroVitalRow extends StatelessWidget {
                       DateFormat.MMMd().add_jm().format(item.at),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: AppPalette.textMuted(context),
-                        fontSize: 10,
+                        fontSize: 10.5,
                       ),
                     ),
                   ],
@@ -344,12 +369,21 @@ class _CompactVitalRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: 5,
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
         ),
         child: Row(
           children: [
-            Icon(item.vital.icon, size: 15, color: item.vital.accent),
+            Container(
+              height: 32,
+              width: 32,
+              decoration: BoxDecoration(
+                color: item.vital.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              alignment: Alignment.center,
+              child: Icon(item.vital.icon, size: 16, color: item.vital.accent),
+            ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
@@ -357,16 +391,17 @@ class _CompactVitalRow extends StatelessWidget {
                 children: [
                   Text(
                     item.vital.label,
-                    style: theme.textTheme.labelMedium?.copyWith(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      height: 1.1,
+                      height: 1.2,
                     ),
                   ),
                   Text(
                     '${item.value} · ${DateFormat.MMMd().add_jm().format(item.at)}',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppPalette.textMuted(context),
-                      fontSize: 10,
+                      fontSize: 10.5,
+                      height: 1.25,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -391,17 +426,18 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w800,
-          fontSize: 9,
+          fontSize: 10,
         ),
       ),
     );

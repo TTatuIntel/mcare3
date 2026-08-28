@@ -14,6 +14,7 @@ import 'app_icons.dart';
 import 'brand_logo.dart';
 import 'bubble_background.dart';
 import 'critical_event_overlay.dart';
+import 'messages_button.dart';
 import 'notification_bell.dart';
 import '../utils/time_greeting.dart';
 import 'profile_menu_sheet.dart';
@@ -147,6 +148,7 @@ class RoleShell extends StatelessWidget {
               }
             },
             child: CriticalEventOverlay(
+              currentRoute: currentRoute,
               child: Scaffold(
                 backgroundColor: surface,
                 body: Row(
@@ -199,6 +201,7 @@ class RoleShell extends StatelessWidget {
             }
           },
           child: CriticalEventOverlay(
+            currentRoute: currentRoute,
             child: Scaffold(
               backgroundColor: surface,
               appBar: _StaffHeader(
@@ -363,12 +366,8 @@ class _StaffHeader extends StatelessWidget implements PreferredSizeWidget {
               ...?effectiveActions,
               if (compact && effectiveMenuActions.isNotEmpty)
                 _HeaderActionMenu(actions: effectiveMenuActions),
-              NotificationBell(
-                onTap: notificationsRoute == null
-                    ? null
-                    : () =>
-                          Navigator.of(context).pushNamed(notificationsRoute!),
-              ),
+              const MessagesButton(),
+              const NotificationBell(),
             ],
           ),
         ),

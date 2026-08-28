@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/external_access_api.dart';
 import '../../core/env/app_env.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
@@ -36,7 +37,7 @@ class _Body extends StatefulWidget {
   State<_Body> createState() => _BodyState();
 }
 
-class _BodyState extends State<_Body> {
+class _BodyState extends State<_Body> with RealtimeRefreshMixin<_Body> {
   final _label = TextEditingController();
   final _shareButtonKey = GlobalKey();
   List<ExternalAccessLink> _links = const [];
@@ -62,6 +63,7 @@ class _BodyState extends State<_Body> {
       now.month,
       now.day,
     ).add(const Duration(days: 1));
+    watchRealtime(const {'external_access'}, _load);
     _load();
   }
 

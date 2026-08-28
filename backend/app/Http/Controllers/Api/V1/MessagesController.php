@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Conversation;
+use App\Services\RealtimeSignalService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -15,13 +16,14 @@ class MessagesController extends Controller
     public function thread(Request $request, Conversation $conversation)
     {
         abort_unless($conversation->user_id === $request->user()->id, 403);
+        $messages = $conversation->messages()
+            ->orderBy('sent_at')
+            ->get();
+        $conversation->setRelation('messages', $messages);
+
         return $this->success([
-            'conversation' => $conversation->toApiArray(),
-            'messages' => $conversation->messages()
-                ->orderBy('sent_at')
-                ->get()
-                ->map->toApiArray()
-                ->all(),
+            'conversation' => $conversation->toApiArray($request->user()),
+            'messages' => $messages->map->toApiArray()->all(),
         ]);
     }
 
@@ -35,18 +37,22 @@ class MessagesController extends Controller
             'conversation_id' => $conversation->id,
             'sender_user_id' => $request->user()->id,
             'body' => $data['body'],
-            'read' => true,
+            'read' => false,
             'sent_at' => now(),
         ]);
-        $conversation->update(['last_message_at' => $msg->sent_at]);
+
         return $this->success(['message' => $msg->toApiArray()], 'Message sent.', 201);
     }
 
     public function markRead(Request $request, Conversation $conversation)
     {
         abort_unless($conversation->user_id === $request->user()->id, 403);
-        $conversation->messages()->where('read', false)->update(['read' => true]);
-        $conversation->update(['unread_count' => 0]);
+        $conversation->messages()
+            ->where('sender_user_id', '!=', $request->user()->id)
+            ->where('read', false)
+            ->update(['read' => true]);
+        RealtimeSignalService::forModel($conversation, 'updated', ['messages']);
+
         return $this->success(null, 'Marked read.');
     }
 }

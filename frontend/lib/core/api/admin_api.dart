@@ -23,11 +23,21 @@ class AdminApi {
     return _list(res, 'sos_events');
   }
 
-  Future<void> resolveSos(String eventId, {required String status}) async {
+  Future<void> resolveSos(
+    String eventId, {
+    required String status,
+    String? resolution,
+    String? resolutionNote,
+  }) async {
     if (!AppEnv.backendEnabled) return;
     await ApiClient.instance.patch(
       '/admin/sos-events/$eventId',
-      body: {'status': status},
+      body: {
+        'status': status,
+        if (resolution != null) 'resolution': resolution,
+        if (resolutionNote != null && resolutionNote.trim().isNotEmpty)
+          'resolution_note': resolutionNote.trim(),
+      },
     );
   }
 

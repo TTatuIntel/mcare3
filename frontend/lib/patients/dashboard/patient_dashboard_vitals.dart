@@ -380,7 +380,7 @@ class _VitalDetailTile extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = vital.accent;
     final risk = reading?.risk ?? RiskLevel.unknown;
-    final value = reading?.formatValue() ?? 'â€”';
+    final value = reading?.formatValue() ?? '—';
     final alert = NotificationState.instance.vitalAlertFor(vital);
     final when = reading == null
         ? 'Not logged'
@@ -473,7 +473,7 @@ class _VitalDetailTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        '$when Â· ${_statusLine(risk, alert)}',
+                        '$when · ${_statusLine(risk, alert)}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: alert != null
                               ? alert.kind.tint

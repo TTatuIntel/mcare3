@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 /**
  * Admin / mCare-assistant user management. Permission gates:
@@ -48,10 +47,10 @@ class UsersController extends Controller
             $like = '%'.str_replace('%', '\\%', $q).'%';
             $query->where(function ($w) use ($like) {
                 $w->where('first_name', 'like', $like)
-                  ->orWhere('last_name', 'like', $like)
-                  ->orWhere('email', 'like', $like)
-                  ->orWhere('phone', 'like', $like)
-                  ->orWhere('unique_id', 'like', $like);
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('phone', 'like', $like)
+                    ->orWhere('unique_id', 'like', $like);
             });
         }
 
@@ -180,8 +179,21 @@ class UsersController extends Controller
             return $this->error('You cannot change your own role.', 422);
         }
 
+        // Patient accounts are never re-roled. Promoting a patient into a
+        // clinical or staff role would bypass invite-based staff onboarding
+        // (and its licence/permission checks), and demoting staff to patient
+        // would leave an account with no clinical record. Both directions are
+        // refused regardless of the actor's permissions.
+        if ($user->role === 'patient' || $newServerRole === 'patient') {
+            return $this->error(
+                'Patient accounts cannot be re-roled. Create a staff account through an invite instead.',
+                422,
+            );
+        }
+
         $oldRole = $user->roleToClient();
         $user->update(['role' => $newServerRole]);
+        $user->tokens()->delete();
 
         $this->audit->record(
             $actor,
@@ -211,6 +223,9 @@ class UsersController extends Controller
 
         $previous = $user->approval_status;
         $user->update(['approval_status' => $data['status']]);
+        if ($data['status'] !== 'active') {
+            $user->tokens()->delete();
+        }
 
         $this->audit->record(
             $request->user(),

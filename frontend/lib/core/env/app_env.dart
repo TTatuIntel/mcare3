@@ -1,14 +1,22 @@
 import 'package:flutter/foundation.dart';
 
-/// Environment flags — flip [backendEnabled] when the Laravel API is live.
+/// Compile-time environment flags. Production and normal local development
+/// use the Laravel API; the legacy in-memory fixtures require explicit opt-in.
 class AppEnv {
   AppEnv._();
 
-  /// When false, all repositories read/write mock state only.
-  /// Disable with: `--dart-define=MCARE_USE_BACKEND=false`
+  /// Disable only for isolated widget development. Disabling the backend no
+  /// longer activates fixture data by itself.
   static const bool backendEnabled = bool.fromEnvironment(
     'MCARE_USE_BACKEND',
     defaultValue: true,
+  );
+
+  /// Legacy in-memory fixtures are retained for isolated UI development and
+  /// tests, but never activate accidentally when the API is unavailable.
+  static const bool demoDataEnabled = bool.fromEnvironment(
+    'MCARE_ALLOW_DEMO_DATA',
+    defaultValue: false,
   );
 
   static const String _rawApiBaseUrl = String.fromEnvironment(
@@ -41,10 +49,26 @@ class AppEnv {
   ///   `--dart-define=MCARE_WS_URL=ws://127.0.0.1:8080`
   /// Empty by default so realtime is opt-in; when empty the app falls back
   /// to REST polling only (§7.1 fallback strategy).
-  static const String wsUrl = String.fromEnvironment(
+  static const String _rawWsUrl = String.fromEnvironment(
     'MCARE_WS_URL',
     defaultValue: '',
   );
+
+  static const bool _wsUrlOverridden = bool.hasEnvironment('MCARE_WS_URL');
+
+  /// Rewrites localhost for the Android emulator exactly as the REST base URL
+  /// does, while respecting an explicitly supplied device/LAN endpoint.
+  static final String wsUrl = _resolveWsUrl();
+
+  static String _resolveWsUrl() {
+    if (_rawWsUrl.isEmpty || _wsUrlOverridden || kIsWeb) return _rawWsUrl;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return _rawWsUrl
+          .replaceFirst('://127.0.0.1', '://10.0.2.2')
+          .replaceFirst('://localhost', '://10.0.2.2');
+    }
+    return _rawWsUrl;
+  }
 
   /// The Reverb `app_key` from backend/.env `REVERB_APP_KEY`. Required to
   /// establish a Pusher-protocol handshake with the Reverb server.
@@ -66,9 +90,23 @@ class AppEnv {
 
   static bool get hasGoogleClientId => googleClientId.isNotEmpty;
 
+  /// Web OAuth client ID used as the native server client ID so Google issues
+  /// an ID token whose audience the Laravel API can verify.
+  static const String googleServerClientId = String.fromEnvironment(
+    'MCARE_GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: googleClientId,
+  );
+
+  /// iOS OAuth client ID. Android derives its application identity from the
+  /// package name/signing certificate and therefore does not use this value.
+  static const String googleIosClientId = String.fromEnvironment(
+    'MCARE_GOOGLE_IOS_CLIENT_ID',
+    defaultValue: '',
+  );
+
   /// Apple "Sign in with Apple" web Services ID —
   /// `--dart-define=MCARE_APPLE_CLIENT_ID=com.example.web`. Empty by default,
-  /// which keeps Apple login in mock mode.
+  /// which keeps Apple login unavailable until it is configured.
   static const String appleClientId = String.fromEnvironment(
     'MCARE_APPLE_CLIENT_ID',
     defaultValue: '',

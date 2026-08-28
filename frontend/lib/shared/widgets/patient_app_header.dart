@@ -6,6 +6,7 @@ import '../navigation/navigation_roots.dart';
 import '../auth/auth_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'messages_button.dart';
 import 'notification_bell.dart';
 import 'profile_menu_sheet.dart';
 
@@ -87,14 +88,21 @@ class PatientAppHeader extends StatelessWidget implements PreferredSizeWidget {
                         overflow: TextOverflow.ellipsis,
                       )
                     else if (user != null)
+                      // Single line, like the subtitle branch above: the
+                      // header is a fixed 68px, so a second line overflows it.
+                      // Every action added to the row narrows this column,
+                      // which is what makes the wrap reachable.
                       Text(
                         'How are you feeling today?',
                         style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
               ),
               if (actions != null && !onPrimaryHome) ...actions!,
+              const MessagesButton(),
               const NotificationBell(),
             ],
           ),

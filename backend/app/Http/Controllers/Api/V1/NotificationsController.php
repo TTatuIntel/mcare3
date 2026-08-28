@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AppNotificationResource;
 use App\Models\AppNotification;
+use App\Services\RealtimeSignalService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -28,6 +29,7 @@ class NotificationsController extends Controller
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
         $notification->update(['read' => true]);
+
         return $this->success(['notification' => new AppNotificationResource($notification->fresh())]);
     }
 
@@ -39,12 +41,24 @@ class NotificationsController extends Controller
             'resolved_at' => now(),
             'read' => true,
         ]);
+
         return $this->success(['notification' => new AppNotificationResource($notification->fresh())]);
     }
 
     public function markAllRead(Request $request)
     {
-        $request->user()->appNotifications()->where('read', false)->update(['read' => true]);
+        $updated = $request->user()->appNotifications()
+            ->where('read', false)
+            ->update(['read' => true]);
+        if ($updated > 0) {
+            RealtimeSignalService::signal(
+                ['user.'.$request->user()->id],
+                ['notifications', 'alerts'],
+                'updated',
+                'AppNotification',
+            );
+        }
+
         return $this->success(null, 'All notifications marked read.');
     }
 }

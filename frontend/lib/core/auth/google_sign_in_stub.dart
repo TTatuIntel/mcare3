@@ -17,8 +17,10 @@ Future<void> beginRedirectSignIn({
 Future<String?> promptGoogleIdToken(
   String clientId, {
   bool selectAccount = true,
+  String serverClientId = '',
+  String iosClientId = '',
 }) async {
-  throw UnsupportedError('Google Sign-In is only available on Flutter web.');
+  throw UnsupportedError('Google Sign-In is unavailable on this platform.');
 }
 
 Future<void> revokeGoogleSession() async {}

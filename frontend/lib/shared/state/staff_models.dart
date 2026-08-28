@@ -102,6 +102,26 @@ class StaffPatientDocument {
   final bool hasFile;
 }
 
+/// One recorded step in how an emergency was worked, as it rides along with
+/// the event itself.
+class SosProgressStep {
+  const SosProgressStep({
+    required this.action,
+    required this.label,
+    required this.actorName,
+    required this.at,
+    this.detail,
+  });
+
+  final String action;
+  final String label;
+  final String actorName;
+  final DateTime at;
+  final String? detail;
+
+  bool get isHandover => action == 'assigned_provider';
+}
+
 class StaffPatientSos {
   StaffPatientSos({
     required this.id,
@@ -115,6 +135,11 @@ class StaffPatientSos {
     this.latitude,
     this.longitude,
     this.respondedBy,
+    this.respondedAt,
+    this.resolution,
+    this.resolutionLabel,
+    this.resolutionNote,
+    this.progress = const [],
   });
 
   final String id;
@@ -128,8 +153,49 @@ class StaffPatientSos {
   final double? latitude;
   final double? longitude;
   final String? respondedBy;
+  final DateTime? respondedAt;
+  final String? resolution;
+  final String? resolutionLabel;
+  final String? resolutionNote;
+
+  /// What has actually been done on this emergency, oldest first. Read from
+  /// the event payload so a coordinator can follow a case they handed on
+  /// without opening it.
+  final List<SosProgressStep> progress;
 
   bool get isActive => status == 'active' || status == 'acknowledged';
+
+  /// Owned by someone, but not finished. This is the state that needs
+  /// following up: an emergency handed to a provider sits here until it is
+  /// actually closed.
+  bool get isInProgress => status == 'acknowledged';
+
+  /// Raised and still nobody's.
+  bool get needsResponder => status == 'active';
+
+  bool get isClosed => !isActive;
+
+  /// The provider this emergency was handed to, if it was handed to anyone.
+  String? get handedTo {
+    for (final step in progress.reversed) {
+      if (step.isHandover) return step.detail ?? step.actorName;
+    }
+    return null;
+  }
+
+  SosProgressStep? get lastStep => progress.isEmpty ? null : progress.last;
+
+  /// When the case last moved — a recorded step if there is one, otherwise
+  /// the response stamp, otherwise when it was raised.
+  DateTime get lastActivityAt => lastStep?.at ?? respondedAt ?? triggeredAt;
+
+  String get statusLabel => switch (status) {
+    'active' => 'Needs a responder',
+    'acknowledged' => 'In progress',
+    'resolved' => 'Resolved',
+    'falseAlarm' => 'False alarm',
+    _ => status,
+  };
 
   String get kindLabel => switch (kind) {
     'medical' => 'Medical emergency',

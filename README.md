@@ -4,7 +4,12 @@
 
 **Stack:** Laravel 12 REST API (`backend/`) · Flutter 3 (`frontend/`, web + Android + iOS + Windows) · MySQL 8+
 
-**Repository truth last verified:** 2026-08-07
+**Repository truth last verified:** 2026-08-28
+
+**Release status:** automated code, migration, analysis, test, and web-build
+gates are green. Production approval remains conditional on the external,
+infrastructure, security, privacy, load, accessibility, and UAT checks listed
+below.
 
 > **Canonical documentation:** this root `README.md` is the single engineering, product, setup, deployment, and rollout reference. The approved screen-by-screen visual specification is the [complete mCare design blueprint PDF](output/pdf/mcare-complete-application-design-blueprint.pdf).
 >
@@ -66,7 +71,9 @@ The repository currently contains working domains for:
 - patient care-team requests and clinician caseloads;
 - emergency SOS, announcements, security incidents, audit events, analytics, and settings;
 - patient-issued external-access links/codes, consultation notes, vitals, medications, and document uploads;
-- FCM token registration and an opt-in Laravel Reverb vital-alert channel.
+- FCM token registration and opt-in Laravel Reverb invalidation channels for
+  patient, clinician, administrative, messaging, notification, SOS, care,
+  report, support, document, appointment, medication, settings, and audit data.
 
 ### Not complete backend modules
 
@@ -90,21 +97,22 @@ Documents may carry laboratory or radiology files, and appointments may carry ex
 
 | Layer | Verified count/status |
 |---|---:|
-| Flutter named-route constants | **105** |
+| Flutter named-route constants | **110** |
 | Shared/pre-login routes | **10** |
-| Patient routes | **21** |
-| Doctor routes | **22** |
+| Patient routes | **25** |
+| Doctor routes | **23** |
 | Administrator routes | **27** (24 compatibility routes + Work/People/More hubs) |
 | mCare Assistant routes | **25** (22 compatibility routes + Work/People/More hubs) |
-| Laravel `/api/v1` route entries | **171** |
-| API route groups | `admin` 61 · `auth` 17 · `doctor` 38 · `external` 6 · `fcm-tokens` 2 · `me` 5 · `patient` 42 |
-| Laravel API controllers | **50** |
-| Eloquent models | **34** |
-| Database migrations | **20** |
-| Laravel tests | **11 feature + 1 unit** |
-| Flutter API clients | **25** |
+| Laravel `/api/v1` route entries | **197** |
+| API route groups | `admin` 77 · `auth` 17 · `doctor` 44 · `external` 7 · `fcm-tokens` 2 · `me` 5 · `patient` 45 |
+| Laravel API controllers | **60** |
+| Eloquent models | **36** |
+| Database migrations | **24**, all applied in the verified local MySQL environment |
+| Application tables | **45**, including Laravel cache/queue/session infrastructure |
+| Laravel automated tests | **118 passing, 543 assertions** across 26 feature files + 1 unit file |
+| Flutter API clients | **27** |
 | Flutter shared-state files | **14** |
-| Flutter test files | **5** |
+| Flutter test files | **25**; the last completed full runner pass had **73 passing**, 9 intentionally skipped platform cases; the new notification-preview test is statically verified and awaits the active SDK lock |
 
 Counts are descriptive audit evidence, not architecture. The source files remain authoritative:
 
@@ -115,14 +123,48 @@ Counts are descriptive audit evidence, not architecture. The source files remain
 
 When one of these surfaces changes, update this snapshot in the same change.
 
+### Repository structure
+
+```text
+mcares3/
+  backend/                     Laravel 12 API
+    app/Events/                queued broadcast events
+    app/Observers/             model lifecycle triggers
+    app/Services/              clinical, notification, push, report, realtime logic
+    app/Http/Controllers/      versioned REST controllers
+    app/Models/                Eloquent persistence and API mapping
+    routes/api.php             /api/v1 contract
+    routes/channels.php        private Reverb authorization
+    routes/console.php         scheduled escalation
+    database/migrations/       forward-only schema history
+    database/seeders/          synthetic role-complete test dataset
+    tests/                     PHPUnit feature/unit coverage
+  frontend/                    Flutter multi-platform application
+    lib/core/api/              REST transport and DTO mappers
+    lib/core/auth/             OAuth platform adapters
+    lib/core/env/              compile-time environment switches
+    lib/core/realtime/         Reverb channel, poller, domain listeners
+    lib/shared/                role-neutral state, navigation, services, UI
+    lib/admin|doctors|patients|mcare_assistant/
+                                role compositions and workflows
+    test/                      Flutter unit/widget/navigation coverage
+  scripts/                     developer start/reset helpers
+  deploy/                      Nginx, systemd, k6, monitoring/recovery runbook
+  output/pdf/                  approved visual blueprint
+  README.md                    canonical engineering/product status
+```
+
 The approved PDF was generated from the 99-route compatibility baseline. The six new Admin/Assistant hub entry routes are additive implementations of the PDF navigation and do not replace any legacy route. Regenerate the PDF atlas before treating it as an exact current route inventory; its visual, workflow, responsive, and security decisions remain the approved design reference.
 
-### Runtime design rollout status
+### Runtime and upgrade status
 
 - Administrator and mCare Assistant dashboard/Work/People/More entry routes are wired to the shared Guided Operations hub.
 - The existing Admin/Assistant feature and detail routes remain registered as compatibility destinations from that hub.
 - Patient, Doctor, and External Clinical Access still use their existing route-level presentation while their PDF-approved shells are migrated.
 - Legacy presentation code and decorative design assets have not been bulk-deleted; they remain only until the route-by-route parity and rollback gates in section 11 pass.
+- Backend syntax, all migrations, route middleware, Composer metadata, Flutter analysis, both automated suites, and a release web build were verified on 2026-08-28. The production-gate upgrade re-verified the complete backend suite and direct Dart analysis.
+- Flutter analysis has no error or warning diagnostics. It currently reports 333 informational/deprecation lints that do not fail the build and should be retired incrementally.
+- A live browser smoke test remains unverified because this review environment had no connected browser. Automated boot-render, responsive clinical layout, navigation, and deep-link widget tests passed.
 
 This status describes the repository at the verification date. Update it in the same change that cuts over another role or retires a legacy surface.
 
@@ -138,7 +180,28 @@ This status describes the repository at the verification date. Update it in the 
 - Flutter compatible with the SDK constraint in `frontend/pubspec.yaml`
 - Chrome or another Flutter-supported target
 
-The live application needs at least two terminals: Laravel and Flutter. A queue worker and Reverb server use separate terminals when those paths are being tested.
+For an existing configured checkout, the recommended non-destructive launcher
+starts Laravel, Reverb, the queue worker, and the scheduler as tracked hidden
+processes, then opens Flutter in Chrome with matching REST and WebSocket
+defines:
+
+```powershell
+.\scripts\start-local.ps1
+
+# Stop the tracked PHP services when finished.
+.\scripts\stop-local.ps1
+```
+
+Runtime output is written to `backend/storage/logs/local-runtime/`. Use
+`-SkipFrontend` for backend services only, `-NoRealtime` to test polling-only
+fallback, or `-FlutterDevice web-server` for a headless web target. With the
+headless target, open `http://localhost:8090` before using hot restart;
+otherwise Flutter correctly reports `No client connected` and the restart
+times out. `fresh-start.ps1` is the destructive reset/reseed equivalent and
+prompts before dropping tables.
+
+The following manual commands remain available when individual service logs
+need to stay in separate terminals.
 
 ### 3.1 First-time backend setup — Terminal 1
 
@@ -176,7 +239,7 @@ API base: `http://127.0.0.1:8000/api/v1`
 
 ### 3.3 Run the queue worker — Terminal 2
 
-The default local queue is database-backed. Run the worker when testing queued mail, broadcasts, and other jobs:
+The default local queue is database-backed. Run the worker when testing queued mail, Reverb broadcasts, and other jobs. A process supervisor is required in production:
 
 ```powershell
 Set-Location backend
@@ -185,14 +248,20 @@ php artisan queue:work --tries=3
 
 ### 3.4 Run Reverb — optional Terminal 3
 
-Reverb is opt-in. It currently accelerates the vital-alert notification path; REST polling remains active as reconciliation and fallback.
+Reverb is opt-in. When configured it carries small, PHI-free invalidation
+signals across all live application domains. Authorised clients then re-read
+canonical data from REST. REST polling remains active as reconciliation and
+automatically becomes the primary path if channel authorization or the socket
+connection fails.
 
 ```powershell
 Set-Location backend
 php artisan reverb:start --host=127.0.0.1 --port=8080
 ```
 
-Fill `REVERB_*` in `backend/.env`, set `BROADCAST_CONNECTION=reverb`, and pass the matching app key to Flutter.
+Fill `REVERB_*` in `backend/.env`, set `BROADCAST_CONNECTION=reverb`, run the
+queue worker, and pass the matching app key to Flutter. The API and WebSocket
+application key must refer to the same Reverb application.
 
 ### 3.5 Run Flutter web against Laravel — Terminal 4
 
@@ -200,8 +269,8 @@ REST only:
 
 ```powershell
 Set-Location frontend
-flutter pub get
-flutter run -d web-server --web-hostname localhost --web-port 8090 `
+flutter.bat pub get
+flutter.bat run -d chrome --web-hostname localhost --web-port 8090 `
   --dart-define=MCARE_USE_BACKEND=true `
   --dart-define=MCARE_API_URL=http://127.0.0.1:8000/api/v1
 ```
@@ -210,35 +279,86 @@ REST plus opt-in Reverb:
 
 ```powershell
 Set-Location frontend
-flutter run -d web-server --web-hostname localhost --web-port 8090 `
+flutter.bat run -d chrome --web-hostname localhost --web-port 8090 `
   --dart-define=MCARE_USE_BACKEND=true `
   --dart-define=MCARE_API_URL=http://127.0.0.1:8000/api/v1 `
   --dart-define=MCARE_WS_URL=ws://127.0.0.1:8080 `
   --dart-define=MCARE_WS_APP_KEY=your-reverb-app-key
 ```
 
-Open `http://localhost:8090`.
+Chrome opens the application URL automatically. If `-d web-server` is used
+instead, manually open `http://localhost:8090` before hot restart.
 
-### 3.6 Demo mode without Laravel
+### 3.6 Explicit UI fixture mode without Laravel
+
+Normal local development uses seeded Laravel/MySQL data. The legacy in-memory
+fixtures are retained only for isolated UI work and require both flags, so an
+API outage can never silently replace real data with a fictional patient:
 
 ```powershell
 Set-Location frontend
-flutter run -d web-server --web-hostname localhost --web-port 8090 `
-  --dart-define=MCARE_USE_BACKEND=false
+flutter.bat run -d chrome --web-hostname localhost --web-port 8090 `
+  --dart-define=MCARE_USE_BACKEND=false `
+  --dart-define=MCARE_ALLOW_DEMO_DATA=true
 ```
 
-### 3.7 Useful verification commands
+### 3.7 One-command database dataset and real-time simulations
+
+For a clean local database, run the guarded reset helper. It prints the exact
+database and asks for confirmation unless `-Force` is supplied:
+
+```powershell
+.\scripts\fresh-start.ps1 -ResetOnly -SkipDeps
+```
+
+The equivalent backend commands are:
+
+```powershell
+Set-Location backend
+php artisan migrate:fresh --seed
+php artisan mcare:demo-status --strict --json
+```
+
+`DatabaseSeeder` calls seven ordered seeders and creates one coherent snapshot
+for every supported role. Snapshot installation suppresses row-by-row Reverb
+invalidation jobs; it does not disable runtime observers. To prove real model
+triggers and client refresh behavior, run Reverb and a queue worker, sign in on
+one or more clients, then execute:
+
+```powershell
+php artisan mcare:simulate vital-critical
+php artisan mcare:simulate sos --patient=MCR-001284
+php artisan mcare:simulate message
+php artisan mcare:simulate appointment
+php artisan mcare:simulate all --json
+```
+
+These commands write genuine `vital_readings`, `sos_events`, `chat_messages`,
+`appointments`, and actionable notifications through the same models/notifier
+services used by the API. Observers emit normal PHI-free private-channel
+invalidations, while REST reconciliation remains the recovery path. Simulation
+is blocked in production unless an operator deliberately supplies `--force`.
+
+The dataset deliberately leaves cache, sessions, queue/failed jobs, password
+and email codes, Sanctum tokens, FCM device tokens, and compatibility-only
+staff notification state empty. Those values must be generated by runtime
+behavior or a real provider/device and are unsafe or misleading as fixtures.
+
+### 3.8 Useful verification commands
 
 ```powershell
 # Backend
 Set-Location backend
 php artisan route:list --path=api/v1
 php artisan test
+php artisan mcare:demo-status --strict
+php artisan mcare:readiness --strict
 
 # Frontend
 Set-Location ..\frontend
-flutter analyze
-flutter test
+flutter.bat analyze
+flutter.bat test
+flutter.bat build web --release
 ```
 
 If a process is already using port 8000, 8090, or 8080, stop that process or choose a different port and update the matching URLs.
@@ -252,16 +372,31 @@ Flutter application
   Web · Android · iOS · Windows
         |
         | HTTPS REST + Sanctum bearer authentication
-        | optional WSS/Reverb vital-alert signal
+        | optional WSS/Reverb private invalidation signals
         v
 Laravel 12 API
-  Controllers · middleware · services · policies/permission checks
+  Controllers · middleware · services · role/object authorization
         |
-        +-- MySQL: application and clinical data
-        +-- Queue: database locally; Redis recommended for production scale
+        +-- Eloquent observers -> RealtimeSignalService
+        |      -> queued, after-commit, PHI-free `session.changed`
+        |
+        +-- MySQL: essential durable application and clinical data
+        +-- Queue/cache/session: database locally; Redis recommended at scale
         +-- Storage: private local/S3 delivery for medical files
         +-- Mail/FCM: credential-gated notification delivery
+
+Private channels
+  private-user.{userId}  per-user and assigned-care updates
+  private-app            global catalog/announcement updates
+  private-staff          admin and mCare Assistant operations
+  private-external.{id}  one valid guest token; no user/staff channel access
 ```
+
+The database and REST API remain the source of truth. Reverb never carries a
+patient chart or a complete notification. It only says which domain changed,
+after the surrounding transaction commits. This avoids duplicate mapping
+logic, protects PHI, and makes a missed socket event recoverable by the next
+REST reconciliation.
 
 ### Frontend boundaries
 
@@ -272,15 +407,263 @@ Laravel 12 API
 - Responsive code changes composition only; it must not change authorization or business rules.
 - `shared/` must never import Patient, Doctor, Admin, or Assistant feature folders.
 
+### Application-level triggers and event flow
+
+`RealtimeModelObserver` is registered centrally for 31 durable models. Create,
+update, delete, and restore operations are mapped by `RealtimeSignalService`
+to an audience and one or more data domains. This is an application-level
+trigger rather than a MySQL network trigger, so it works consistently in
+MySQL/MariaDB and SQLite tests and remains aware of authenticated user/care
+relationships.
+
+The observed domains are:
+
+- identity/profile, permissions, settings, and system configuration;
+- vitals, thresholds, tracked/assigned vitals, alerts, and notifications;
+- medications/doses, appointments, documents, reports, and meal plans;
+- conversations/messages and support tickets/replies;
+- SOS, care requests/providers/assignments, announcements, and audit events;
+- external-access token lifecycle.
+
+Flow:
+
+1. A controller or service commits a durable model change.
+2. The observer resolves affected users/care team/staff without writing a
+   temporary event row.
+3. `RealtimeDataChanged` is queued after commit on private channels.
+4. Flutter debounces events for 250 ms and refreshes through the existing REST
+   session mapper. Screens outside a role-session payload subscribe only to
+   their relevant domains.
+5. If authorization, Reverb, or the socket fails, normal polling resumes
+   immediately.
+
+Bulk query updates do not fire Eloquent observers. Messaging read receipts and
+notification “mark all read” paths therefore emit an explicit signal after a
+successful update. This rule must be followed for future mass-update code.
+
 ### Current refresh and real-time behavior
 
 - `SessionPoller` refreshes normal sessions every **30 seconds** and urgent SOS/alert sessions every **8 seconds**.
 - Reverb is disabled unless both `MCARE_WS_URL` and `MCARE_WS_APP_KEY` are provided.
-- The current WebSocket implementation handles the `vital.alert` event and triggers the same REST hydration path used by polling.
-- Chat, SOS, all notifications, and all role channels are **not yet proven as complete WebSocket replacements**.
-- Polling must not be reduced to a five-minute reconciliation interval until end-to-end subscription, authorization, reconnect, and missed-event tests pass for every critical event.
+- A socket is considered live only after every required private-channel subscription succeeds. Connected sessions use a **5-minute** reconciliation sweep; disconnects restore 30/8-second polling.
+- `session.changed` covers all observed domains. The previous `vital.alert` event remains accepted for rolling-deployment compatibility.
+- Patient and staff session fingerprints include meaningful row content, not only list lengths, so status changes, read receipts, and same-size list updates rebuild the UI.
+- Independently loaded analytics, announcements, care-request, security, report-signature, external-access, consent, and dossier screens use domain-filtered refresh listeners.
+- External guest sessions authorize only their token-owned private channel,
+  refresh canonical REST data on invalidation, and retain a 30-second
+  reconciliation timer for missed events and temporary disconnects.
+- Live network delivery still requires an actual Reverb process, queue worker, matching credentials, reverse-proxy WebSocket support, and production WSS verification.
 
 This keeps one state-mutation path regardless of whether REST polling or a WebSocket signal detected the change.
+
+### Database usage and lightweight-data policy
+
+Persist only information that must survive process restarts, audit/recovery, or
+cross-device use: users and authorization, clinical readings and records,
+care/workflow state, messages, actionable notifications, audit trails, tokens,
+documents, and integration delivery registrations.
+
+The 45 tables are grouped as follows:
+
+- identity/security: users, profiles, contacts, settings, permissions, invites,
+  password/email tokens, Sanctum tokens, external-access tokens, and sessions;
+- clinical: vital catalog/readings/ranges/tracking/assignments, medications and
+  doses, appointments, documents, reports/report requests, and meal plans;
+- care/workflow: providers, care requests/assignments, SOS, announcements,
+  system settings, and audit entries;
+- communication/operations: conversations/messages, actionable notifications,
+  support tickets/replies, FCM registrations, jobs/failed jobs/batches, and
+  cache/locks.
+
+Do not persist presentation-only state:
+
+- dashboard totals, indicators, list counts, active badges, and search/filter results are calculated from canonical rows;
+- conversation unread counts are derived from unread `chat_messages` for the
+  current viewer, and latest-message ordering is computed from message time;
+- staff alert/SOS/request indicators are computed from live role-session data;
+- client-computed staff notification read/resolved state is session-local and
+  the compatibility endpoints intentionally perform no database reads/writes;
+- real-time invalidations are queue/broker messages, not application-table rows.
+
+Seed installation follows the same rule. `WorkflowDemoSeeder` fills durable
+clinical and operational workflows, while `RealtimeSignalService::withoutSignals`
+prevents a fresh snapshot from enqueueing hundreds of useless intermediate
+invalidations. Runtime writes and `mcare:simulate` immediately leave that guard
+and use the normal observer, notifier, queue, Reverb, and REST-reconciliation
+paths. `mcare:demo-status --strict` verifies role and relationship coverage.
+
+The legacy `conversations.unread_count`, `conversations.last_message_at`, and
+`staff_notification_states` schema are retained temporarily for a safe rolling
+upgrade, but current code no longer writes derived state to them. Remove those
+columns/table only after every deployed older client is outside the rollback
+window and a backup/restore rehearsal has passed.
+
+Existing composite indexes cover the high-frequency vital history, unread
+notification, active external-link, and active SOS queries. The doctor session
+now uses grouped alert counts, eager loading, and a latest-reading subquery to
+avoid per-patient queries and loading full reading history. Conversation lists
+eager-load the latest message and calculate unread counts in SQL.
+
+### Progress report — verified 2026-08-28
+
+#### Completed in this remediation
+
+- Corrected the reviewed local `APP_URL`/`FRONTEND_URL` so generated links stay
+  on localhost and explicitly disabled mock social authentication.
+- Added non-destructive, idempotent local start/stop orchestration for the API,
+  Reverb, queue worker, and scheduler, with tracked PIDs and separate logs.
+- Made Chrome the default Flutter web target and supplied matching REST/Reverb
+  Dart defines; headless `web-server` use now explains the required browser
+  connection before hot restart.
+- Started and live-probed the complete local runtime, drained the 439-event
+  invalidation backlog to zero, and confirmed zero failed queue jobs.
+- Reconciled the architecture, route, migration, model, controller, table,
+  integration, and test inventories in this README against the live tree.
+- Implemented native Google identity-token acquisition and Apple authorization
+  adapters, with fail-closed production behavior and backend audience checks.
+- Added iOS Apple/remote-notification entitlements, an iOS Google callback
+  configuration seam, Android critical-notification channel creation, and
+  fail-closed Android release signing.
+- Added token-scoped guest Reverb authorization and external-session live
+  invalidation with REST reconciliation; a guest can never authorize a user,
+  staff, app, or another guest's channel.
+- Added FCM HTTP-v1 service-account validation, relative-path resolution,
+  permanent-token cleanup, and deployment-specific web service-worker config.
+- Added `/ready`, `php artisan mcare:readiness --strict`, Nginx WSS and systemd
+  templates, a k6 smoke profile, and backup/recovery/monitoring/rollback runbooks
+  under `deploy/`.
+- Reworked alert presentation into one shared escalation engine plus a compact
+  non-blocking banner, actionable urgent queue, and responsive notification
+  preview sheet. The bell now separates urgent clinical work from routine
+  updates, avoids duplicate rows, shows severity/age/ownership, and preserves
+  direct routes to the complete role inbox.
+- Unified foreground and tapped push behavior across patient, doctor, admin,
+  and assistant roles: each push refreshes the canonical session first,
+  de-duplicates staff alerts against Reverb banners, and offers the correct
+  role destination instead of silently refreshing.
+- Replaced automatic frontend fixture activation with explicit opt-in, removed
+  preset login identity/password values, and kept normal builds API-backed.
+- Added one ordered, production-guarded database snapshot covering every active
+  patient and role: settings, contacts, care assignment, readings, thresholds,
+  medication/doses, past/future appointments, documents, messages, alerts,
+  support, meal plans, reports/consent stages, external access, invitations,
+  audit, SOS events, and responder actions.
+- Added `mcare:demo-status --strict` with 22 relationship/role gates and
+  `mcare:simulate` scenarios that generate actual vital, SOS, message, and
+  appointment mutations through the existing notifier and real-time pipeline.
+- Prevented seed-time broadcast storms, added live invalidation for SOS response
+  actions and invitations, and stopped seed/simulation code from writing legacy
+  derived conversation counters/timestamps.
+
+#### Fully functional in code and connected to real-time invalidation
+
+- Authenticated patient, doctor, administrator, and mCare Assistant REST
+  session hydration, role gates, object/caseload checks, and fallback polling.
+- Inactive-account middleware protects role data and broadcast authorization;
+  suspension/status and staff-role changes revoke existing Sanctum tokens while
+  pending users retain access only to approval/session self-service routes.
+- Vitals/threshold evaluation, alert creation/resolution, notifications, SOS,
+  care requests/assignments, appointments, medications/doses, reports,
+  documents, meal plans, profiles, settings, announcements, support, audit,
+  external-link management, and messaging model changes.
+- SOS responder actions and staff invitation lifecycle changes now produce the
+  same scoped invalidation signals as the surrounding workflow.
+- Sanctum-protected `/broadcasting/auth`, CORS coverage, private per-user/app/
+  staff channel authorization, token-protected guest-channel authorization,
+  reconnect backoff, ping/pong, event debounce, disconnect fallback, and
+  periodic reconciliation when connected.
+- Derived unread counts and last-message ordering; messages are created unread
+  for the other participant. Doctors cannot open another clinician’s thread,
+  and administrative oversight cannot inject messages into threads the admin
+  has not joined.
+- Dynamic dashboard counters, indicators, alert queues, and staff notification
+  presentation state with no new application-table storage.
+
+#### Functional but dependent on deployment configuration
+
+- Reverb real-time delivery: code, the local WebSocket handshake, private-user
+  and guest authorization, queue delivery, scheduler startup, WSS proxy
+  template, and systemd units are implemented. Installation and an external
+  production-domain WSS probe remain deployment evidence.
+- FCM push, SMTP email, Google web/native OAuth, Apple web/native authorization,
+  private S3 storage, and geolocation have application code and configuration
+  seams. They still require the owner's vendor credentials, platform-console
+  registration, signing, and real-device/domain verification.
+- The database-backed queue/cache/session setup is suitable for local/small
+  deployments; Redis is recommended for horizontally scaled production.
+
+The code paths above use real seeded MySQL records locally. What remains
+unproven with real external data is provider delivery: Firebase/APNs device
+delivery, SMTP inbox/bounce delivery, Google/Apple production identities, S3
+object policy/scanning, geolocation permissions, and public-domain HTTPS/WSS.
+No fake device token, OAuth identity, email receipt, or cloud credential is
+inserted to make these gates appear complete.
+
+#### Functional but still requires improvement
+
+- The design-system migration remains route-by-route; compatibility screens
+  are intentionally retained until visual/UAT parity is signed off.
+- Flutter has 333 non-failing informational lints, mainly SDK deprecations and
+  style suggestions. Retire them incrementally to avoid a risky bulk rewrite.
+- Lists are deliberately capped, but high-volume installations should replace
+  remaining fixed limits with cursor pagination and add query/load telemetry.
+- The doctor vital-report-request index endpoint has no current Flutter caller.
+  It is retained as a non-breaking compatibility endpoint until usage telemetry
+  and the rollback window permit removal.
+
+#### Not connected to real-time data
+
+- Static UI/design catalogs, privacy/terms content, deployment configuration,
+  store metadata, and human approval records do not require live subscriptions.
+- Email, push delivery, backups, and monitoring are event-driven external
+  operations rather than screen data sources; their outcomes must be monitored
+  by the selected providers.
+- Password/email challenges, login sessions, device tokens, cache, queue rows,
+  and derived counters are intentionally runtime-created rather than seeded.
+
+#### Missing product modules
+
+Structured laboratory, imaging/PACS, billing/payments/claims/insurance,
+pharmacy stock/dispensing, formal referrals, embedded video visits, AI/voice
+clinical assistance, user-facing backup/recovery, and an integration registry
+remain outside the implemented product scope described in section 1.
+
+#### Still requires testing or verification
+
+- Live production HTTPS/WSS end-to-end testing after the supplied Nginx/systemd
+  templates are installed, including reconnect, missed-event reconciliation,
+  and concurrent clients.
+- Real SMTP/OAuth/FCM/S3 credentials; mobile notification permissions;
+  Android app-bundle and iOS/TestFlight builds on signing-capable hosts.
+- Manual browser smoke/UAT, screen reader/keyboard/200%-text checks, clinical
+  workflow acceptance, load tests, backup restore, monitoring, incident runbook,
+  and privacy/legal approval.
+
+Automated verification completed in this review: PHP syntax for the application
+  surface, all 24 migrations applied locally, 197 API routes, 118 Laravel tests,
+direct Flutter/Dart analysis with no errors/warnings, 73 Flutter tests from the
+last completed full runner pass, Composer validation, and a successful release
+  web build. The final backend suite passed 118 tests with 543 assertions,
+including FCM invalid-device-token cleanup. A second Flutter suite invocation
+was blocked by the already-running Flutter SDK/hot-run lock; analysis still
+compiled the new native-auth, guest realtime, and notification-popup paths
+successfully.
+
+Local runtime verification on 2026-08-28 additionally confirmed HTTP health on
+port 8000, a Reverb `101 Switching Protocols` handshake on port 8080, receipt of
+`pusher:connection_established`, authenticated private-user channel signing,
+and active queue/scheduler processes. The pre-existing queue contained only
+PHI-free `RealtimeDataChanged` invalidations and drained without failed jobs.
+FCM service credentials and Apple credentials are not configured in the
+reviewed local environment; those integrations correctly remain deployment
+gates rather than using fabricated credentials.
+
+Dataset verification on 2026-08-28 rebuilt the local `mcare` MySQL database
+from all 24 migrations, passed all 22 demo-coverage gates, and confirmed zero
+seed-generated queue/failed jobs. A live `mcare:simulate all` run created a
+critical vital, SOS, message, appointment, and their notifications; a temporary
+Reverb server received all 14 queued broadcasts, the worker completed every
+job, and both queue tables returned to zero failures/backlog.
 
 ---
 
@@ -488,12 +871,19 @@ Current API actions:
 |---|---|
 | Resolve spoken code | `POST /api/v1/external/resolve-code` |
 | Review shared summary | `GET /api/v1/external/{token}` |
+| Authorize own live channel | `POST /api/v1/external/{token}/broadcasting/auth` |
 | Add consultation note | `POST /api/v1/external/{token}/notes` |
 | Record vital | `POST /api/v1/external/{token}/vitals` |
 | Assign medication | `POST /api/v1/external/{token}/medications` |
 | Upload document | `POST /api/v1/external/{token}/documents` |
 
 There is no external login account, dashboard, global search, patient switcher, secure inbox, profile/settings area, notification identity, or telemedicine module. Those require a separate future backend project.
+
+The guest portal subscribes to `private-external.{accessId}` when Reverb is
+configured. The token-specific authorization endpoint permits exactly that
+channel. Events contain invalidation metadata only, and the portal re-reads the
+token-authorized REST record. A 30-second REST sweep covers missed events;
+revocation produces a final invalidation and the subsequent read fails closed.
 
 Production hardening should store only hashed bearer secrets where feasible, exchange codes for short portal sessions, enforce explicit operation scopes, keep files private/scanned, minimize PHI in the access gate, and audit successful access and writes.
 
@@ -515,7 +905,7 @@ Base URL: `/api/v1`.
 
 ### Non-breaking contract rules
 
-1. Keep all 105 named Flutter routes and their argument shapes during migration.
+1. Keep all 110 named Flutter routes and their argument shapes during migration.
 2. Do not rename or delete an API route to make the UI cleaner.
 3. New hubs aggregate existing state; they do not create duplicate clients or stores.
 4. Backend validation and authorization remain authoritative.
@@ -565,6 +955,50 @@ Verify limits with feature tests. A rate-limit label in documentation is not suf
 | Authorization | Role, assistant-grant, object-type, object-target, and IDOR negative tests pass |
 | Privacy/legal | Public privacy policy and terms explain health data, location/SOS, retention, deletion, and external sharing |
 | Operations | Scheduler, queue worker, monitoring, backups, and incident response are supervised and tested |
+| Real-time | Private-channel auth, WSS proxying, queue/Reverb supervision, reconnect, missed-event recovery, and multi-client tests pass |
+
+### Inputs required from the application owner
+
+The repository-side implementations and safe templates are complete. The
+following cannot be fabricated or approved by engineering. Put secrets in the
+deployment secret manager or ignored configuration files—not in chat, commits,
+screenshots, tickets, or the README.
+
+1. **Production identity and hosting:** final `app.` and `api.` domains,
+   hosting/region, Linux/PHP-FPM paths, TLS/DNS control, production database and
+   Redis endpoints, and the staff member who can install Nginx/systemd units.
+2. **Firebase/APNs:** Firebase project ID, backend service-account JSON, web app
+   config, VAPID public key, registered Android/iOS app IDs, and an APNs `.p8`
+   key with Apple Team ID and Key ID uploaded through the approved secret path.
+3. **Google authentication:** production web client ID/secret/redirect URI,
+   Android client registration with release SHA-1/SHA-256 fingerprints, iOS
+   client ID, and its reversed callback ID.
+4. **Apple authentication/signing:** Apple Team ID, confirmed bundle ID,
+   Services ID, HTTPS return URL/domain association, active Developer Program
+   membership, signing certificates/profiles, and private-relay email-domain
+   configuration where email is sent.
+5. **Transactional email:** chosen SMTP/SES provider, host/port/encryption,
+   secret credentials, approved from address/name, and DNS evidence for SPF,
+   DKIM, and DMARC plus bounce/complaint handling.
+6. **Durable files:** S3-compatible endpoint/region/bucket, restricted runtime
+   credentials, KMS/encryption decision, private bucket/CORS/lifecycle policy,
+   malware-scanning service, and retention/deletion rules.
+7. **Mobile releases:** approval of the permanent Android application ID and
+   iOS bundle ID, Android upload keystore/alias/passwords, Apple signing access,
+   store accounts, support URLs, screenshots, and an explicit supported-OS
+   baseline. Minimum OS versions must not be raised without product/device
+   approval.
+8. **Reliability policy:** monitoring/error-tracking destination and alert
+   contacts, log retention, incident escalation owner, backup destination,
+   encryption key, retention, and approved RPO/RTO.
+9. **Human acceptance:** named clinical/product owners and representative
+   patient, doctor, admin, assistant, and external-clinician UAT testers;
+   accessibility devices/assistive technologies; target concurrency and data
+   volume for load testing.
+10. **Privacy/legal approval:** approved privacy policy, terms, consent and
+    external-sharing wording, health/location/SOS disclosures, account/data
+    deletion process, retention schedule, subprocessors, jurisdiction, breach
+    contact, and store privacy declarations.
 
 No production cohort receives the redesigned workflow until its relevant gates are green.
 
@@ -576,7 +1010,7 @@ The desired end state contains only the PDF-approved runtime design. Safe delive
 
 ### Phase 0 — baseline and freeze
 
-- Export the 105-route manifest and 171-route API inventory.
+- Export the 110-route manifest and 197-route API inventory.
 - Capture legacy screenshots at compact, medium, expanded, and wide sizes.
 - Record route arguments, API payloads, mutations, audit events, notifications, and error behavior.
 - Add route/deep-link/back-stack, role/grant, account-state, and IDOR tests.
@@ -682,7 +1116,7 @@ Do **not** bulk-delete old design folders before parity. That would make rollbac
 | Documents | Ownership, type/size, private delivery, failed upload, unauthorized download |
 | Responsive UI | Compact, medium, expanded, wide, orientation, text scale, dark mode |
 | Accessibility | Keyboard, focus, semantics, contrast, screen reader, reduced motion |
-| Realtime | Private-channel auth, vital alert, reconnect, missed event, REST fallback |
+| Realtime | Private-channel auth, domain invalidations, all subscription confirmation, reconnect, missed event, REST fallback |
 
 ### UAT cohorts
 
@@ -723,8 +1157,11 @@ A role is complete only when product, clinical, security, accessibility, enginee
 | `QUEUE_CONNECTION` | `database` locally; Redis recommended for production throughput |
 | `BROADCAST_CONNECTION` | `log` locally or `reverb` when real-time is configured |
 | `REVERB_*` | Reverb application credentials and server location |
+| `ALLOW_MOCK_SOCIAL_LOGIN` | Disabled by default everywhere; opt in only for an isolated local patient demo. Staff mock sign-in is rejected server-side |
+| `MCARE_ALLOW_DEMO_SEED` | Keep `false` in production. A separate explicit override is required before synthetic accounts/clinical records can be seeded into a production environment |
 | `MAIL_*` | Real SMTP/SES for production messages |
 | `GOOGLE_CLIENT_*` | Production Google OAuth client and callback |
+| `MCARE_ALLOWED_RETURN_HOSTS` | Allow-list for post-OAuth return hosts |
 | `APPLE_CLIENT_ID` | Production Apple configuration if shipped |
 | `FCM_*` | Firebase project/service-account values if push is shipped |
 | `FILESYSTEM_DISK` | Private local storage or S3 |
@@ -734,21 +1171,69 @@ A role is complete only when product, clinical, security, accessibility, enginee
 
 | Define | Purpose |
 |---|---|
-| `MCARE_USE_BACKEND` | `true` for Laravel; `false` for demo/mock state |
+| `MCARE_USE_BACKEND` | `true` for every normal build; `false` only for isolated UI work |
+| `MCARE_ALLOW_DEMO_DATA` | Defaults to `false`; must accompany `MCARE_USE_BACKEND=false` before legacy in-memory fixtures activate |
 | `MCARE_API_URL` | Laravel `/api/v1` base URL |
 | `MCARE_WS_URL` | Optional Reverb WebSocket root |
 | `MCARE_WS_APP_KEY` | Reverb application key paired with `MCARE_WS_URL` |
 | `MCARE_GOOGLE_CLIENT_ID` | Google web OAuth client |
+| `MCARE_GOOGLE_SERVER_CLIENT_ID` | Web client used as native backend audience |
+| `MCARE_GOOGLE_IOS_CLIENT_ID` | Google iOS OAuth client |
 | `MCARE_APPLE_CLIENT_ID`, `MCARE_APPLE_REDIRECT_URI` | Apple web OAuth values |
 | `MCARE_FIREBASE_*` | Firebase/push configuration |
 
-Android release signing uses `frontend/android/key.properties`; start from `key.properties.example` and keep the real keystore/passwords out of version control.
+Android release signing uses `frontend/android/key.properties`; start from
+`key.properties.example` and keep the real keystore/passwords out of version
+control. Release tasks now fail if this file is absent instead of silently
+producing a debug-signed artifact. For iOS Google callbacks, copy
+`frontend/ios/Flutter/Secrets.xcconfig.example` to `Secrets.xcconfig` and set
+the reversed iOS client ID; the real file is ignored.
+
+### Integration status
+
+- **Laravel Sanctum:** active for bearer-authenticated REST and broadcast
+  authorization. Role middleware and object/caseload checks remain server-side.
+- **Laravel Reverb/Pusher protocol:** implementation complete and opt-in. It is
+  inactive when credentials are absent or the broadcaster is `log`/`null`, so
+  local/demo environments do not accumulate useless broadcast queue jobs.
+- **Firebase Cloud Messaging:** token registration, HTTP-v1 server delivery,
+  service-account validation, invalid-token cleanup, web background worker,
+  iOS entitlement, and Android high-importance channel exist; real
+  service-account/VAPID/APNs/mobile permission testing is still required.
+- **Email:** verification, OTP, password recovery, and invite paths use Laravel
+  mail configuration; real provider deliverability/bounce monitoring is not
+  verifiable from this repository.
+- **Google/Apple:** web OAuth, native Flutter SDK adapters, backend token
+  verification, multi-audience Apple validation, and fail-closed production
+  behavior exist. Platform console IDs, iOS callback scheme, signing, and
+  real-device verification remain owner-supplied gates. Mock social login and
+  in-memory identities require separate explicit local-development opt-ins.
+- **Geolocation/geocoding:** client packages support SOS/location capture and
+  remain subject to platform permissions and privacy disclosure.
+- **File storage:** Laravel filesystem abstraction supports private local/S3
+  storage. Production still needs bucket policy, signed delivery, scanning,
+  lifecycle, and restore validation.
+- **External Clinical Access:** patient-owned expiring/revocable tokens and
+  codes, guest record scope, uploads/notes, audit, token-scoped private Reverb
+  channel, REST reconciliation, and lifecycle/authorization tests exist.
+- **Redis:** optional and recommended for scaled queue/cache/session workloads;
+  the verified local environment uses database drivers.
 
 ---
 
 ## 14. Deployment
 
 ### Recommended production shape
+
+Ready-to-customize Nginx, systemd, k6, monitoring, backup/recovery, and rollback
+material is maintained in [`deploy/`](deploy/README.md). The repository checks
+configuration without revealing secrets:
+
+```bash
+cd backend
+php artisan mcare:readiness
+php artisan mcare:readiness --strict --json
+```
 
 | Concern | Suggested service | Requirement |
 |---|---|---|
@@ -762,25 +1247,54 @@ Android release signing uses `frontend/android/key.properties`; start from `key.
 | DNS/TLS | Route 53 + ACM or equivalent | `api.` and `app.` HTTPS domains |
 | Monitoring | Application/error/log monitoring | Alerts for 5xx, job failures, WebSocket failure, and backup failure |
 
+### Recommended deployment plan
+
+1. **Provision staging first:** use production-equivalent HTTPS, MySQL, Redis,
+   private object storage, SMTP sandbox, Reverb/WSS, queue/scheduler supervisors,
+   and monitoring. Keep it isolated from live patient data.
+2. **Deploy and migrate:** install locked dependencies, inject secrets through
+   the platform secret manager, run `mcare:readiness --strict`, migrate forward,
+   build Flutter with production-like defines, and verify `/ready`.
+3. **Install staging test data only:** run `migrate:fresh --seed`, then
+   `mcare:demo-status --strict`. Keep `MCARE_ALLOW_DEMO_SEED=false` in production
+   and never run `db:seed` or `migrate:fresh` against the live database.
+4. **Exercise event delivery:** connect patient and staff clients, run each
+   `mcare:simulate` scenario, verify private-channel scoping, push/email delivery,
+   REST reconciliation, alert acknowledgement/resolution, and zero failed jobs.
+5. **Prove operations:** execute the k6 profile at the approved concurrency,
+   restore an encrypted backup into an isolated database, test WSS reconnect and
+   queue-worker restart, complete accessibility/clinical UAT, and close P0/P1s.
+6. **Production cutover:** take/verify a backup, deploy code, run only
+   `php artisan migrate --force`, warm caches, restart supervised workers, smoke
+   the real domains, release to a small cohort, monitor, then expand. Roll back
+   application code without reversing schema unless the tested rollback runbook
+   explicitly permits it.
+
 ### Laravel deployment sequence
 
 ```bash
 cd /var/www/mcare/backend
 composer install --no-dev --optimize-autoloader
+php artisan mcare:readiness --strict
 php artisan migrate --force
 php artisan storage:link
 php artisan config:cache
 php artisan route:cache
 ```
 
-Run these under systemd/Supervisor or an equivalent process manager:
+The production sequence intentionally has no seeder command. Synthetic records
+belong only in local, CI, demonstration, and isolated staging databases.
+
+Use the units under `deploy/systemd/` (or an equivalent process manager). Keep
+Reverb on loopback and expose it only through the TLS reverse proxy:
 
 ```bash
 php artisan queue:work --tries=3
-php artisan reverb:start --host=0.0.0.0 --port=8080
+php artisan reverb:start --host=127.0.0.1 --port=8080
+php artisan schedule:work
 ```
 
-Scheduler:
+The cron alternative to the supervised scheduler is:
 
 ```cron
 * * * * * cd /var/www/mcare/backend && php artisan schedule:run >> /dev/null 2>&1
@@ -816,7 +1330,7 @@ Build:
 
 ```powershell
 Set-Location frontend
-flutter build appbundle --release `
+flutter.bat build appbundle --release `
   --dart-define=MCARE_USE_BACKEND=true `
   --dart-define=MCARE_API_URL=https://api.yourdomain.com/api/v1
 ```
@@ -854,11 +1368,24 @@ After `php artisan migrate --seed`, use password `demo-password`:
 | `assistant@mcare.health` | mCare Assistant with all seeded grants |
 | `dr.mensah@mcare.health` | Doctor |
 | `dr.adeyemi@mcare.health` | Doctor — Endocrinology |
+| `dr.kamau@mcare.health` | Pending doctor approval workflow |
+| `dr.wanjiru@mcare.health` | Pending doctor approval workflow |
 | `amara.okonkwo@example.com` | Patient with a rich demonstration chart |
+| `brian.otieno@example.com` | Patient — stable asthma/normal readings |
+| `wangari.njeri@example.com` | Patient — post-stroke/critical workflow |
+| `daniel.mwangi@example.com` | Patient — wellness monitoring |
+| `esther.wambui@example.com` | Patient — hypertension/warning workflow |
 
-Additional `@example.com` patients provide caseload variety.
+Every active patient has API-backed contacts, care assignment, history,
+medication/dose, past and future appointments, a downloadable fixture document,
+conversation/message, notifications, support, meal plan, and report work. The
+patients collectively cover normal/warning/critical vitals, pending/fulfilled
+vital reports, report consent/signature/issued/declined/draft states, active and
+resolved SOS work, and external access.
 
-Demo credentials are development data only. Never seed them into a production database.
+Demo credentials are synthetic development data only. The production guard
+rejects this dataset unless `MCARE_ALLOW_DEMO_SEED=true` is deliberately set;
+the deployment plan keeps that value false and never runs a production seeder.
 
 ---
 

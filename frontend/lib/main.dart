@@ -633,7 +633,11 @@ class _McareAppState extends State<McareApp> {
         page = const _AdminGuarded(child: AdminSecurityView());
         break;
       case RouteNames.adminAlerts:
-        page = const _AdminGuarded(child: AdminAlertsView());
+        page = _AdminGuarded(
+          child: AdminAlertsView(
+            initialStatusFilter: settings.arguments as String? ?? 'open',
+          ),
+        );
         break;
       case RouteNames.adminAnalytics:
         page = const _AdminGuarded(child: AdminAnalyticsView());
@@ -744,7 +748,11 @@ class _McareAppState extends State<McareApp> {
         page = const _AssistantGuarded(child: AssistantSecurityView());
         break;
       case RouteNames.assistantAlerts:
-        page = const _AssistantGuarded(child: AssistantAlertsView());
+        page = _AssistantGuarded(
+          child: AssistantAlertsView(
+            initialStatusFilter: settings.arguments as String? ?? 'open',
+          ),
+        );
         break;
       case RouteNames.assistantMessages:
         page = _AssistantGuarded(

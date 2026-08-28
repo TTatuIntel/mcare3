@@ -223,8 +223,6 @@ class PatientSeeder extends Seeder
             'participant_name'      => 'Dr. Kojo Mensah',
             'participant_role'      => 'doctor',
             'participant_specialty' => 'Internal medicine',
-            'unread_count'          => 1,
-            'last_message_at'       => $now->copy()->subHours(2),
         ]);
         ChatMessage::create([
             'conversation_id' => $conv->id,

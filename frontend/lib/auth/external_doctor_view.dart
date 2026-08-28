@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../core/api/auth_api.dart';
 import '../core/api/external_access_api.dart';
 import '../core/env/app_env.dart';
+import '../core/realtime/external_realtime_channel.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/models/document.dart';
 import '../shared/theme/app_colors.dart';
@@ -62,11 +65,17 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
   String? _pickedFileName;
   _RecordSection _section = _RecordSection.summary;
   _Finding? _finding;
+  final ExternalRealtimeChannel _realtime = ExternalRealtimeChannel();
+  Timer? _refreshTimer;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
     _token = widget.token;
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (_token != null && !_loading) _loadPortal();
+    });
     _loadPortal();
   }
 
@@ -81,7 +90,12 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
       });
       return;
     }
+    if (_refreshing) return;
+    _refreshing = true;
     try {
+      if (!AppEnv.backendEnabled && !AppEnv.demoDataEnabled) {
+        throw StateError('External clinical access requires the mCare API.');
+      }
       final data = AppEnv.backendEnabled
           ? await AuthApi.instance.externalPortal(token)
           : _demoPortal(token);
@@ -93,6 +107,14 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
             ? 'This shared access is no longer available.'
             : null;
       });
+      final channel = data?['realtime_channel'] as String?;
+      if (channel != null && channel.isNotEmpty) {
+        await _realtime.attach(
+          token: token,
+          channelName: channel,
+          onChanged: () => unawaited(_loadPortal()),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -100,6 +122,9 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
         _loading = false;
         _error = 'This shared access is no longer available.';
       });
+      _realtime.detach();
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -316,6 +341,7 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
   }
 
   void _useAnotherCode() {
+    _realtime.detach();
     setState(() {
       _token = null;
       _portal = null;
@@ -328,6 +354,7 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
   }
 
   void _endViewing() {
+    _realtime.detach();
     _portal = null;
     _token = null;
     _pickedFile = null;
@@ -339,6 +366,8 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    _realtime.detach();
     for (final controller in [
       _note,
       _code,

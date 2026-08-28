@@ -40,7 +40,7 @@ void main() {
     expect(find.byType(McareLoadingMark), findsNothing);
   });
 
-  testWidgets('glass card is compact, centered, and uses layered blur', (
+  testWidgets('mark is centered, sized to the viewport, and card-free', (
     tester,
   ) async {
     await tester.pumpWidget(_host());
@@ -49,14 +49,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-    final glass = tester.getRect(
-      find.byKey(const ValueKey('mcare-busy-glass')),
-    );
-    expect(glass.center.dx, closeTo(screen.width / 2, 0.1));
-    expect(glass.center.dy, closeTo(screen.height / 2, 0.1));
-    expect(glass.width, lessThanOrEqualTo(196));
-    expect(glass.height, 116);
-    expect(find.byType(BackdropFilter), findsNWidgets(2));
+    final halo = tester.getRect(find.byKey(const ValueKey('mcare-busy-mark')));
+    expect(halo.center.dx, closeTo(screen.width / 2, 0.1));
+    expect(halo.center.dy, closeTo(screen.height / 2, 0.1));
+    // Scales with the viewport rather than sitting in a fixed-size card.
+    expect(halo.width, greaterThanOrEqualTo(220));
+    expect(halo.width, lessThanOrEqualTo(460));
+    expect(halo.width, halo.height);
+
+    // Exactly one blur: the page behind. There is no second, card-shaped one.
+    expect(find.byType(BackdropFilter), findsOneWidget);
 
     AppBusy.instance.end(blocking: true);
     await tester.pumpAndSettle();

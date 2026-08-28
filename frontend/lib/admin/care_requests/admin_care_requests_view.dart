@@ -5,6 +5,7 @@ import '../../core/api/admin_api.dart';
 import '../../core/api/staff_mapper.dart';
 import '../../core/env/app_env.dart';
 import '../../core/realtime/session_poller.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/navigation/staff_destinations.dart';
@@ -25,7 +26,7 @@ import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
-import '../../shared/widgets/staff_filter_chip.dart';
+import '../../shared/widgets/staff_directory_controls.dart';
 import '../../shared/widgets/loading/loading.dart';
 
 /// Admin entry point for the merged care workspace.
@@ -49,7 +50,14 @@ class AdminCareRequestsView extends StatelessWidget {
 /// The two halves of the workspace.
 enum CareTab { requests, assignments }
 
-enum _Sort { newest, oldest, patient }
+enum _Sort {
+  newest('Newest first'),
+  oldest('Oldest first'),
+  patient('Patient A-Z');
+
+  const _Sort(this.label);
+  final String label;
+}
 
 /// Care requests **and** care assignments in one screen.
 ///
@@ -85,7 +93,8 @@ class CareRequestsScreen extends StatefulWidget {
   State<CareRequestsScreen> createState() => _CareRequestsScreenState();
 }
 
-class _CareRequestsScreenState extends State<CareRequestsScreen> {
+class _CareRequestsScreenState extends State<CareRequestsScreen>
+    with RealtimeRefreshMixin<CareRequestsScreen> {
   static const _roles = ['Primary', 'Consulting', 'Specialist'];
 
   final _search = TextEditingController();
@@ -114,6 +123,7 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'care'}, _load);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SessionPoller.instance.triggerNow();
@@ -1060,31 +1070,33 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
             );
           }
 
+          final caption = _stripCaption(staff);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              StaggeredEntry(index: 0, child: _buildKpis(staff)),
-              const SizedBox(height: AppSpacing.md),
-              if (_showTabs) ...[
-                StaggeredEntry(
-                  index: 1,
-                  child: _TabSwitcher(
-                    value: _tab,
-                    requestCount: staff.careRequests
-                        .where((r) => r.isPending)
-                        .length,
-                    assignmentCount: staff.assignments.length,
-                    onChanged: (tab) => setState(() => _tab = tab),
+              StaggeredEntry(index: 0, child: _buildStatStrip(staff)),
+              if (caption != null)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.sm,
+                    left: AppSpacing.xs,
+                  ),
+                  child: Text(
+                    caption,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                    ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.md),
+              StaggeredEntry(index: 1, child: _buildSearchRow(context)),
+              if (_activeFilterPills().isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                StaggeredEntry(index: 2, child: _activeFilterStrip()),
               ],
-              StaggeredEntry(index: 2, child: _buildToolbar(context)),
-              const SizedBox(height: AppSpacing.sm),
-              StaggeredEntry(index: 3, child: _buildFilters()),
               const SizedBox(height: AppSpacing.md),
               StaggeredEntry(
-                index: 4,
+                index: 3,
                 child: _tab == CareTab.requests
                     ? _buildRequestList(context, staff)
                     : _buildAssignmentList(context, staff),
@@ -1097,153 +1109,364 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
     );
   }
 
-  Widget _buildKpis(StaffState staff) {
-    final pending = staff.careRequests.where((r) => r.isPending).length;
-    final approved = staff.careRequests
-        .where((r) => r.status == 'approved')
-        .length;
-    final declined = staff.careRequests
-        .where((r) => r.status == 'rejected')
-        .length;
-    final reassigned = staff.careRequests.where((r) => r.reassigned).length;
+  // ---------------------------------------------------------------------------
+  // Filtering - one integrated surface
+  //
+  // Every filter value lives in exactly one control: the stat strip owns scope
+  // and status (its counts double as the selector), search owns free text, and
+  // the filter sheet owns what has no stat chip - relationship type and sort.
+  // The old KPI grid, tab switcher, status chip bar and standalone sort menu
+  // offered three overlapping ways to set the same two values; they are gone.
+  // ---------------------------------------------------------------------------
 
-    return StaffKpiGrid(
-      tiles: [
+  bool get _hasActiveFilters =>
+      _statusFilter != 'all' ||
+      _roleFilter != 'all' ||
+      _sort != _Sort.newest ||
+      _search.text.trim().isNotEmpty;
+
+  /// Only counts what the sheet owns - scope and status are already legible in
+  /// the stat strip, so badging them here would double-report the same state.
+  int get _activeFilterCount {
+    var n = 0;
+    if (_sort != _Sort.newest) n++;
+    if (_tab == CareTab.assignments && _roleFilter != 'all') n++;
+    return n;
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _statusFilter = 'all';
+      _roleFilter = 'all';
+      _sort = _Sort.newest;
+      _search.clear();
+    });
+  }
+
+  /// Scope + status as one control. Icon, label and count sit on a single line
+  /// so nothing truncates at mobile widths, and tapping a chip both opens the
+  /// half of the workspace it belongs to and applies its status filter - the
+  /// counts people read are the counts they can act on.
+  Widget _buildStatStrip(StaffState staff) {
+    final requests = staff.careRequests;
+    final pending = requests.where((r) => r.isPending).length;
+    final approved = requests.where((r) => r.status == 'approved').length;
+    final declined = requests.where((r) => r.status == 'rejected').length;
+
+    void selectRequests(String status) => setState(() {
+      _tab = CareTab.requests;
+      _statusFilter = status;
+    });
+
+    bool requestChipOn(String status) =>
+        _tab == CareTab.requests && _statusFilter == status;
+
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: [
         if (widget.canTriage) ...[
-          StaffKpiTile(
-            label: 'Awaiting decision',
-            value: '$pending',
-            helper: pending == 0 ? 'Queue clear' : 'Needs triage',
+          _CareStatChip(
             icon: AppIcons.careRequest,
-            onTap: () => setState(() {
-              _tab = CareTab.requests;
-              _statusFilter = 'pending';
-            }),
+            label: 'All requests',
+            value: requests.length,
+            accent: AppColors.info,
+            selected: requestChipOn('all'),
+            onTap: () => selectRequests('all'),
           ),
-          StaffKpiTile(
-            label: 'Approved',
-            value: '$approved',
-            helper: reassigned == 0 ? 'As requested' : '$reassigned re-routed',
+          _CareStatChip(
+            icon: AppIcons.time,
+            label: 'Awaiting decision',
+            value: pending,
+            accent: AppColors.warning,
+            selected: requestChipOn('pending'),
+            onTap: () => selectRequests('pending'),
+          ),
+          _CareStatChip(
             icon: AppIcons.check,
-            onTap: () => setState(() {
-              _tab = CareTab.requests;
-              _statusFilter = 'approved';
-            }),
+            label: 'Approved',
+            value: approved,
+            accent: AppColors.success,
+            selected: requestChipOn('approved'),
+            onTap: () => selectRequests('approved'),
           ),
-          StaffKpiTile(
-            label: 'Declined',
-            value: '$declined',
-            helper: 'With a reason',
+          _CareStatChip(
             icon: AppIcons.close,
-            onTap: () => setState(() {
-              _tab = CareTab.requests;
-              _statusFilter = 'rejected';
-            }),
+            label: 'Declined',
+            value: declined,
+            accent: AppColors.critical,
+            selected: requestChipOn('rejected'),
+            onTap: () => selectRequests('rejected'),
           ),
         ],
         if (widget.canAssign)
-          StaffKpiTile(
-            label: 'Active assignments',
-            value: '${staff.assignments.length}',
-            helper: 'Patient ↔ provider',
+          _CareStatChip(
             icon: AppIcons.assignments,
+            label: 'Active assignments',
+            value: staff.assignments.length,
+            accent: AppColors.brandIndigo,
+            selected: _tab == CareTab.assignments,
             onTap: () => setState(() => _tab = CareTab.assignments),
           ),
       ],
     );
   }
 
-  Widget _buildToolbar(BuildContext context) {
-    final handheld = ResponsiveBuilder.of(context).isHandheld;
-    final search = AppTextField(
-      controller: _search,
-      hint: _tab == CareTab.requests
-          ? 'Search patient, provider or reason…'
-          : 'Search patient, provider or specialty…',
-      prefixIcon: AppIcons.search,
-      suffixIcon: _search.text.isEmpty ? null : AppIcons.close,
-      onSuffixTap: () {
-        _search.clear();
-        setState(() {});
-      },
-      textInputAction: TextInputAction.search,
-      onChanged: (_) => setState(() {}),
-    );
+  /// Carries the helper text the old KPI tiles showed beneath each number.
+  String? _stripCaption(StaffState staff) {
+    if (!widget.canTriage) return null;
+    final pending = staff.careRequests.where((r) => r.isPending).length;
+    final reassigned = staff.careRequests.where((r) => r.reassigned).length;
+    final parts = <String>[
+      if (pending == 0) 'Triage queue clear' else '$pending needs triage',
+      if (reassigned > 0) '$reassigned re-routed',
+    ];
+    return parts.join(' \u00b7 ');
+  }
 
-    final sort = _SortMenu(
-      value: _sort,
-      onChanged: (value) => setState(() => _sort = value),
-    );
-
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: handheld
-          ? Column(
-              children: [
-                search,
-                const SizedBox(height: AppSpacing.sm),
-                Align(alignment: Alignment.centerLeft, child: sort),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: search),
-                const SizedBox(width: AppSpacing.sm),
-                sort,
-              ],
-            ),
+  Widget _buildSearchRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: StaffDirectorySearch(
+            controller: _search,
+            hintText: _tab == CareTab.requests
+                ? 'Search patient, provider or reason\u2026'
+                : 'Search patient, provider or specialty\u2026',
+            semanticLabel: 'Search the care workspace',
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        _filterIconButton(context),
+      ],
     );
   }
 
-  Widget _buildFilters() {
-    if (_tab == CareTab.requests) {
-      return StaffFilterChipBar(
-        accent: AppColors.info,
-        selected: _statusFilter,
-        onSelected: (value) => setState(() => _statusFilter = value),
-        options: const [
-          StaffFilterOption(value: 'all', label: 'All'),
-          StaffFilterOption(
-            value: 'pending',
-            label: 'Pending',
-            color: AppColors.warning,
-          ),
-          StaffFilterOption(
-            value: 'approved',
-            label: 'Approved',
-            color: AppColors.success,
-          ),
-          StaffFilterOption(
-            value: 'rejected',
-            label: 'Declined',
-            color: AppColors.critical,
-          ),
-        ],
-      );
+  Widget _filterIconButton(BuildContext context) {
+    final active = _activeFilterCount;
+    return Semantics(
+      button: true,
+      label: active == 0 ? 'Open filters' : '$active filters active',
+      child: InkWell(
+        onTap: () => _openFilterSheet(context),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              height: 44,
+              width: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: active > 0
+                    ? AppColors.brandIndigo.withValues(alpha: 0.12)
+                    : AppPalette.surfaceAlt(context),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                border: Border.all(color: AppPalette.border(context)),
+              ),
+              child: Icon(
+                AppIcons.filter,
+                size: 20,
+                color: active > 0
+                    ? AppColors.brandIndigo
+                    : AppPalette.textMuted(context),
+              ),
+            ),
+            if (active > 0)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandIndigo,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$active',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<({String label, VoidCallback onRemove})> _activeFilterPills() {
+    final pills = <({String label, VoidCallback onRemove})>[];
+    if (_sort != _Sort.newest) {
+      pills.add((
+        label: _sort.label,
+        onRemove: () => setState(() => _sort = _Sort.newest),
+      ));
     }
-    return StaffFilterChipBar(
-      accent: AppColors.brandIndigo,
-      selected: _roleFilter,
-      onSelected: (value) => setState(() => _roleFilter = value),
-      options: const [
-        StaffFilterOption(value: 'all', label: 'All'),
-        StaffFilterOption(
-          value: 'Primary',
-          label: 'Primary',
-          color: AppColors.brandIndigo,
-        ),
-        StaffFilterOption(
-          value: 'Consulting',
-          label: 'Consulting',
-          color: AppColors.info,
-        ),
-        StaffFilterOption(
-          value: 'Specialist',
-          label: 'Specialist',
-          color: AppColors.warning,
+    if (_tab == CareTab.assignments && _roleFilter != 'all') {
+      pills.add((
+        label: _roleFilter,
+        onRemove: () => setState(() => _roleFilter = 'all'),
+      ));
+    }
+    return pills;
+  }
+
+  Widget _activeFilterStrip() {
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final pill in _activeFilterPills())
+          _CareRemovablePill(label: pill.label, onRemove: pill.onRemove),
+        TextButton.icon(
+          onPressed: _clearAllFilters,
+          icon: const Icon(AppIcons.close, size: 14),
+          label: const Text('Clear all'),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: AppColors.critical,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
         ),
       ],
     );
+  }
+
+  Future<void> _openFilterSheet(BuildContext context) async {
+    var draftSort = _sort;
+    var draftRole = _roleFilter;
+    final showRoles = _tab == CareTab.assignments;
+
+    int roleCount(String role) => role == 'all'
+        ? StaffState.instance.assignments.length
+        : StaffState.instance.assignments
+              .where((a) => _normaliseRole(a.role) == role)
+              .length;
+
+    final applied = await showModalBottomSheet<bool>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSt) {
+            Widget section(String title, List<Widget> children) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: AppSpacing.xs,
+                      bottom: AppSpacing.sm,
+                    ),
+                    child: Text(
+                      title,
+                      style: Theme.of(ctx).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textMuted(ctx),
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                  Wrap(runSpacing: AppSpacing.xs, children: children),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+              );
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: AppSpacing.lg,
+                  right: AppSpacing.lg,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.md,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: Row(
+                        children: [
+                          Text(
+                            showRoles
+                                ? 'Filter assignments'
+                                : 'Filter care requests',
+                            style: Theme.of(ctx).textTheme.titleMedium,
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => setSt(() {
+                              draftSort = _Sort.newest;
+                              draftRole = 'all';
+                            }),
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (showRoles)
+                      section('RELATIONSHIP TYPE', [
+                        StaffDirectoryFilterChip(
+                          label: 'All \u00b7 ${roleCount('all')}',
+                          selected: draftRole == 'all',
+                          accent: AppColors.brandIndigo,
+                          onTap: () => setSt(() => draftRole = 'all'),
+                        ),
+                        for (final role in _roles)
+                          StaffDirectoryFilterChip(
+                            label: '$role \u00b7 ${roleCount(role)}',
+                            selected: draftRole == role,
+                            accent: _roleColor(role),
+                            onTap: () => setSt(() => draftRole = role),
+                          ),
+                      ]),
+                    section('SORT BY', [
+                      for (final s in _Sort.values)
+                        StaffDirectoryFilterChip(
+                          label: s.label,
+                          selected: draftSort == s,
+                          accent: AppColors.doctorGreen,
+                          onTap: () => setSt(() => draftSort = s),
+                        ),
+                    ]),
+                    AppButton(
+                      label: 'Apply filters',
+                      icon: AppIcons.check,
+                      expand: true,
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (applied == true && mounted) {
+      setState(() {
+        _sort = draftSort;
+        _roleFilter = draftRole;
+      });
+    }
   }
 
   Widget _buildRequestList(BuildContext context, StaffState staff) {
@@ -1272,13 +1495,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
               message: all.isEmpty
                   ? 'Requests appear here as soon as a patient asks for a provider.'
                   : 'Try a different status, or clear the search.',
-              actionLabel: all.isEmpty ? null : 'Clear filters',
-              onAction: all.isEmpty
-                  ? null
-                  : () => setState(() {
-                      _statusFilter = 'all';
-                      _search.clear();
-                    }),
+              actionLabel: _hasActiveFilters ? 'Clear filters' : null,
+              onAction: _hasActiveFilters ? _clearAllFilters : null,
               compact: true,
             ),
           )
@@ -1393,13 +1611,12 @@ class _CareRequestsScreenState extends State<CareRequestsScreen> {
               message: all.isEmpty
                   ? 'Approve a care request, or create the first patient ↔ provider link.'
                   : 'Try a different relationship type, or clear the search.',
-              actionLabel: all.isEmpty ? 'Create assignment' : 'Clear filters',
+              actionLabel: all.isEmpty
+                  ? 'Create assignment'
+                  : (_hasActiveFilters ? 'Clear filters' : null),
               onAction: all.isEmpty
                   ? () => _openAssignmentSheet(context)
-                  : () => setState(() {
-                      _roleFilter = 'all';
-                      _search.clear();
-                    }),
+                  : (_hasActiveFilters ? _clearAllFilters : null),
               compact: true,
             ),
           )
@@ -1461,187 +1678,6 @@ class _ProviderOption {
         ? ''
         : ' · ${user.specialty}';
     return '${user.name}$specialty · $caseload patient${caseload == 1 ? '' : 's'}';
-  }
-}
-
-class _TabSwitcher extends StatelessWidget {
-  const _TabSwitcher({
-    required this.value,
-    required this.requestCount,
-    required this.assignmentCount,
-    required this.onChanged,
-  });
-
-  final CareTab value;
-  final int requestCount;
-  final int assignmentCount;
-  final ValueChanged<CareTab> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSpacing.xs),
-      child: Row(
-        children: [
-          Expanded(
-            child: _TabButton(
-              label: 'Requests',
-              icon: AppIcons.careRequest,
-              badge: requestCount,
-              accent: AppColors.info,
-              selected: value == CareTab.requests,
-              onTap: () => onChanged(CareTab.requests),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: _TabButton(
-              label: 'Assignments',
-              icon: AppIcons.assignments,
-              badge: assignmentCount,
-              accent: AppColors.brandIndigo,
-              selected: value == CareTab.assignments,
-              onTap: () => onChanged(CareTab.assignments),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.label,
-    required this.icon,
-    required this.badge,
-    required this.accent,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final int badge;
-  final Color accent;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = selected ? accent : AppPalette.textMuted(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: selected ? accent : Colors.transparent),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: fg),
-            const SizedBox(width: AppSpacing.xs),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: fg,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            if (badge > 0) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                ),
-                child: Text(
-                  '$badge',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SortMenu extends StatelessWidget {
-  const _SortMenu({required this.value, required this.onChanged});
-
-  final _Sort value;
-  final ValueChanged<_Sort> onChanged;
-
-  static String _label(_Sort sort) => switch (sort) {
-    _Sort.newest => 'Newest first',
-    _Sort.oldest => 'Oldest first',
-    _Sort.patient => 'Patient A–Z',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<_Sort>(
-      tooltip: 'Sort',
-      initialValue: value,
-      onSelected: onChanged,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      itemBuilder: (context) => [
-        for (final sort in _Sort.values)
-          PopupMenuItem(value: sort, child: Text(_label(sort))),
-      ],
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppPalette.surfaceAlt(context),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppPalette.border(context)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              AppIcons.filter,
-              size: 16,
-              color: AppPalette.textMuted(context),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              _label(value),
-              style: TextStyle(
-                color: AppPalette.textMuted(context),
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              AppIcons.expandMore,
-              size: 16,
-              color: AppPalette.textMuted(context),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -2005,6 +2041,151 @@ class _DetailRow extends StatelessWidget {
             child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One line: icon, label, count. Replaces the two-line KPI tile whose label
+/// truncated inside a half-width mobile card, and doubles as the scope/status
+/// selector so the workspace has a single filtering surface.
+class _CareStatChip extends StatelessWidget {
+  const _CareStatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int value;
+  final Color accent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? accent : AppPalette.textMuted(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label, $value',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            constraints: const BoxConstraints(minHeight: 36),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 7,
+            ),
+            decoration: BoxDecoration(
+              color: selected
+                  ? accent.withValues(alpha: 0.14)
+                  : AppPalette.surfaceAlt(context),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              border: Border.all(
+                color: selected ? accent : AppPalette.border(context),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: fg),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? accent.withValues(alpha: 0.20)
+                        : AppPalette.border(context).withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  ),
+                  child: Text(
+                    '$value',
+                    style: TextStyle(
+                      color: selected ? accent : AppPalette.textMuted(context),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Mirrors the removable filter pill on the Users directory.
+class _CareRemovablePill extends StatelessWidget {
+  const _CareRemovablePill({required this.label, required this.onRemove});
+
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onRemove,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        child: Container(
+          padding: const EdgeInsets.only(
+            left: AppSpacing.md,
+            right: AppSpacing.sm,
+            top: 6,
+            bottom: 6,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.brandIndigo.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            border: Border.all(
+              color: AppColors.brandIndigo.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.brandIndigo,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                AppIcons.close,
+                size: 14,
+                color: AppColors.brandIndigo,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

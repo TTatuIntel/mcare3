@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/api/patient_chart_api.dart';
 import '../../shared/models/vital.dart';
 import '../../shared/models/vital_report_request.dart';
 import '../../shared/state/vital_report_state.dart';
@@ -16,6 +17,7 @@ import '../../shared/widgets/document_preview_panel.dart';
 import '../../shared/models/document.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
+import '../../shared/widgets/period_filter_bar.dart';
 import '../../shared/widgets/section_label.dart';
 
 class RequestVitalReportSheet {
@@ -372,20 +374,19 @@ class _RequestFormState extends State<_RequestForm> {
   }
 
   Future<void> _pickRange() async {
-    final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now,
-      initialDateRange: _from != null && _to != null
-          ? DateTimeRange(start: _from!, end: _to!)
-          : null,
-      helpText: 'Select report date range',
+    final picked = await PeriodPickerSheet.show(
+      context,
+      current: _from != null && _to != null
+          ? ChartPeriod.range(_from!, _to!)
+          : ChartPeriod.month,
+      title: 'Report period',
+      subtitle: 'The readings the report is built from.',
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
+    final window = picked.resolve();
     setState(() {
-      _from = picked.start;
-      _to = picked.end;
+      _from = window.from;
+      _to = window.to;
     });
   }
 

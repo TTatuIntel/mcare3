@@ -48,3 +48,6 @@ app.*.map.json
 /android/key.properties
 **/*.jks
 **/*.keystore
+
+# Deployment-specific public Firebase web metadata. Keep the example tracked.
+/web/firebase-config.json

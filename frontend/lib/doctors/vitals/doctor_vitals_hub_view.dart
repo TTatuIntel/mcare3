@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/api/patient_chart_api.dart';
 import '../../core/env/app_env.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/services/doctor_session_service.dart';
@@ -21,6 +22,7 @@ import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
+import '../../shared/widgets/period_filter_bar.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../alerts/doctor_alert_resolve_sheet.dart';
@@ -124,11 +126,11 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
     try {
       if (AppEnv.backendEnabled) {
         await DoctorSessionService.instance.syncFromApi(background: true);
-      } else {
+      } else if (AppEnv.demoDataEnabled) {
         StaffState.instance.seedDemo();
       }
     } catch (_) {
-      if (!AppEnv.backendEnabled) {
+      if (!AppEnv.backendEnabled && AppEnv.demoDataEnabled) {
         StaffState.instance.seedDemo();
       }
     } finally {
@@ -499,25 +501,34 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
     });
   }
 
+  /// The same period control the patient chart uses — presets, calendar
+  /// spans and a month grid in one sheet, rather than this screen having its
+  /// own idea of what picking a range looks like.
   Future<void> _pickDateRange(BuildContext context) async {
-    final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now,
-      initialDateRange: _dateFrom != null && _dateTo != null
-          ? DateTimeRange(start: _dateFrom!, end: _dateTo!)
-          : DateTimeRange(
-              start: now.subtract(const Duration(days: 6)),
-              end: now,
-            ),
-      helpText: 'Filter readings by date',
+    final current = _dateFrom != null && _dateTo != null
+        ? ChartPeriod.range(_dateFrom!, _dateTo!)
+        : ChartPeriod.week;
+
+    final picked = await PeriodPickerSheet.show(
+      context,
+      current: current,
+      title: 'Filter readings by date',
+      subtitle: 'Readings, alerts and overrides all answer from this window.',
+      accent: AppColors.doctorGreen,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
+
+    final window = picked.resolve();
     setState(() {
-      _dateFrom = picked.start;
-      _dateTo = picked.end;
-      _datePreset = _DatePreset.custom;
+      _dateFrom = window.from;
+      _dateTo = window.to;
+      // Keep the quick chips above in step when the pick was one of theirs.
+      _datePreset = switch (picked.key) {
+        'calendar:today' => _DatePreset.today,
+        'rolling:7' => _DatePreset.week,
+        'rolling:30' => _DatePreset.month,
+        _ => _DatePreset.custom,
+      };
       _resetVisibleCount();
     });
   }

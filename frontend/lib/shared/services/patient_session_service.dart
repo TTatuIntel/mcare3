@@ -26,6 +26,9 @@ class PatientSessionService {
     required List<VitalKey> assignedVitals,
   }) async {
     if (!AppEnv.backendEnabled) {
+      if (!AppEnv.demoDataEnabled) {
+        throw StateError('Patient onboarding requires the mCare API.');
+      }
       MockBootstrap.seedNewPatientSession(
         health: health,
         contacts: contacts,

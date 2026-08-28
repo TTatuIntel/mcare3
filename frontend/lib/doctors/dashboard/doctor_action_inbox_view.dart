@@ -82,9 +82,6 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
             assignedIds: assignedIds,
             patientName: StaffState.instance.patientById,
           );
-          final pendingCareRequests = StaffState.instance.careRequests
-              .where((c) => c.status == 'pending')
-              .toList();
           final pendingReportRequests = StaffState.instance.patientRequests
               .where((r) =>
                   r.isPending &&
@@ -261,22 +258,9 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                   ),
                 ),
               ),
-              if (pendingCareRequests.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.md),
-                StaggeredEntry(
-                  index: 3,
-                  child: SectionLabel(
-                    title: 'Care requests',
-                    icon: AppIcons.careRequest,
-                    trailing: '${pendingCareRequests.length}',
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                StaggeredEntry(
-                  index: 4,
-                  child: _CareRequestsCard(requests: pendingCareRequests),
-                ),
-              ],
+              // No care-request triage here: approving or declining a
+              // patient's provider request is an admin / mCare-assistant
+              // decision. The doctor sees the care team they were assigned.
               if (pendingReportRequests.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
                 StaggeredEntry(
@@ -350,152 +334,6 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
   static bool _isToday(DateTime d) {
     final now = DateTime.now();
     return d.year == now.year && d.month == now.month && d.day == now.day;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Care requests card — accept or decline inline
-// ---------------------------------------------------------------------------
-
-class _CareRequestsCard extends StatelessWidget {
-  const _CareRequestsCard({required this.requests});
-
-  final List<CareRequestItem> requests;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      frosted: true,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: requests.asMap().entries.map((entry) {
-          final i = entry.key;
-          final req = entry.value;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (i > 0) const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.info.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      ),
-                      child: const Icon(
-                        AppIcons.careRequest,
-                        size: 18,
-                        color: AppColors.info,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            req.patient,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            req.reason.isNotEmpty
-                                ? req.reason
-                                : 'Requesting care assignment',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(color: AppPalette.textMuted(context)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    _CareRequestActions(requestId: req.id, patientName: req.patient),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _CareRequestActions extends StatefulWidget {
-  const _CareRequestActions({
-    required this.requestId,
-    required this.patientName,
-  });
-
-  final String requestId;
-  final String patientName;
-
-  @override
-  State<_CareRequestActions> createState() => _CareRequestActionsState();
-}
-
-class _CareRequestActionsState extends State<_CareRequestActions> {
-  bool _loading = false;
-
-  Future<void> _accept() async {
-    setState(() => _loading = true);
-    final ok = await StaffState.instance.acceptCareRequestRemote(widget.requestId);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    if (ok) {
-      AppToast.success(context, '${widget.patientName} added to your caseload.');
-    } else {
-      AppToast.error(context, 'Could not accept request. Try again.');
-    }
-  }
-
-  Future<void> _decline() async {
-    setState(() => _loading = true);
-    final ok = await StaffState.instance.declineCareRequestRemote(widget.requestId);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    if (!ok) AppToast.error(context, 'Could not decline request. Try again.');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const McarePulse(
-        size: McarePulseSize.micro,
-        semanticLabel: null,
-      );
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppButton(
-          label: 'Accept',
-          icon: AppIcons.check,
-          onPressed: _accept,
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        AppButton(
-          label: 'Decline',
-          variant: AppButtonVariant.secondary,
-          onPressed: _decline,
-        ),
-      ],
-    );
   }
 }
 

@@ -16,7 +16,6 @@ import '../models/app_user.dart';
 import '../models/user_role.dart';
 import '../state/profile_state.dart';
 import '../services/admin_session_service.dart';
-import '../state/notification_state.dart';
 import '../state/settings_state.dart';
 import '../state/staff_state.dart';
 import '../widgets/app_toast.dart';
@@ -26,7 +25,8 @@ import 'auth_storage.dart';
 import '../../core/push/push_notification_service.dart';
 import '../../auth/widgets/google_account_picker_sheet.dart';
 
-/// Central auth operations — mock today, Laravel Sanctum + OAuth when live.
+/// Central auth operations — Laravel Sanctum/OAuth in backend mode and an
+/// isolated seeded demonstration flow when backend mode is disabled.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
@@ -41,6 +41,11 @@ class AuthService {
         'identifier': identifier,
         'password': password,
       });
+    }
+    if (!AppEnv.demoDataEnabled) {
+      return AuthFlowResult.failed(
+        'The mCare API is required. Start the backend or explicitly enable UI fixture mode.',
+      );
     }
     await Future.delayed(const Duration(milliseconds: 500));
     final user = _resolveMockUser(identifier);
@@ -72,7 +77,9 @@ class AuthService {
   /// the patient so existing demos still work.
   AppUser _resolveMockUser(String identifier) {
     final id = identifier.trim().toLowerCase();
-    if (id.startsWith('dr.') || id.contains('mensah') || id.contains('doctor')) {
+    if (id.startsWith('dr.') ||
+        id.contains('mensah') ||
+        id.contains('doctor')) {
       return MockData.sampleDoctor();
     }
     if (id.startsWith('admin') || id.contains('@mcare.health')) {
@@ -87,16 +94,25 @@ class AuthService {
     return MockData.samplePatient();
   }
 
-  /// Google OAuth — GSI account picker on web; mock picker elsewhere.
+  /// Google OAuth — GSI on web, the official native SDK on Android/iOS, and
+  /// mock accounts only when the entire application is in demo mode.
   Future<AuthFlowResult> signInWithGoogle({
     required BuildContext context,
     bool createAccount = false,
   }) async {
-    if (kIsWeb && GoogleSignInService.instance.isConfigured) {
-      if (AppEnv.backendEnabled) {
-        return _googleSignInWithGsi(createAccount: createAccount);
-      }
-      return _googleSignInWithReal(createAccount: createAccount);
+    if (GoogleSignInService.instance.isConfigured && AppEnv.backendEnabled) {
+      return _googleSignInWithGsi(createAccount: createAccount);
+    }
+
+    if (AppEnv.backendEnabled) {
+      return AuthFlowResult.failed(
+        'Google Sign-In is not configured for this application build.',
+      );
+    }
+    if (!AppEnv.demoDataEnabled) {
+      return AuthFlowResult.failed(
+        'Google Sign-In requires the mCare API in this build.',
+      );
     }
 
     final account = await GoogleAccountPickerSheet.show(context);
@@ -157,8 +173,13 @@ class AuthService {
       );
     } on StateError catch (e) {
       return AuthFlowResult.failed(e.message);
-    } catch (_) {
-      return _googleSignInWithReal(createAccount: createAccount);
+    } catch (error) {
+      if (kIsWeb) {
+        return _googleSignInWithReal(createAccount: createAccount);
+      }
+      return AuthFlowResult.failed(
+        ApiErrorMessages.sanitize(error.toString()),
+      );
     }
   }
 
@@ -172,9 +193,7 @@ class AuthService {
       return AuthFlowResult.userCancelled;
     } catch (e) {
       return AuthFlowResult.failed(
-        e is StateError
-            ? e.message
-            : 'Google sign-in failed. ${e.toString()}',
+        e is StateError ? e.message : 'Google sign-in failed. ${e.toString()}',
       );
     }
   }
@@ -199,7 +218,6 @@ class AuthService {
       AuthState.instance.signIn(user);
       _applyAssistantPermissions(data);
       unawaited(SettingsState.instance.pullRemote());
-      _loadStaffNotificationStates(user);
 
       final hasProfile = data['has_health_profile'] == true;
       if (user.role == UserRole.patient) {
@@ -228,9 +246,7 @@ class AuthService {
     if (result == null) return null;
 
     if (!result.isSuccess) {
-      return AuthFlowResult.failed(
-        result.error ?? 'Google sign-in failed.',
-      );
+      return AuthFlowResult.failed(result.error ?? 'Google sign-in failed.');
     }
 
     return _completeFromOAuthRedirect(result);
@@ -245,7 +261,6 @@ class AuthService {
     AuthState.instance.signIn(user);
     _applyAssistantPermissions(result.user);
     unawaited(SettingsState.instance.pullRemote());
-    _loadStaffNotificationStates(user);
     final hasProfile = result.hasHealthProfile;
     if (user.role == UserRole.patient) {
       if (hasProfile) {
@@ -257,7 +272,11 @@ class AuthService {
       await _seedStaffSession(user.role);
     }
     await PushNotificationService.instance.registerAfterLogin();
-    await _persistSession(token: token, user: result.user!, hasProfile: hasProfile);
+    await _persistSession(
+      token: token,
+      user: result.user!,
+      hasProfile: hasProfile,
+    );
     return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
   }
 
@@ -292,9 +311,7 @@ class AuthService {
     if (data == null) return;
     final perms = data['assistant_permissions'] as List?;
     if (perms == null) return;
-    AuthState.instance.setAssistantPermissions(
-      perms.map((e) => e.toString()),
-    );
+    AuthState.instance.setAssistantPermissions(perms.map((e) => e.toString()));
   }
 
   Future<void> _ensureAssistantPermissionsLoaded() async {
@@ -317,13 +334,6 @@ class AuthService {
   /// poll cycle — no re-login required. No-op for other roles.
   Future<void> refreshAssistantPermissions() =>
       _ensureAssistantPermissionsLoaded();
-
-  /// Loads persisted read/resolve state for the staff notification inbox so it
-  /// survives polls. No-op for patients (their notifications are row-backed).
-  void _loadStaffNotificationStates(AppUser user) {
-    if (user.role == UserRole.patient) return;
-    unawaited(NotificationState.instance.loadStaffNotificationStates());
-  }
 
   Future<AuthFlowResult> _googleSignInWithToken({
     required String idToken,
@@ -404,16 +414,13 @@ class AuthService {
     return AuthFlowResult.signedIn(user, seededProfile: false);
   }
 
-  /// Apple Sign-In — real flow on web once `MCARE_APPLE_CLIENT_ID` is set and
-  /// the backend `/auth/apple` endpoint is live; otherwise a mock fallthrough
-  /// so the button stays functional during development.
+  /// Apple Sign-In — AppleID JS on web and Authentication Services on native.
+  /// Mock accounts remain available only in explicit demo mode.
   Future<AuthFlowResult> signInWithApple({
     required BuildContext context,
     bool createAccount = false,
   }) async {
-    if (kIsWeb &&
-        AppleSignInService.instance.isConfigured &&
-        AppEnv.backendEnabled) {
+    if (AppleSignInService.instance.isConfigured && AppEnv.backendEnabled) {
       try {
         final creds = await AppleSignInService.instance.requestCredentials();
         if (creds == null) return AuthFlowResult.userCancelled;
@@ -431,8 +438,18 @@ class AuthService {
       }
     }
 
-    // Fall through to the mock flow when Apple isn't wired up yet so the
-    // sign-in button stays functional during development.
+    if (AppEnv.backendEnabled) {
+      return AuthFlowResult.failed(
+        'Apple Sign-In is not configured for this application build.',
+      );
+    }
+    if (!AppEnv.demoDataEnabled) {
+      return AuthFlowResult.failed(
+        'Apple Sign-In requires the mCare API in this build.',
+      );
+    }
+
+    // Explicit backend-disabled demo mode keeps the existing mock experience.
     await Future.delayed(const Duration(milliseconds: 450));
     if (createAccount) {
       final user = AppUser(
@@ -472,6 +489,11 @@ class AuthService {
         'password': password,
         'role': 'patient',
       });
+    }
+    if (!AppEnv.demoDataEnabled) {
+      return AuthFlowResult.failed(
+        'Registration requires the mCare API in this build.',
+      );
     }
     await Future.delayed(const Duration(milliseconds: 600));
     final user = AppUser(
@@ -544,7 +566,8 @@ class AuthService {
             allowWhenBackendDisabled || path.startsWith('/auth/'),
       );
       final data = res['data'] as Map<String, dynamic>?;
-      if (data == null) return AuthFlowResult.failed('Invalid server response.');
+      if (data == null)
+        return AuthFlowResult.failed('Invalid server response.');
       final token = data['token'] as String?;
       if (token != null) ApiClient.instance.setToken(token);
       final userMap = data['user'] as Map<String, dynamic>?;
@@ -553,7 +576,6 @@ class AuthService {
       AuthState.instance.signIn(user);
       _applyAssistantPermissions(data);
       unawaited(SettingsState.instance.pullRemote());
-      _loadStaffNotificationStates(user);
       final hasProfile = data['has_health_profile'] == true;
       if (user.role == UserRole.patient) {
         if (hasProfile) {
@@ -596,8 +618,10 @@ class AuthFlowResult {
 
   bool get isSuccess => user != null && errorMessage == null && !cancelled;
 
-  factory AuthFlowResult.signedIn(AppUser user, {required bool seededProfile}) =>
-      AuthFlowResult._(user: user, seededProfile: seededProfile);
+  factory AuthFlowResult.signedIn(
+    AppUser user, {
+    required bool seededProfile,
+  }) => AuthFlowResult._(user: user, seededProfile: seededProfile);
 
   factory AuthFlowResult.failed(String message) =>
       AuthFlowResult._(errorMessage: message);

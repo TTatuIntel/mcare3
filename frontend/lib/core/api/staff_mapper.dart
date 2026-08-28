@@ -316,7 +316,28 @@ class StaffMapper {
     latitude: (j['latitude'] as num?)?.toDouble(),
     longitude: (j['longitude'] as num?)?.toDouble(),
     respondedBy: j['responded_by'] as String?,
+    respondedAt: _parseDate(j['responded_at']),
+    resolution: j['resolution'] as String?,
+    resolutionLabel: j['resolution_label'] as String?,
+    resolutionNote: j['resolution_note'] as String?,
+    progress: sosProgressFromApi(j['response_actions']),
   );
+
+  /// The response trail that rides along with an SOS payload. Oldest first —
+  /// the order the work happened in.
+  static List<SosProgressStep> sosProgressFromApi(Object? raw) {
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((e) {
+      final m = e.cast<String, dynamic>();
+      return SosProgressStep(
+        action: (m['action'] ?? '').toString(),
+        label: (m['label'] ?? 'Step').toString(),
+        actorName: (m['actor_name'] ?? '').toString(),
+        at: _parseDate(m['created_at']) ?? DateTime.now(),
+        detail: m['detail'] as String?,
+      );
+    }).toList();
+  }
 
   static StaffPatientVitalReading vitalReadingFromApi(
     Map<String, dynamic> j, {

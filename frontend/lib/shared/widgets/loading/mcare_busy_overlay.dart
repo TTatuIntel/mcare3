@@ -68,11 +68,22 @@ class _BusyScrim extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final status = message ?? 'Loading…';
 
+    // No card, no panel: the mark sits directly on the blurred page. A soft
+    // radial halo — the page's own surface colour fading to nothing — lifts the
+    // wordmark off busy content without drawing an edge around it.
+    final haloBase = dark ? AppColors.darkScaffoldBg : AppColors.surface;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardWidth = math.min(
-          196.0,
-          math.max(0.0, constraints.maxWidth - AppSpacing.huge),
+        final shortest = math.min(constraints.maxWidth, constraints.maxHeight);
+        // Halo and text scale with the viewport so the treatment reads the same
+        // on a phone, a tablet and a desktop window.
+        final haloSize = shortest.isFinite
+            ? math.min(math.max(shortest * 0.86, 220.0), 460.0)
+            : 320.0;
+        final textWidth = math.min(
+          360.0,
+          math.max(160.0, constraints.maxWidth - AppSpacing.huge),
         );
 
         return Stack(
@@ -83,91 +94,67 @@ class _BusyScrim extends StatelessWidget {
             ClipRect(
               key: const ValueKey('mcare-busy-backdrop'),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                 child: ColoredBox(
                   color: (dark ? Colors.black : Colors.white).withValues(
-                    alpha: dark ? 0.24 : 0.22,
+                    alpha: dark ? 0.20 : 0.16,
                   ),
                 ),
               ),
             ),
             Center(
               child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.96, end: 1),
+                tween: Tween(begin: 0.92, end: 1),
                 duration: AppMotion.itemEntry,
                 curve: AppMotion.easeOut,
                 builder: (context, scale, child) =>
                     Transform.scale(scale: scale, child: child),
-                child: SizedBox(
-                  key: const ValueKey('mcare-busy-glass'),
-                  width: cardWidth,
-                  height: 116,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: dark ? 0.30 : 0.12,
-                          ),
-                          blurRadius: 30,
-                          spreadRadius: -6,
-                          offset: const Offset(0, 12),
+                child: Semantics(
+                  key: const ValueKey('mcare-busy-mark'),
+                  container: true,
+                  liveRegion: true,
+                  label: status,
+                  child: SizedBox(
+                    width: haloSize,
+                    height: haloSize,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            haloBase.withValues(alpha: dark ? 0.46 : 0.52),
+                            haloBase.withValues(alpha: dark ? 0.22 : 0.26),
+                            haloBase.withValues(alpha: 0),
+                          ],
+                          stops: const [0.0, 0.46, 1.0],
                         ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color:
-                                (dark
-                                        ? AppColors.darkSurface
-                                        : AppColors.surface)
-                                    .withValues(alpha: dark ? 0.72 : 0.70),
-                            borderRadius: BorderRadius.circular(
-                              AppSpacing.radiusXl,
-                            ),
-                            border: Border.all(
-                              color: (dark ? Colors.white : AppColors.surface)
-                                  .withValues(alpha: dark ? 0.18 : 0.86),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const McareLoadingMark(
+                            size: McareMarkSize.large,
+                            semanticLabel: null,
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          SizedBox(
+                            width: textWidth,
+                            child: Text(
+                              status,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: AppPalette.ink(context),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    height: 1.3,
+                                    letterSpacing: 0.1,
+                                  ),
                             ),
                           ),
-                          child: Semantics(
-                            container: true,
-                            liveRegion: true,
-                            label: status,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const McareLoadingMark(
-                                  size: McareMarkSize.medium,
-                                  semanticLabel: null,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.md,
-                                  ),
-                                  child: Text(
-                                    status,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: AppPalette.ink(context),
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 11.5,
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        ],
                       ),
                     ),
                   ),

@@ -1,7 +1,7 @@
 part of 'doctor_patient_workspace_view.dart';
 
 // ---------------------------------------------------------------------------
-// Trends panel â€” sparkline charts for each vital type
+// Trends panel — sparkline charts for each vital type
 // ---------------------------------------------------------------------------
 
 class _TrendsPanel extends StatelessWidget {
@@ -58,7 +58,7 @@ class _VitalTrendCard extends StatelessWidget {
   final VitalKey vitalKey;
   final List<StaffPatientVitalReading> readings;
 
-  // Parse a numeric value from the reading string (handles "120/80" â†’ 120).
+  // Parse a numeric value from the reading string (handles "120/80" → 120).
   double? _parse(String raw) {
     final s = raw.split('/').first.trim();
     return double.tryParse(s);
@@ -66,7 +66,7 @@ class _VitalTrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Oldest â†’ newest for left-to-right chart direction.
+    // Oldest → newest for left-to-right chart direction.
     final ordered = readings.reversed.toList();
     final points = <FlSpot>[];
     for (var i = 0; i < ordered.length && i < 14; i++) {

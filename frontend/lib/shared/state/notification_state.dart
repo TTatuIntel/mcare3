@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/api/admin_api.dart';
 import '../../core/api/notifications_api.dart';
-import '../../core/api/staff_notification_state_api.dart';
 import '../../core/env/app_env.dart';
 import '../auth/auth_state.dart';
 import '../constants/route_names.dart';
@@ -17,46 +16,7 @@ class NotificationState extends ChangeNotifier {
   final List<AppNotification> _items = [];
   List<AppNotification> get items => List.unmodifiable(_items);
 
-  /// Persisted read/resolve overrides for client-computed staff notifications
-  /// (`staff_*` keys). Loaded from the backend so read-state survives polls and
-  /// follows the user across devices, without touching clinical acknowledge
-  /// state. See [loadStaffNotificationStates].
-  final Map<String, ({bool read, bool resolved})> _staffStateCache = {};
-
   bool _isStaffKey(String id) => id.startsWith('staff_');
-
-  /// Fetches persisted staff notification read/resolve state and re-applies it
-  /// to the current inbox. Safe to call repeatedly; a network failure leaves the
-  /// existing (session-local) state untouched.
-  Future<void> loadStaffNotificationStates() async {
-    if (!AppEnv.backendEnabled) return;
-    try {
-      final states = await StaffNotificationStateApi.instance.fetch();
-      _staffStateCache
-        ..clear()
-        ..addAll(states);
-      _applyStaffStateCache();
-      notifyListeners();
-    } catch (_) {
-      // Non-blocking; keep whatever we already have.
-    }
-  }
-
-  void _applyStaffStateCache() {
-    if (_staffStateCache.isEmpty) return;
-    for (var i = 0; i < _items.length; i++) {
-      final n = _items[i];
-      final s = _staffStateCache[n.id];
-      if (s == null) continue;
-      _items[i] = n.copyWith(
-        read: n.read || s.read,
-        resolved: n.resolved || s.resolved,
-        resolvedAt: (n.resolved || s.resolved)
-            ? (n.resolvedAt ?? DateTime.now())
-            : null,
-      );
-    }
-  }
 
   List<AppNotification> get activeItems =>
       _items.where((n) => !n.resolved).toList(growable: false);
@@ -64,13 +24,11 @@ class NotificationState extends ChangeNotifier {
   List<AppNotification> get resolvedItems =>
       _items.where((n) => n.resolved).toList(growable: false);
 
-  List<AppNotification> resolvedVitalAlerts() =>
-      resolvedItems
-          .where((n) => n.kind == NotificationKind.vitalAlert)
-          .toList(growable: false);
+  List<AppNotification> resolvedVitalAlerts() => resolvedItems
+      .where((n) => n.kind == NotificationKind.vitalAlert)
+      .toList(growable: false);
 
-  int get unreadCount =>
-      _items.where((n) => !n.read && !n.resolved).length;
+  int get unreadCount => _items.where((n) => !n.read && !n.resolved).length;
 
   void seed(List<AppNotification> items) {
     _items
@@ -86,7 +44,6 @@ class NotificationState extends ChangeNotifier {
   void seedStaffComputedNotifications(List<AppNotification> items) {
     _items.removeWhere((n) => n.id.startsWith('staff_'));
     _items.addAll(items);
-    _applyStaffStateCache();
     _items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     notifyListeners();
   }
@@ -127,11 +84,14 @@ class NotificationState extends ChangeNotifier {
     return null;
   }
 
-  int get resolvedVitalAlertCount =>
-      _items.where((n) =>
-          n.resolved &&
-          n.kind == NotificationKind.vitalAlert &&
-          n.linkedVital != null).length;
+  int get resolvedVitalAlertCount => _items
+      .where(
+        (n) =>
+            n.resolved &&
+            n.kind == NotificationKind.vitalAlert &&
+            n.linkedVital != null,
+      )
+      .length;
 
   /// Creates or updates a vital alert notification. Pass [alertConfig] from the
   /// matching [VitalCatalogEntry] so per-vital notification rules are respected.
@@ -179,15 +139,17 @@ class NotificationState extends ChangeNotifier {
         );
       }
     } else {
-      add(AppNotification(
-        id: 'va_${vital.name}_${DateTime.now().millisecondsSinceEpoch}',
-        kind: NotificationKind.vitalAlert,
-        title: title,
-        body: body,
-        createdAt: reading.recordedAt,
-        actionRoute: RouteNames.patientVitalDetail,
-        actionArguments: vital,
-      ));
+      add(
+        AppNotification(
+          id: 'va_${vital.name}_${DateTime.now().millisecondsSinceEpoch}',
+          kind: NotificationKind.vitalAlert,
+          title: title,
+          body: body,
+          createdAt: reading.recordedAt,
+          actionRoute: RouteNames.patientVitalDetail,
+          actionArguments: vital,
+        ),
+      );
     }
     notifyListeners();
   }
@@ -240,15 +202,9 @@ class NotificationState extends ChangeNotifier {
     markRead(id);
     if (!AppEnv.backendEnabled) return;
     try {
-      // Client-computed staff notifications (alerts/SOS/requests/appointments)
-      // have no backing row; persist their read-state separately so it is not
-      // lost on the next poll.
+      // Computed staff notifications are ephemeral presentation data. Their
+      // clinical state changes only through the alert/SOS/request endpoint.
       if (_isStaffKey(id)) {
-        _staffStateCache[id] = (
-          read: true,
-          resolved: _staffStateCache[id]?.resolved ?? false,
-        );
-        await StaffNotificationStateApi.instance.setState(id, read: true);
         return;
       }
       final role = AuthState.instance.role;
@@ -268,8 +224,6 @@ class NotificationState extends ChangeNotifier {
     if (!AppEnv.backendEnabled) return;
     try {
       if (_isStaffKey(id)) {
-        _staffStateCache[id] = (read: true, resolved: true);
-        await StaffNotificationStateApi.instance.setState(id, resolved: true);
         return;
       }
       final role = AuthState.instance.role;
@@ -283,12 +237,6 @@ class NotificationState extends ChangeNotifier {
 
   /// Persisting variant of [markAllRead]. Routes by role.
   Future<void> markAllReadRemote() async {
-    // Capture the staff keys that need persisting BEFORE the local mutation
-    // flips their read flags (ids are stable regardless).
-    final staffKeys = _items
-        .where((n) => _isStaffKey(n.id) && !n.resolved)
-        .map((n) => n.id)
-        .toList(growable: false);
     markAllRead();
     if (!AppEnv.backendEnabled) return;
     try {
@@ -297,15 +245,6 @@ class NotificationState extends ChangeNotifier {
         await NotificationsApi.instance.markAllRead();
         return;
       }
-      // Staff: persist read-state for computed items, plus any backend-backed
-      // admin/assistant notifications.
-      for (final k in staffKeys) {
-        _staffStateCache[k] = (
-          read: true,
-          resolved: _staffStateCache[k]?.resolved ?? false,
-        );
-      }
-      await StaffNotificationStateApi.instance.readAll(staffKeys);
       if (role == UserRole.admin || role == UserRole.mcareAssistant) {
         await AdminApi.instance.markAllNotificationsRead();
       }

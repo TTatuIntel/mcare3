@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../models/user_role.dart';
@@ -51,10 +49,13 @@ class StaffHubSurface extends StatelessWidget {
   }
 }
 
-/// Section heading whose subtitle behaves like a self-dismissing info popup:
-/// it fades in on mount, holds long enough to read, then collapses away so it
-/// stops crowding the layout. A small info button next to the title lets the
-/// operator re-summon the description at any time.
+/// Section heading with an optional description behind an info button.
+///
+/// The description used to fade in on mount and collapse itself after four
+/// seconds. Every heading on a page did that independently, so the layout
+/// shrank under the operator's fingers seconds after arriving — cards slid
+/// upward while they were reaching for one, which reads as the app moving on
+/// its own. Nothing here changes size unless the operator asks it to.
 class StaffHubSectionHeading extends StatefulWidget {
   const StaffHubSectionHeading({
     super.key,
@@ -72,56 +73,18 @@ class StaffHubSectionHeading extends StatefulWidget {
 }
 
 class _StaffHubSectionHeadingState extends State<StaffHubSectionHeading> {
-  static const Duration _visibleFor = Duration(seconds: 4);
   static const Duration _animate = Duration(milliseconds: 260);
 
-  Timer? _hideTimer;
+  /// Collapsed by default and toggled only by the info button, so the page
+  /// settles once and stays put. No timer: layout must never move on a clock.
   bool _showSubtitle = false;
 
-  @override
-  void initState() {
-    super.initState();
-    if (widget.subtitle != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() => _showSubtitle = true);
-        _armHideTimer();
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant StaffHubSectionHeading oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.subtitle != oldWidget.subtitle && widget.subtitle != null) {
-      setState(() => _showSubtitle = true);
-      _armHideTimer();
-    }
-  }
-
-  @override
-  void dispose() {
-    _hideTimer?.cancel();
-    super.dispose();
-  }
-
-  void _armHideTimer() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(_visibleFor, () {
-      if (!mounted) return;
-      setState(() => _showSubtitle = false);
-    });
-  }
-
-  void _reveal() {
-    setState(() => _showSubtitle = true);
-    _armHideTimer();
-  }
+  void _toggle() => setState(() => _showSubtitle = !_showSubtitle);
 
   @override
   Widget build(BuildContext context) {
     final subtitle = widget.subtitle;
-    final canReveal = subtitle != null && !_showSubtitle;
+    final hasSubtitle = subtitle != null;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -143,9 +106,11 @@ class _StaffHubSectionHeadingState extends State<StaffHubSectionHeading> {
                   if (subtitle != null) ...[
                     const SizedBox(width: AppSpacing.xs),
                     _SectionInfoButton(
-                      tooltip: canReveal ? 'Show description' : 'Description',
-                      enabled: canReveal,
-                      onTap: canReveal ? _reveal : null,
+                      tooltip: _showSubtitle
+                          ? 'Hide description'
+                          : 'Show description',
+                      enabled: hasSubtitle,
+                      onTap: hasSubtitle ? _toggle : null,
                     ),
                   ],
                 ],

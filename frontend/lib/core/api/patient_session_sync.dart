@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../shared/auth/auth_state.dart';
 import '../../shared/models/message.dart';
 import '../../shared/state/appointments_state.dart';
@@ -25,25 +27,10 @@ class PatientSessionSync {
   String? _lastSignature;
 
   String _sessionSignature(Map<String, dynamic> data) {
-    int activeSos = 0;
-    for (final raw in data['sos_history'] as List? ?? const []) {
-      final m = (raw as Map).cast<String, dynamic>();
-      if ((m['status'] as String?) == 'active') activeSos++;
-    }
-    return Object.hash(
-      data['has_health_profile'],
-      (data['vitals'] as List?)?.length,
-      (data['medications'] as List?)?.length,
-      (data['medication_doses'] as List?)?.length,
-      (data['appointments'] as List?)?.length,
-      (data['documents'] as List?)?.length,
-      (data['conversations'] as List?)?.length,
-      (data['notifications'] as List?)?.length,
-      (data['support_tickets'] as List?)?.length,
-      activeSos,
-      (data['care_requests'] as List?)?.length,
-      (data['vital_report_requests'] as List?)?.length,
-    ).toString();
+    // Counts alone miss status edits, read receipts, changed appointments and
+    // new messages inside an existing conversation. Compare the canonical JSON
+    // payload directly so a hash collision cannot hide a clinical update.
+    return jsonEncode(data);
   }
 
   Future<bool> pullFull({bool background = false}) async {
@@ -75,8 +62,9 @@ class PatientSessionSync {
 
     final health = PatientProfileMapper.healthFromApi(healthJson);
     final contacts = contactsJson
-        .map((e) =>
-            PatientProfileMapper.contactFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) => PatientProfileMapper.contactFromApi(e as Map<String, dynamic>),
+        )
         .toList();
     final assigned = vitalsKeysJson
         .map((e) => PatientProfileMapper.vitalKeyFromApi(e as String))
@@ -87,11 +75,12 @@ class PatientSessionSync {
         .toList();
 
     final catalogKeys = (data['vital_catalog'] as List? ?? [])
-        .map((e) => PatientProfileMapper.vitalKeyFromApi(
-              ((e as Map<String, dynamic>)['vital'] ??
-                      e['vital_key'] ??
-                      '') as String,
-            ))
+        .map(
+          (e) => PatientProfileMapper.vitalKeyFromApi(
+            ((e as Map<String, dynamic>)['vital'] ?? e['vital_key'] ?? '')
+                as String,
+          ),
+        )
         .toList();
 
     ProfileState.instance.seed(health: health, contacts: contacts);
@@ -107,27 +96,34 @@ class PatientSessionSync {
     }
 
     final meds = (data['medications'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.medicationFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) =>
+              PatientDomainMapper.medicationFromApi(e as Map<String, dynamic>),
+        )
         .toList();
     final medsById = {for (final m in meds) m.id: m};
     final doses = (data['medication_doses'] as List? ?? [])
-        .map((e) => PatientDomainMapper.doseFromApi(
-              e as Map<String, dynamic>,
-              medsById: medsById,
-            ))
+        .map(
+          (e) => PatientDomainMapper.doseFromApi(
+            e as Map<String, dynamic>,
+            medsById: medsById,
+          ),
+        )
         .toList();
     MedicationsState.instance.seed(meds: meds, doses: doses);
 
     final appointments = (data['appointments'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.appointmentFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) =>
+              PatientDomainMapper.appointmentFromApi(e as Map<String, dynamic>),
+        )
         .toList();
     AppointmentsState.instance.seed(appointments);
 
     final documents = (data['documents'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.documentFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) => PatientDomainMapper.documentFromApi(e as Map<String, dynamic>),
+        )
         .toList();
     DocumentsState.instance.seed(documents);
 
@@ -141,44 +137,54 @@ class PatientSessionSync {
       conversations.add(conv);
       threads[conv.id] = [conv.lastMessage];
     }
-    MessagesState.instance.seed(
-      conversations: conversations,
-      threads: threads,
-    );
+    MessagesState.instance.seed(conversations: conversations, threads: threads);
 
     final notifications = (data['notifications'] as List? ?? [])
-        .map((e) => PatientDomainMapper.notificationFromApi(
-              e as Map<String, dynamic>,
-            ))
+        .map(
+          (e) => PatientDomainMapper.notificationFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
     NotificationState.instance.seed(notifications);
 
     final tickets = (data['support_tickets'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.supportTicketFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) => PatientDomainMapper.supportTicketFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
     SupportState.instance.seed(tickets);
 
     final sosHistory = (data['sos_history'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.sosEventFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) => PatientDomainMapper.sosEventFromApi(e as Map<String, dynamic>),
+        )
         .toList();
     SosState.instance.seed(contacts: contacts, history: sosHistory);
 
     final providers = (data['care_providers'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.careProviderFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) => PatientDomainMapper.careProviderFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
     final careRequests = (data['care_requests'] as List? ?? [])
-        .map((e) =>
-            PatientDomainMapper.careRequestFromApi(e as Map<String, dynamic>))
+        .map(
+          (e) =>
+              PatientDomainMapper.careRequestFromApi(e as Map<String, dynamic>),
+        )
         .toList();
     CareState.instance.seed(providers: providers, requests: careRequests);
 
     final reportRequests = (data['vital_report_requests'] as List? ?? [])
-        .map((e) => PatientDomainMapper.vitalReportRequestFromApi(
-              e as Map<String, dynamic>,
-            ))
+        .map(
+          (e) => PatientDomainMapper.vitalReportRequestFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
         .toList();
     VitalReportState.instance.seed(reportRequests);
 

@@ -8,8 +8,8 @@ plugins {
 }
 
 // Release signing is driven by android/key.properties (kept out of version
-// control). When the file is absent we fall back to debug signing so local
-// `flutter run --release` still works without a production keystore.
+// control). Release tasks fail closed when it is absent so a debug-signed
+// artifact cannot accidentally be distributed as production.
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasReleaseKeystore = keystorePropertiesFile.exists()
@@ -51,12 +51,8 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("release")
-            } else {
-                // No production keystore configured — sign with debug keys so
-                // `flutter run --release` works. Do NOT ship this to a store.
-                signingConfigs.getByName("debug")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }
@@ -70,4 +66,18 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+tasks.configureEach {
+    if (name.contains("Release", ignoreCase = true)) {
+        doFirst {
+            if (!hasReleaseKeystore) {
+                throw GradleException(
+                    "Production Android signing is not configured. " +
+                        "Copy android/key.properties.example to android/key.properties " +
+                        "and provide the release keystore values.",
+                )
+            }
+        }
+    }
 }

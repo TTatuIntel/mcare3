@@ -302,8 +302,8 @@ class _HeroFact extends StatelessWidget {
 // Stat strip
 // ---------------------------------------------------------------------------
 
-/// Horizontally scrolling headline numbers. Tones come from the backend so
-/// "good" means the same thing on every screen.
+/// Responsive headline numbers. Every metric remains visible without a hidden
+/// horizontal strip, matching the clear clinical summary used by doctors.
 class DossierStatStrip extends StatelessWidget {
   const DossierStatStrip({super.key, required this.stats});
 
@@ -312,15 +312,23 @@ class DossierStatStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (stats.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 74,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.zero,
-        itemCount: stats.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (context, i) => _StatTile(stat: stats[i]),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 600 ? 3 : 2;
+        const gap = AppSpacing.sm;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final stat in stats)
+              SizedBox(
+                width: width,
+                child: _StatTile(stat: stat),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -335,10 +343,10 @@ class _StatTile extends StatelessWidget {
     final color = dossierToneColor(context, stat.tone);
 
     return Container(
-      width: 104,
+      constraints: const BoxConstraints(minHeight: 82),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
@@ -355,7 +363,8 @@ class _StatTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleMedium?.copyWith(
               color: color,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
+              fontSize: 19,
               height: 1.1,
             ),
           ),
@@ -366,8 +375,8 @@ class _StatTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppPalette.textMuted(context),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
               height: 1.2,
             ),
           ),
@@ -398,63 +407,102 @@ class DossierSegments extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: AppPalette.surfaceMuted(context),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        border: Border.all(color: AppPalette.border(context)),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < segments.length; i++)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onSelect(i),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  decoration: BoxDecoration(
-                    color: i == selected
-                        ? AppPalette.surface(context)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                    boxShadow: i == selected
-                        ? [
-                            BoxShadow(
-                              color: AppPalette.ink(
-                                context,
-                              ).withValues(alpha: 0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+    final accent = theme.colorScheme.primary;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 520 ? segments.length : 2;
+        const gap = AppSpacing.xs;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Container(
+          padding: const EdgeInsets.all(AppSpacing.xs),
+          decoration: BoxDecoration(
+            color: AppPalette.surfaceMuted(context),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(color: AppPalette.border(context)),
+          ),
+          child: Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (var i = 0; i < segments.length; i++)
+                SizedBox(
+                  width: width,
+                  child: Semantics(
+                    button: true,
+                    selected: i == selected,
+                    label: '${segments[i]} profile section',
+                    child: InkWell(
+                      onTap: () => onSelect(i),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        constraints: const BoxConstraints(minHeight: 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.sm,
+                        ),
+                        decoration: BoxDecoration(
+                          color: i == selected
+                              ? accent.withValues(alpha: 0.1)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusMd,
+                          ),
+                          border: Border.all(
+                            color: i == selected
+                                ? accent.withValues(alpha: 0.32)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _segmentIcon(segments[i]),
+                              size: 16,
+                              color: i == selected
+                                  ? accent
+                                  : AppPalette.textMuted(context),
                             ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    segments[i],
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontSize: 11,
-                      fontWeight: i == selected
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                      color: i == selected
-                          ? AppPalette.ink(context)
-                          : AppPalette.textMuted(context),
+                            const SizedBox(width: AppSpacing.xs),
+                            Flexible(
+                              child: Text(
+                                segments[i],
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontSize: 11.5,
+                                  fontWeight: i == selected
+                                      ? FontWeight.w800
+                                      : FontWeight.w700,
+                                  color: i == selected
+                                      ? accent
+                                      : AppPalette.textMuted(context),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
+
+  IconData _segmentIcon(String segment) => switch (segment) {
+    'Clinical' => AppIcons.vitals,
+    'Work' => AppIcons.assignments,
+    'Account' => AppIcons.profile,
+    'Activity' => AppIcons.audit,
+    _ => AppIcons.chart,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -653,20 +701,20 @@ class DossierRecordRow extends StatelessWidget {
     final accent = iconColor ?? theme.colorScheme.primary;
 
     final content = Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
             Container(
-              height: 30,
-              width: 30,
+              height: 36,
+              width: 36,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, size: 15, color: accent),
+              child: Icon(icon, size: 18, color: accent),
             ),
             const SizedBox(width: AppSpacing.sm),
           ],
@@ -676,8 +724,9 @@ class DossierRecordRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
                   ),
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty)
@@ -685,8 +734,9 @@ class DossierRecordRow extends StatelessWidget {
                     subtitle!,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppPalette.textMuted(context),
-                      fontSize: 10,
-                      height: 1.35,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
                     ),
                   ),
               ],
@@ -705,7 +755,7 @@ class DossierRecordRow extends StatelessWidget {
                     meta!,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppPalette.textMuted(context),
-                      fontSize: 10,
+                      fontSize: 10.5,
                     ),
                   ),
                 ),
