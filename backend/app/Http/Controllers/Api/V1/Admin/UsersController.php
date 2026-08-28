@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TemporaryCredentialsMail;
 use App\Mail\UserInviteMail;
 use App\Models\User;
 use App\Models\UserInvite;
@@ -247,6 +248,7 @@ class UsersController extends Controller
         $temp = Str::random(12);
         $user->update([
             'password' => Hash::make($temp),
+            // Every administrator-set password is temporary by definition.
             'must_change_password' => true,
             'failed_login_attempts' => 0,
             'locked_until' => null,
@@ -255,18 +257,39 @@ class UsersController extends Controller
         // Force re-auth with the new temporary password.
         $user->tokens()->delete();
 
+        // Send it to the person it belongs to. It is still returned below so
+        // an administrator is not blocked when mail is down — but the inbox
+        // is the intended route, not the relay.
+        $emailSent = false;
+        if (filled($user->email)) {
+            try {
+                Mail::to($user->email)->send(new TemporaryCredentialsMail(
+                    $user,
+                    $temp,
+                    (string) config('mcare.frontend_url'),
+                    approved: false,
+                ));
+                $emailSent = true;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
         $this->audit->record(
             $request->user(),
             'user.password_reset',
             $user->fullName(),
             'security',
-            ['target_user_id' => $user->id],
+            ['target_user_id' => $user->id, 'emailed' => $emailSent],
         );
 
         return $this->success([
             'temp_password' => $temp,
+            'email_sent' => $emailSent,
             'user' => $user->fresh()->toApiArray(),
-        ], 'Temporary password issued. Share it securely — user must change it on next sign-in.');
+        ], $emailSent
+            ? 'Temporary password emailed to '.$user->email.'. They must change it on next sign-in.'
+            : 'Temporary password issued, but the email failed. Share it securely — they must change it on next sign-in.');
     }
 
     public function unlock(Request $request, User $user)

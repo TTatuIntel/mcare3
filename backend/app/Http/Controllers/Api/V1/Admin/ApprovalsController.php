@@ -3,12 +3,17 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApplicationUpdateMail;
+use App\Mail\TemporaryCredentialsMail;
 use App\Models\AppNotification;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -200,6 +205,16 @@ class ApprovalsController extends Controller
             'rejection_reason' => $data['reason'],
         ]);
 
+        $emailSent = $this->dispatchMail(
+            $user,
+            new ApplicationUpdateMail(
+                $user,
+                ApplicationUpdateMail::KIND_REJECTED,
+                $data['reason'],
+                (string) config('mcare.frontend_url'),
+            ),
+        );
+
         AppNotification::create([
             'user_id' => $user->id,
             'kind' => 'approval',
@@ -214,10 +229,19 @@ class ApprovalsController extends Controller
             'approval.rejected',
             $user->fullName(),
             'activity',
-            ['target_user_id' => $user->id, 'reason' => $data['reason']],
+            [
+                'target_user_id' => $user->id,
+                'reason' => $data['reason'],
+                'emailed' => $emailSent,
+            ],
         );
 
-        return $this->success(['user' => $user->fresh()->toApiArray()], 'Rejected.');
+        return $this->success(
+            ['user' => $user->fresh()->toApiArray(), 'email_sent' => $emailSent],
+            $emailSent
+                ? 'Rejected. The applicant was emailed the reason.'
+                : 'Rejected, but the email could not be sent.',
+        );
     }
 
     public function requestInfo(Request $request, User $user)
@@ -225,6 +249,19 @@ class ApprovalsController extends Controller
         $data = $request->validate([
             'message' => 'required|string|min:4|max:280',
         ]);
+
+        // The applicant cannot sign in — that is the whole reason they are
+        // being asked for something. Email is the only channel that reaches
+        // them, so a failure to send is a failure of the request itself.
+        $emailSent = $this->dispatchMail(
+            $user,
+            new ApplicationUpdateMail(
+                $user,
+                ApplicationUpdateMail::KIND_INFO_REQUESTED,
+                $data['message'],
+                (string) config('mcare.frontend_url'),
+            ),
+        );
 
         AppNotification::create([
             'user_id' => $user->id,
@@ -240,10 +277,48 @@ class ApprovalsController extends Controller
             'approval.info_requested',
             $user->fullName(),
             'activity',
-            ['target_user_id' => $user->id, 'message' => $data['message']],
+            [
+                'target_user_id' => $user->id,
+                'message' => $data['message'],
+                'emailed' => $emailSent,
+            ],
         );
 
-        return $this->success(['user' => $user->fresh()->toApiArray()], 'Information requested.');
+        if (! $emailSent) {
+            return $this->error(
+                'The request could not be emailed to '.$user->email
+                    .'. The applicant cannot see in-app messages until they are approved.',
+                502,
+                ['user' => $user->fresh()->toApiArray(), 'email_sent' => false],
+            );
+        }
+
+        return $this->success(
+            ['user' => $user->fresh()->toApiArray(), 'email_sent' => true],
+            'Emailed to '.$user->email.'.',
+        );
+    }
+
+    /**
+     * Send, and say whether it left. Delivery is never assumed: the caller
+     * decides what a failure means, because for an approval it is an
+     * inconvenience and for an information request it is the whole action.
+     */
+    private function dispatchMail(User $user, $mailable): bool
+    {
+        if (blank($user->email)) {
+            return false;
+        }
+
+        try {
+            Mail::to($user->email)->send($mailable);
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     private function applicationPayload(User $u): array
