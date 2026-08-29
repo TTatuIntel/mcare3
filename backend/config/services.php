@@ -57,4 +57,17 @@ return [
         'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH'),
     ],
 
+    'sms' => [
+        // `twilio` hits the real Messages API; `log` writes the code to the
+        // application log for local development. An unconfigured twilio
+        // driver degrades to log rather than failing account recovery.
+        'driver' => env('SMS_DRIVER', 'log'),
+        'default_country_code' => env('SMS_DEFAULT_COUNTRY_CODE', ''),
+        'twilio' => [
+            'sid' => env('TWILIO_ACCOUNT_SID', ''),
+            'token' => env('TWILIO_AUTH_TOKEN', ''),
+            'from' => env('TWILIO_FROM_NUMBER', ''),
+        ],
+    ],
+
 ];

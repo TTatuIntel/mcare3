@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SmsSender;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -65,6 +68,17 @@ class User extends Authenticatable
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (User $user): void {
+            if ($user->isDirty('phone')) {
+                // Keep a searchable canonical form without changing the
+                // human-readable number the user entered.
+                $user->phone_e164 = app(SmsSender::class)->normalize($user->phone);
+            }
+        });
     }
 
     /**
@@ -249,6 +263,7 @@ class User extends Authenticatable
         if ($this->role !== 'mcare_assistant') {
             return false;
         }
+
         return $this->assistantPermissions()
             ->where('permission_key', $key)
             ->exists();
@@ -290,9 +305,9 @@ class User extends Authenticatable
         if (! $this->avatar_path) {
             return null;
         }
-        $url = \Illuminate\Support\Facades\Storage::disk('public')->url($this->avatar_path);
+        $url = Storage::disk('public')->url($this->avatar_path);
 
-        return \Illuminate\Support\Str::startsWith($url, ['http://', 'https://'])
+        return Str::startsWith($url, ['http://', 'https://'])
             ? $url
             : url($url);
     }

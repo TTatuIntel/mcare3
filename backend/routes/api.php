@@ -67,6 +67,9 @@ Route::prefix('auth')->group(function () {
         Route::post('login', [AuthController::class, 'login']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
+        // Exchanges an SMS reset OTP for a real reset token. Brute-forceable
+        // 6-digit surface, so it shares the login limiter (5/min/IP).
+        Route::post('verify-reset-otp', [AuthController::class, 'verifyResetOtp']);
         Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
         Route::post('accept-invite', [AuthController::class, 'acceptInvite']);
     });

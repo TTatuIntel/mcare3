@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/env/app_env.dart';
 import '../../core/mock/mock_otp_service.dart';
+import '../../core/push/push_notification_service.dart';
 import '../auth/auth_state.dart';
 import '../models/notification_item.dart';
 import '../models/user_role.dart';
 import '../navigation/profile_navigation.dart';
 import '../state/notification_state.dart';
+import '../state/settings_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_button.dart';
@@ -99,6 +101,9 @@ class _ChangePasswordFormState extends State<_ChangePasswordForm> {
           'new_password': _newPass.text,
           'new_password_confirmation': _confirm.text,
         },
+      );
+      await PushNotificationService.instance.setEnabled(
+        SettingsState.instance.notifications.pushEnabled,
       );
       if (!mounted) return;
       setState(() => _loading = false);

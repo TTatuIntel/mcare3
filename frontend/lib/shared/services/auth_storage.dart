@@ -117,6 +117,21 @@ class AuthStorage {
     _clearLegacy();
   }
 
+  /// Drops only the tab-scoped session, leaving a "keep me signed in" token
+  /// intact. Used on a fresh browser session: a user who did NOT tick remember
+  /// must land back on sign-in, but one who did must stay signed in — which is
+  /// the entire point of the checkbox.
+  static Future<void> clearUnremembered() async {
+    web_platform.sessionStorageRemove(_keySession);
+    if (await _secureRead(_keySession) == null) {
+      _clearLegacy();
+    }
+  }
+
+  /// True when a remembered token is on disk, regardless of tab session.
+  static Future<bool> hasRemembered() async =>
+      await _secureRead(_keySession) != null;
+
   static void _clearLegacy() {
     web_platform.localStorageRemove(_legacyToken);
     web_platform.localStorageRemove(_legacyUser);

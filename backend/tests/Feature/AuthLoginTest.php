@@ -34,7 +34,7 @@ class AuthLoginTest extends TestCase
             ->assertJsonStructure(['data' => ['token', 'user']]);
     }
 
-    public function test_wrong_password_returns_validation_error(): void
+    public function test_wrong_password_returns_unauthorized_without_detail(): void
     {
         User::factory()->create([
             'email' => 'user@example.com',
@@ -44,7 +44,8 @@ class AuthLoginTest extends TestCase
         $this->postJson('/api/v1/auth/login', [
             'identifier' => 'user@example.com',
             'password' => 'wrong',
-        ])->assertStatus(422);
+        ])->assertUnauthorized()
+            ->assertJsonPath('message', 'Invalid credentials.');
     }
 
     public function test_account_locks_after_five_failed_attempts(): void

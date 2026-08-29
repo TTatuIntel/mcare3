@@ -133,6 +133,15 @@
           async data-mcare-apple="true"></script>
 
   <script>
+  /* Browser-tab lifetime marker used by AuthStorage. sessionStorage survives
+     refreshes but is cleared when the tab is closed, exactly matching a
+     non-remembered login. Remembered credentials live in secure storage. */
+  (function () {
+    var key = 'mcare_browser_session_v1';
+    window.__mcareNewSession = sessionStorage.getItem(key) !== 'active';
+    sessionStorage.setItem(key, 'active');
+  }());
+
   /* ── Show / dismiss — driven by Dart, reusable across hot restarts ──────
      The splash is HIDDEN, never removed. A hot restart re-runs Dart main()
      without reloading the page, so a destroyed splash could never come back

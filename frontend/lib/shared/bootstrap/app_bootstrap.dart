@@ -34,10 +34,12 @@ class AppBootstrap {
       // Never block launch on startup failures.
     }
 
-    // Hard refresh / new browser session (tab close+reopen, Ctrl+F5):
-    // clear any persisted token so the user is returned to the landing page.
+    // Hard refresh / new browser session (tab close+reopen, Ctrl+F5) ends any
+    // session the user did NOT ask to keep. A "keep me signed in" token is
+    // deliberately preserved here — it is stored outside the tab session and
+    // is what restores the user below.
     if (HtmlSplashBridge.isNewBrowserSession()) {
-      await AuthStorage.clear();
+      await AuthStorage.clearUnremembered();
     }
 
     final googleResult = kIsWeb
@@ -64,9 +66,7 @@ class AppBootstrap {
   }
 
   static Future<void> _preloadFonts() async {
-    await GoogleFonts.pendingFonts([
-      GoogleFonts.outfit(),
-    ]);
+    await GoogleFonts.pendingFonts([GoogleFonts.outfit()]);
   }
 
   static Future<void> _warmCaches() async {
@@ -78,10 +78,7 @@ class AppBootstrap {
 }
 
 class BootstrapResult {
-  const BootstrapResult({
-    required this.initialRoute,
-    this.googleAuthResult,
-  });
+  const BootstrapResult({required this.initialRoute, this.googleAuthResult});
 
   final String initialRoute;
 

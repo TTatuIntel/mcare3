@@ -6,6 +6,7 @@ import '../core/async/app_busy.dart';
 import '../core/env/app_env.dart';
 import '../shared/auth/auth_state.dart';
 import '../shared/services/auth_service.dart';
+import '../shared/services/auth_storage.dart';
 import '../shared/constants/route_names.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_spacing.dart';
@@ -66,17 +67,21 @@ class _OtpViewState extends State<OtpView> {
           if (AppEnv.backendEnabled) {
             final user = AuthState.instance.user;
             final identifier = user?.email ?? user?.phone ?? '';
+            final storedSession = await AuthStorage.read();
             final data = await AuthApi.instance.verifyOtp(
               identifier: identifier.isNotEmpty
                   ? identifier
                   : 'demo@mcare.health',
               code: _code,
               purpose: widget.isEmail ? 'email_verify' : 'login',
+              remember: storedSession?.remember ?? false,
+              deviceName: AuthService.instance.deviceName,
             );
             if (data == null) return false;
             final result = await AuthService.instance.completeOtpPayload(data);
             if (!result.isSuccess) return false;
-            if (mounted) AuthService.instance.completeNavigation(context, result);
+            if (mounted)
+              AuthService.instance.completeNavigation(context, result);
             return true;
           } else {
             await Future.delayed(const Duration(milliseconds: 600));
@@ -90,10 +95,9 @@ class _OtpViewState extends State<OtpView> {
       if (verifiedByApi) {
         AppToast.success(context, 'Verified.');
         if (!AppEnv.backendEnabled) {
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            RouteNames.patientDashboard,
-            (_) => false,
-          );
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(RouteNames.patientDashboard, (_) => false);
         }
         return;
       }

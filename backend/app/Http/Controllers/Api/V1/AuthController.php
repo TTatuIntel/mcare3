@@ -5,15 +5,19 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Mail\EmailVerificationMail;
 use App\Mail\PasswordResetMail;
-use App\Models\EmailVerificationCode;
 use App\Models\CareProvider;
+use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Models\UserInvite;
 use App\Support\ApiResponse;
 use App\Support\AppleIdTokenVerifier;
 use App\Support\GoogleIdTokenVerifier;
 use App\Support\GoogleOAuth;
+use App\Support\SmsSender;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -59,7 +63,7 @@ class AuthController extends Controller
         );
     }
 
-    public function login(Request $request)
+    public function login(Request $request, SmsSender $sms)
     {
         $data = $request->validate([
             'identifier' => 'required|string',
@@ -70,6 +74,7 @@ class AuthController extends Controller
 
         $identifier = trim($data['identifier']);
         $email = strtolower($identifier);
+        $phone = $sms->normalize($identifier);
 
         // Accept common demo aliases from older docs / UI defaults.
         $email = match ($email) {
@@ -81,9 +86,10 @@ class AuthController extends Controller
         };
 
         $user = User::query()
-            ->where(function ($q) use ($email, $identifier) {
+            ->where(function ($q) use ($email, $identifier, $phone) {
                 $q->whereRaw('LOWER(email) = ?', [$email])
                     ->orWhere('phone', $identifier)
+                    ->when($phone !== null, fn ($query) => $query->orWhere('phone_e164', $phone))
                     ->orWhere('unique_id', $identifier);
             })
             ->first();
@@ -108,9 +114,7 @@ class AuthController extends Controller
                 }
             }
 
-            throw ValidationException::withMessages([
-                'identifier' => ['Invalid credentials.'],
-            ]);
+            return $this->error('Invalid credentials.', 401);
         }
 
         if ($user->approval_status === 'suspended') {
@@ -146,7 +150,7 @@ class AuthController extends Controller
         }
 
         $resolved = $this->resolveGoogleUser($payload, (bool) ($data['create_account'] ?? false));
-        if ($resolved instanceof \Illuminate\Http\JsonResponse) {
+        if ($resolved instanceof JsonResponse) {
             return $resolved;
         }
 
@@ -188,7 +192,7 @@ class AuthController extends Controller
             $data['first_name'] ?? null,
             $data['last_name'] ?? null,
         );
-        if ($resolved instanceof \Illuminate\Http\JsonResponse) {
+        if ($resolved instanceof JsonResponse) {
             return $resolved;
         }
 
@@ -229,7 +233,7 @@ class AuthController extends Controller
     public function googleCallback(Request $request, GoogleIdTokenVerifier $verifier)
     {
         $state = (string) $request->query('state', '');
-        $oauth = $state !== '' ? \Illuminate\Support\Facades\Cache::pull("google_oauth:{$state}") : null;
+        $oauth = $state !== '' ? Cache::pull("google_oauth:{$state}") : null;
         $returnTo = is_array($oauth) ? ($oauth['return_to'] ?? '/') : '/';
         $createAccount = is_array($oauth) ? (bool) ($oauth['create_account'] ?? false) : false;
         $remember = is_array($oauth) ? (bool) ($oauth['remember'] ?? false) : false;
@@ -263,7 +267,7 @@ class AuthController extends Controller
         }
 
         $user = $this->resolveGoogleUser($payload, $createAccount);
-        if ($user instanceof \Illuminate\Http\JsonResponse) {
+        if ($user instanceof JsonResponse) {
             $body = $user->getData(true);
             $message = is_array($body) ? ($body['message'] ?? 'Sign-in failed.') : 'Sign-in failed.';
 
@@ -285,7 +289,7 @@ class AuthController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function resolveGoogleUser(array $payload, bool $createAccount): User|\Illuminate\Http\JsonResponse
+    private function resolveGoogleUser(array $payload, bool $createAccount): User|JsonResponse
     {
         $googleId = (string) $payload['sub'];
         $email = strtolower((string) $payload['email']);
@@ -421,7 +425,7 @@ class AuthController extends Controller
         bool $createAccount,
         ?string $firstName,
         ?string $lastName,
-    ): User|\Illuminate\Http\JsonResponse {
+    ): User|JsonResponse {
         $appleId = (string) $payload['sub'];
         // Apple relay addresses count as verified; email may be absent on repeat
         // logins, so fall back to matching purely on the Apple subject id.
@@ -517,40 +521,120 @@ class AuthController extends Controller
         return $this->authPayload($user, 'Signed in with Apple (mock).');
     }
 
-    public function forgotPassword(Request $request)
+    /**
+     * Step 1 of account recovery. `channel` picks how the secret travels:
+     * `email` sends a single-use reset link/token, `sms` sends a 6-digit OTP
+     * to the submitted phone. Omitted, it is inferred from the identifier.
+     *
+     * The response never reveals whether the account exists, but it does echo
+     * the channel and a masked destination so the UI can say where to look.
+     */
+    public function forgotPassword(Request $request, SmsSender $sms)
     {
         $data = $request->validate([
             'identifier' => 'required|string',
+            'channel' => 'nullable|string|in:email,sms',
         ]);
 
         $identifier = trim($data['identifier']);
-        $user = User::query()
-            ->where('email', strtolower($identifier))
-            ->orWhere('phone', $identifier)
-            ->first();
+        $looksLikePhone = ! str_contains($identifier, '@')
+            && preg_match('/^[\d\s()+.-]{7,}$/', $identifier) === 1;
 
-        // Always return success to avoid account enumeration.
+        $channel = $data['channel'] ?? ($looksLikePhone ? 'sms' : 'email');
+
+        // Each recovery channel only accepts its own identifier type. This
+        // keeps the response indistinguishable for known and unknown accounts:
+        // an email can never make the API disclose a masked account phone.
+        $user = $channel === 'sms'
+            ? $this->uniqueUserForPhone($identifier, $sms)
+            : (filter_var($identifier, FILTER_VALIDATE_EMAIL)
+                ? User::query()->whereRaw('LOWER(email) = ?', [strtolower($identifier)])->first()
+                : null);
+
+        // Always report success to avoid account enumeration. The masked
+        // destination is derived from the *submitted* identifier when no
+        // account matched, so the shape of the reply is identical either way.
         if ($user) {
-            $token = Str::random(64);
-            DB::table('password_reset_tokens')->updateOrInsert(
-                ['email' => $user->email],
-                ['token' => Hash::make($token), 'created_at' => now()],
-            );
-
-            try {
-                Mail::to($user->email)->send(new PasswordResetMail(
-                    $user,
-                    $token,
-                    config('mcare.frontend_url'),
-                ));
-            } catch (\Throwable $e) {
-                report($e);
-            }
+            $channel === 'sms'
+                ? $this->sendResetOtp($user, $sms)
+                : $this->sendResetLink($user);
         }
 
-        return $this->success(null, 'If an account exists, reset instructions were sent.');
+        $destination = $channel === 'sms'
+            ? $sms->mask($identifier)
+            : $this->maskEmail($identifier);
+
+        $minutes = $channel === 'sms'
+            ? (int) config('mcare.auth.reset_otp_minutes', 10)
+            : (int) config('mcare.auth.reset_token_minutes', 60);
+
+        return $this->success([
+            'channel' => $channel,
+            'destination' => $destination,
+            'expires_in_minutes' => $minutes,
+        ], $channel === 'sms'
+            ? 'If an account exists, a verification code was sent by SMS.'
+            : 'If an account exists, reset instructions were sent by email.');
     }
 
+    /**
+     * Step 2 of the SMS branch: trade a valid OTP for a real reset token, so
+     * the final password write goes through the same single endpoint as the
+     * emailed link. The OTP is burned here; the token it mints is short-lived.
+     */
+    public function verifyResetOtp(Request $request, SmsSender $sms)
+    {
+        $data = $request->validate([
+            'identifier' => 'required|string',
+            'code' => 'required|string|size:6',
+        ]);
+
+        $identifier = trim($data['identifier']);
+        $user = $this->uniqueUserForPhone($identifier, $sms);
+
+        if (! $user) {
+            return $this->error('Invalid or expired verification code.', 422);
+        }
+
+        $record = EmailVerificationCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', 'password_reset')
+            ->orderByDesc('created_at')
+            ->first();
+
+        $matches = $record && $record->isValid() && Hash::check($data['code'], $record->code);
+
+        if (! $matches) {
+            if ($record && $record->isValid()) {
+                $record->increment('attempts');
+                if ((int) $record->fresh()->attempts >= 5) {
+                    $record->update(['used_at' => now()]);
+                }
+            }
+
+            return $this->error('Invalid or expired verification code.', 422);
+        }
+
+        $record->update(['used_at' => now()]);
+
+        $token = Str::random(64);
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            ['token' => Hash::make($token), 'created_at' => now()],
+        );
+
+        return $this->success([
+            'email' => $user->email,
+            'token' => $token,
+        ], 'Code verified. Choose a new password.');
+    }
+
+    /**
+     * Step 3. Accepts the emailed token or the one minted by verifyResetOtp;
+     * both are single-use and expire after `mcare.auth.reset_token_minutes`.
+     * A successful reset also revokes every existing session, so a stolen
+     * device cannot outlive the password it was signed in with.
+     */
     public function resetPassword(Request $request)
     {
         $data = $request->validate([
@@ -559,15 +643,22 @@ class AuthController extends Controller
             'password' => 'required|string|min:8',
         ]);
 
-        $row = DB::table('password_reset_tokens')
-            ->where('email', strtolower($data['email']))
-            ->first();
+        $email = strtolower(trim($data['email']));
+        $row = DB::table('password_reset_tokens')->where('email', $email)->first();
 
         if (! $row || ! Hash::check($data['token'], $row->token)) {
             return $this->error('Invalid or expired reset token.', 422);
         }
 
-        $user = User::where('email', strtolower($data['email']))->first();
+        $ttl = max(5, (int) config('mcare.auth.reset_token_minutes', 60));
+        $issuedAt = $row->created_at ? Carbon::parse($row->created_at) : null;
+        if ($issuedAt === null || $issuedAt->addMinutes($ttl)->isPast()) {
+            DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+            return $this->error('This reset link has expired. Request a new one.', 422);
+        }
+
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         if (! $user) {
             return $this->error('Account not found.', 404);
         }
@@ -578,7 +669,10 @@ class AuthController extends Controller
             'failed_login_attempts' => 0,
             'locked_until' => null,
         ]);
-        DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+
+        DB::table('password_reset_tokens')->where('email', $email)->delete();
+        $user->tokens()->delete();
+        $user->fcmTokens()->delete();
 
         return $this->success(null, 'Password updated. You can sign in now.');
     }
@@ -589,6 +683,8 @@ class AuthController extends Controller
             'identifier' => 'required|string',
             'code' => 'required|string|size:6',
             'purpose' => 'nullable|string|in:email_verify,login',
+            'remember' => 'sometimes|boolean',
+            'device_name' => 'sometimes|nullable|string|max:120',
         ]);
 
         $user = User::query()
@@ -618,6 +714,7 @@ class AuthController extends Controller
                     $record->update(['used_at' => now()]);
                 }
             }
+
             return $this->error('Invalid or expired verification code.', 422);
         }
 
@@ -754,10 +851,10 @@ class AuthController extends Controller
     public function updateProfile(Request $request)
     {
         $data = $request->validate([
-            'first_name'     => 'required|string|max:80',
-            'last_name'      => 'required|string|max:80',
-            'phone'          => 'required|string|max:30',
-            'specialty'      => 'nullable|string|max:120',
+            'first_name' => 'required|string|max:80',
+            'last_name' => 'required|string|max:80',
+            'phone' => 'required|string|max:30',
+            'specialty' => 'nullable|string|max:120',
             'license_number' => 'nullable|string|max:80',
         ]);
 
@@ -765,8 +862,8 @@ class AuthController extends Controller
 
         $updates = [
             'first_name' => $data['first_name'],
-            'last_name'  => $data['last_name'],
-            'phone'      => $data['phone'],
+            'last_name' => $data['last_name'],
+            'phone' => $data['phone'],
         ];
 
         // Specialty / licence are only meaningful for clinicians. Accept them
@@ -792,7 +889,7 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'current_password' => 'required|string',
-            'new_email'        => 'required|email|max:255',
+            'new_email' => 'required|email|max:255',
         ]);
 
         $user = $request->user();
@@ -882,6 +979,7 @@ class AuthController extends Controller
         // Invalidate other sessions / tokens — keep the current one.
         $current = $user->currentAccessToken();
         $user->tokens()->where('id', '!=', $current?->id)->delete();
+        $user->fcmTokens()->delete();
 
         return $this->success([
             'user' => $user->fresh()->toApiArray(),
@@ -948,6 +1046,93 @@ class AuthController extends Controller
             'token' => $created->plainTextToken,
             'expires_at' => $expiresAt->toIso8601String(),
         ];
+    }
+
+    /** Emails a single-use reset token plus a deep link into the reset screen. */
+    private function sendResetLink(User $user): void
+    {
+        $token = Str::random(64);
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            ['token' => Hash::make($token), 'created_at' => now()],
+        );
+
+        try {
+            Mail::to($user->email)->send(new PasswordResetMail(
+                $user,
+                $token,
+                config('mcare.frontend_url'),
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Texts a 6-digit reset OTP. Stored hashed and one-at-a-time: any earlier
+     * unused password_reset code is burned first so only the newest works.
+     */
+    private function sendResetOtp(User $user, SmsSender $sms): void
+    {
+        $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        EmailVerificationCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', 'password_reset')
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+
+        EmailVerificationCode::create([
+            'user_id' => $user->id,
+            'code' => Hash::make($plainCode),
+            'purpose' => 'password_reset',
+            'expires_at' => now()->addMinutes(max(2, (int) config('mcare.auth.reset_otp_minutes', 10))),
+            'attempts' => 0,
+        ]);
+
+        $minutes = max(2, (int) config('mcare.auth.reset_otp_minutes', 10));
+        $sms->send(
+            (string) $user->phone,
+            "Your mCare password reset code is {$plainCode}. It expires in {$minutes} minutes. If you did not request this, ignore this message.",
+        );
+    }
+
+    /** j••••e@example.com — enough to recognise the inbox, not to learn it. */
+    private function maskEmail(string $email): string
+    {
+        $email = trim($email);
+        $at = strpos($email, '@');
+        if ($at === false || $at === 0) {
+            return $email === '' ? '' : str_repeat('•', strlen($email));
+        }
+
+        $name = substr($email, 0, $at);
+        $domain = substr($email, $at);
+        if (strlen($name) <= 2) {
+            return str_repeat('•', strlen($name)).$domain;
+        }
+
+        return $name[0].str_repeat('•', strlen($name) - 2).$name[strlen($name) - 1].$domain;
+    }
+
+    /**
+     * Resolves a phone only when it belongs to exactly one account. Shared or
+     * duplicate household numbers intentionally cannot reset a password.
+     */
+    private function uniqueUserForPhone(string $identifier, SmsSender $sms): ?User
+    {
+        $normalized = $sms->normalize($identifier);
+        if ($normalized === null) {
+            return null;
+        }
+
+        $matches = User::query()
+            ->where('phone', $identifier)
+            ->orWhere('phone_e164', $normalized)
+            ->limit(2)
+            ->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     private function sendVerificationCode(User $user): void

@@ -43,6 +43,10 @@ class AuthService {
     };
   }
 
+  /// Human-readable token/session label sent to the backend. Exposed for the
+  /// OTP continuation so verification preserves the original device session.
+  String get deviceName => _deviceName;
+
   /// Email/password sign-in (mock or API).
   Future<AuthFlowResult> signInWithPassword({
     required String identifier,
@@ -204,9 +208,7 @@ class AuthService {
           remember: remember,
         );
       }
-      return AuthFlowResult.failed(
-        ApiErrorMessages.sanitize(error.toString()),
-      );
+      return AuthFlowResult.failed(ApiErrorMessages.sanitize(error.toString()));
     }
   }
 
@@ -247,7 +249,6 @@ class AuthService {
       final user = AppUser.fromJson(userMap);
       AuthState.instance.signIn(user);
       _applyAssistantPermissions(data);
-      unawaited(SettingsState.instance.pullRemote());
 
       final hasProfile = data['has_health_profile'] == true;
       if (user.role == UserRole.patient) {
@@ -260,11 +261,39 @@ class AuthService {
         await _seedStaffSession(user.role);
       }
 
+      await _syncNotificationDelivery(user);
+
       return _routeAfterAuth(user, hasProfile);
+    } on ApiException catch (e) {
+      // Only a rejected token invalidates the saved session. A 5xx or an
+      // offline backend must not silently sign out a remembered user — the
+      // token is still good and will restore on the next launch.
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await AuthStorage.clear();
+        ApiClient.instance.setToken(null);
+        return null;
+      }
+
+      // The API may be briefly offline. Keep a still-unexpired remembered
+      // session active from its signed-in cache and retain the token so live
+      // services can reconnect without forcing the user through login again.
+      try {
+        final cachedUser = AppUser.fromJson(saved.user);
+        AuthState.instance.signIn(cachedUser);
+        return _routeAfterAuth(cachedUser, saved.hasHealthProfile);
+      } catch (_) {
+        ApiClient.instance.setToken(null);
+        return null;
+      }
     } catch (_) {
-      await AuthStorage.clear();
-      ApiClient.instance.setToken(null);
-      return null;
+      try {
+        final cachedUser = AppUser.fromJson(saved.user);
+        AuthState.instance.signIn(cachedUser);
+        return _routeAfterAuth(cachedUser, saved.hasHealthProfile);
+      } catch (_) {
+        ApiClient.instance.setToken(null);
+        return null;
+      }
     }
   }
 
@@ -290,7 +319,6 @@ class AuthService {
     final user = AppUser.fromJson(result.user!);
     AuthState.instance.signIn(user);
     _applyAssistantPermissions(result.user);
-    unawaited(SettingsState.instance.pullRemote());
     final hasProfile = result.hasHealthProfile;
     if (user.role == UserRole.patient) {
       if (hasProfile) {
@@ -301,7 +329,6 @@ class AuthService {
     } else {
       await _seedStaffSession(user.role);
     }
-    await PushNotificationService.instance.registerAfterLogin();
     await _persistSession(
       token: token,
       user: result.user!,
@@ -309,6 +336,7 @@ class AuthService {
       remember: result.remember,
       expiresAt: result.expiresAt,
     );
+    await _syncNotificationDelivery(user);
     return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
   }
 
@@ -399,7 +427,7 @@ class AuthService {
       remember: data['remember'] == true,
       expiresAt: DateTime.tryParse(data['expires_at']?.toString() ?? ''),
     );
-    await PushNotificationService.instance.registerAfterLogin();
+    await _syncNotificationDelivery(user);
     return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
   }
 
@@ -652,7 +680,6 @@ class AuthService {
       final user = AppUser.fromJson(userMap);
       AuthState.instance.signIn(user);
       _applyAssistantPermissions(data);
-      unawaited(SettingsState.instance.pullRemote());
       final hasProfile = data['has_health_profile'] == true;
       final remember = data['remember'] == true || body['remember'] == true;
       final expiresAt = DateTime.tryParse(data['expires_at']?.toString() ?? '');
@@ -665,7 +692,6 @@ class AuthService {
       } else {
         await _seedStaffSession(user.role);
       }
-      await PushNotificationService.instance.registerAfterLogin();
       if (token != null) {
         await _persistSession(
           token: token,
@@ -675,12 +701,24 @@ class AuthService {
           expiresAt: expiresAt,
         );
       }
+      await _syncNotificationDelivery(user);
       return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
     } on ApiException catch (e) {
       return AuthFlowResult.failed(ApiErrorMessages.sanitize(e.message));
     } catch (e) {
       return AuthFlowResult.failed(ApiErrorMessages.sanitize(e.toString()));
     }
+  }
+
+  /// Applies the server preference before requesting OS notification access.
+  /// Unverified accounts never register a push token, and a disabled setting
+  /// unregisters any existing token instead of merely hiding notifications.
+  Future<void> _syncNotificationDelivery(AppUser user) async {
+    if (!user.emailVerified) return;
+    await SettingsState.instance.pullRemote();
+    await PushNotificationService.instance.setEnabled(
+      SettingsState.instance.notifications.pushEnabled,
+    );
   }
 }
 

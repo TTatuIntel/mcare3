@@ -195,6 +195,7 @@ class UsersController extends Controller
         $oldRole = $user->roleToClient();
         $user->update(['role' => $newServerRole]);
         $user->tokens()->delete();
+        $user->fcmTokens()->delete();
 
         $this->audit->record(
             $actor,
@@ -226,6 +227,7 @@ class UsersController extends Controller
         $user->update(['approval_status' => $data['status']]);
         if ($data['status'] !== 'active') {
             $user->tokens()->delete();
+            $user->fcmTokens()->delete();
         }
 
         $this->audit->record(
@@ -256,6 +258,7 @@ class UsersController extends Controller
 
         // Force re-auth with the new temporary password.
         $user->tokens()->delete();
+        $user->fcmTokens()->delete();
 
         // Send it to the person it belongs to. It is still returned below so
         // an administrator is not blocked when mail is down — but the inbox

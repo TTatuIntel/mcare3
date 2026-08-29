@@ -9,6 +9,7 @@ use App\Models\AppNotification;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -87,7 +88,7 @@ class ApprovalsController extends Controller
         );
     }
 
-    public function streamCredential(Request $request, User $user): StreamedResponse|\Illuminate\Http\JsonResponse
+    public function streamCredential(Request $request, User $user): StreamedResponse|JsonResponse
     {
         if (! $user->credential_document_path) {
             return $this->error('No credential document on file.', 404);
@@ -145,6 +146,7 @@ class ApprovalsController extends Controller
 
         // Anything issued before this decision is void.
         $user->tokens()->delete();
+        $user->fcmTokens()->delete();
 
         $emailSent = $this->dispatchMail(
             $user,

@@ -105,6 +105,7 @@ class PatientSessionService {
           user: userMap,
           hasHealthProfile: ProfileState.instance.health != null,
           remember: stored?.remember ?? false,
+          expiresAt: stored?.expiresAt,
         );
       }
     }

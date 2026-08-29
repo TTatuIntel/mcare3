@@ -19,6 +19,11 @@ return [
         'session_token_minutes' => (int) env('MCARE_SESSION_TOKEN_MINUTES', 480),
         'remember_token_minutes' => (int) env('MCARE_REMEMBER_TOKEN_MINUTES', 43200),
         'max_device_sessions' => (int) env('MCARE_MAX_DEVICE_SESSIONS', 10),
+
+        // Account recovery. The emailed link token and the SMS OTP are both
+        // single-use and expire on their own clock, independent of sessions.
+        'reset_token_minutes' => (int) env('MCARE_RESET_TOKEN_MINUTES', 60),
+        'reset_otp_minutes' => (int) env('MCARE_RESET_OTP_MINUTES', 10),
     ],
 
     /*

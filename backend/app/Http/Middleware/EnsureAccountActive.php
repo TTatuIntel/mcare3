@@ -19,6 +19,7 @@ class EnsureAccountActive
         if ($user && $user->approval_status !== 'active') {
             if (in_array($user->approval_status, ['suspended', 'rejected'], true)) {
                 $user->tokens()->delete();
+                $user->fcmTokens()->delete();
             }
 
             return response()->json([

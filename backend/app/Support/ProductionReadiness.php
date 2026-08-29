@@ -101,6 +101,15 @@ final class ProductionReadiness
         $add('email', $mailReady ? 'pass' : 'fail',
             $mailReady ? "mailer: {$mailer}" : 'configure a transactional mailer and from address');
 
+        $smsDriver = (string) config('services.sms.driver', 'log');
+        $smsReady = $smsDriver === 'twilio'
+            && filled(config('services.sms.twilio.sid'))
+            && filled(config('services.sms.twilio.token'))
+            && filled(config('services.sms.twilio.from'))
+            && filled(config('services.sms.default_country_code'));
+        $add('sms-recovery', $smsReady ? 'pass' : 'fail',
+            $smsReady ? 'Twilio and default country code configured' : 'configure Twilio and SMS_DEFAULT_COUNTRY_CODE');
+
         $disk = (string) config('filesystems.default');
         $s3 = config('filesystems.disks.s3', []);
         $objectStorageReady = $disk === 's3'

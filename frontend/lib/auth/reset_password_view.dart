@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../core/api/api_client.dart';
+import '../core/api/api_error_messages.dart';
 import '../core/api/auth_api.dart';
 import '../core/async/app_busy.dart';
 import '../core/env/app_env.dart';
@@ -111,6 +113,11 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
       );
       if (!mounted) return;
       setState(() => _done = true);
+    } on ApiException catch (e) {
+      // Surface the API's reason verbatim — "expired", "already used" and
+      // "invalid token" need different actions from the user.
+      if (mounted)
+        AppToast.error(context, ApiErrorMessages.sanitize(e.message));
     } catch (_) {
       if (mounted) {
         AppToast.error(
@@ -128,7 +135,8 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
     return AuthShell(
       title: 'Choose a new password',
       subtitle: _done
-          ? 'Your password was updated. You can sign in now.'
+          ? 'Your password was updated. For safety we signed you out on '
+                'every device — sign in again with your new password.'
           : 'Enter the reset code from your email and a new password.',
       child: _done ? _doneState(context) : _form(context),
     );

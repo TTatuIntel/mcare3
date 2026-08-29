@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/env/app_env.dart';
+import '../../core/push/push_notification_service.dart';
 import '../auth/auth_state.dart';
 import '../constants/route_names.dart';
 import '../models/app_user.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/auth_storage.dart';
+import '../state/settings_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_icons.dart';
@@ -54,6 +56,7 @@ class _ForceChangePasswordViewState extends State<ForceChangePasswordView> {
       // Changing a password is not a place to quietly change how long the
       // session lasts — keep whatever the user chose when they signed in.
       remember: stored.remember,
+      expiresAt: stored.expiresAt,
     );
   }
 
@@ -93,6 +96,9 @@ class _ForceChangePasswordViewState extends State<ForceChangePasswordView> {
             ? AppUser.fromJson(userMap)
             : current.copyWith(mustChangePassword: false);
         await _clearMustChangeFlag(updated);
+        await PushNotificationService.instance.setEnabled(
+          SettingsState.instance.notifications.pushEnabled,
+        );
       } else {
         await _clearMustChangeFlag(current.copyWith(mustChangePassword: false));
       }
