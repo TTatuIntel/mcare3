@@ -18,7 +18,6 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/section_label.dart';
-import '../../admin/reports/report_reason_prompt.dart';
 import '../../shared/widgets/loading/loading.dart';
 
 /// Where a patient sees, and decides on, every request to share their record.
@@ -245,7 +244,6 @@ class _ConsentDetailBody extends StatefulWidget {
 }
 
 class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
-  bool _busy = false;
   bool _opening = false;
 
   /// Opens the finished report.
@@ -279,55 +277,10 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
     }
   }
 
-  Future<void> _approve() async {
-    setState(() => _busy = true);
-    try {
-      await ReportConsentsApi.instance.approve(widget.request.id);
-      if (!mounted) return;
-      widget.onChanged?.call();
-      Navigator.of(context, rootNavigator: true).pop();
-      AppToast.success(context, 'Approved — thank you.');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      AppToast.error(context, 'Could not approve: $e');
-    }
-  }
-
-  Future<void> _decline() async {
-    final reason = await promptReason(
-      context,
-      title: 'Decline this request',
-      message: 'You can say why, or leave it blank. Nothing will be shared.',
-      label: 'Reason (optional)',
-      confirmLabel: 'Decline',
-    );
-    // A blank reason is fine here, but promptReason returns null on cancel.
-    if (reason == null || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      await ReportConsentsApi.instance.decline(
-        widget.request.id,
-        reason: reason,
-      );
-      if (!mounted) return;
-      widget.onChanged?.call();
-      Navigator.of(context, rootNavigator: true).pop();
-      AppToast.info(context, 'Declined — nothing was shared.');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      AppToast.error(context, 'Could not decline: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final r = widget.request;
-    final decidable = r.awaitingMe;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -456,35 +409,6 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
           Text(
             'Opens the copy that was issued. Use your browser or share sheet '
             'to print it or save it as a PDF.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.textMuted(context),
-              fontSize: 10,
-              height: 1.4,
-            ),
-          ),
-        ],
-        if (decidable) ...[
-          const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            label: 'Approve sharing',
-            icon: AppIcons.check,
-            expand: true,
-            loading: _busy,
-            onPressed: _approve,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            label: 'Decline',
-            icon: AppIcons.close,
-            variant: AppButtonVariant.danger,
-            expand: true,
-            onPressed: _busy ? null : _decline,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'You can also approve by entering the one-time code from your '
-            'email, or by reading it back to mCare staff on a call.',
             textAlign: TextAlign.center,
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppPalette.textMuted(context),

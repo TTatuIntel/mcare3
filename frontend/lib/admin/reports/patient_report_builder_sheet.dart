@@ -15,13 +15,17 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/loading/loading.dart';
 
-/// Build a patient report by ticking exactly the sections needed.
+/// Builds a patient report request.
 ///
-/// Confidentiality is the point of this screen: the admin includes the
-/// minimum, and the backend decides from that selection whether the patient
-/// must approve the disclosure (OTP or approval link) and whether a doctor
-/// must sign it. Nothing is assembled until both gates clear — so a mis-tick
-/// cannot leak a record, it just stalls until someone approves it.
+/// Patient consent is NOT part of this flow.
+/// The admin selects only the sections required for the report and chooses
+/// a doctor from the patient's care team to review and sign the report.
+///
+/// Every report is sent to a doctor for review/signature first. After the
+/// doctor signs, the report returns to the admin queue. The admin reviews
+/// the signed report and explicitly approves/shares it with the patient.
+/// Confidential sections are clearly identified, but they never trigger a
+/// patient-consent step.
 class PatientReportBuilderSheet {
   PatientReportBuilderSheet._();
 
@@ -35,13 +39,19 @@ class PatientReportBuilderSheet {
       title: 'Issue patient report',
       subtitle: patientName,
       maxWidth: 700,
-      child: _BuilderBody(patientId: patientId, patientName: patientName),
+      child: _BuilderBody(
+        patientId: patientId,
+        patientName: patientName,
+      ),
     );
   }
 }
 
 class _BuilderBody extends StatefulWidget {
-  const _BuilderBody({required this.patientId, required this.patientName});
+  const _BuilderBody({
+    required this.patientId,
+    required this.patientName,
+  });
 
   final String patientId;
   final String patientName;
@@ -56,7 +66,11 @@ class _BuilderBodyState extends State<_BuilderBody> {
   final _recipient = TextEditingController();
 
   List<ReportSectionOption> _catalog = const [];
-  final Set<String> _selected = {};
+  List<Map<String, dynamic>> _signers = const [];
+
+  final Set<String> _selected = <String>{};
+
+  String? _doctorUserId;
   bool _loading = true;
   bool _submitting = false;
   String? _error;
@@ -65,7 +79,12 @@ class _BuilderBodyState extends State<_BuilderBody> {
   void initState() {
     super.initState();
     _title.text = 'Medical report — ${widget.patientName}';
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _load();
+      }
+    });
   }
 
   @override
@@ -78,58 +97,116 @@ class _BuilderBodyState extends State<_BuilderBody> {
 
   Future<void> _load() async {
     if (!AppEnv.backendEnabled) {
+      if (!mounted) return;
+
       setState(() {
         _loading = false;
-        _error = 'Reports need the backend connection.';
+        _error = 'Reports require the backend connection.';
       });
       return;
     }
+
     try {
       final rows = await AdminApi.instance.reportSections();
+      final signerRows =
+          await AdminApi.instance.reportSigners(widget.patientId);
+
       if (!mounted) return;
+
+      final catalog = rows
+          .map(ReportSectionOption.fromJson)
+          .where((section) => section.key.trim().isNotEmpty)
+          .toList();
+
+      final validSigners = signerRows
+          .where((signer) => signer['user_id'] != null)
+          .map((signer) => Map<String, dynamic>.from(signer))
+          .toList();
+
       setState(() {
-        _catalog = rows.map(ReportSectionOption.fromJson).toList();
+        _catalog = catalog;
+        _signers = validSigners;
+
+        // Automatically choose the doctor only when there is exactly one
+        // valid signer. Otherwise the admin must choose explicitly.
+        _doctorUserId = validSigners.length == 1
+            ? validSigners.first['user_id'].toString()
+            : null;
+
         _loading = false;
-        // Start from the least-disclosing default rather than everything.
+        _error = null;
+
+        // Least-disclosing default: start with one section, not all sections.
         if (_selected.isEmpty && _catalog.isNotEmpty) {
           _selected.add(_catalog.first.key);
         }
       });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _loading = false;
-        _error = '$e';
+        _error = e.toString();
       });
     }
   }
 
-  bool get _needsConsent => _catalog
-      .where((s) => _selected.contains(s.key))
-      .any((s) => s.requiresConsent);
+  bool get _hasConfidential {
+    return _catalog
+        .where((section) => _selected.contains(section.key))
+        .any((section) => section.confidential);
+  }
 
-  bool get _needsSignature =>
-      _catalog.where((s) => _selected.contains(s.key)).any((s) => s.clinical);
+  Map<String, dynamic>? get _chosenDoctor {
+    final selectedId = _doctorUserId;
+    if (selectedId == null) return null;
+
+    for (final signer in _signers) {
+      if (signer['user_id']?.toString() == selectedId) {
+        return signer;
+      }
+    }
+
+    return null;
+  }
 
   Map<String, List<ReportSectionOption>> get _grouped {
-    final out = <String, List<ReportSectionOption>>{};
-    for (final s in _catalog) {
-      out.putIfAbsent(s.group, () => []).add(s);
+    final grouped = <String, List<ReportSectionOption>>{};
+
+    for (final section in _catalog) {
+      final group = section.group.trim().isEmpty ? 'Other' : section.group;
+      grouped.putIfAbsent(group, () => <ReportSectionOption>[]).add(section);
     }
-    return out;
+
+    return grouped;
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
+
     if (_selected.isEmpty) {
-      AppToast.error(context, 'Tick at least one section to include.');
-      return;
-    }
-    if (_purpose.text.trim().length < 4) {
-      AppToast.error(context, 'Say why the report is needed.');
+      AppToast.error(context, 'Select at least one section to include.');
       return;
     }
 
+    if (_purpose.text.trim().length < 4) {
+      AppToast.error(context, 'Enter the purpose of the report.');
+      return;
+    }
+
+    if (_doctorUserId == null) {
+      AppToast.error(context, 'Choose the doctor who will sign this report.');
+      return;
+    }
+
+    final selectedDoctor = _chosenDoctor;
+    final selectedDoctorName =
+        selectedDoctor?['name']?.toString().trim().isNotEmpty == true
+            ? selectedDoctor!['name'].toString().trim()
+            : 'the selected doctor';
+
     setState(() => _submitting = true);
+
     try {
       final data = await AdminApi.instance.createReportRequest(
         patientUserId: widget.patientId,
@@ -138,27 +215,46 @@ class _BuilderBodyState extends State<_BuilderBody> {
             ? 'Medical report — ${widget.patientName}'
             : _title.text.trim(),
         purpose: _purpose.text.trim(),
+        doctorUserId: _doctorUserId!,
         recipient: _recipient.text.trim(),
       );
+
       if (!mounted) return;
 
-      final item = data == null
-          ? null
-          : PatientReportRequestItem.fromJson(data);
-      Navigator.of(context, rootNavigator: true).pop(item);
-
-      if (item != null && item.consentRequired) {
-        AppToast.success(
+      if (data == null) {
+        setState(() => _submitting = false);
+        AppToast.error(
           context,
-          'Approval request sent to ${widget.patientName}.',
+          'The report request was not created. Please try again.',
         );
-      } else {
-        AppToast.success(context, 'Report request created.');
+        return;
       }
+
+      final item = PatientReportRequestItem.fromJson(data);
+
+      // Capture a context owned by the root navigator before closing the sheet.
+      final rootContext = Navigator.of(
+        context,
+        rootNavigator: true,
+      ).context;
+
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).pop(item);
+
+      AppToast.success(
+        rootContext,
+        'Sent to Dr. $selectedDoctorName for review and signature.',
+      );
     } catch (e) {
       if (!mounted) return;
+
       setState(() => _submitting = false);
-      AppToast.error(context, 'Could not create report: $e');
+      AppToast.error(
+        context,
+        'Could not create report: $e',
+      );
     }
   }
 
@@ -167,14 +263,17 @@ class _BuilderBodyState extends State<_BuilderBody> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-        child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
+        child: Center(
+          child: McareLoadingMark(size: McareMarkSize.small),
+        ),
       );
     }
+
     if (_catalog.isEmpty) {
       return EmptyStateView(
         icon: AppIcons.alert,
         title: 'Report sections unavailable',
-        message: _error ?? 'Could not load the section catalogue.',
+        message: _error ?? 'Could not load the report section catalogue.',
         compact: true,
       );
     }
@@ -206,6 +305,7 @@ class _BuilderBodyState extends State<_BuilderBody> {
           prefixIcon: AppIcons.send,
         ),
         const SizedBox(height: AppSpacing.lg),
+
         Row(
           children: [
             Expanded(
@@ -225,18 +325,23 @@ class _BuilderBodyState extends State<_BuilderBody> {
             ),
           ],
         ),
+
         const SizedBox(height: AppSpacing.xs),
+
         Text(
-          'Sections marked “Needs consent” are confidential. Including any of '
-          'them asks ${widget.patientName} to approve the disclosure with a '
-          'one-time code or approval link before the report is assembled.',
+          'Confidential sections contain sensitive clinical or identifying '
+          'information. Select only the information required for this report. '
+          'The selected doctor will review exactly what is included before '
+          'signing.',
           style: theme.textTheme.labelSmall?.copyWith(
             color: AppPalette.textMuted(context),
             fontSize: 10.5,
             height: 1.45,
           ),
         ),
+
         const SizedBox(height: AppSpacing.md),
+
         for (final entry in _grouped.entries) ...[
           Padding(
             padding: const EdgeInsets.only(
@@ -265,38 +370,58 @@ class _BuilderBodyState extends State<_BuilderBody> {
                   _SectionTile(
                     option: option,
                     selected: _selected.contains(option.key),
-                    onChanged: (v) => setState(() {
-                      if (v) {
-                        _selected.add(option.key);
-                      } else {
-                        _selected.remove(option.key);
-                      }
-                    }),
+                    onChanged: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selected.add(option.key);
+                        } else {
+                          _selected.remove(option.key);
+                        }
+                      });
+                    },
                   ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
         ],
+
         const SizedBox(height: AppSpacing.sm),
+
+        _SignerPicker(
+          signers: _signers,
+          selected: _doctorUserId,
+          onSelect: (id) {
+            setState(() => _doctorUserId = id);
+          },
+        ),
+
+        const SizedBox(height: AppSpacing.sm),
+
         _GateSummary(
-          needsConsent: _needsConsent,
-          needsSignature: _needsSignature,
+          hasConfidential: _hasConfidential,
+          doctorName: _chosenDoctor?['name']?.toString(),
           patientName: widget.patientName,
           empty: _selected.isEmpty,
         ),
+
         const SizedBox(height: AppSpacing.md),
+
         Row(
           children: [
             Expanded(
               child: AppButton(
                 label: 'Select all',
                 variant: AppButtonVariant.ghost,
-                onPressed: () => setState(
-                  () => _selected
-                    ..clear()
-                    ..addAll(_catalog.map((s) => s.key)),
-                ),
+                onPressed: _submitting
+                    ? null
+                    : () {
+                        setState(() {
+                          _selected
+                            ..clear()
+                            ..addAll(_catalog.map((section) => section.key));
+                        });
+                      },
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -304,20 +429,27 @@ class _BuilderBodyState extends State<_BuilderBody> {
               child: AppButton(
                 label: 'Clear',
                 variant: AppButtonVariant.ghost,
-                onPressed: () => setState(_selected.clear),
+                onPressed: _submitting
+                    ? null
+                    : () {
+                        setState(_selected.clear);
+                      },
               ),
             ),
           ],
         ),
+
         const SizedBox(height: AppSpacing.sm),
+
         AppButton(
-          label: _needsConsent
-              ? 'Request patient approval'
-              : 'Create report request',
-          icon: _needsConsent ? AppIcons.lock : AppIcons.report,
+          label: 'Send to doctor for signature',
+          icon: AppIcons.approval,
           expand: true,
           loading: _submitting,
-          onPressed: _selected.isEmpty ? null : _submit,
+          onPressed:
+              _selected.isEmpty || _doctorUserId == null || _submitting
+                  ? null
+                  : _submit,
         ),
       ],
     );
@@ -349,18 +481,22 @@ class _SectionTile extends StatelessWidget {
           children: [
             Checkbox(
               value: selected,
-              onChanged: (v) => onChanged(v ?? false),
+              onChanged: (value) => onChanged(value ?? false),
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(top: 7, bottom: 7),
+                padding: const EdgeInsets.only(
+                  top: 7,
+                  bottom: 7,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Flexible(
                           child: Text(
@@ -371,16 +507,19 @@ class _SectionTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: AppSpacing.xs),
-                        if (option.requiresConsent)
+
+                        // Patient consent is intentionally not shown or required.
+                        if (option.confidential)
                           const DossierPill(
-                            label: 'Needs consent',
+                            label: 'Confidential',
                             color: AppColors.warning,
                             icon: AppIcons.lock,
                           )
                         else
                           const DossierPill(
-                            label: 'Open',
+                            label: 'Standard',
                             color: AppColors.success,
+                            icon: AppIcons.check,
                           ),
                       ],
                     ),
@@ -404,19 +543,181 @@ class _SectionTile extends StatelessWidget {
   }
 }
 
-/// Spells out, before submission, exactly which approvals the current
-/// selection will trigger — so the admin is never surprised by a stalled
-/// request.
+class _SignerPicker extends StatelessWidget {
+  const _SignerPicker({
+    required this.signers,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<Map<String, dynamic>> signers;
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (signers.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(
+            color: AppColors.warning.withValues(alpha: 0.24),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.medical_services_outlined,
+              size: 18,
+              color: AppColors.warning,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No doctor available',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Assign a doctor to this patient before creating the report.',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final validSelected = signers.any(
+      (signer) => signer['user_id']?.toString() == selected,
+    )
+        ? selected
+        : null;
+
+    return GlassCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.medical_services_outlined,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Doctor who will review and sign',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'A doctor signature is required for every report.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10.5,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          DropdownButtonFormField<String>(
+            value: validSelected,
+            isExpanded: true,
+            decoration: InputDecoration(
+              hintText: 'Select doctor',
+              filled: true,
+              fillColor: AppPalette.surfaceMuted(context),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                borderSide: BorderSide(
+                  color: AppPalette.border(context),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                borderSide: BorderSide(
+                  color: AppPalette.border(context),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                borderSide: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 1.4,
+                ),
+              ),
+            ),
+            items: signers.map((signer) {
+              final id = signer['user_id'].toString();
+              final name = signer['name']?.toString().trim();
+              final specialty = signer['specialty']?.toString().trim();
+
+              final displayName =
+                  name == null || name.isEmpty ? 'Doctor #$id' : name;
+
+              final displayText =
+                  specialty == null || specialty.isEmpty
+                      ? displayName
+                      : '$displayName — $specialty';
+
+              return DropdownMenuItem<String>(
+                value: id,
+                child: Text(
+                  displayText,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: onSelect,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shows the exact route the report will take.
+///
+/// There is deliberately no patient-consent stage:
+/// 1. Admin selects the required content.
+/// 2. Doctor reviews and signs.
+/// 3. Admin issues the report.
 class _GateSummary extends StatelessWidget {
   const _GateSummary({
-    required this.needsConsent,
-    required this.needsSignature,
+    required this.hasConfidential,
+    required this.doctorName,
     required this.patientName,
     required this.empty,
   });
 
-  final bool needsConsent;
-  final bool needsSignature;
+  final bool hasConfidential;
+  final String? doctorName;
   final String patientName;
   final bool empty;
 
@@ -430,10 +731,12 @@ class _GateSummary extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppPalette.surfaceMuted(context),
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppPalette.border(context)),
+          border: Border.all(
+            color: AppPalette.border(context),
+          ),
         ),
         child: Text(
-          'Nothing selected — tick the sections this report should contain.',
+          'Nothing selected — choose the sections this report should contain.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppPalette.textMuted(context),
           ),
@@ -441,17 +744,17 @@ class _GateSummary extends StatelessWidget {
       );
     }
 
-    final color = needsConsent ? AppColors.warning : AppColors.success;
+    final color =
+        hasConfidential ? AppColors.warning : AppColors.success;
+
+    final signer = doctorName?.trim().isNotEmpty == true
+        ? 'Dr. ${doctorName!.trim()}'
+        : 'The selected doctor';
+
     final steps = <String>[
-      if (needsConsent)
-        '$patientName approves the disclosure (one-time code or approval link)'
-      else
-        'No patient consent needed — only open sections were selected',
-      if (needsSignature)
-        'A doctor reviews and signs the report'
-      else
-        'No doctor signature needed — no clinical sections were selected',
-      'You issue the report; the patient is notified it went out',
+      '$signer reviews the selected report sections',
+      '$signer signs the report',
+      'The admin approves and shares the signed report with $patientName',
     ];
 
     return Container(
@@ -459,7 +762,9 @@ class _GateSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: color.withValues(alpha: 0.24)),
+        border: Border.all(
+          color: color.withValues(alpha: 0.24),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,19 +772,36 @@ class _GateSummary extends StatelessWidget {
           Row(
             children: [
               Icon(
-                needsConsent ? AppIcons.lock : AppIcons.check,
+                hasConfidential ? AppIcons.lock : AppIcons.check,
                 size: 15,
                 color: color,
               ),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                needsConsent ? 'Approval required' : 'Ready to issue',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
+              Expanded(
+                child: Text(
+                  hasConfidential
+                      ? 'Confidential content selected'
+                      : 'Ready for doctor review',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            hasConfidential
+                ? 'No patient-consent step is required. The selected doctor '
+                    'reviews and signs first; the admin then approves sharing.'
+                : 'No patient-consent step is required. The report goes '
+                    'directly to the selected doctor, then back to admin approval.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10.5,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           for (var i = 0; i < steps.length; i++)

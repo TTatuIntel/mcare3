@@ -7,7 +7,6 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_icons.dart';
-import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/dossier/dossier_blocks.dart';
 import '../../shared/widgets/glass_sheet.dart';
@@ -57,14 +56,7 @@ class _StatusBody extends StatefulWidget {
 
 class _StatusBodyState extends State<_StatusBody> {
   late PatientReportRequestItem _request = widget.initial;
-  final _code = TextEditingController();
   bool _busy = false;
-
-  @override
-  void dispose() {
-    _code.dispose();
-    super.dispose();
-  }
 
   void _apply(Map<String, dynamic>? data) {
     if (data == null) return;
@@ -82,29 +74,6 @@ class _StatusBodyState extends State<_StatusBody> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
-  Future<void> _verify() => _run(() async {
-    final code = _code.text.trim();
-    if (code.length < 4) {
-      AppToast.error(context, 'Enter the code the patient read back.');
-      return;
-    }
-    _apply(
-      await AdminApi.instance.verifyReportConsent(_request.id, code: code),
-    );
-    if (!mounted) return;
-    _code.clear();
-    AppToast.success(context, 'Patient consent recorded.');
-  });
-
-  Future<void> _resend() => _run(() async {
-    _apply(await AdminApi.instance.resendReportConsent(_request.id));
-    if (!mounted) return;
-    AppToast.success(
-      context,
-      'A new code and approval link were sent to the patient.',
-    );
-  });
 
   /// Approve the disclosure. Issuing is what puts the copy in the patient's
   /// documents, so the confirmation says so rather than leaving the admin to
@@ -370,43 +339,6 @@ class _StatusBodyState extends State<_StatusBody> {
             ],
           ],
         ),
-        if (r.awaitingConsent && !r.isClosed) ...[
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'If the patient reads their code back over the phone, enter it '
-            'here. Otherwise they can approve from the app or the emailed '
-            'link.',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppPalette.textMuted(context),
-              fontSize: 10.5,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            label: 'Approval code from patient',
-            controller: _code,
-            prefixIcon: AppIcons.lock,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            label: 'Confirm consent',
-            icon: AppIcons.check,
-            expand: true,
-            loading: _busy,
-            onPressed: _verify,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            label: 'Resend code & link',
-            icon: AppIcons.send,
-            variant: AppButtonVariant.secondary,
-            expand: true,
-            onPressed: _busy ? null : _resend,
-          ),
-        ],
         if (r.awaitingSignature) ...[
           const SizedBox(height: AppSpacing.sm),
           _WaitingNotice(

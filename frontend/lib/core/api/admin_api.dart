@@ -329,7 +329,7 @@ class AdminApi {
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
-  // ---------------- Patient reports (consent-gated) ----------------
+  // ---------------- Patient reports (doctor-signed, admin-approved) ----------------
 
   /// Tick-list catalogue. Sensitivity is server-decided — never hardcode it.
   Future<List<JsonMap>> reportSections() async {
@@ -361,15 +361,28 @@ class AdminApi {
     return _list(res, 'report_requests');
   }
 
-  /// Create a report request. The backend decides from [sections] whether the
-  /// patient must consent and whether a doctor must sign.
+  /// Doctors on this patient's care team, any of whom can be nominated to
+  /// sign. The answer to "who approves this?" when a patient has more than one.
+  Future<List<JsonMap>> reportSigners(String patientUserId) async {
+    if (!AppEnv.backendEnabled) return [];
+    final res = await ApiClient.instance.get(
+      '/admin/patients/$patientUserId/report-signers',
+    );
+    return _list(res, 'signers');
+  }
+
+  /// Create a report request and send it to [doctorUserId] to sign.
+  ///
+  /// The doctor is required. Their signature is the only authorisation for
+  /// issuing, so there is no such thing as a report with nobody to approve it,
+  /// and the server refuses a doctor who is not on the patient's care team.
   Future<JsonMap?> createReportRequest({
     required String patientUserId,
     required List<String> sections,
     required String title,
     required String purpose,
+    required String doctorUserId,
     String? recipient,
-    String? doctorUserId,
   }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
@@ -378,8 +391,8 @@ class AdminApi {
         'sections': sections,
         'title': title,
         'purpose': purpose,
+        'doctor_user_id': doctorUserId,
         if (recipient != null && recipient.isNotEmpty) 'recipient': recipient,
-        if (doctorUserId != null) 'doctor_user_id': doctorUserId,
       },
     );
     return _obj(res, 'report_request');
@@ -391,28 +404,36 @@ class AdminApi {
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
-  Future<JsonMap?> resendReportConsent(String id) async {
+  /// Park a signed report the admin has read but is not ready to issue, so a
+  /// second admin can see it is in hand rather than untouched.
+  Future<JsonMap?> markReportUnderReview(String id, {String? note}) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
-      '/admin/report-requests/$id/resend-consent',
+      '/admin/report-requests/$id/under-review',
+      body: {if (note != null && note.isNotEmpty) 'note': note},
     );
     return _obj(res, 'report_request');
   }
 
-  /// Staff-assisted consent — the patient reads their code back by phone.
-  Future<JsonMap?> verifyReportConsent(
-    String id, {
-    required String code,
-  }) async {
-    if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.post(
-      '/admin/report-requests/$id/verify-consent',
-      body: {'code': code},
+  /// Reject and remove a report request only BEFORE it is issued.
+  ///
+  /// An admin must never delete a report that has already been shared with the
+  /// patient. The backend must enforce the same rule. Issued documents remain
+  /// patient-owned; only the patient may delete their own copy.
+  Future<void> rejectReport(String id, {required String reason}) async {
+    if (!AppEnv.backendEnabled) return;
+    await ApiClient.instance.delete(
+      '/admin/report-requests/$id',
+      body: {'reason': reason},
     );
-    return _obj(res, 'report_request');
   }
 
-  Future<JsonMap?> issueReport(String id) async {
+  /// Final admin approval step.
+  ///
+  /// Call this only after the doctor has signed the report. The server should
+  /// atomically mark the report as issued/shared and make it visible in the
+  /// patient's documents. Patient consent is not part of this workflow.
+  Future<JsonMap?> approveAndShareReport(String id) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
       '/admin/report-requests/$id/issue',
@@ -420,11 +441,28 @@ class AdminApi {
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
 
+  /// Backwards-compatible name used by existing admin screens.
+  ///
+  /// This is intentionally an alias rather than a second endpoint so older
+  /// callers continue to work while new UI can say "Approve & share".
+  Future<JsonMap?> issueReport(String id) => approveAndShareReport(id);
+
+  /// Signed reports waiting for an admin's final approval.
+  Future<List<JsonMap>> listSignedReportsAwaitingApproval({
+    String? patientId,
+  }) {
+    return listReportRequests(
+      patientId: patientId,
+      status: 'signed',
+      awaitingMe: true,
+    );
+  }
+
   /// Send a signed report back to the doctor for a correction.
   ///
-  /// Keeps the patient's consent, which revoking would throw away — consent is
-  /// to a set of sections, and those do not change on a return trip. The
-  /// signature does not survive: it was given against content about to change.
+  /// There is no patient-consent gate in this workflow. Returning a report
+  /// invalidates the existing doctor signature because the content may change;
+  /// the doctor must review and sign the corrected report again.
   Future<JsonMap?> sendReportBack(String id, {required String note}) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
@@ -448,6 +486,11 @@ class AdminApi {
     return ApiClient.instance.getBytes('/admin/report-requests/$id/document');
   }
 
+  /// Record a non-destructive administrative revocation/withdrawal state.
+  ///
+  /// IMPORTANT: this must not physically delete a document already shared to
+  /// the patient. It is retained for audit/compatibility; patient-owned deletion
+  /// is handled only by the patient API.
   Future<JsonMap?> revokeReportRequest(
     String id, {
     required String reason,

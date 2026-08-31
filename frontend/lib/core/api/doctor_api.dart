@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import '../env/app_env.dart';
 import 'api_client.dart';
 
 /// Thin wrapper around the `/doctor/*` endpoints. Each method returns the
@@ -286,7 +289,9 @@ class DoctorApi {
     await ApiClient.instance.delete('/doctor/vital-catalog/$id');
   }
 
-  // Patient reports awaiting this doctor's signature.
+  // Patient reports awaiting this doctor's review/signature.
+  // Patient consent is not part of the report-request flow. The doctor
+  // reviews the generated content and either signs or declines it.
   Future<List<Map<String, dynamic>>> listReportRequests() async {
     final res = await ApiClient.instance.get('/doctor/report-requests');
     final list = res['data']?['report_requests'] as List? ?? const [];
@@ -295,6 +300,21 @@ class DoctorApi {
 
   /// Full preview of what will be disclosed — a signature is given against
   /// real content, not a list of section names.
+  /// The report as a page the doctor can open at full width and print.
+  ///
+  /// `previewReportRequest` renders it inside a sheet, which is fine for a
+  /// glance and poor for what a signature actually requires — reading a long
+  /// document properly. Fetched through the authenticated client rather than
+  /// opened as a link: the route is bearer-authenticated, so a bare URL would
+  /// arrive without the token and 401.
+  Future<Uint8List> reportRequestDocumentBytes(String id) {
+    if (!AppEnv.backendEnabled) {
+      throw UnsupportedError('API disabled.');
+    }
+
+    return ApiClient.instance.getBytes('/doctor/report-requests/$id/document');
+  }
+
   Future<Map<String, dynamic>?> previewReportRequest(String id) async {
     final res = await ApiClient.instance.get('/doctor/report-requests/$id');
     return (res['data'] as Map?)?.cast<String, dynamic>();
