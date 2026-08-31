@@ -2,6 +2,7 @@ import '../../shared/models/meal_plan.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/models/vital.dart';
 import '../../shared/models/appointment.dart';
+import '../../shared/models/document.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/vitals/vital_alert_parse.dart';
 import 'patient_domain_mapper.dart';
@@ -301,6 +302,13 @@ class StaffMapper {
     ),
     description: j['description'] as String?,
     hasFile: j['has_file'] as bool? ?? true,
+    source: switch (j['source'] as String?) {
+      'clinician' => DocumentSource.clinician,
+      'report' => DocumentSource.report,
+      _ => DocumentSource.patient,
+    },
+    removalRequested: j['removal_requested'] == true,
+    removalReason: j['removal_reason'] as String?,
   );
 
   static StaffPatientSos sosFromApi(

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Admin\AuditController as AdminAuditController;
 use App\Http\Controllers\Api\V1\Admin\CareRequestsController as AdminCareRequestsController;
 use App\Http\Controllers\Api\V1\Admin\ConversationsController as AdminConversationsController;
 use App\Http\Controllers\Api\V1\Admin\NotificationsController as AdminNotificationsController;
+use App\Http\Controllers\Api\V1\Admin\PatientDocumentsController as AdminPatientDocumentsController;
 use App\Http\Controllers\Api\V1\Admin\PatientReportsController as AdminPatientReportsController;
 use App\Http\Controllers\Api\V1\Admin\PatientsController as AdminPatientsController;
 use App\Http\Controllers\Api\V1\Admin\PermissionsController as AdminPermissionsController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\Api\V1\PatientReportConsentsController;
 use App\Http\Controllers\Api\V1\PatientSessionController;
 use App\Http\Controllers\Api\V1\PatientTrackedVitalsController;
 use App\Http\Controllers\Api\V1\PublicConfigController;
+use App\Http\Controllers\Api\V1\RealtimePulseController;
 use App\Http\Controllers\Api\V1\SosAssignmentCandidatesController;
 use App\Http\Controllers\Api\V1\SosController;
 use App\Http\Controllers\Api\V1\SosHandoverController;
@@ -138,11 +140,24 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::get('me/settings', [UserSettingsController::class, 'show']);
     Route::patch('me/settings', [UserSettingsController::class, 'update']);
 
+    // Durable personal inbox — shared by patients, doctors and operations
+    // staff. Ownership is enforced inside NotificationsController.
+    Route::get('me/notifications', [NotificationsController::class, 'index']);
+    Route::patch('me/notifications/{notification}/read', [NotificationsController::class, 'markRead']);
+    Route::patch('me/notifications/{notification}/resolve', [NotificationsController::class, 'resolve']);
+    Route::post('me/notifications/read-all', [NotificationsController::class, 'markAllRead']);
+
     // Read/resolve state for client-computed staff notifications.
     Route::get('me/notification-states', [StaffNotificationStateController::class, 'index']);
     Route::post('me/notification-states', [StaffNotificationStateController::class, 'upsert']);
     Route::post('me/notification-states/read-all', [StaffNotificationStateController::class, 'readAll']);
 });
+
+// README §7.1 — the change cursor every signed-in client polls when it has no
+// live socket. Its own limiter: this is answered every few seconds and must
+// not eat the general API budget it exists to save.
+Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:realtime-pulse'])
+    ->get('me/pulse', RealtimePulseController::class);
 
 Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:api-general', 'role:patient'])->prefix('patient')->group(function () {
     Route::get('session', [PatientSessionController::class, 'show']);
@@ -167,9 +182,14 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::patch('appointments/{appointment}', [AppointmentsController::class, 'update']);
     Route::delete('appointments/{appointment}', [AppointmentsController::class, 'destroy']);
 
+    Route::get('documents', [DocumentsController::class, 'index']);
     Route::post('documents', [DocumentsController::class, 'store']);
     Route::patch('documents/{document}', [DocumentsController::class, 'update']);
     Route::delete('documents/{document}', [DocumentsController::class, 'destroy']);
+    // The patient's route to having a clinician-filed document taken out. It
+    // is the only thing that authorises a staff-side delete.
+    Route::post('documents/{document}/request-removal', [DocumentsController::class, 'requestRemoval']);
+    Route::delete('documents/{document}/request-removal', [DocumentsController::class, 'cancelRemoval']);
     Route::get('documents/{document}/stream', [DocumentsController::class, 'stream']);
     Route::get('documents/{document}/download', [DocumentsController::class, 'downloadUrl']);
 
@@ -200,6 +220,8 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::get('report-consents', [PatientReportConsentsController::class, 'index']);
     Route::post('report-consents/{reportRequest}/approve', [PatientReportConsentsController::class, 'approve']);
     Route::post('report-consents/{reportRequest}/decline', [PatientReportConsentsController::class, 'decline']);
+    // The issued report itself, for the patient to read, print or save as PDF.
+    Route::get('report-consents/{reportRequest}/document', [PatientReportConsentsController::class, 'document']);
 
     // Patient-managed external access links/codes (emergency consults).
     Route::get('external-access', [PatientExternalAccessController::class, 'index']);
@@ -218,9 +240,12 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::post('patients/{patient}/notes', [PatientChartController::class, 'storeNote']);
     Route::patch('patients/{patient}/chart', [DoctorPatientController::class, 'updateChart']);
     Route::patch('patients/{patient}/assigned-vitals', [DoctorPatientController::class, 'updateAssignedVitals']);
+    // Staff-assisted entry: a reading taken at the desk or read back by phone.
+    Route::post('patients/{patient}/vitals', [DoctorPatientController::class, 'storeVital']);
     Route::post('patients/{patient}/documents', [DoctorPatientController::class, 'storeDocument']);
     Route::patch('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'updateDocument']);
     Route::delete('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'destroyDocument']);
+    Route::post('patients/{patient}/documents/{document}/decline-removal', [DoctorPatientController::class, 'declineDocumentRemoval']);
     Route::get('patients/{patient}/documents/{document}/stream', [DoctorPatientController::class, 'streamDocument']);
     Route::get('patients/{patient}/documents/{document}/download', [DoctorPatientController::class, 'downloadDocument']);
 
@@ -351,6 +376,27 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
         [AdminPatientsController::class, 'updateAssignedVitals'])
         ->middleware('permission:can_create_users');
 
+    Route::post('patients/{patient}/vitals', [AdminPatientsController::class, 'storeVital'])
+        ->middleware('permission:can_create_users');
+
+    // Documents admin staff file into a patient's record. Same store, same
+    // patient-side list and viewer as a doctor upload; only the actor differs.
+    Route::get('patients/{patient}/documents', [AdminPatientDocumentsController::class, 'index'])
+        ->middleware('permission:can_create_users');
+    Route::post('patients/{patient}/documents', [AdminPatientDocumentsController::class, 'store'])
+        ->middleware('permission:can_create_users');
+    Route::patch('patients/{patient}/documents/{document}', [AdminPatientDocumentsController::class, 'update'])
+        ->middleware('permission:can_create_users');
+    Route::get('patients/{patient}/documents/{document}/stream', [AdminPatientDocumentsController::class, 'stream'])
+        ->middleware('permission:can_create_users');
+    // Answering a removal the patient asked for. Honouring it is the only
+    // delete anywhere in the record, and it is unreachable without a standing
+    // request from the patient themselves.
+    Route::delete('patients/{patient}/documents/{document}', [AdminPatientDocumentsController::class, 'honourRemoval'])
+        ->middleware('permission:can_create_users');
+    Route::post('patients/{patient}/documents/{document}/decline-removal', [AdminPatientDocumentsController::class, 'declineRemoval'])
+        ->middleware('permission:can_create_users');
+
     // Customised patient reports — tick-list, consent, signature, issue.
     Route::get('report-sections', [AdminPatientReportsController::class, 'sections'])
         ->middleware('permission:can_create_users');
@@ -365,6 +411,13 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::post('report-requests/{reportRequest}/verify-consent', [AdminPatientReportsController::class, 'verifyConsent'])
         ->middleware('permission:can_create_users');
     Route::post('report-requests/{reportRequest}/issue', [AdminPatientReportsController::class, 'issue'])
+        ->middleware('permission:can_create_users');
+    // The third exit from a signed report: back to the doctor for a fix,
+    // keeping the patient's consent rather than throwing it away.
+    Route::post('report-requests/{reportRequest}/send-back', [AdminPatientReportsController::class, 'sendBack'])
+        ->middleware('permission:can_create_users');
+    // The issued report as a file — what staff hand to the recipient.
+    Route::get('report-requests/{reportRequest}/document', [AdminPatientReportsController::class, 'document'])
         ->middleware('permission:can_create_users');
     Route::post('report-requests/{reportRequest}/revoke', [AdminPatientReportsController::class, 'revoke'])
         ->middleware('permission:can_create_users');

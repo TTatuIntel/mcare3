@@ -10,6 +10,7 @@ import 'admin/alerts/admin_alerts_view.dart';
 import 'admin/analytics/admin_analytics_view.dart';
 import 'admin/announcements/admin_announcements_view.dart';
 import 'admin/approvals/admin_approvals_view.dart';
+import 'admin/reports/admin_reports_view.dart';
 import 'admin/assignments/admin_assignments_view.dart';
 import 'admin/audit/admin_audit_view.dart';
 import 'admin/care_requests/admin_care_requests_view.dart';
@@ -625,6 +626,9 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.adminApprovals:
         page = const _AdminGuarded(child: AdminApprovalsView());
+        break;
+      case RouteNames.adminReports:
+        page = const _AdminGuarded(child: AdminReportsView());
         break;
       case RouteNames.adminCareRequests:
         page = const _AdminGuarded(child: AdminCareRequestsView());

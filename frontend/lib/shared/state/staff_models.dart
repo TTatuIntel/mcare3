@@ -102,6 +102,9 @@ class StaffPatientDocument {
     this.fileType = DocumentFileType.pdf,
     this.description,
     this.hasFile = true,
+    this.source = DocumentSource.patient,
+    this.removalRequested = false,
+    this.removalReason,
   });
 
   final String id;
@@ -113,6 +116,22 @@ class StaffPatientDocument {
   final DocumentFileType fileType;
   final String? description;
   final bool hasFile;
+
+  /// Where the document came from, which is what decides whether staff may
+  /// ever delete it. Legacy rows carry no source and read as patient uploads.
+  final DocumentSource source;
+
+  /// The patient has asked for this to be taken out and nobody has answered.
+  final bool removalRequested;
+
+  /// Why they want it gone — staff read this before deciding.
+  final String? removalReason;
+
+  /// The one case in which staff may delete: a clinician-filed document the
+  /// patient has asked to have removed. The authority is the request, not the
+  /// role, so this mirrors the server check rather than the caller's identity.
+  bool get isRemovableByStaff =>
+      source == DocumentSource.clinician && removalRequested;
 }
 
 /// One recorded step in how an emergency was worked, as it rides along with

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Services\RealtimeSignalService;
+use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -40,6 +41,7 @@ class MessagesController extends Controller
             'read' => false,
             'sent_at' => now(),
         ]);
+        WorkflowNotificationService::messageSent($msg, $conversation, $request->user());
 
         return $this->success(['message' => $msg->toApiArray()], 'Message sent.', 201);
     }
@@ -51,6 +53,7 @@ class MessagesController extends Controller
             ->where('sender_user_id', '!=', $request->user()->id)
             ->where('read', false)
             ->update(['read' => true]);
+        WorkflowNotificationService::markConversationRead($request->user(), $conversation);
         RealtimeSignalService::forModel($conversation, 'updated', ['messages']);
 
         return $this->success(null, 'Marked read.');

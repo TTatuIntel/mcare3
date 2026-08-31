@@ -30,6 +30,9 @@ class RuntimeConfig {
   String _googleClientId = '';
   String _appleClientId = '';
   String _appleRedirectUri = '';
+  String _socketUrl = '';
+  String _socketAppKey = '';
+  Duration _pulseInterval = const Duration(seconds: 3);
   bool _loaded = false;
 
   /// True once a response has been applied. Sign-in surfaces do not wait on
@@ -64,6 +67,36 @@ class RuntimeConfig {
       AppEnv.isConfiguredValue(appleClientId) &&
       AppEnv.isConfiguredValue(appleRedirectUri);
 
+  // ---------- Real-time delivery -----------------------------------------
+  //
+  // Same reasoning as the OAuth IDs, with sharper consequences. The socket
+  // endpoint used to arrive only through `--dart-define`, so a build launched
+  // without the flags had no live connection at all and quietly degraded to
+  // polling — which is what made alerts and updates feel like they needed a
+  // refresh. The API knows where its own broadcaster listens, so it says, and
+  // a build that pinned an endpoint still wins.
+
+  /// WebSocket endpoint (`ws://host:port`), empty when this deployment runs
+  /// no socket server. Then the app relies on the pulse cursor alone, which
+  /// needs no extra process to be running.
+  String get socketUrl => AppEnv.wsUrl.isNotEmpty ? AppEnv.wsUrl : _socketUrl;
+
+  /// The broadcaster's public app key — the Pusher-protocol handshake needs
+  /// it. The secret stays on the server and is never published.
+  String get socketAppKey =>
+      AppEnv.wsAppKey.isNotEmpty ? AppEnv.wsAppKey : _socketAppKey;
+
+  /// True when a live socket can be attempted at all.
+  bool get socketEnabled =>
+      AppEnv.backendEnabled &&
+      socketUrl.isNotEmpty &&
+      socketAppKey.isNotEmpty;
+
+  /// How often to ask the server what changed while no socket is carrying
+  /// events. The server names the cadence so it can be tuned per deployment
+  /// without shipping a new build.
+  Duration get pulseInterval => _pulseInterval;
+
   /// Reads `/config`. Never throws and never blocks launch: an unreachable API
   /// leaves the app exactly as configured as its build made it.
   Future<void> load() async {
@@ -82,6 +115,7 @@ class RuntimeConfig {
       _googleClientId = (google?['client_id'] ?? '').toString().trim();
       _appleClientId = (apple?['client_id'] ?? '').toString().trim();
       _appleRedirectUri = (apple?['redirect_uri'] ?? '').toString().trim();
+      _applyRealtime(data['realtime'] as Map<String, dynamic>?);
       _loaded = true;
 
       if (kDebugMode && !hasGoogleClientId) {
@@ -96,15 +130,42 @@ class RuntimeConfig {
     }
   }
 
+  void _applyRealtime(Map<String, dynamic>? realtime) {
+    if (realtime == null) return;
+
+    final socket = realtime['socket'] as Map<String, dynamic>?;
+    if (socket != null && socket['enabled'] == true) {
+      _socketUrl = (socket['url'] ?? '').toString().trim();
+      _socketAppKey = (socket['key'] ?? '').toString().trim();
+    } else {
+      _socketUrl = '';
+      _socketAppKey = '';
+    }
+
+    final pulse = realtime['pulse'] as Map<String, dynamic>?;
+    final ms = int.tryParse('${pulse?['interval_ms'] ?? ''}');
+    if (ms != null && ms > 0) {
+      // Clamped: a server misconfiguration should not be able to hammer
+      // itself from every client, nor stall live updates to a crawl.
+      _pulseInterval = Duration(milliseconds: ms.clamp(1000, 30000));
+    }
+  }
+
   @visibleForTesting
   void applyForTesting({
     String googleClientId = '',
     String appleClientId = '',
     String appleRedirectUri = '',
+    String socketUrl = '',
+    String socketAppKey = '',
+    Duration pulseInterval = const Duration(seconds: 3),
   }) {
     _googleClientId = googleClientId;
     _appleClientId = appleClientId;
     _appleRedirectUri = appleRedirectUri;
+    _socketUrl = socketUrl;
+    _socketAppKey = socketAppKey;
+    _pulseInterval = pulseInterval;
     _loaded = true;
   }
 
@@ -113,6 +174,9 @@ class RuntimeConfig {
     _googleClientId = '';
     _appleClientId = '';
     _appleRedirectUri = '';
+    _socketUrl = '';
+    _socketAppKey = '';
+    _pulseInterval = const Duration(seconds: 3);
     _loaded = false;
   }
 }

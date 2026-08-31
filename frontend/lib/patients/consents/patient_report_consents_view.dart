@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/report_consents_api.dart';
+import '../../shared/services/document_opener.dart';
 import '../../core/env/app_env.dart';
 import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
@@ -245,6 +246,38 @@ class _ConsentDetailBody extends StatefulWidget {
 
 class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
   bool _busy = false;
+  bool _opening = false;
+
+  /// Opens the finished report.
+  ///
+  /// Issuing froze the assembled report and told the patient it had gone out,
+  /// but there was no way to read it — the person the report describes was the
+  /// only party who could not see what had been disclosed about them. The page
+  /// arrives as HTML so the platform's own viewer can print it or save it as
+  /// PDF without this app carrying a PDF renderer.
+  Future<void> _openReport() async {
+    setState(() => _opening = true);
+    try {
+      final bytes = await ReportConsentsApi.instance.documentBytes(
+        widget.request.id,
+      );
+      if (!mounted) return;
+      final opened = await DocumentOpener.openBytes(
+        bytes: bytes,
+        mimeType: 'text/html',
+        filename: DocumentOpener.filenameWith(widget.request.title, 'html'),
+      );
+      if (!mounted) return;
+      setState(() => _opening = false);
+      if (!opened) {
+        AppToast.warn(context, 'Could not open the report.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _opening = false);
+      AppToast.error(context, 'Could not open the report: $e');
+    }
+  }
 
   Future<void> _approve() async {
     setState(() => _busy = true);
@@ -407,6 +440,30 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
               DossierRow(label: 'Reason', value: r.declineReason),
             ],
           ),
+        // A report the patient can read. Offered whenever there is a finished
+        // copy — including a revoked one, which stays readable because it was
+        // disclosed and they are entitled to see what went out.
+        if (r.canOpenDocument) ...[
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Open the report',
+            icon: AppIcons.document,
+            expand: true,
+            loading: _opening,
+            onPressed: _opening ? null : _openReport,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Opens the copy that was issued. Use your browser or share sheet '
+            'to print it or save it as a PDF.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10,
+              height: 1.4,
+            ),
+          ),
+        ],
         if (decidable) ...[
           const SizedBox(height: AppSpacing.sm),
           AppButton(

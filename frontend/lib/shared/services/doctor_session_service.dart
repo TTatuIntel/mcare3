@@ -7,6 +7,7 @@ import '../auth/auth_state.dart';
 import '../models/message.dart';
 import '../../core/mock/mock_data.dart';
 import '../state/messages_state.dart';
+import '../state/notification_state.dart';
 import '../state/staff_state.dart';
 
 /// Pulls the doctor session payload from `/doctor/session` and rehydrates
@@ -121,6 +122,15 @@ class DoctorSessionService {
       mealPlans: mealPlans,
       vitalReadings: vitalReadings,
     );
+
+    final notifications = (data['notifications'] as List? ?? const [])
+        .map(
+          (e) => PatientDomainMapper.notificationFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
+    NotificationState.instance.mergeAdminApiNotifications(notifications);
 
     await _syncDoctorMessages();
     return true;

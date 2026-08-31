@@ -87,6 +87,10 @@ class RouteNames {
   static const adminUserDetail = '/admin/users/detail';
   static const adminApprovals = '/admin/approvals';
 
+  /// The patient-report queue. Every "Report signed" notification the backend
+  /// writes points here, so the constant and the server string must match.
+  static const adminReports = '/admin/reports';
+
   /// Care-request triage **and** care assignments — one merged workspace.
   static const adminCareRequests = '/admin/care-requests';
 

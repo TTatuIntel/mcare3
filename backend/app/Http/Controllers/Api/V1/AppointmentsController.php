@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AppointmentResource;
 use App\Models\Appointment;
+use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -30,6 +31,8 @@ class AppointmentsController extends Controller
             'duration_minutes' => $data['duration_minutes'] ?? 30,
             'status' => 'scheduled',
         ]);
+        WorkflowNotificationService::appointmentChanged($appt, $request->user(), 'created');
+
         return $this->success(['appointment' => new AppointmentResource($appt)], 'Appointment scheduled.', 201);
     }
 
@@ -42,6 +45,12 @@ class AppointmentsController extends Controller
             'cancellation_reason' => 'nullable|string|max:200',
         ]);
         $appointment->update(array_filter($data, fn ($v) => $v !== null));
+        WorkflowNotificationService::appointmentChanged(
+            $appointment->fresh(),
+            $request->user(),
+            $appointment->status === 'cancelled' ? 'cancelled' : 'updated',
+        );
+
         return $this->success(['appointment' => new AppointmentResource($appointment->fresh())], 'Appointment updated.');
     }
 
@@ -49,6 +58,8 @@ class AppointmentsController extends Controller
     {
         $this->authorizeOwnership($request, $appointment);
         $appointment->update(['status' => 'cancelled']);
+        WorkflowNotificationService::appointmentChanged($appointment->fresh(), $request->user(), 'cancelled');
+
         return $this->success(null, 'Appointment cancelled.');
     }
 

@@ -218,6 +218,7 @@ class NavigationRoots {
     RouteNames.adminUserDetail: RouteNames.adminUsers,
     RouteNames.adminPermissions: RouteNames.adminPeople,
     RouteNames.adminApprovals: RouteNames.adminWork,
+    RouteNames.adminReports: RouteNames.adminWork,
     RouteNames.adminCareRequests: RouteNames.adminWork,
     RouteNames.adminAssignments: RouteNames.adminWork,
     // ----- Admin Work tab -----

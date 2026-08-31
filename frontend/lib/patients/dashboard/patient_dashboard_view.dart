@@ -481,7 +481,11 @@ class _NotificationFeedRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = notification.kind.tint;
-    final isVitalAlert = notification.kind == NotificationKind.vitalAlert;
+    // Only the care team closes an alert, so the patient's feed shows the
+    // clear action for an alert only when the reader is allowed to use it.
+    final canClear =
+        notification.kind == NotificationKind.vitalAlert &&
+        NotificationState.instance.canResolve(notification);
 
     return InkWell(
       onTap: () => NotificationRouter.handleTap(context, notification),
@@ -523,7 +527,7 @@ class _NotificationFeedRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (isVitalAlert)
+            if (canClear)
               IconButton(
                 tooltip: 'Mark resolved',
                 visualDensity: VisualDensity.compact,

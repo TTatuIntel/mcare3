@@ -71,11 +71,18 @@ class PatientReportRequestItem {
     this.signedAt,
     this.signatureName,
     this.signatureNote,
+    this.awaitingIssueDecision = false,
+    this.awaitingRework = false,
+    this.returnedAt,
+    this.returnedByName,
+    this.returnNote,
+    this.returnCount = 0,
     this.issuedAt,
     this.revokedAt,
     this.revokeReason,
     this.createdAt,
     this.awaitingMe = false,
+    this.canOpenDocument = false,
     this.sectionDetails = const [],
   });
 
@@ -117,6 +124,23 @@ class PatientReportRequestItem {
   final String? signatureName;
   final String? signatureNote;
 
+  /// Signed, not issued, still open — sitting on an admin's desk. Server-set,
+  /// so the queue and the badge can never disagree about what is waiting.
+  final bool awaitingIssueDecision;
+
+  /// Sent back to the doctor and not yet re-signed.
+  final bool awaitingRework;
+
+  final DateTime? returnedAt;
+  final String? returnedByName;
+
+  /// What the admin asked the doctor to change.
+  final String? returnNote;
+
+  /// How many round trips this report has taken. Survives re-signing: a report
+  /// on its third return is a conversation that has stopped working.
+  final int returnCount;
+
   final DateTime? issuedAt;
   final DateTime? revokedAt;
   final String? revokeReason;
@@ -124,6 +148,11 @@ class PatientReportRequestItem {
 
   /// Set on the patient and doctor listings — this row needs *my* action.
   final bool awaitingMe;
+
+  /// There is a finished report behind this row that the patient can open.
+  /// A revoked report stays readable to them: it was disclosed, and seeing
+  /// what was sent is the point of keeping it.
+  final bool canOpenDocument;
 
   /// Patient-facing plain-language section descriptions.
   final List<Map<String, dynamic>> sectionDetails;
@@ -137,6 +166,11 @@ class PatientReportRequestItem {
   bool get awaitingConsent => blockedOn == 'patient_consent';
   bool get awaitingSignature => blockedOn == 'doctor_signature';
   bool get readyToIssue => blockedOn == 'issue';
+
+  /// There is a document to read — a draft once the patient has consented, the
+  /// frozen snapshot once it has been issued.
+  bool get hasReadableDocument =>
+      isIssued || (consentedAt != null || !consentRequired) && !isClosed;
 
   static PatientReportRequestItem fromJson(Map<String, dynamic> j) =>
       PatientReportRequestItem(
@@ -168,7 +202,14 @@ class PatientReportRequestItem {
         signedAt: _date(j['signed_at']),
         signatureName: _str(j['signature_name']),
         signatureNote: _str(j['signature_note']),
+        awaitingIssueDecision: j['awaiting_issue_decision'] == true,
+        awaitingRework: j['awaiting_rework'] == true,
+        returnedAt: _date(j['returned_at']),
+        returnedByName: _str(j['returned_by_name']),
+        returnNote: _str(j['return_note']),
+        returnCount: _int(j['return_count']) ?? 0,
         issuedAt: _date(j['issued_at']),
+        canOpenDocument: j['can_open_document'] == true,
         revokedAt: _date(j['revoked_at']),
         revokeReason: _str(j['revoke_reason']),
         createdAt: _date(j['created_at']),

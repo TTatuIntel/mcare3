@@ -30,6 +30,25 @@ class NotificationState extends ChangeNotifier {
 
   int get unreadCount => _items.where((n) => !n.read && !n.resolved).length;
 
+  /// Whether the signed-in user may close a clinical alert.
+  ///
+  /// Clearing an alert is a clinical decision — the backend records who
+  /// reviewed the reading and what they did about it — so it belongs to the
+  /// care team (doctor, admin, mCare assistant). A patient dismissing their own
+  /// critical vital would hide it from the people meant to act on it, and
+  /// `PATCH /patient/notifications/{id}/resolve` rejects it with 403 anyway.
+  bool get canClearAlerts => switch (AuthState.instance.role) {
+    UserRole.doctor || UserRole.admin || UserRole.mcareAssistant => true,
+    _ => false,
+  };
+
+  /// Whether [item] can be cleared by the signed-in user. Non-alert
+  /// notifications stay dismissible by everyone, patients included.
+  bool canResolve(AppNotification item) =>
+      canClearAlerts ||
+      (item.kind != NotificationKind.vitalAlert &&
+          item.kind != NotificationKind.sos);
+
   void seed(List<AppNotification> items) {
     _items
       ..clear()
@@ -172,6 +191,7 @@ class NotificationState extends ChangeNotifier {
   void resolve(String id) {
     final i = _items.indexWhere((n) => n.id == id);
     if (i == -1 || _items[i].resolved) return;
+    if (!canResolve(_items[i])) return;
     _items[i] = _items[i].copyWith(
       resolved: true,
       resolvedAt: DateTime.now(),
@@ -223,7 +243,7 @@ class NotificationState extends ChangeNotifier {
         return;
       }
       final role = AuthState.instance.role;
-      if (role == UserRole.patient) {
+      if (role == UserRole.patient || role == UserRole.doctor) {
         await NotificationsApi.instance.markRead(id);
       } else if (role == UserRole.admin || role == UserRole.mcareAssistant) {
         await AdminApi.instance.markNotificationRead(id);
@@ -235,6 +255,8 @@ class NotificationState extends ChangeNotifier {
 
   /// Persisting variant of [resolve]. Routes by role.
   Future<void> resolveRemote(String id) async {
+    final i = _items.indexWhere((n) => n.id == id);
+    if (i != -1 && !canResolve(_items[i])) return;
     resolve(id);
     if (!AppEnv.backendEnabled) return;
     try {
@@ -242,7 +264,7 @@ class NotificationState extends ChangeNotifier {
         return;
       }
       final role = AuthState.instance.role;
-      if (role == UserRole.patient) {
+      if (role == UserRole.patient || role == UserRole.doctor) {
         await NotificationsApi.instance.resolve(id);
       } else if (role == UserRole.admin || role == UserRole.mcareAssistant) {
         await AdminApi.instance.resolveNotification(id);
@@ -256,7 +278,7 @@ class NotificationState extends ChangeNotifier {
     if (!AppEnv.backendEnabled) return;
     try {
       final role = AuthState.instance.role;
-      if (role == UserRole.patient) {
+      if (role == UserRole.patient || role == UserRole.doctor) {
         await NotificationsApi.instance.markAllRead();
         return;
       }

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\AppNotification;
 use App\Models\Appointment;
 use App\Models\CareProvider;
+use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -59,15 +59,7 @@ class DoctorAppointmentsController extends Controller
             'location_or_link' => $data['location_or_link'] ?? null,
         ]);
 
-        AppNotification::create([
-            'user_id' => $data['patient_user_id'],
-            'kind' => 'appointment',
-            'title' => 'New appointment',
-            'body' => "Dr. {$doctor->fullName()} scheduled an appointment for ".
-                $appt->scheduled_at->toDayDateTimeString().'.',
-            'action_route' => '/patient/appointments',
-            'read' => false,
-        ]);
+        WorkflowNotificationService::appointmentChanged($appt, $doctor, 'created');
         DoctorAccess::audit(
             $doctor,
             'Scheduled appointment',
@@ -90,6 +82,11 @@ class DoctorAppointmentsController extends Controller
             'cancellation_reason' => 'nullable|string|max:200',
         ]);
         $appointment->update(array_filter($data, fn ($v) => $v !== null));
+        WorkflowNotificationService::appointmentChanged(
+            $appointment->fresh(),
+            $request->user(),
+            $appointment->status === 'cancelled' ? 'cancelled' : 'updated',
+        );
         DoctorAccess::audit(
             $request->user(),
             'Updated appointment',

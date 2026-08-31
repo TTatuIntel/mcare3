@@ -13,6 +13,9 @@ import '../../../core/realtime/realtime_refresh_mixin.dart';
 import '../../../core/web/web_platform.dart' as web_platform;
 import '../../auth/auth_state.dart';
 import '../../constants/route_names.dart';
+import '../../staff/staff_assist_gate.dart';
+import '../../staff/staff_log_vital_sheet.dart';
+import '../../staff/staff_upload_document_sheet.dart';
 import '../../models/patient_profile.dart';
 import '../../models/sos.dart';
 import '../../models/user_role.dart';
@@ -229,9 +232,52 @@ class _PatientChartBodyState extends State<PatientChartBody>
             onCall: _call,
             onMap: _openMap,
             onAddNote: _addNote,
+            onReload: () => _load(quiet: true),
           ),
         ],
       ],
+    );
+  }
+}
+
+// ------------------------------------------------------------ assist
+
+/// A staff action offered at the foot of a chart section.
+///
+/// Hidden entirely from anyone who is not staff: the chart body is also the
+/// surface a patient's own record renders through, and offering "log a vital
+/// for this patient" to the patient themselves would be nonsense. Doctors and
+/// admin staff both qualify — the API picks the route from the role, because
+/// admin staff are not on a caseload and the doctor endpoints reject them.
+class _AssistAction extends StatelessWidget {
+  const _AssistAction({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.onDone,
+  });
+
+  final String label;
+  final IconData icon;
+  final Future<void> Function(BuildContext context) onTap;
+  final Future<void> Function() onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!StaffAssistGate.canAssist()) return const SizedBox.shrink();
+
+    return AppButton(
+      label: label,
+      icon: icon,
+      variant: AppButtonVariant.secondary,
+      expand: true,
+      onPressed: () async {
+        await onTap(context);
+        // The sheet does not report what it filed, so the chart is re-pulled
+        // rather than patched: whatever landed shows up the same way a sync
+        // would have brought it.
+        await onDone();
+      },
     );
   }
 }
@@ -248,6 +294,7 @@ class _ChartContent extends StatelessWidget {
     required this.onCall,
     required this.onMap,
     required this.onAddNote,
+    required this.onReload,
   });
 
   final PatientChart chart;
@@ -261,6 +308,10 @@ class _ChartContent extends StatelessWidget {
   final Future<void> Function(String url) onMap;
   final Future<void> Function(String title, String body, bool publish)
   onAddNote;
+
+  /// Re-pulls the chart after staff file something into it, so the section
+  /// they just acted on shows the result rather than going stale.
+  final Future<void> Function() onReload;
 
   String get _name => chart.name.trim().isEmpty ? fallbackName : chart.name;
 
@@ -310,6 +361,19 @@ class _ChartContent extends StatelessWidget {
               ? 'Nothing recorded in this period'
               : '${s.readings} reading${s.readings == 1 ? '' : 's'}'
                     '${s.inRangePct == null ? '' : ' · ${s.inRangePct}% in range'}',
+          // Readings taken at the desk or read back over the phone had nowhere
+          // to go. Filed through the same path as the patient's own entry, so
+          // the risk grade and the alert to the care team behave identically.
+          trailingAction: _AssistAction(
+            label: 'Log a vital for this patient',
+            icon: AppIcons.vitals,
+            onTap: (context) => StaffLogVitalSheet.show(
+              context,
+              patientId: chart.patientId,
+              patientName: _name,
+            ),
+            onDone: onReload,
+          ),
           child: chart.vitals.isEmpty
               ? const ChartEmpty('No vitals recorded in this period.')
               : Column(
@@ -590,6 +654,18 @@ class _ChartContent extends StatelessWidget {
           summary: chart.documents.isEmpty
               ? 'None uploaded in this period'
               : '${s.documents} file${s.documents == 1 ? '' : 's'}',
+          // Paperwork the office receives used to leave by email, which puts
+          // clinical documents outside the audited store entirely.
+          trailingAction: _AssistAction(
+            label: 'Send a document to this patient',
+            icon: AppIcons.document,
+            onTap: (context) => StaffUploadDocumentSheet.show(
+              context,
+              patientId: chart.patientId,
+              patientName: _name,
+            ),
+            onDone: onReload,
+          ),
           child: chart.documents.isEmpty
               ? const ChartEmpty('No documents uploaded in this period.')
               : Column(

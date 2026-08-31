@@ -50,7 +50,7 @@ $RuntimeLogDirectory = Join-Path $Backend "storage\logs\local-runtime"
 $RuntimePidDirectory = Join-Path $Backend "storage\framework\mcare-runtime"
 $StartedRuntimeProcesses = @()
 $FlutterExecutable = $null
-$AppConfigPath = Join-Path $Frontend "configpp_config.local.json"
+$AppConfigPath = Join-Path $Frontend "config\app_config.local.json"
 
 . (Join-Path $PSScriptRoot "dart-defines.ps1")
 
@@ -220,7 +220,7 @@ $wsUrl = ""
 $wsKey = ""
 
 if ($NoRealtime) {
-  Write-Host "==> Realtime skipped (-NoRealtime): the app will poll every 30s." -ForegroundColor Yellow
+  Write-Host "==> Realtime skipped (-NoRealtime): the app will poll every 30s; background schedules stay active." -ForegroundColor Yellow
 } else {
   # The client needs the same app key Reverb was started with, so read it
   # from the one place that already holds it.
@@ -238,12 +238,14 @@ if ($NoRealtime) {
     Write-Host "==> Starting queue worker (drains broadcasts)" -ForegroundColor Cyan
     Start-Php-Service "queue" @("artisan", "queue:work", "--tries=3", "--sleep=1", "--timeout=120")
 
-    Write-Host "==> Starting scheduler (hourly vitals SLA escalation)" -ForegroundColor Cyan
-    Start-Php-Service "scheduler" @("artisan", "schedule:work")
-
     $wsUrl = "ws://127.0.0.1:$ReverbPort"
   }
 }
+
+# Scheduled escalation and maintenance work must run even when Reverb is
+# intentionally disabled or has not been configured yet.
+Write-Host "==> Starting scheduler (vitals SLA escalation and maintenance)" -ForegroundColor Cyan
+Start-Php-Service "scheduler" @("artisan", "schedule:work")
 
 Write-Host ""
 Write-Host "  API      $ApiUrl/api/v1"

@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../admin/reports/report_reason_prompt.dart';
 import '../../core/api/patient_domain_mapper.dart';
 import '../../core/api/documents_api.dart';
 import '../../core/env/app_env.dart';

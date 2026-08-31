@@ -35,6 +35,14 @@ class MedicalDocumentResource extends JsonResource
                 ? (string) $d->shared_with_doctor_id
                 : null,
             'has_file' => $hasFile,
-        ];
+            // Lets the app hide a delete control it would only be refused on,
+            // and label where a document came from.
+            'source' => $d->source ?? MedicalDocument::SOURCE_PATIENT,
+            'issued_report_id' => $d->issued_report_id
+                ? (string) $d->issued_report_id
+                : null,
+            // Lets the patient's list show a pending removal request, and a
+            // refusal, without a second round trip.
+        ] + $d->removalApiArray();
     }
 }

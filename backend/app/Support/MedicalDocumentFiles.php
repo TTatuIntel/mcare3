@@ -152,6 +152,28 @@ class MedicalDocumentFiles
         return ['path' => $relative, 'size' => $disk->size($relative)];
     }
 
+    /**
+     * Writes content the server generated — as opposed to a file someone
+     * uploaded — into the same private store, and returns the same shape the
+     * upload path returns so callers can treat both alike.
+     *
+     * @return array{path: string, size: int}
+     */
+    public static function storeGeneratedFile(
+        int $ownerUserId,
+        string $title,
+        string $contents,
+        string $extension = 'html',
+    ): array {
+        $slug = Str::slug(Str::limit($title, 40, '')) ?: 'document';
+        $relative = 'documents/'.$ownerUserId.'/'.$slug.'-'.Str::random(8).'.'.$extension;
+
+        $disk = Storage::disk(self::privateDiskName());
+        $disk->put($relative, $contents);
+
+        return ['path' => $relative, 'size' => $disk->size($relative)];
+    }
+
     public static function privateDiskName(): string
     {
         return (string) config('mcare.private_disk', 'local');

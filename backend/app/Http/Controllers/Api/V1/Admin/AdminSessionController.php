@@ -141,6 +141,14 @@ class AdminSessionController extends Controller
                 return $arr;
             })->all();
 
+        $notifications = AppNotification::query()
+            ->where('user_id', $actor->id)
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get()
+            ->map->toApiArray()
+            ->all();
+
         $activePatients = User::where('role', 'patient')
             ->where('approval_status', 'active')
             ->count();
@@ -159,6 +167,7 @@ class AdminSessionController extends Controller
             'announcements' => $announcements,
             'system_settings' => $systemSettings,
             'alerts' => $alerts,
+            'notifications' => $notifications,
             'support_tickets' => $supportTickets,
             'kpis' => [
                 'active_patients' => $activePatients,

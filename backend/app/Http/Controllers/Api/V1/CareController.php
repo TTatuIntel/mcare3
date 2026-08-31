@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CareAssignment;
 use App\Models\CareProvider;
 use App\Models\CareRequest;
+use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -77,6 +78,8 @@ class CareController extends Controller
             'reason' => $data['reason'] ?? null,
             'status' => 'pending',
         ]);
+        WorkflowNotificationService::careRequestOpened($req, $user);
+
         return $this->success(['request' => $req->toApiArray()], 'Care request submitted.', 201);
     }
 

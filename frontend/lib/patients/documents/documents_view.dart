@@ -28,6 +28,17 @@ class DocumentsView extends StatefulWidget {
 class _DocumentsViewState extends State<DocumentsView> {
   DocumentCategory? _filter;
 
+  @override
+  void initState() {
+    super.initState();
+    // A patient usually arrives here from a "new document from your care team"
+    // alert, so the document they were told about may not be in the cached
+    // session yet. Pull the list rather than make them wait for the next sync.
+    // Failure is silent on purpose: whatever the session already loaded stays
+    // on screen, which is more useful than an error over a full list.
+    DocumentsState.instance.refresh().catchError((_) {});
+  }
+
   int _countFor(DocumentCategory c, List<MedicalDocument> all) =>
       all.where((d) => d.category == c).length;
 

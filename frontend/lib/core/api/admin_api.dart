@@ -338,16 +338,23 @@ class AdminApi {
     return _list(res, 'sections');
   }
 
+  /// Report requests for the admin queue.
+  ///
+  /// [awaitingMe] narrows to the ones a doctor has signed and nobody has
+  /// issued — the reports actually sitting on an admin's desk. Filtered
+  /// server-side so the tab count and the list cannot drift apart.
   Future<List<JsonMap>> listReportRequests({
     String? patientId,
     String? status,
     bool openOnly = false,
+    bool awaitingMe = false,
   }) async {
     if (!AppEnv.backendEnabled) return [];
     final params = <String, String>{};
     if (patientId != null) params['patient_id'] = patientId;
     if (status != null) params['status'] = status;
     if (openOnly) params['open_only'] = '1';
+    if (awaitingMe) params['awaiting_me'] = '1';
     final res = await ApiClient.instance.get(
       '/admin/report-requests${_query(params)}',
     );
@@ -411,6 +418,34 @@ class AdminApi {
       '/admin/report-requests/$id/issue',
     );
     return (res['data'] as Map?)?.cast<String, dynamic>();
+  }
+
+  /// Send a signed report back to the doctor for a correction.
+  ///
+  /// Keeps the patient's consent, which revoking would throw away — consent is
+  /// to a set of sections, and those do not change on a return trip. The
+  /// signature does not survive: it was given against content about to change.
+  Future<JsonMap?> sendReportBack(String id, {required String note}) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.post(
+      '/admin/report-requests/$id/send-back',
+      body: {'note': note},
+    );
+    return _obj(res, 'report_request');
+  }
+
+  /// The report as a file staff can save, print or send on.
+  ///
+  /// Fetched through the authenticated client rather than opened as a link:
+  /// the route is bearer-authenticated, so a bare URL would arrive without the
+  /// token and 401. Before issue this returns the draft, watermarked by the
+  /// server so a saved copy can never pass for the finished report.
+  Future<Uint8List> reportDocumentBytes(String id) {
+    if (!AppEnv.backendEnabled) {
+      throw UnsupportedError('API disabled.');
+    }
+
+    return ApiClient.instance.getBytes('/admin/report-requests/$id/document');
   }
 
   Future<JsonMap?> revokeReportRequest(

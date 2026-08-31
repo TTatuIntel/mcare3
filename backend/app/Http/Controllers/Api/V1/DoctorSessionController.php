@@ -205,6 +205,14 @@ class DoctorSessionController extends Controller
                 ->all()
             : [];
 
+        $notifications = AppNotification::query()
+            ->where('user_id', $doctor->id)
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get()
+            ->map->toApiArray()
+            ->all();
+
         return $this->success([
             'doctor' => array_merge($doctor->toApiArray(), [
                 'display_name' => 'Dr. '.$doctor->fullName(),
@@ -214,6 +222,7 @@ class DoctorSessionController extends Controller
             ]),
             'caseload' => $caseload,
             'alerts' => $alerts,
+            'notifications' => $notifications,
             'appointments' => $appointments,
             'prescriptions' => $prescriptions,
             'reports' => $reports,

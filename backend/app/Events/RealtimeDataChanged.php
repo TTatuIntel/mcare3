@@ -4,7 +4,7 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -15,8 +15,16 @@ use Illuminate\Queue\SerializesModels;
  * The event intentionally contains no clinical or personal payload. Clients
  * use it only as a prompt to re-hydrate authorised data through the REST API.
  * This keeps Reverb lightweight and preserves one canonical data-mapping path.
+ *
+ * It broadcasts *now* rather than through the queue. Queued, the signal only
+ * left the building if a worker happened to be running, and a deployment
+ * without one looked exactly like a deployment with no real-time at all —
+ * changes piling up in `jobs` while every client sat on its polling timer.
+ * The payload is a few dozen bytes, so the inline publish costs the write
+ * that triggered it almost nothing, and [RealtimeSignalService] swallows a
+ * failure so an unreachable socket server can never fail a clinical write.
  */
-class RealtimeDataChanged implements ShouldBroadcast, ShouldDispatchAfterCommit
+class RealtimeDataChanged implements ShouldBroadcastNow, ShouldDispatchAfterCommit
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

@@ -5,6 +5,7 @@ import '../../shared/models/document.dart';
 import '../../shared/state/documents_state.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/medical_document_viewer_body.dart';
+import 'document_removal_request_block.dart';
 import 'edit_document_sheet.dart';
 
 class DocumentViewerSheet {
@@ -57,6 +58,7 @@ class _ViewerState extends State<_Viewer> {
     return MedicalDocumentViewerBody(
       documentId: _doc.id,
       fileType: _doc.fileType,
+      documentTitle: _doc.title,
       hasFile: _doc.hasFile,
       previewReloadToken: _previewReload,
       metaRows: [
@@ -68,8 +70,21 @@ class _ViewerState extends State<_Viewer> {
         if (_doc.description != null)
           DocumentMetaRow(label: 'Notes', value: _doc.description!),
       ],
-      onEdit: _edit,
-      onDelete: () => DocumentsState.instance.deleteDocument(_doc.id),
+      // Editing and deleting are offered only on the patient's own uploads.
+      // A document their care team filed, and above all an issued report, is
+      // part of the record — showing controls the server would refuse just
+      // teaches people the app is broken.
+      onEdit: _doc.canDelete ? _edit : null,
+      onDelete: _doc.canDelete
+          ? () => DocumentsState.instance.deleteDocument(_doc.id)
+          : null,
+      // What the patient can do about a document they cannot delete. Refusing
+      // the delete was only half an answer — the other half is the route to
+      // getting a document removed that should never have been filed on them.
+      footer: DocumentRemovalRequestBlock(
+        document: _doc,
+        onChanged: (updated) => setState(() => _doc = updated),
+      ),
     );
   }
 }

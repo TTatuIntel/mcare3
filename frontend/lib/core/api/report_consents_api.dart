@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../env/app_env.dart';
 import 'api_client.dart';
 
@@ -30,5 +32,20 @@ class ReportConsentsApi {
       body: reason == null || reason.isEmpty ? null : {'reason': reason},
     );
     return (res['data']?['report_request'] as Map?)?.cast<String, dynamic>();
+  }
+
+  /// The issued report itself, as a printable page.
+  ///
+  /// Fetched through the authenticated client rather than opened as a plain
+  /// link: the route is bearer-authenticated, so a bare URL handed to the
+  /// browser would arrive without the token and 401.
+  Future<Uint8List> documentBytes(String id) {
+    if (!AppEnv.backendEnabled) {
+      throw UnsupportedError('API disabled.');
+    }
+
+    return ApiClient.instance.getBytes(
+      '/patient/report-consents/$id/document',
+    );
   }
 }

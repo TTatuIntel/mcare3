@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/admin_api.dart';
 import '../../shared/models/patient_report_request.dart';
+import '../../shared/services/document_opener.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
@@ -16,9 +17,16 @@ import 'report_reason_prompt.dart';
 /// Track one report request through consent → signature → issue.
 ///
 /// The admin can read a phone-dictated approval code back in here, resend the
-/// challenge, issue once both gates clear, or revoke the whole request. Each
-/// action is refused server-side if the corresponding gate is not satisfied,
-/// so the UI can present them without gating logic of its own.
+/// challenge, and once a doctor has signed, decide what happens to the report:
+/// read it, issue it, send it back for a correction, or remove the request.
+/// Each action is refused server-side if the corresponding gate is not
+/// satisfied, so the UI can present them without gating logic of its own.
+///
+/// The review block is deliberately the loudest thing on the sheet once a
+/// signature lands. Issuing is the moment a patient's record leaves mCare, and
+/// it used to be a single unlabelled button under a list of section names the
+/// admin had ticked days earlier — nothing on the screen showed what was about
+/// to be disclosed.
 class PatientReportStatusSheet {
   PatientReportStatusSheet._();
 
@@ -98,12 +106,21 @@ class _StatusBodyState extends State<_StatusBody> {
     );
   });
 
+  /// Approve the disclosure. Issuing is what puts the copy in the patient's
+  /// documents, so the confirmation says so rather than leaving the admin to
+  /// wonder whether a second step is needed.
   Future<void> _issue() => _run(() async {
+    final ok = await _confirmIssue();
+    if (ok != true || !mounted) return;
+
     final data = await AdminApi.instance.issueReport(_request.id);
     if (data == null || !mounted) return;
     _apply((data['report_request'] as Map?)?.cast<String, dynamic>());
     final doc = data['document'];
-    AppToast.success(context, 'Report issued.');
+    AppToast.success(
+      context,
+      'Report issued. A copy is now in the patient’s documents.',
+    );
     if (doc is Map && mounted) {
       await PatientReportDocumentView.show(
         context,
@@ -112,12 +129,69 @@ class _StatusBodyState extends State<_StatusBody> {
     }
   });
 
+  Future<bool?> _confirmIssue() {
+    final r = _request;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Issue this report?'),
+        content: Text(
+          'This discloses '
+          '${r.sectionLabels.length} section'
+          '${r.sectionLabels.length == 1 ? '' : 's'} of '
+          '${r.patientName ?? 'the patient'}’s record'
+          '${r.recipient == null ? '' : ' to ${r.recipient}'}.\n\n'
+          'A copy goes into their documents immediately and cannot be '
+          'deleted afterwards — only revoked, which leaves a trace.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Issue report'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Back to the doctor for a correction, keeping the patient's consent.
+  Future<void> _sendBack() => _run(() async {
+    final note = await promptReason(
+      context,
+      title: 'Send back to the doctor',
+      message:
+          'Say what needs changing. Dr. ${_request.doctorName ?? 'the signer'} '
+          'sees this, their signature is cleared, and the patient’s approval '
+          'is kept — they will not be asked again.',
+      label: 'What needs changing',
+      confirmLabel: 'Send back',
+    );
+    if (note == null || note.trim().length < 4) return;
+    _apply(
+      await AdminApi.instance.sendReportBack(_request.id, note: note.trim()),
+    );
+    if (!mounted) return;
+    AppToast.info(context, 'Sent back to the doctor for changes.');
+  });
+
+  /// Remove the request, or withdraw a report that has already gone out. The
+  /// row itself is never deleted — a consent ledger that forgets what was
+  /// asked for answers nothing.
   Future<void> _revoke() => _run(() async {
+    final issued = _request.isIssued;
     final reason = await promptReason(
       context,
-      title: 'Revoke report request',
-      message: 'Say why — the reason is recorded in the audit trail.',
-      confirmLabel: 'Revoke',
+      title: issued ? 'Revoke issued report' : 'Remove this report',
+      message: issued
+          ? 'The patient is told, and their copy is marked as revoked. The '
+                'reason is recorded in the audit trail.'
+          : 'Nothing has been disclosed, so nothing is withdrawn — the request '
+                'is closed and kept in the audit trail with your reason.',
+      confirmLabel: issued ? 'Revoke' : 'Remove',
     );
     if (reason == null || reason.trim().length < 4) return;
     _apply(
@@ -127,20 +201,48 @@ class _StatusBodyState extends State<_StatusBody> {
       ),
     );
     if (!mounted) return;
-    AppToast.info(context, 'Report request revoked.');
+    AppToast.info(
+      context,
+      issued ? 'Report revoked.' : 'Report request removed.',
+    );
   });
 
+  /// Read the report itself — the draft before issue, the frozen snapshot
+  /// after. Reviewing a document you cannot see is not a review.
   Future<void> _viewDocument() => _run(() async {
     final data = await AdminApi.instance.reportRequest(_request.id);
     final doc = data?['document'];
     if (doc is! Map || !mounted) {
-      if (mounted) AppToast.info(context, 'No issued document to show.');
+      if (mounted) {
+        AppToast.info(
+          context,
+          'There is nothing to read yet — the patient has not approved this '
+          'disclosure.',
+        );
+      }
       return;
     }
     await PatientReportDocumentView.show(
       context,
       document: PatientReportDocument.fromJson(doc.cast<String, dynamic>()),
     );
+  });
+
+  /// Hands staff the report as a file — the thing they actually need once a
+  /// doctor has signed, to send to the recipient it was prepared for.
+  /// Viewing it on screen was never the same as having a copy.
+  Future<void> _sendDocument() => _run(() async {
+    final bytes = await AdminApi.instance.reportDocumentBytes(_request.id);
+    if (!mounted) return;
+    final opened = await DocumentOpener.openBytes(
+      bytes: bytes,
+      mimeType: 'text/html',
+      filename: DocumentOpener.filenameWith(_request.title, 'html'),
+    );
+    if (!mounted) return;
+    if (!opened) {
+      AppToast.warn(context, 'Could not open the report file.');
+    }
   });
 
   @override
@@ -246,6 +348,26 @@ class _StatusBodyState extends State<_StatusBody> {
               ),
             if (r.signatureNote != null)
               DossierRow(label: 'Note', value: r.signatureNote),
+            if (r.returnCount > 0)
+              DossierRow(
+                label: 'Sent back',
+                value: r.returnCount == 1
+                    ? 'Once'
+                    : '${r.returnCount} times',
+                valueColor: AppColors.warning,
+              ),
+            if (r.awaitingRework) ...[
+              DossierRow(
+                label: 'Returned',
+                value: [
+                  dossierDateTime(r.returnedAt),
+                  r.returnedByName,
+                ].whereType<String>().join(' — '),
+                valueColor: AppColors.warning,
+                emphasise: true,
+              ),
+              DossierRow(label: 'Asked to change', value: r.returnNote),
+            ],
           ],
         ),
         if (r.awaitingConsent && !r.isClosed) ...[
@@ -292,6 +414,10 @@ class _StatusBodyState extends State<_StatusBody> {
             message: r.doctorName == null
                 ? 'Waiting on a doctor signature, but no doctor is nominated. '
                       'Assign this patient to a doctor first.'
+                : r.awaitingRework
+                ? 'You sent this back to Dr. ${r.doctorName}. Their signature '
+                      'was cleared and they have been asked to correct it. The '
+                      'patient’s approval still stands.'
                 : 'Waiting on Dr. ${r.doctorName} to review and sign. They '
                       'have been notified.',
             color: r.doctorName == null
@@ -299,7 +425,44 @@ class _StatusBodyState extends State<_StatusBody> {
                 : AppColors.warning,
           ),
         ],
-        if (r.readyToIssue) ...[
+        if (r.awaitingIssueDecision) ...[
+          const SizedBox(height: AppSpacing.md),
+          _ReviewPanel(request: r),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Read the signed report',
+            icon: AppIcons.document,
+            variant: AppButtonVariant.secondary,
+            expand: true,
+            onPressed: _busy ? null : _viewDocument,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Approve & issue to patient',
+            icon: AppIcons.check,
+            expand: true,
+            loading: _busy,
+            onPressed: _issue,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Send back to the doctor',
+            icon: AppIcons.refresh,
+            variant: AppButtonVariant.secondary,
+            expand: true,
+            onPressed: _busy ? null : _sendBack,
+          ),
+        ] else if (r.readyToIssue) ...[
+          // Signature was never required — no review step, but the admin can
+          // still read what they are about to disclose.
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Read the report first',
+            icon: AppIcons.document,
+            variant: AppButtonVariant.secondary,
+            expand: true,
+            onPressed: _busy ? null : _viewDocument,
+          ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
             label: 'Issue report',
@@ -318,15 +481,52 @@ class _StatusBodyState extends State<_StatusBody> {
             expand: true,
             onPressed: _busy ? null : _viewDocument,
           ),
-        ],
-        if (!r.isClosed) ...[
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: 'Revoke request',
-            icon: AppIcons.close,
+            label: 'Save or send the file',
+            icon: AppIcons.download,
+            variant: AppButtonVariant.secondary,
+            expand: true,
+            onPressed: _busy ? null : _sendDocument,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'The patient already has this copy in their documents, and neither '
+            'you nor a doctor can delete it. Print it or save it as a PDF to '
+            'send it on.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10,
+              height: 1.4,
+            ),
+          ),
+        ],
+        if (!r.isClosed || r.isIssued) ...[
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            // "Remove" while nothing has gone out, "revoke" once it has: they
+            // are the same operation, but calling a withdrawal a removal would
+            // suggest the disclosure can be undone, and it cannot.
+            label: r.isIssued ? 'Revoke issued report' : 'Remove this report',
+            icon: r.isIssued ? AppIcons.close : AppIcons.delete,
             variant: AppButtonVariant.danger,
             expand: true,
             onPressed: _busy ? null : _revoke,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            r.isIssued
+                ? 'The patient keeps their copy, marked as revoked, and is '
+                      'told why. Nothing is deleted.'
+                : 'The request is closed and kept in the audit trail. Nothing '
+                      'was disclosed.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10,
+              height: 1.4,
+            ),
           ),
         ],
       ],
@@ -398,6 +598,81 @@ class _StatusBanner extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What the admin is being asked to decide, said plainly.
+///
+/// The three exits are equally reachable on purpose. When the only buttons
+/// were "issue" and "revoke", an admin who spotted a small error had to choose
+/// between disclosing something wrong and destroying a consent the patient had
+/// already given — so in practice they issued.
+class _ReviewPanel extends StatelessWidget {
+  const _ReviewPanel({required this.request});
+
+  final PatientReportRequestItem request;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final r = request;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.doctorGreen.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(
+          color: AppColors.doctorGreen.withValues(alpha: 0.26),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                AppIcons.approval,
+                size: 18,
+                color: AppColors.doctorGreen,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Signed — your decision',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.doctorGreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${r.signatureName ?? r.doctorName ?? 'A doctor'} signed this'
+            '${dossierDate(r.signedAt) == null ? '' : ' on ${dossierDate(r.signedAt)}'}'
+            '. Read it, then issue it, send it back for a correction, or '
+            'remove the request.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10.5,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Issuing files a copy in the patient’s documents straight away. '
+            'Neither you nor a doctor can delete it afterwards.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 10.5,
+              height: 1.45,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

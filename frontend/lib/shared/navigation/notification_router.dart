@@ -45,6 +45,7 @@ class NotificationRouter {
     NotificationKind.appointment => RouteNames.patientAppointments,
     NotificationKind.medication => RouteNames.patientMedications,
     NotificationKind.message => RouteNames.patientMessages,
+    NotificationKind.support => RouteNames.patientSupport,
     NotificationKind.document => RouteNames.patientDocuments,
     NotificationKind.report => RouteNames.patientDocuments,
     NotificationKind.careRequest => RouteNames.patientCareTeam,
@@ -67,6 +68,7 @@ class NotificationRouter {
     NotificationKind.appointment => RouteNames.doctorAppointments,
     NotificationKind.medication => RouteNames.doctorPrescriptions,
     NotificationKind.message => RouteNames.doctorMessages,
+    NotificationKind.support => RouteNames.doctorNotifications,
     NotificationKind.document => RouteNames.doctorReports,
     NotificationKind.report => RouteNames.doctorReports,
     NotificationKind.careRequest => RouteNames.doctorPatients,
@@ -84,15 +86,19 @@ class NotificationRouter {
     NotificationKind.appointment => RouteNames.adminCareRequests,
     NotificationKind.medication => RouteNames.adminUsers,
     NotificationKind.message => RouteNames.adminMessages,
+    NotificationKind.support => RouteNames.adminSupport,
     NotificationKind.document => RouteNames.adminAudit,
-    NotificationKind.report => RouteNames.adminAudit,
+    NotificationKind.report => RouteNames.adminReports,
     NotificationKind.careRequest => RouteNames.adminCareRequests,
     NotificationKind.sos => RouteNames.adminSos,
     NotificationKind.approval => RouteNames.adminApprovals,
     // Assignments live on the merged care-requests screen.
     NotificationKind.assignment => RouteNames.adminCareRequests,
     NotificationKind.profile => RouteNames.adminProfile,
-    NotificationKind.consent => RouteNames.adminPatients,
+    // Consent notices on the admin side are all report-workflow events —
+    // consent granted, consent declined, report signed. They belong on the
+    // report queue, not the patient directory it used to dump staff into.
+    NotificationKind.consent => RouteNames.adminReports,
     NotificationKind.resolution => RouteNames.adminAlerts,
     NotificationKind.system => RouteNames.adminNotifications,
   };
@@ -102,6 +108,7 @@ class NotificationRouter {
     NotificationKind.appointment => RouteNames.assistantCareRequests,
     NotificationKind.medication => RouteNames.assistantUsers,
     NotificationKind.message => RouteNames.assistantMessages,
+    NotificationKind.support => RouteNames.assistantSupport,
     NotificationKind.document => RouteNames.assistantAudit,
     NotificationKind.report => RouteNames.assistantAudit,
     NotificationKind.careRequest => RouteNames.assistantCareRequests,

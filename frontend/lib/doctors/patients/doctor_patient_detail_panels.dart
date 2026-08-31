@@ -21,6 +21,7 @@ class _DoctorDocumentViewer extends StatefulWidget {
 class _DoctorDocumentViewerState extends State<_DoctorDocumentViewer> {
   late StaffPatientDocument _doc;
   int _previewReload = 0;
+  bool _busy = false;
 
   MedicalDocument get _asMedical => MedicalDocument(
     id: _doc.id,
@@ -60,11 +61,54 @@ class _DoctorDocumentViewerState extends State<_DoctorDocumentViewer> {
     }
   }
 
+  /// Honour a removal the patient asked for — the only delete in the record.
+  Future<void> _honourRemoval() async {
+    if (!AppEnv.backendEnabled) {
+      StaffState.instance.removeDocumentForPatient(_doc.id);
+      return;
+    }
+    await DocumentsApi.instance.honourRemoval(
+      patientUserId: _doc.patientId,
+      documentId: _doc.id,
+    );
+    await DoctorPatientDetailService.instance.loadPatient(_doc.patientId);
+  }
+
+  /// Refuse it, with a reason the patient reads next to the document.
+  Future<void> _declineRemoval() async {
+    final reason = await promptReason(
+      context,
+      title: 'Decline the removal request',
+      message:
+          'The document stays in the record and the patient reads this reason.',
+      confirmLabel: 'Decline',
+    );
+    if (reason == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await DocumentsApi.instance.declineRemoval(
+        patientUserId: _doc.patientId,
+        documentId: _doc.id,
+        reason: reason,
+      );
+      await DoctorPatientDetailService.instance.loadPatient(_doc.patientId);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      AppToast.info(context, 'Removal request declined.');
+    } catch (e) {
+      if (mounted) AppToast.warn(context, 'Could not decline: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MedicalDocumentViewerBody(
       documentId: _doc.id,
       fileType: _doc.fileType,
+      documentTitle: _doc.title,
       patientUserId: _doc.patientId,
       hasFile: _doc.hasFile,
       previewReloadToken: _previewReload,
@@ -77,17 +121,105 @@ class _DoctorDocumentViewerState extends State<_DoctorDocumentViewer> {
         DocumentMetaRow(label: 'Uploaded by', value: _doc.uploadedBy),
       ],
       onEdit: _edit,
-      onDelete: () async {
-        if (AppEnv.backendEnabled) {
-          await DocumentsApi.instance.doctorDelete(
-            patientUserId: _doc.patientId,
-            documentId: _doc.id,
-          );
-          await DoctorPatientDetailService.instance.loadPatient(_doc.patientId);
-        } else {
-          StaffState.instance.removeDocumentForPatient(_doc.id);
-        }
-      },
+      // Delete is offered only where the patient has asked for it. Everything
+      // else in the record is superseded or revoked, never removed — and the
+      // server refuses the rest anyway, so showing the control would only
+      // teach clinicians the app is broken.
+      onDelete: _doc.isRemovableByStaff ? _honourRemoval : null,
+      footer: _doc.removalRequested
+          ? _RemovalRequestNotice(
+              doc: _doc,
+              busy: _busy,
+              onHonour: _honourRemoval,
+              onDecline: _declineRemoval,
+            )
+          : null,
+    );
+  }
+}
+
+/// What the patient asked for, and the two ways to answer.
+///
+/// Deliberately loud. Honouring this is the one deletion anywhere in a
+/// patient's record, and a clinician about to make it should be reading the
+/// patient's own words for why, not a bare confirm dialog.
+class _RemovalRequestNotice extends StatelessWidget {
+  const _RemovalRequestNotice({
+    required this.doc,
+    required this.busy,
+    required this.onHonour,
+    required this.onDecline,
+  });
+
+  final StaffPatientDocument doc;
+  final bool busy;
+  final Future<void> Function() onHonour;
+  final Future<void> Function() onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(AppIcons.alert, size: 16, color: AppColors.warning),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'The patient asked for this to be removed',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      doc.removalReason ?? 'No reason given.',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 11,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Removing it deletes the file for good. The audit trail keeps what '
+            'it was, who filed it and why it went — nothing else does.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              fontSize: 10,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppButton(
+            label: 'Decline and keep it',
+            icon: AppIcons.close,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.sm,
+            expand: true,
+            onPressed: busy ? null : onDecline,
+          ),
+        ],
+      ),
     );
   }
 }
