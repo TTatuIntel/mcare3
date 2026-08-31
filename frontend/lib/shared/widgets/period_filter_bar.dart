@@ -87,32 +87,8 @@ class PeriodFilterBar extends StatelessWidget {
     final tint = accent ?? theme.colorScheme.primary;
     final enabled = !busy;
 
-    return Row(
-      children: [
-        Flexible(
-          child: _PeriodPill(
-            label: period.label,
-            accent: tint,
-            onTap: enabled ? () => _open(context) : null,
-          ),
-        ),
-        if (!dense) ...[
-          const SizedBox(width: AppSpacing.sm),
-          Flexible(
-            child: Text(
-              period.rangeText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppPalette.textMuted(context),
-                fontSize: 10,
-              ),
-            ),
-          ),
-        ],
-        const Spacer(),
-        if (busy)
-          const Padding(
+    final steppers = busy
+        ? const Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             child: SizedBox(
               height: 13,
@@ -120,19 +96,76 @@ class PeriodFilterBar extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 1.6),
             ),
           )
-        else ...[
-          _StepButton(
-            icon: AppIcons.chevronLeft,
-            tooltip: 'Previous ${period.spanDays()} days',
-            onTap: () => _step(-1),
-          ),
-          _StepButton(
-            icon: AppIcons.chevronRight,
-            tooltip: 'Next ${period.spanDays()} days',
-            onTap: _atPresent ? null : () => _step(1),
-          ),
-        ],
-      ],
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _StepButton(
+                icon: AppIcons.chevronLeft,
+                tooltip: 'Previous ${period.spanDays()} days',
+                onTap: () => _step(-1),
+              ),
+              _StepButton(
+                icon: AppIcons.chevronRight,
+                tooltip: 'Next ${period.spanDays()} days',
+                onTap: _atPresent ? null : () => _step(1),
+              ),
+            ],
+          );
+
+    final rangeText = Text(
+      period.rangeText,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: AppPalette.textMuted(context),
+        fontSize: 10.5,
+      ),
+    );
+
+    final pill = _PeriodPill(
+      label: period.label,
+      accent: tint,
+      onTap: enabled ? () => _open(context) : null,
+    );
+
+    // A filter that cannot say which window it is showing is not a filter.
+    // Squeezed onto one line, the label collapsed to "L…" and the dates to
+    // "Jul 30 – Aug …" — the two facts the control exists to state. On a
+    // narrow screen the range moves to its own line instead of competing
+    // with the pill and the steppers for the same few pixels.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tight = constraints.maxWidth < 380;
+
+        if (!tight || dense) {
+          return Row(
+            children: [
+              pill,
+              if (!dense) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(child: rangeText),
+              ],
+              const Spacer(),
+              steppers,
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Flexible(child: pill),
+                const Spacer(),
+                steppers,
+              ],
+            ),
+            const SizedBox(height: 2),
+            rangeText,
+          ],
+        );
+      },
     );
   }
 }
@@ -443,7 +476,11 @@ class _PickerGroup extends StatelessWidget {
         ),
         if (children.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.xs),
-          Wrap(spacing: AppSpacing.xs, runSpacing: AppSpacing.xs, children: children),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: children,
+          ),
         ],
       ],
     );
@@ -553,12 +590,11 @@ class _PeriodRangeCalendarState extends State<PeriodRangeCalendar> {
     }
   }
 
-  DateTime get _minMonth => DateTime(
-    widget.firstDate.year,
-    widget.firstDate.month,
-  );
+  DateTime get _minMonth =>
+      DateTime(widget.firstDate.year, widget.firstDate.month);
 
-  DateTime get _maxMonth => DateTime(widget.lastDate.year, widget.lastDate.month);
+  DateTime get _maxMonth =>
+      DateTime(widget.lastDate.year, widget.lastDate.month);
 
   bool get _canGoBack => _month.isAfter(_minMonth);
 
@@ -761,9 +797,7 @@ class _DayGrid extends StatelessWidget {
           Row(
             children: [
               for (var col = 0; col < 7; col++)
-                Expanded(
-                  child: _dayCell(context, row * 7 + col - leading + 1),
-                ),
+                Expanded(child: _dayCell(context, row * 7 + col - leading + 1)),
             ],
           ),
       ],
@@ -786,8 +820,7 @@ class _DayGrid extends StatelessWidget {
     final to = anchor ?? end;
     final isEdge =
         DateUtils.isSameDay(day, from) || DateUtils.isSameDay(day, to);
-    final inRange =
-        anchor == null && !day.isBefore(start) && !day.isAfter(end);
+    final inRange = anchor == null && !day.isBefore(start) && !day.isAfter(end);
 
     final theme = Theme.of(context);
     final Color background;
@@ -819,7 +852,9 @@ class _DayGrid extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 1),
         child: Material(
           color: background,
-          borderRadius: isEdge ? BorderRadius.circular(AppSpacing.radiusSm) : radius,
+          borderRadius: isEdge
+              ? BorderRadius.circular(AppSpacing.radiusSm)
+              : radius,
           child: InkWell(
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             onTap: enabled ? () => onTap(day) : null,
@@ -828,9 +863,7 @@ class _DayGrid extends StatelessWidget {
               decoration: DateUtils.isSameDay(day, today) && !isEdge
                   ? BoxDecoration(
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      border: Border.all(
-                        color: accent.withValues(alpha: 0.55),
-                      ),
+                      border: Border.all(color: accent.withValues(alpha: 0.55)),
                     )
                   : null,
               child: Text(
@@ -920,7 +953,9 @@ class _MonthYearGridState extends State<_MonthYearGrid> {
   Widget _monthCell(BuildContext context, int monthNumber) {
     final value = DateTime(_year, monthNumber);
     final enabled =
-        !value.isBefore(DateTime(widget.firstDate.year, widget.firstDate.month)) &&
+        !value.isBefore(
+          DateTime(widget.firstDate.year, widget.firstDate.month),
+        ) &&
         !value.isAfter(DateTime(widget.lastDate.year, widget.lastDate.month));
     final selected = DateUtils.isSameMonth(value, widget.month);
 

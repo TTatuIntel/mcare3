@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mcare/auth/reset_password_view.dart';
+import 'package:mcare/auth/forgot_password_view.dart';
 
 void main() {
   group('ResetPasswordArgs.tryParse', () {
     test('parses a map carrying email + token (deep-link query params)', () {
-      final args = ResetPasswordArgs.tryParse(
-        {'email': 'you@example.com', 'token': 'abc123'},
-      );
+      final args = ResetPasswordArgs.tryParse({
+        'email': 'you@example.com',
+        'token': 'abc123',
+      });
 
       expect(args, isNotNull);
       expect(args!.email, 'you@example.com');
@@ -21,8 +22,7 @@ void main() {
     });
 
     test('passes an existing args instance straight through', () {
-      const original =
-          ResetPasswordArgs(email: 'a@b.com', token: 'tok');
+      const original = ResetPasswordArgs(email: 'a@b.com', token: 'tok');
       expect(ResetPasswordArgs.tryParse(original), same(original));
     });
 

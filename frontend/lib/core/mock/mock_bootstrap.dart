@@ -1,9 +1,11 @@
 import '../../shared/models/patient_profile.dart';
 import '../../shared/models/sos.dart';
 import '../../shared/models/vital.dart';
+import '../../shared/state/announcements_state.dart';
 import '../../shared/state/appointments_state.dart';
 import '../../shared/state/care_state.dart';
 import '../../shared/state/documents_state.dart';
+import '../../shared/state/meal_plans_state.dart';
 import '../../shared/state/medications_state.dart';
 import '../../shared/state/messages_state.dart';
 import '../../shared/state/notification_state.dart';
@@ -39,6 +41,8 @@ class MockBootstrap {
     );
     SupportState.instance.seed([]);
     SosState.instance.seed(contacts: contacts, history: []);
+    MealPlansState.instance.seed(const []);
+    AnnouncementsState.instance.seed(MockData.seedAnnouncements());
     ProfileState.instance.seed(health: health, contacts: contacts);
     SettingsState.instance.seed(notifications: NotificationPreferences());
   }
@@ -62,13 +66,13 @@ class MockBootstrap {
       requests: MockData.seedCareRequests(),
     );
     SupportState.instance.seed(MockData.seedSupportTickets());
+    MealPlansState.instance.seed(MockData.seedMealPlans());
+    AnnouncementsState.instance.seed(MockData.seedAnnouncements());
     SosState.instance.seed(
       contacts: ProfileState.instance.emergencyContacts,
       history: MockData.seedSosHistory(),
     );
-    SettingsState.instance.seed(
-      notifications: NotificationPreferences(),
-    );
+    SettingsState.instance.seed(notifications: NotificationPreferences());
   }
 
   static void seedPatientSession() {
@@ -98,6 +102,8 @@ class MockBootstrap {
       requests: MockData.seedCareRequests(),
     );
     SupportState.instance.seed(MockData.seedSupportTickets());
+    MealPlansState.instance.seed(MockData.seedMealPlans());
+    AnnouncementsState.instance.seed(MockData.seedAnnouncements());
     SosState.instance.seed(
       contacts: MockData.seedEmergencyContacts(),
       history: MockData.seedSosHistory(),
@@ -106,9 +112,7 @@ class MockBootstrap {
       health: MockData.seedHealthProfile(),
       contacts: MockData.seedEmergencyContacts(),
     );
-    SettingsState.instance.seed(
-      notifications: NotificationPreferences(),
-    );
+    SettingsState.instance.seed(notifications: NotificationPreferences());
   }
 
   static void clearPatientSession() {
@@ -125,6 +129,8 @@ class MockBootstrap {
     CareState.instance.seed(providers: [], requests: []);
     SupportState.instance.seed([]);
     SosState.instance.seed(contacts: [], history: []);
+    MealPlansState.instance.seed(const []);
+    AnnouncementsState.instance.seed(const []);
     ProfileState.instance.clear();
     ApiClient.instance.setToken(null);
   }

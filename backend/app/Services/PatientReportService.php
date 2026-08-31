@@ -8,9 +8,9 @@ use App\Models\CareAssignment;
 use App\Models\CareProvider;
 use App\Models\PatientReportRequest;
 use App\Models\User;
+use App\Support\MailDispatcher;
 use App\Support\PatientReportSections;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 /**
@@ -526,18 +526,16 @@ class PatientReportService
         // OTP in the body covers the phone-assisted path.
         $url = rtrim(config('mcare.frontend_url'), '/').'/#/patient/report-consents';
 
-        try {
-            Mail::to($patient->email)->send(new PatientReportConsentMail(
+        MailDispatcher::send(
+            $patient->email,
+            new PatientReportConsentMail(
                 $patient,
                 $request,
                 $code,
                 $url,
                 $labels,
-            ));
-        } catch (\Throwable $e) {
-            // Email is a convenience — staff can still read the OTP back over
-            // the phone, so a mail failure must not block the workflow.
-            report($e);
-        }
+            ),
+            ['purpose' => 'patient_report_consent', 'request_id' => $request->id],
+        );
     }
 }

@@ -20,6 +20,11 @@ class NavigationRoots {
 
   static const Set<String> _patient = {
     RouteNames.patientDashboard,
+    // Bottom-nav hubs — tab peers of the dashboard, like the admin rail's
+    // Work/People/More, so they carry no back chip.
+    RouteNames.patientHealth,
+    RouteNames.patientCare,
+    RouteNames.patientMore,
     RouteNames.patientVitals,
     RouteNames.patientMedications,
     RouteNames.patientAppointments,
@@ -254,6 +259,18 @@ class NavigationRoots {
     RouteNames.assistantNotifications: RouteNames.assistantMore,
     RouteNames.assistantProfile: RouteNames.assistantMore,
     RouteNames.assistantSettings: RouteNames.assistantMore,
+
+    // ----- Patient drill-downs -----
+    // Reached by pushing from a list, so back normally just pops. These only
+    // matter on a deep link or a web refresh, where the stack is empty: they
+    // send back to the list the row came from instead of the dashboard.
+    RouteNames.patientVitalDetail: RouteNames.patientVitals,
+    RouteNames.patientVitalHistory: RouteNames.patientVitals,
+    RouteNames.patientVital7Day: RouteNames.patientVitals,
+    RouteNames.patientMedicationDetail: RouteNames.patientMedications,
+    RouteNames.patientAppointmentDetail: RouteNames.patientAppointments,
+    RouteNames.patientChatThread: RouteNames.patientMessages,
+    RouteNames.patientTicketDetail: RouteNames.patientSupport,
 
     // ----- Doctor drill-downs -----
     RouteNames.doctorAlerts: RouteNames.doctorInbox,

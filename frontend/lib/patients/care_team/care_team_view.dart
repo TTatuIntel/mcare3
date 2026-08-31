@@ -23,6 +23,19 @@ class RequestCareSheet {
   RequestCareSheet._();
 
   static Future<void> show(BuildContext context, CareProvider provider) {
+    // The browse row already hides the call to action once a request is open;
+    // this catches the stale-state case (a request made on another device, or
+    // a row tapped before the sync landed) before the form is even shown.
+    final open = CareState.instance.pendingRequestFor(provider.id);
+    if (open != null) {
+      AppToast.info(
+        context,
+        'You already have a pending request with ${provider.name}. '
+        'Check Pending to follow it up.',
+      );
+      return Future.value();
+    }
+
     return GlassSheet.show(
       context,
       title: 'Request care',
@@ -51,12 +64,23 @@ class _FormState extends State<_Form> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
     setState(() => _saving = true);
     try {
       await CareState.instance.requestCareRemote(
         widget.provider,
         reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
       );
+    } on DuplicateCareRequest catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      AppToast.info(context, '$e Check Pending to follow it up.');
+      return;
+    } on AlreadyOnCareTeam catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      AppToast.info(context, '$e');
+      return;
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -280,6 +304,11 @@ class _CareTeamViewState extends State<CareTeamView> {
                               _ProviderRow(
                                 provider: providers[i],
                                 assigned: _tab == _CareTeamTab.myTeam,
+                                pendingRequest: CareState.instance
+                                    .pendingRequestFor(providers[i].id),
+                                onViewPending: () => setState(
+                                  () => _tab = _CareTeamTab.pending,
+                                ),
                               ),
                             ],
                           ],
@@ -455,9 +484,21 @@ class _PendingRequestRow extends StatelessWidget {
 }
 
 class _ProviderRow extends StatelessWidget {
-  const _ProviderRow({required this.provider, required this.assigned});
+  const _ProviderRow({
+    required this.provider,
+    required this.assigned,
+    this.pendingRequest,
+    this.onViewPending,
+  });
+
   final CareProvider provider;
   final bool assigned;
+
+  /// The patient's open request with this provider, when there is one. Its
+  /// presence is what turns the call to action into a "Requested" state — a
+  /// provider can only be asked once until that request is decided.
+  final CareRequest? pendingRequest;
+  final VoidCallback? onViewPending;
 
   @override
   Widget build(BuildContext context) {
@@ -495,14 +536,24 @@ class _ProviderRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      provider.name,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            provider.name,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (pendingRequest != null) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          const _RequestedPill(),
+                        ],
+                      ],
                     ),
                     Text(
                       '${provider.specialty} · ${provider.facility}',
@@ -556,7 +607,28 @@ class _ProviderRow extends StatelessWidget {
               onPressed: () =>
                   Navigator.of(context).pushNamed(RouteNames.patientMessages),
             )
-          else
+          else if (pendingRequest != null) ...[
+            AppButton(
+              label: 'Requested',
+              variant: AppButtonVariant.secondary,
+              icon: AppIcons.time,
+              size: AppButtonSize.sm,
+              expand: true,
+              semanticLabel:
+                  'Care already requested from ${provider.name}. '
+                  'View your pending request.',
+              onPressed: onViewPending,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Waiting for approval — one request per provider.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontSize: 10,
+              ),
+            ),
+          ] else
             AppButton(
               label: 'Request care',
               icon: AppIcons.add,
@@ -564,6 +636,40 @@ class _ProviderRow extends StatelessWidget {
               expand: true,
               onPressed: () => RequestCareSheet.show(context, provider),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Pending" marker on a provider the patient has already asked for.
+class _RequestedPill extends StatelessWidget {
+  const _RequestedPill();
+
+  @override
+  Widget build(BuildContext context) {
+    const tone = AppColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: tone.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        border: Border.all(color: tone.withOpacity(0.35)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.time, size: 9, color: tone),
+          SizedBox(width: 3),
+          Text(
+            'Requested',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: tone,
+              letterSpacing: 0.2,
+            ),
+          ),
         ],
       ),
     );

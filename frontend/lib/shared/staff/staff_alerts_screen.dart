@@ -419,6 +419,13 @@ class _AlertRow extends StatelessWidget {
         ? AppColors.success
         : (alert.acknowledged ? AppColors.info : alert.severity.color);
 
+    // Who is on it, on the row itself. Without it the list says an alert is
+    // "Acknowledged" or "Resolved" but not by whom, so the only way to avoid
+    // calling a patient somebody already called is to open every row.
+    final handler = alert.resolved
+        ? alert.resolvedBy
+        : (alert.acknowledged ? alert.acknowledgedBy : null);
+
     return StaffListRow(
       icon: alert.vital.icon,
       iconColor: alert.resolved
@@ -426,7 +433,8 @@ class _AlertRow extends StatelessWidget {
           : alert.severity.color,
       title: '${alert.patientName} · ${alert.vital.label}',
       subtitle:
-          '${alert.value} · ${DateFormat.MMMd().add_jm().format(alert.createdAt)}',
+          '${alert.value} · ${DateFormat.MMMd().add_jm().format(alert.createdAt)}'
+          '${handler != null && handler.isNotEmpty ? ' · $handler' : ''}',
       pill: pillLabel,
       pillColor: pillColor,
       onTap: onTap,
@@ -544,16 +552,20 @@ class _AlertDetailBodyState extends State<_AlertDetailBody> {
             else
               for (final a in assignees) _AssigneeChip(assignment: a),
 
-            const SizedBox(height: AppSpacing.md),
-            const _SectionCaption(
-              label: 'PATIENT CONTEXT',
-              trailing: 'Past 3 days',
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            PatientThreeDaySummary(
-              patientId: alert.patientId,
-              highlightedVital: alert.vital,
-            ),
+            // No verified records for this patient means no summary card, so
+            // the section heading goes too rather than captioning nothing.
+            if (PatientThreeDaySummary.hasDataFor(alert.patientId)) ...[
+              const SizedBox(height: AppSpacing.md),
+              const _SectionCaption(
+                label: 'PATIENT CONTEXT',
+                trailing: 'Past 3 days',
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              PatientThreeDaySummary(
+                patientId: alert.patientId,
+                highlightedVital: alert.vital,
+              ),
+            ],
 
             const SizedBox(height: AppSpacing.md),
             _ActionsPanel(
@@ -1190,6 +1202,16 @@ class _ResolutionCard extends StatelessWidget {
               alert.resolutionNote!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppPalette.textMuted(context),
+              ),
+            ),
+          ],
+          if (alert.resolvedBy?.isNotEmpty ?? false) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Closed by ${alert.resolvedBy}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

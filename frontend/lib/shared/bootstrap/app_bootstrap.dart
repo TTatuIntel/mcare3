@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/env/runtime_config.dart';
 import '../../core/web/html_splash_bridge.dart';
 import '../constants/route_names.dart';
 import '../services/auth_service.dart';
@@ -20,15 +21,25 @@ class AppBootstrap {
   static const Duration _maxWait = Duration(seconds: 3);
 
   static Future<BootstrapResult> run() async {
+    // Widget tests do not have the platform keychain or browser OAuth bridge.
+    // Returning synchronously also prevents the app-level startup watchdog from
+    // leaving a pending timer in the test binding. Production never enables
+    // [fastMode], so normal settings and session restoration are unchanged.
+    if (fastMode) {
+      return const BootstrapResult(initialRoute: RouteNames.home);
+    }
+
     try {
-      if (!fastMode) {
-        // Font preloading is a network request — run it alongside settings but
-        // do not let it gate the splash: fire-and-forget if it takes too long.
-        _preloadFonts().timeout(const Duration(seconds: 2)).catchError((_) {});
-      }
+      // Font preloading is a network request — run it alongside settings but
+      // do not let it gate the splash: fire-and-forget if it takes too long.
+      _preloadFonts().timeout(const Duration(seconds: 2)).catchError((_) {});
       await Future.wait([
         _warmCaches(),
         SettingsState.instance.loadPersisted(),
+        // Which OAuth client IDs this deployment accepts. Fetched before the
+        // first sign-in surface can be reached, so the Google and Apple
+        // buttons know whether they work without depending on a build flag.
+        RuntimeConfig.instance.load(),
       ]).timeout(_maxWait);
     } catch (_) {
       // Never block launch on startup failures.

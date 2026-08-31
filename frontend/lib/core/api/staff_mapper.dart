@@ -57,7 +57,9 @@ class StaffMapper {
       ..resolved = (j['resolved'] as bool?) ?? false
       ..resolutionNote = j['resolution_note'] as String?
       ..resolutionAction = j['resolution_action'] as String?
-      ..resolutionCustomAction = j['resolution_custom_action'] as String?;
+      ..resolutionCustomAction = j['resolution_custom_action'] as String?
+      ..resolvedBy = j['resolved_by'] as String?
+      ..acknowledgedBy = j['acknowledged_by'] as String?;
   }
 
   // ---------------------------------------------------------------------------

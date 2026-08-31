@@ -30,10 +30,9 @@ class GlassSheet {
     bool isDismissible = true,
     double? maxWidth,
     double maxHeightFactor = 0.92,
-  }) {
-    return showGeneralDialog<T>(
-      context: context,
-      useRootNavigator: true,
+  }) async {
+    final locale = Localizations.localeOf(context);
+    final route = RawDialogRoute<T>(
       barrierDismissible: isDismissible,
       barrierLabel: 'Dismiss',
       barrierColor: Colors.transparent,
@@ -43,7 +42,7 @@ class GlassSheet {
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         // Inherit locale + Material localizations inside overlay routes.
         return Localizations(
-          locale: Localizations.localeOf(context),
+          locale: locale,
           delegates: AppLocalizations.localizationsDelegates,
           child: _SheetRoute<T>(
             animation: animation,
@@ -61,6 +60,20 @@ class GlassSheet {
         );
       },
     );
+
+    final result = await Navigator.of(context, rootNavigator: true).push<T>(
+      route,
+    );
+
+    // `push` resolves the moment the sheet is popped — the panel is still on
+    // screen, still building, for the length of its exit transition. Callers
+    // routinely dispose the controllers they handed the sheet as soon as this
+    // future returns, and a `TextEditingController` used after disposal throws
+    // mid-build, which takes the whole Overlay down with it. Waiting for
+    // `completed` means the route is off the tree before the caller resumes,
+    // so "await show(); controller.dispose();" is safe by construction.
+    await route.completed;
+    return result;
   }
 }
 

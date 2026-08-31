@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/location/google_maps_service.dart';
+
 import '../models/appointment.dart';
 import '../models/document.dart';
 import '../models/patient_profile.dart';
@@ -61,6 +63,8 @@ class StaffAlert {
     this.resolutionNote,
     this.resolutionAction,
     this.resolutionCustomAction,
+    this.resolvedBy,
+    this.acknowledgedBy,
   });
 
   final String id;
@@ -76,6 +80,15 @@ class StaffAlert {
   String? resolutionNote;
   String? resolutionAction;
   String? resolutionCustomAction;
+
+  /// The clinician who closed this, as the patient was told it. Kept on the
+  /// alert so a colleague reading a closed row knows who to ask about it
+  /// without going through the audit log.
+  String? resolvedBy;
+
+  /// Who picked this up but has not finished it — the signal that stops two
+  /// responders phoning the same patient about the same reading.
+  String? acknowledgedBy;
 }
 
 class StaffPatientDocument {
@@ -207,7 +220,14 @@ class StaffPatientSos {
 
   String? get mapsUrl {
     if (latitude != null && longitude != null) {
-      return 'https://www.google.com/maps?q=$latitude,$longitude';
+      return GoogleMapsService.searchUri(latitude!, longitude!).toString();
+    }
+    return null;
+  }
+
+  String? get directionsUrl {
+    if (latitude != null && longitude != null) {
+      return GoogleMapsService.directionsUri(latitude!, longitude!).toString();
     }
     return null;
   }

@@ -57,6 +57,8 @@ class _Announcement {
     required this.icon,
     required this.accent,
     required this.badge,
+    this.value,
+    this.status,
     this.onTap,
   });
 
@@ -66,6 +68,17 @@ class _Announcement {
   final IconData icon;
   final Color accent;
   final int badge;
+
+  /// The reading behind the alert (`172/108 mmHg`), or where an emergency was
+  /// raised. It was already carried on the item and only visible once someone
+  /// opened the queue; on the line it is the single most useful thing in the
+  /// space to the right of the name. Null when there is nothing to show.
+  final String? value;
+
+  /// Whether anyone has taken this on yet. Null for notes that cannot be
+  /// owned.
+  final String? status;
+
   final VoidCallback? onTap;
 }
 
@@ -225,6 +238,17 @@ class _UrgentAlertsCardState extends State<UrgentAlertsCard> {
               expanded: _expanded,
               animate: !reduceMotion,
               urgent: urgent,
+              // Collapsed, this is the only place the shape of the queue is
+              // stated; expanded, _Breakdown says it in full just below, so
+              // the line does not repeat itself.
+              summary: urgent && !_expanded
+                  ? _queueSummary(
+                      sos: sos,
+                      critical: critical,
+                      warning: warning,
+                      unattended: unattended,
+                    )
+                  : null,
               // The chevron always earns its place: it opens the actionable
               // queue during an incident and the compact operational overview
               // while the queue is clear.
@@ -291,14 +315,33 @@ class _UrgentAlertsCardState extends State<UrgentAlertsCard> {
   /// Every outstanding item gets a turn, so the sixth alert is seen by
   /// someone who never expands anything. The badge stays the whole count —
   /// it answers "how much is outstanding", not "which one is this".
+  /// What the queue is made of, in the words [_Breakdown] uses when the board
+  /// is open — so opening it confirms the line rather than restating it
+  /// differently.
+  String _queueSummary({
+    required int sos,
+    required int critical,
+    required int warning,
+    required int unattended,
+  }) => [
+    if (sos > 0) '$sos emergency',
+    if (critical > 0) '$critical critical',
+    if (warning > 0) '$warning warning',
+    if (unattended > 0) '$unattended not yet owned' else 'all owned',
+  ].join(' · ');
+
   List<_Announcement> _fromQueue(List<UrgentItem> queue) => [
     for (final item in queue)
       _Announcement(
         id: item.id,
         title: item.patientName,
-        detail:
-            '${item.title} · ${_urgentRelativeTime(item.createdAt)}'
-            '${item.acknowledged ? ' · owned' : ''}',
+        detail: '${item.title} · ${_urgentRelativeTime(item.createdAt)}',
+        // Ownership used to be a "· owned" tail on the detail line, where it
+        // was easy to miss and said nothing when an item was *not* owned.
+        // Unowned is the state that needs a responder, so it gets said out
+        // loud in its own column.
+        value: item.detail.trim().isEmpty ? null : item.detail.trim(),
+        status: item.acknowledged ? 'Owned' : 'Not yet owned',
         icon: item.isSos ? AppIcons.sos : AppIcons.alert,
         accent: switch (item.kind) {
           UrgentKind.sos || UrgentKind.criticalVital => AppColors.critical,
@@ -361,9 +404,17 @@ class _UrgentAlertsCardState extends State<UrgentAlertsCard> {
 
 /// The collapsed state, and the header of the expanded one.
 ///
-/// It says the same four things a phone notification says — who, what, when,
-/// how many — and nothing else. Tapping the text works what it is showing;
-/// the chevron is the only control that merely changes what is on screen.
+/// It says what a phone notification says — who, what, when, how many — and
+/// then fills the rest of its own width rather than leaving it blank: the
+/// reading that triggered the alert, whether anyone owns it yet, and what the
+/// queue behind it is made of. All of it was already loaded and none of it
+/// was on screen until someone opened the queue.
+///
+/// The band is a fixed height either way. These sit in space the line was
+/// already holding, so nothing below it moves.
+///
+/// Tapping the text works what it is showing; the chevron is the only control
+/// that merely changes what is on screen.
 class _NotificationLine extends StatelessWidget {
   const _NotificationLine({
     required this.showing,
@@ -374,6 +425,7 @@ class _NotificationLine extends StatelessWidget {
     required this.animate,
     required this.urgent,
     required this.onToggle,
+    this.summary,
   });
 
   final _Announcement showing;
@@ -386,12 +438,20 @@ class _NotificationLine extends StatelessWidget {
   final bool animate;
   final bool urgent;
 
+  /// What the whole queue is made of, e.g. `1 emergency · 4 critical`. Shown
+  /// collapsed, where the expanded board's breakdown is not on screen.
+  final String? summary;
+
   final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = showing.accent;
+    final muted = AppPalette.textMuted(context);
+    final value = showing.value;
+    final status = showing.status;
+    final summaryLine = summary;
 
     final body = Row(
       key: ValueKey(showing.id),
@@ -403,26 +463,82 @@ class _NotificationLine extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                showing.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      showing.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                  ),
+                  if (value != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    // A bare reading is short, but the field also arrives
+                    // carrying advisory prose ("172/108 mmHg — immediate
+                    // review required"), and an emergency puts its location
+                    // and note here. Unbounded, any of those burst the row.
+                    //
+                    // Who it is about outranks what the reading said, so the
+                    // name keeps three parts of the row to the reading's two
+                    // and the reading ellipsises rather than squeezing the
+                    // patient off the line.
+                    Flexible(
+                      flex: 2,
+                      child: _ReadingChip(value: value, accent: accent),
+                    ),
+                  ],
+                ],
               ),
-              Text(
-                showing.detail,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.5,
-                  height: 1.2,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      showing.detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10.5,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  if (status != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    // Kept to one line: wrapping here would grow the band and
+                    // push the whole dashboard down.
+                    Text(
+                      status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: muted,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 10,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ],
               ),
+              if (summaryLine != null)
+                Text(
+                  summaryLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: muted,
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
             ],
           ),
         ),
@@ -459,11 +575,19 @@ class _NotificationLine extends StatelessWidget {
             child: Semantics(
               button: showing.onTap != null,
               liveRegion: true,
-              label: '${showing.title}. ${showing.detail}.',
+              label: [
+                showing.title,
+                showing.detail,
+                ?value,
+                ?status,
+                ?summaryLine,
+              ].join('. '),
               child: InkWell(
                 onTap: showing.onTap,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  // Tightened as the line gained rows, so the band keeps the
+                  // height it already had rather than pushing the page down.
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   // Turns cross-fade in place, so the line never jumps and the
                   // page below it never moves.
                   child: animate
@@ -658,6 +782,40 @@ class _QuietOverviewRow extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The reading that triggered the alert, sat at the end of the name row.
+///
+/// It reads as a measurement rather than a control: no border, no tap target,
+/// tabular figures so a column of them does not jitter as the strip rotates.
+class _ReadingChip extends StatelessWidget {
+  const _ReadingChip({required this.value, required this.accent});
+
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      ),
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: accent,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          height: 1.2,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
       ),
     );

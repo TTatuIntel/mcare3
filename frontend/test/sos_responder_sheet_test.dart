@@ -166,6 +166,9 @@ void main() {
     Navigator.of(tester.element(find.text('Take ownership'))).pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
+    // A sheet now hands control back only once its exit transition has
+    // finished, so the work it triggered lands a frame later.
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(AlertCenter.instance.isPresenting, isFalse);
     expect(

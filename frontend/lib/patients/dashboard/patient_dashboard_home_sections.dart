@@ -8,11 +8,15 @@ class _PatientHomeLayout extends StatelessWidget {
     required this.appointments,
     required this.doses,
     required this.unreadNotifications,
+    this.reserveFabSpace = false,
   });
 
   final List<Appointment> appointments;
   final List<MedicationDose> doses;
   final int unreadNotifications;
+
+  /// Keeps the last card clear of the floating "Log vital" button on handhelds.
+  final bool reserveFabSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -24,9 +28,23 @@ class _PatientHomeLayout extends StatelessWidget {
           children: [
             const StaggeredEntry(index: 0, child: PatientDateHeader()),
             const SizedBox(height: AppSpacing.md),
+            // A request to share the record blocks staff work and expires on a
+            // timer, so it goes above the daily plan rather than waiting to be
+            // found in a notification the patient may already have read.
+            if (ReportConsentsState.instance.hasAwaiting) ...[
+              const StaggeredEntry(
+                // Keyed: this entry comes and goes, and without a key it and
+                // the today hub below are both an unkeyed StaggeredEntry in
+                // adjacent slots for Flutter to match up.
+                key: ValueKey('patient-sharing-request'),
+                index: 1,
+                child: _PatientSharingRequestCard(),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             StaggeredEntry(
               index: 1,
-              child: _PatientDailyPlanCard(
+              child: _PatientTodayHub(
                 appointments: appointments,
                 doses: doses,
                 unreadNotifications: unreadNotifications,
@@ -85,246 +103,10 @@ class _PatientHomeLayout extends StatelessWidget {
             // home surfaces SOS.
             const SizedBox(height: AppSpacing.xl),
             const StaggeredEntry(index: 6, child: _PatientHelpCard()),
-            const SizedBox(height: AppSpacing.huge),
+            SizedBox(height: reserveFabSpace ? 96 : AppSpacing.huge),
           ],
         );
       },
-    );
-  }
-}
-
-class _PatientPlanAction {
-  const _PatientPlanAction({
-    required this.icon,
-    required this.accent,
-    required this.title,
-    required this.detail,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color accent;
-  final String title;
-  final String detail;
-  final VoidCallback onTap;
-}
-
-class _PatientDailyPlanCard extends StatelessWidget {
-  const _PatientDailyPlanCard({
-    required this.appointments,
-    required this.doses,
-    required this.unreadNotifications,
-  });
-
-  final List<Appointment> appointments;
-  final List<MedicationDose> doses;
-  final int unreadNotifications;
-
-  List<_PatientPlanAction> _actions(BuildContext context) {
-    final actions = <_PatientPlanAction>[];
-    VitalKey? highestRiskVital;
-    for (final vital in VitalsState.instance.tracked) {
-      final risk = VitalsState.instance.latestOf(vital)?.risk;
-      if (risk == RiskLevel.critical) {
-        highestRiskVital = vital;
-        break;
-      }
-      if (risk == RiskLevel.warning) highestRiskVital ??= vital;
-    }
-
-    if (highestRiskVital != null) {
-      final reading = VitalsState.instance.latestOf(highestRiskVital);
-      actions.add(
-        _PatientPlanAction(
-          icon: highestRiskVital.icon,
-          accent: reading?.risk == RiskLevel.critical
-              ? AppColors.critical
-              : AppColors.warning,
-          title: 'Review ${highestRiskVital.label.toLowerCase()}',
-          detail: reading == null
-              ? 'Open your latest reading'
-              : '${reading.formatValue()} ${highestRiskVital.unit} · ${reading.risk.label}',
-          onTap: () => openVitalDetail(context, highestRiskVital!),
-        ),
-      );
-    } else {
-      final tracked = VitalsState.instance.tracked.toList();
-      actions.add(
-        _PatientPlanAction(
-          icon: AppIcons.vitals,
-          accent: AppColors.brandIndigo,
-          title: 'Record your vitals',
-          detail: tracked.isEmpty
-              ? 'Choose a vital and add today\'s reading'
-              : 'Keep your care team up to date',
-          onTap: () => SubmitVitalSheet.show(
-            context,
-            initial: tracked.isEmpty ? null : tracked.first,
-          ),
-        ),
-      );
-    }
-
-    final pending = doses.where((d) => d.status == DoseStatus.pending).toList()
-      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    if (pending.isNotEmpty) {
-      final dose = pending.first;
-      actions.add(
-        _PatientPlanAction(
-          icon: AppIcons.medication,
-          accent: AppColors.success,
-          title: 'Take your medication',
-          detail: '${dose.name} · ${DateFormat.jm().format(dose.scheduledAt)}',
-          onTap: () => LogDoseSheet.show(context, dose),
-        ),
-      );
-    }
-
-    if (appointments.isNotEmpty) {
-      final appointment = appointments.first;
-      actions.add(
-        _PatientPlanAction(
-          icon: AppIcons.appointment,
-          accent: AppColors.bpPurple,
-          title: 'Prepare for your next visit',
-          detail: _patientVisitTime(appointment.scheduledAt),
-          onTap: () => Navigator.of(context).pushNamed(
-            RouteNames.patientAppointmentDetail,
-            arguments: appointment.id,
-          ),
-        ),
-      );
-    }
-
-    if (unreadNotifications > 0) {
-      actions.add(
-        _PatientPlanAction(
-          icon: AppIcons.bell,
-          accent: AppColors.info,
-          title: 'Review care updates',
-          detail:
-              '$unreadNotifications unread update${unreadNotifications == 1 ? '' : 's'}',
-          onTap: () =>
-              Navigator.of(context).pushNamed(RouteNames.patientNotifications),
-        ),
-      );
-    }
-    return actions;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = _actions(context);
-    final visible = actions.take(3).toList();
-
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          AppColors.brandIndigo.withValues(alpha: 0.10),
-          AppPalette.surface(context),
-        ],
-      ),
-      border: Border.all(color: AppColors.brandIndigo.withValues(alpha: 0.18)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              _PatientIconDisc(
-                icon: AppIcons.catalog,
-                color: AppColors.brandIndigo,
-                size: 52,
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your care plan today',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '${visible.length} priority step${visible.length == 1 ? '' : 's'}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.brandIndigo,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          for (var index = 0; index < visible.length; index++) ...[
-            _PatientPlanActionRow(action: visible[index]),
-            if (index != visible.length - 1)
-              const SizedBox(height: AppSpacing.sm),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _PatientPlanActionRow extends StatelessWidget {
-  const _PatientPlanActionRow({required this.action});
-
-  final _PatientPlanAction action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppPalette.surface(context),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: InkWell(
-        onTap: action.onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: AppPalette.border(context)),
-          ),
-          child: Row(
-            children: [
-              _PatientIconDisc(icon: action.icon, color: action.accent),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      action.title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      action.detail,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Icon(AppIcons.chevronRight, color: action.accent),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -336,11 +118,104 @@ class _PatientPlanActionRow extends StatelessWidget {
 /// trend so logging is a decision, not a guess. The board is also the entry
 /// point for self-assignment: "Manage" and the trailing add tile both open
 /// [VitalPreferencesSheet], where optional vitals can be switched on.
-class _PatientVitalShortcuts extends StatelessWidget {
+/// General statistics for the tracked vitals, derived only from what the
+/// stores already hold. These stay visible even when the board is collapsed,
+/// so home always answers "am I on top of my vitals?" in one glance.
+class _PatientVitalStats {
+  const _PatientVitalStats({
+    required this.tracked,
+    required this.loggedToday,
+    required this.needsAttention,
+    required this.lastLoggedAt,
+  });
+
+  factory _PatientVitalStats.from(List<VitalKey> tracked) {
+    final trackedSet = tracked.toSet();
+    var needsAttention = 0;
+    for (final vital in tracked) {
+      if (NotificationState.instance.vitalAlertFor(vital) != null) {
+        needsAttention++;
+        continue;
+      }
+      final risk = VitalsState.instance.latestOf(vital)?.risk;
+      if (risk == RiskLevel.critical || risk == RiskLevel.warning) {
+        needsAttention++;
+      }
+    }
+
+    final now = DateTime.now();
+    var loggedToday = 0;
+    DateTime? lastLoggedAt;
+    for (final reading in VitalsState.instance.all) {
+      if (!trackedSet.contains(reading.vital)) continue;
+      if (DateUtils.isSameDay(reading.recordedAt, now)) loggedToday++;
+      if (lastLoggedAt == null || reading.recordedAt.isAfter(lastLoggedAt)) {
+        lastLoggedAt = reading.recordedAt;
+      }
+    }
+
+    return _PatientVitalStats(
+      tracked: tracked.length,
+      loggedToday: loggedToday,
+      needsAttention: needsAttention,
+      lastLoggedAt: lastLoggedAt,
+    );
+  }
+
+  final int tracked;
+  final int loggedToday;
+  final int needsAttention;
+  final DateTime? lastLoggedAt;
+
+  bool get hasAttention => needsAttention > 0;
+
+  Color get accent => hasAttention ? AppColors.warning : AppColors.brandIndigo;
+
+  String get headline {
+    if (tracked == 0) return 'Nothing tracked yet';
+    if (hasAttention) {
+      return '$needsAttention vital${needsAttention == 1 ? '' : 's'} to review';
+    }
+    if (loggedToday > 0) return 'Vitals logged today';
+    return 'Vitals are up to date';
+  }
+
+  /// `_relativeTime` is written to start a sentence. Mid-sentence only its two
+  /// word forms need lowering — a month name has to keep its capital.
+  String _lastLoggedLabel(DateTime at) {
+    final label = _relativeTime(at);
+    return switch (label) {
+      'Just now' => 'just now',
+      'Yesterday' => 'yesterday',
+      _ => label,
+    };
+  }
+
+  String get detail {
+    if (tracked == 0) return 'Choose the vitals you want to record';
+    final at = lastLoggedAt;
+    final last = at == null
+        ? 'nothing logged yet'
+        : 'last logged ${_lastLoggedLabel(at)}';
+    return '$tracked tracked · $last';
+  }
+}
+
+/// Home's vitals board. It is a drop-down: collapsed by default so the page
+/// stays short, with the statistics strip and the shortcut to the Vitals page
+/// always on screen. Expanding reveals the per-vital log tiles unchanged.
+class _PatientVitalShortcuts extends StatefulWidget {
   const _PatientVitalShortcuts();
 
+  @override
+  State<_PatientVitalShortcuts> createState() => _PatientVitalShortcutsState();
+}
+
+class _PatientVitalShortcutsState extends State<_PatientVitalShortcuts> {
   /// Keep home scannable — the rest stay one tap away on the Vitals screen.
   static const _maxTiles = 6;
+
+  bool _expanded = false;
 
   /// Alerting first, then critical / watch, then most recently updated. The
   /// reading a clinician would look at first is the one nearest the thumb.
@@ -380,12 +255,62 @@ class _PatientVitalShortcuts extends StatelessWidget {
     return history.length > 1 ? history[1] : null;
   }
 
+  void _openVitalsPage() =>
+      Navigator.of(context).pushNamed(RouteNames.patientVitals);
+
+  void _toggle() => setState(() => _expanded = !_expanded);
+
+  Widget _board(List<VitalKey> tracked, {required bool canAddMore}) {
+    final state = VitalsState.instance;
+    final shown = tracked.take(_maxTiles).toList();
+    final hidden = tracked.length - shown.length;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _columnsFor(constraints.maxWidth);
+        const gap = AppSpacing.sm;
+        final tileWidth =
+            (constraints.maxWidth - gap * (columns - 1)) / columns;
+
+        final tiles = <Widget>[
+          for (final vital in shown)
+            _PatientVitalCard(
+              vital: vital,
+              reading: state.latestOf(vital),
+              previous: _previousReading(vital),
+              alert: NotificationState.instance.vitalAlertFor(vital),
+              assigned: state.isAssigned(vital),
+              onLog: () => SubmitVitalSheet.show(context, initial: vital),
+              onOpen: () => openVitalDetail(context, vital),
+            ),
+          if (canAddMore || hidden > 0)
+            _PatientAddVitalCard(
+              label: canAddMore ? 'Add a vital' : 'See all vitals',
+              detail: hidden > 0
+                  ? '$hidden more tracked · tap to review'
+                  : 'Track what matters to you',
+              onTap: canAddMore
+                  ? () => VitalPreferencesSheet.show(context)
+                  : _openVitalsPage,
+            ),
+        ];
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = VitalsState.instance;
     final tracked = _ordered(state.tracked.toList());
-    final shown = tracked.take(_maxTiles).toList();
-    final hidden = tracked.length - shown.length;
+    final stats = _PatientVitalStats.from(tracked);
     final canAddMore = state.selectableVitals.any(
       (v) => !state.tracked.contains(v),
     );
@@ -397,10 +322,8 @@ class _PatientVitalShortcuts extends StatelessWidget {
           title: 'Record a vital',
           icon: AppIcons.vitals,
           trailing: tracked.isEmpty ? null : '${tracked.length} tracked',
-          actionLabel: canAddMore ? 'Manage' : null,
-          onAction: canAddMore
-              ? () => VitalPreferencesSheet.show(context)
-              : null,
+          actionLabel: 'Vitals',
+          onAction: _openVitalsPage,
         ),
         if (tracked.isEmpty)
           GlassCard(
@@ -416,48 +339,213 @@ class _PatientVitalShortcuts extends StatelessWidget {
             ),
           )
         else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = _columnsFor(constraints.maxWidth);
-              const gap = AppSpacing.sm;
-              final tileWidth =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-
-              final tiles = <Widget>[
-                for (final vital in shown)
-                  _PatientVitalCard(
-                    vital: vital,
-                    reading: state.latestOf(vital),
-                    previous: _previousReading(vital),
-                    alert: NotificationState.instance.vitalAlertFor(vital),
-                    assigned: state.isAssigned(vital),
-                    onLog: () => SubmitVitalSheet.show(context, initial: vital),
-                    onOpen: () => openVitalDetail(context, vital),
-                  ),
-                if (canAddMore || hidden > 0)
-                  _PatientAddVitalCard(
-                    label: canAddMore ? 'Add a vital' : 'See all vitals',
-                    detail: hidden > 0
-                        ? '$hidden more tracked · tap to review'
-                        : 'Track what matters to you',
-                    onTap: canAddMore
-                        ? () => VitalPreferencesSheet.show(context)
-                        : () => Navigator.of(
-                            context,
-                          ).pushNamed(RouteNames.patientVitals),
-                  ),
-              ];
-
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final tile in tiles)
-                    SizedBox(width: tileWidth, child: tile),
-                ],
-              );
-            },
+          GlassCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _PatientVitalBoardHeader(
+                  stats: stats,
+                  expanded: _expanded,
+                  onToggle: _toggle,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _PatientVitalStatsStrip(
+                  stats: stats,
+                  onOpenVitals: _openVitalsPage,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _PatientVitalBoardActions(
+                  expanded: _expanded,
+                  onToggle: _toggle,
+                  onOpenVitals: _openVitalsPage,
+                ),
+                // Collapsed is the default. The tiles are built only once the
+                // patient asks for them — AnimatedSize animates the height
+                // without keeping the closed board in the tree.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: _expanded
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          child: _board(tracked, canAddMore: canAddMore),
+                        )
+                      : const SizedBox(width: double.infinity),
+                ),
+              ],
+            ),
           ),
+      ],
+    );
+  }
+}
+
+/// Collapsed summary line — tapping anywhere on it opens or closes the board.
+class _PatientVitalBoardHeader extends StatelessWidget {
+  const _PatientVitalBoardHeader({
+    required this.stats,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final _PatientVitalStats stats;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = stats.accent;
+
+    return Semantics(
+      button: true,
+      expanded: expanded,
+      label: '${stats.headline}. ${stats.detail}.',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                _PatientIconDisc(
+                  icon: stats.hasAttention ? AppIcons.alert : AppIcons.vitals,
+                  color: accent,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        stats.headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        stats.detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 11,
+                          height: 1.2,
+                          color: AppPalette.textMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  child: Icon(AppIcons.expandMore, size: 22, color: accent),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// General statistics for vitals — visible whether or not the board is open.
+class _PatientVitalStatsStrip extends StatelessWidget {
+  const _PatientVitalStatsStrip({
+    required this.stats,
+    required this.onOpenVitals,
+  });
+
+  final _PatientVitalStats stats;
+  final VoidCallback onOpenVitals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppPalette.surfaceAlt(context),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: AppPalette.border(context)),
+      ),
+      child: Row(
+        children: [
+          PatientHeroStat(
+            label: 'Tracked',
+            value: '${stats.tracked}',
+            onTap: onOpenVitals,
+          ),
+          const PatientHeroStatDivider(),
+          PatientHeroStat(
+            label: 'Logged today',
+            value: '${stats.loggedToday}',
+            accent: stats.loggedToday > 0 ? AppColors.success : null,
+            onTap: onOpenVitals,
+          ),
+          const PatientHeroStatDivider(),
+          PatientHeroStat(
+            label: 'Need review',
+            value: '${stats.needsAttention}',
+            accent: stats.hasAttention ? AppColors.warning : null,
+            onTap: onOpenVitals,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The two ways out of the collapsed card: open the full Vitals page, or open
+/// the tile board in place.
+class _PatientVitalBoardActions extends StatelessWidget {
+  const _PatientVitalBoardActions({
+    required this.expanded,
+    required this.onToggle,
+    required this.onOpenVitals,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final VoidCallback onOpenVitals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: AppButton(
+            label: 'Go to vitals',
+            icon: AppIcons.vitals,
+            size: AppButtonSize.sm,
+            expand: true,
+            onPressed: onOpenVitals,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: AppButton(
+            label: expanded ? 'Hide board' : 'Quick log',
+            icon: expanded ? AppIcons.expandLess : AppIcons.expandMore,
+            variant: AppButtonVariant.secondary,
+            size: AppButtonSize.sm,
+            expand: true,
+            onPressed: onToggle,
+          ),
+        ),
       ],
     );
   }
@@ -1129,4 +1217,100 @@ String _patientVisitTime(DateTime scheduledAt) {
       ? 'Tomorrow'
       : DateFormat.MMMEd().format(scheduledAt);
   return '$day · ${DateFormat.jm().format(scheduledAt)}';
+}
+
+
+/// Home prompt for outstanding record-sharing requests.
+///
+/// Consent used to travel on a single notification; once that was read there
+/// was no way back to the approval screen and the request expired unanswered.
+/// This card stays until the patient actually approves or declines.
+class _PatientSharingRequestCard extends StatelessWidget {
+  const _PatientSharingRequestCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final awaiting = ReportConsentsState.instance.awaiting;
+    if (awaiting.isEmpty) return const SizedBox.shrink();
+
+    final first = awaiting.first;
+    final more = awaiting.length - 1;
+    const accent = AppColors.warning;
+
+    final detail = more > 0
+        ? '${awaiting.length} requests need your decision'
+        : 'For ${first.purpose}'
+              '${first.requestedByName == null ? '' : ' · asked by ${first.requestedByName}'}';
+
+    return GlassCard(
+      onTap: () =>
+          Navigator.of(context).pushNamed(RouteNames.patientReportConsents),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      background: AppPalette.warningSoft(context),
+      border: Border.all(color: accent.withValues(alpha: 0.40)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const _PatientIconDisc(icon: AppIcons.document, color: accent),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      more > 0
+                          ? 'Approve sharing of your record'
+                          : first.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 11,
+                        height: 1.3,
+                        color: AppPalette.textMuted(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Nothing is shared until you decide.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 11,
+              height: 1.3,
+              color: accent,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Review request${more > 0 ? 's' : ''}',
+            icon: AppIcons.chevronRight,
+            size: AppButtonSize.sm,
+            expand: true,
+            onPressed: () => Navigator.of(
+              context,
+            ).pushNamed(RouteNames.patientReportConsents),
+          ),
+        ],
+      ),
+    );
+  }
 }

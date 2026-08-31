@@ -31,10 +31,9 @@ import 'auth/external_doctor_view.dart';
 import 'auth/forgot_password_view.dart';
 import 'auth/landing_view.dart';
 import 'auth/login_view.dart';
-import 'auth/otp_view.dart';
+import 'auth/verify_email_sheet.dart';
 import 'auth/pending_approval_view.dart';
 import 'auth/register_view.dart';
-import 'auth/reset_password_view.dart';
 import 'doctors/alerts/doctor_alert_detail_view.dart';
 import 'doctors/alerts/doctor_alerts_view.dart';
 import 'doctors/appointments/doctor_appointments_view.dart';
@@ -59,6 +58,9 @@ import 'patients/care_team/care_team_view.dart';
 import 'patients/consents/patient_report_consents_view.dart';
 import 'patients/dashboard/patient_dashboard_view.dart';
 import 'patients/documents/documents_view.dart';
+import 'patients/hubs/patient_care_hub_view.dart';
+import 'patients/hubs/patient_health_hub_view.dart';
+import 'patients/hubs/patient_more_hub_view.dart';
 import 'patients/medications/medication_detail_view.dart';
 import 'patients/medications/medications_view.dart';
 import 'patients/onboarding/patient_onboarding_view.dart';
@@ -298,17 +300,24 @@ class _McareAppState extends State<McareApp> {
         page = RegisterView(asSheet: false);
         break;
       case RouteNames.forgotPassword:
-        page = const ForgotPasswordView();
+        page = const _PasswordRecoveryRouteHost();
         break;
       case RouteNames.resetPassword:
-        page = ResetPasswordView(
-          args:
+        page = _PasswordRecoveryRouteHost(
+          initialReset:
               ResetPasswordArgs.tryParse(settings.arguments) ??
               ResetPasswordArgs.tryParse(linkParams),
         );
         break;
       case RouteNames.verifyEmail:
-        page = const OtpView(isEmail: true);
+        // Where the emailed verification link lands. The route survives, but
+        // it no longer owns a page: it shows landing with the verification
+        // sheet over it, so arriving from an inbox looks like arriving
+        // anywhere else in the app.
+        page = VerifyEmailRouteHost(
+          status: linkParams['status'] ?? Uri.base.queryParameters['status'],
+          child: const LandingView(),
+        );
         break;
       case RouteNames.pendingApproval:
         page = const PendingApprovalView();
@@ -345,6 +354,19 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.patientDashboard:
         page = const _PatientGuarded(child: PatientDashboardView());
+        break;
+      // The three hub tabs behind the patient bottom nav. Without these cases
+      // every tab but Home fell through to the not-found page — and because
+      // the nav switches tabs with pushNamedAndRemoveUntil, it did so with an
+      // empty stack behind it, leaving no way back.
+      case RouteNames.patientHealth:
+        page = const _PatientGuarded(child: PatientHealthHubView());
+        break;
+      case RouteNames.patientCare:
+        page = const _PatientGuarded(child: PatientCareHubView());
+        break;
+      case RouteNames.patientMore:
+        page = const _PatientGuarded(child: PatientMoreHubView());
         break;
       case RouteNames.patientVitals:
         page = const _PatientGuarded(child: VitalsView());
@@ -818,6 +840,41 @@ class _McareAppState extends State<McareApp> {
 
     return AppPageRoute(builder: (_) => page, settings: settings);
   }
+}
+
+/// Compatibility/deep-link route that keeps sign-in visible behind the single
+/// recovery modal. Closing the modal normalizes the URL back to `/login` so a
+/// reset token is not left in browser history longer than necessary.
+class _PasswordRecoveryRouteHost extends StatefulWidget {
+  const _PasswordRecoveryRouteHost({this.initialReset});
+
+  final ResetPasswordArgs? initialReset;
+
+  @override
+  State<_PasswordRecoveryRouteHost> createState() =>
+      _PasswordRecoveryRouteHostState();
+}
+
+class _PasswordRecoveryRouteHostState
+    extends State<_PasswordRecoveryRouteHost> {
+  bool _opened = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openRecovery());
+  }
+
+  Future<void> _openRecovery() async {
+    if (_opened || !mounted) return;
+    _opened = true;
+    await ForgotPasswordView.show(context, initialReset: widget.initialReset);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(RouteNames.login);
+  }
+
+  @override
+  Widget build(BuildContext context) => const LoginView();
 }
 
 class _PatientGuarded extends StatelessWidget {

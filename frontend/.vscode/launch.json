@@ -2,13 +2,30 @@
   "version": "0.2.0",
   "configurations": [
     {
+      // Everything social/realtime/push reads a compile-time value, so each
+      // configuration loads config/app_config.local.json first and then
+      // overrides only what it needs. Flutter appends --dart-define after
+      // --dart-define-from-file and the compiler takes the last definition of
+      // a key, so the per-launch values below win.
+      //
+      // Copy config/app_config.example.json to config/app_config.local.json
+      // once; the launch fails with a clear message until you do.
+      //
+      // Every browser configuration pins localhost:8090. Google OAuth checks
+      // the serving origin against the client's Authorized JavaScript origins,
+      // and http://localhost:8090 is the one the README tells you to register
+      // (it is also FRONTEND_URL in backend/.env). Without the pin the tool
+      // picks a free port per run, so Google answers "invalid_client: no
+      // registered origin" and the sign-in popup dies on its error page.
       "name": "mCare — Live (matendocare.com)",
       "request": "launch",
       "type": "dart",
       "args": [
+        "--web-hostname=localhost",
+        "--web-port=8090",
+        "--dart-define-from-file=config/app_config.local.json",
         "--dart-define=MCARE_USE_BACKEND=true",
-        "--dart-define=MCARE_API_URL=https://api.matendocare.com/api/v1",
-        "--dart-define=MCARE_GOOGLE_CLIENT_ID=937360649671-n0lq1k435l0l233bfs9upinvmj302dee.apps.googleusercontent.com"
+        "--dart-define=MCARE_API_URL=https://api.matendocare.com/api/v1"
       ]
     },
     {
@@ -16,6 +33,9 @@
       "request": "launch",
       "type": "dart",
       "args": [
+        "--web-hostname=localhost",
+        "--web-port=8090",
+        "--dart-define-from-file=config/app_config.local.json",
         "--dart-define=MCARE_API_URL=http://127.0.0.1:9090/api/v1"
       ]
     },
@@ -24,6 +44,7 @@
       "request": "launch",
       "type": "dart",
       "args": [
+        "--dart-define-from-file=config/app_config.local.json",
         "--dart-define=MCARE_API_URL=http://192.168.100.33:9090/api/v1"
       ]
     },
@@ -32,7 +53,20 @@
       "request": "launch",
       "type": "dart",
       "args": [
+        "--dart-define-from-file=config/app_config.local.json",
         "--dart-define=MCARE_API_URL=http://10.0.2.2:9090/api/v1"
+      ]
+    },
+    {
+      // No config file needed: in-memory fixtures, no backend, no OAuth.
+      "name": "mCare — Mock data (no backend)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--web-hostname=localhost",
+        "--web-port=8090",
+        "--dart-define=MCARE_USE_BACKEND=false",
+        "--dart-define=MCARE_ALLOW_DEMO_DATA=true"
       ]
     }
   ]

@@ -58,6 +58,8 @@ class VitalAlertPayload
 
     public static function alertToApiArray(AppNotification $n, array $extra = []): array
     {
+        $args = is_array($n->action_arguments) ? $n->action_arguments : [];
+
         return array_merge([
             'id' => (string) $n->id,
             'kind' => $n->kind,
@@ -70,14 +72,19 @@ class VitalAlertPayload
                 : 'warning',
             'acknowledged' => $n->read,
             'resolved' => $n->resolved,
-            'resolution_action' => is_array($n->action_arguments)
-                ? ($n->action_arguments['resolution_action'] ?? null)
-                : null,
-            'resolution_note' => is_array($n->action_arguments)
-                ? ($n->action_arguments['resolution_note'] ?? null)
-                : null,
-            'resolution_custom_action' => is_array($n->action_arguments)
-                ? ($n->action_arguments['resolution_custom_action'] ?? null)
+            'resolution_action' => $args['resolution_action'] ?? null,
+            'resolution_note' => $args['resolution_note'] ?? null,
+            'resolution_custom_action' => $args['resolution_custom_action'] ?? null,
+            // Who is standing behind the decision. A closed alert with no name
+            // on it forces the next clinician to go digging through the audit
+            // log to find out who to ask about it.
+            'acknowledged_by' => $args['acknowledged_by'] ?? null,
+            'resolved_by' => $args['resolved_by'] ?? null,
+            'resolved_at' => $n->resolved_at?->toIso8601String(),
+            // Closed as a duplicate of another alert rather than worked on its
+            // own: the list can say so instead of implying two separate calls.
+            'superseded_by_alert_id' => isset($args['superseded_by_alert_id'])
+                ? (string) $args['superseded_by_alert_id']
                 : null,
             'created_at' => $n->created_at?->toIso8601String(),
         ], $extra);

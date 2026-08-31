@@ -24,8 +24,25 @@ class FcmPushService
 
     public static function isV1Configured(): bool
     {
-        return filled(config('services.fcm.project_id'))
-            && self::serviceAccount() !== null;
+        return self::configurationIssue() === null;
+    }
+
+    public static function configurationIssue(): ?string
+    {
+        $projectId = (string) config('services.fcm.project_id');
+        if (! preg_match('/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/', $projectId)) {
+            return 'FCM_PROJECT_ID is missing or invalid';
+        }
+
+        $serviceAccount = self::serviceAccount();
+        if ($serviceAccount === null) {
+            return 'service-account JSON is missing or unreadable';
+        }
+        if (! hash_equals($projectId, (string) $serviceAccount['project_id'])) {
+            return 'service-account project does not match FCM_PROJECT_ID';
+        }
+
+        return null;
     }
 
     /**
@@ -47,6 +64,13 @@ class FcmPushService
         if ($userIds === []) {
             return;
         }
+
+        $ttlDays = max(1, (int) config('services.fcm.token_ttl_days', 90));
+        FcmToken::query()
+            ->whereIn('user_id', $userIds)
+            ->whereNotNull('last_seen_at')
+            ->where('last_seen_at', '<', now()->subDays($ttlDays))
+            ->delete();
 
         $tokens = FcmToken::query()
             ->whereIn('user_id', $userIds)
@@ -76,9 +100,24 @@ class FcmPushService
             return;
         }
 
+        $kind = (string) ($data['kind'] ?? 'general');
         $data = collect($data)
+            ->only([
+                'kind',
+                'notification_id',
+                'patient_id',
+                'event_id',
+                'alert_id',
+                'appointment_id',
+                'conversation_id',
+                'status',
+            ])
             ->map(fn ($v) => is_scalar($v) ? (string) $v : json_encode($v))
             ->all();
+
+        if ((bool) config('services.fcm.redact_notification_content', true)) {
+            [$title, $body] = self::privateNotificationCopy($kind);
+        }
 
         foreach (array_chunk($tokens, 500) as $chunk) {
             foreach ($chunk as $token) {
@@ -91,7 +130,8 @@ class FcmPushService
     public static function pushEligibleUserIds(array $userIds, string $kind): array
     {
         $preferenceKey = match ($kind) {
-            'alert', 'vital_critical', 'sos', 'sos_resolved' => 'vitalAlerts',
+            'alert', 'vital_warning', 'vital_critical',
+            'sos', 'sos_resolved', 'alert_resolved' => 'vitalAlerts',
             'appointment' => 'appointmentReminders',
             'medication', 'medication_reminder' => 'medicationReminders',
             'message' => 'messages',
@@ -178,7 +218,9 @@ class FcmPushService
                 'android' => [
                     'priority' => $priority === 'high' ? 'HIGH' : 'NORMAL',
                     'notification' => [
-                        'channel_id' => 'sos_emergency',
+                        'channel_id' => $priority === 'high'
+                            ? 'sos_emergency'
+                            : 'mcare_updates',
                         'sound' => 'default',
                     ],
                 ],
@@ -228,7 +270,12 @@ class FcmPushService
             return null;
         }
 
-        return Cache::remember('fcm_access_token', 3300, function () use ($sa) {
+        $cacheKey = 'fcm_access_token:'.hash(
+            'sha256',
+            config('services.fcm.project_id').'|'.$sa['client_email'],
+        );
+
+        return Cache::remember($cacheKey, 3300, function () use ($sa) {
             $now = time();
             $header = self::base64Url(json_encode([
                 'alg' => 'RS256',
@@ -249,15 +296,21 @@ class FcmPushService
             }
 
             $signature = '';
-            openssl_sign($unsigned, $signature, $privateKey, OPENSSL_ALGORITHM_SHA256);
+            if (! openssl_sign($unsigned, $signature, $privateKey, OPENSSL_ALGORITHM_SHA256)) {
+                return null;
+            }
             $jwt = "{$unsigned}.".self::base64Url($signature);
 
-            $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion' => $jwt,
-            ]);
+            $response = Http::asForm()
+                ->timeout(15)
+                ->post('https://oauth2.googleapis.com/token', [
+                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    'assertion' => $jwt,
+                ]);
 
-            return $response->json('access_token');
+            return $response->successful()
+                ? $response->json('access_token')
+                : null;
         });
     }
 
@@ -278,6 +331,8 @@ class FcmPushService
         $json = json_decode((string) file_get_contents($path), true);
 
         if (! is_array($json)
+            || ($json['type'] ?? null) !== 'service_account'
+            || ! filled($json['project_id'] ?? null)
             || ! filled($json['client_email'] ?? null)
             || ! filled($json['private_key'] ?? null)) {
             return null;
@@ -306,5 +361,30 @@ class FcmPushService
     private static function base64Url(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    /** @return array{0: string, 1: string} */
+    private static function privateNotificationCopy(string $kind): array
+    {
+        return match ($kind) {
+            'sos' => [
+                'Urgent mCare alert',
+                'Open mCare to view and respond to this emergency.',
+            ],
+            'sos_resolved' => [
+                'mCare emergency update',
+                'Open mCare to view the latest emergency status.',
+            ],
+            // The outcome and the clinician's note are clinical detail, so the
+            // lock screen says only that there is an answer waiting.
+            'alert_resolved' => [
+                'mCare alert update',
+                'Your care team has reviewed an alert. Open mCare to read it.',
+            ],
+            default => [
+                'New mCare update',
+                'Open mCare to securely view this update.',
+            ],
+        };
     }
 }

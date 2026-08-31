@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\CareAssignment;
 use App\Models\CareProvider;
 use App\Models\EmergencyContact;
+use App\Models\PatientReportRequest;
 use App\Models\VitalCatalog;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -129,9 +131,56 @@ class PatientSessionController extends Controller
                 ->get()
                 ->map->toApiArray()
                 ->all(),
+
+            // Requests to disclose part of this record. Without these in the
+            // session the app only learns about a pending approval from the
+            // one-off notification, so a missed or read notification stranded
+            // the request on "Awaiting patient consent" for good.
+            'report_consents' => PatientReportRequest::with(['requestedBy', 'doctor', 'patient'])
+                ->where('patient_user_id', $user->id)
+                ->orderByDesc('created_at')
+                ->limit(50)
+                ->get()
+                ->map->toPatientApiArray()
+                ->all(),
+
+            // Clinician-assigned nutrition. The patient home feed shows the
+            // plans assigned for today; older ones stay available for context.
+            'meal_plans' => $user->mealPlans()
+                ->with(['assignedBy', 'patient'])
+                ->orderByDesc('assigned_at')
+                ->limit(50)
+                ->get()
+                ->map->toApiArray()
+                ->all(),
+
+            // Platform announcements the patient is allowed to see, already
+            // filtered to the ones live right now.
+            'announcements' => $this->liveAnnouncementsFor(),
         ];
 
         return $this->success($payload);
+    }
+
+    /**
+     * Published announcements addressed to patients whose display window
+     * covers "now". Scheduling is enforced here so the client never has to
+     * decide what is live.
+     */
+    private function liveAnnouncementsFor(): array
+    {
+        $now = now();
+
+        return Announcement::query()
+            ->where('is_published', true)
+            ->whereIn('audience', ['all', 'patients'])
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
+            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
+            ->orderByDesc('created_at')
+            ->limit(20)
+            ->get()
+            ->map(fn (Announcement $a) => $a->toApiArray())
+            ->all();
     }
 
     /**

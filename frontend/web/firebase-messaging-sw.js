@@ -4,10 +4,13 @@
 // Copy firebase-config.example.json and keep it aligned with the Flutter
 // MCARE_FIREBASE_* build-time values.
 
-importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+// Keep this aligned with firebase_core_web's supportedFirebaseJsSdkVersion.
+importScripts('https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js');
 
-fetch('/firebase-config.json', { cache: 'no-store' })
+fetch(new URL('firebase-config.json', self.registration.scope), {
+  cache: 'no-store',
+})
   .then((response) => {
     if (!response.ok) throw new Error('firebase-config.json is unavailable');
     return response.json();
@@ -17,14 +20,22 @@ fetch('/firebase-config.json', { cache: 'no-store' })
     const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
-      const title = payload.notification?.title || 'mCare alert';
+      // Notification payloads are displayed by FCM itself. Showing another
+      // notification here would create duplicates. This branch is only the
+      // safe fallback for a future data-only message.
+      if (payload.notification) return undefined;
+
+      const title = 'New mCare update';
       const options = {
-        body: payload.notification?.body || 'New clinical update',
-        icon: '/icons/Icon-192.png',
-        badge: '/icons/Icon-192.png',
+        body: 'Open mCare to securely view this update.',
+        icon: new URL('icons/Icon-192.png', self.registration.scope).href,
+        badge: new URL('icons/Icon-192.png', self.registration.scope).href,
         tag: payload.data?.kind === 'sos' ? 'mcare-sos' : 'mcare-alert',
         requireInteraction: payload.data?.kind === 'sos',
-        data: payload.data || {},
+        data: {
+          ...(payload.data || {}),
+          link: self.registration.scope,
+        },
       };
       return self.registration.showNotification(title, options);
     });
@@ -33,12 +44,16 @@ fetch('/firebase-config.json', { cache: 'no-store' })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const target = event.notification.data?.link || self.registration.scope;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if ('focus' in client) return client.focus();
+        if ('focus' in client) {
+          if ('navigate' in client) client.navigate(target);
+          return client.focus();
+        }
       }
-      if (clients.openWindow) return clients.openWindow('/');
+      if (clients.openWindow) return clients.openWindow(target);
     }),
   );
 });

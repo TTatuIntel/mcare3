@@ -6,6 +6,23 @@ class AuthApi {
   AuthApi._();
   static final AuthApi instance = AuthApi._();
 
+  /// Fallback wait before offering a resend, when the API has not said.
+  /// Mirrors AccountVerificationService::RESEND_COOLDOWN_SECONDS; the
+  /// server's own `retry_after` is preferred wherever it is present.
+  static const int resendCooldownSeconds = 60;
+
+  Future<AppleAuthChallenge> appleChallenge() async {
+    final res = await ApiClient.instance.post(
+      '/auth/apple/challenge',
+      allowWhenBackendDisabled: true,
+    );
+    final data = res['data'] as Map<String, dynamic>? ?? const {};
+    return AppleAuthChallenge(
+      challengeId: data['challenge_id']?.toString() ?? '',
+      nonce: data['nonce']?.toString() ?? '',
+    );
+  }
+
   /// Starts account recovery. [channel] is `email` (reset link) or `sms`
   /// (6-digit code); omit it to let the API infer one from the identifier.
   ///
@@ -92,12 +109,36 @@ class AuthApi {
     return res['data'] as Map<String, dynamic>?;
   }
 
-  Future<void> resendOtp({required String identifier}) async {
-    if (!AppEnv.backendEnabled) return;
-    await ApiClient.instance.post(
+  /// Asks the API to send a fresh verification code.
+  ///
+  /// [channel] is `email`, `sms`, or null for every channel the account has.
+  /// The result says which channels actually accepted the message — the old
+  /// signature returned void, so the screen said "code resent" whether or not
+  /// anything left the server and the user waited at an empty inbox.
+  Future<VerificationDispatch> resendOtp({
+    required String identifier,
+    String? channel,
+  }) async {
+    if (!AppEnv.backendEnabled) {
+      return VerificationDispatch(
+        delivered: true,
+        channels: const ['email'],
+        email: identifier,
+        retryAfter: 60,
+      );
+    }
+    final res = await ApiClient.instance.post(
       '/auth/resend-otp',
-      body: {'identifier': identifier, 'purpose': 'email_verify'},
+      body: {
+        'identifier': identifier,
+        'purpose': 'email_verify',
+        'channel': ?channel,
+      },
       allowWhenBackendDisabled: true,
+    );
+    final data = res['data'] as Map<String, dynamic>? ?? const {};
+    return VerificationDispatch.fromApi(
+      data['verification'] as Map<String, dynamic>?,
     );
   }
 
@@ -155,6 +196,71 @@ class AuthApi {
 }
 
 /// Where a password-reset secret was sent, for UI confirmation copy.
+/// Where a verification code was sent, and when another may be asked for.
+///
+/// One issue can go out over several channels at once — an email carrying a
+/// link and a code, an SMS carrying the code — so this reports a list rather
+/// than a single channel. [retryAfter] is the server's cooldown: the screen
+/// counts that down instead of inventing its own, which used to offer a
+/// resend the API would refuse and hide one it would have allowed.
+class VerificationDispatch {
+  const VerificationDispatch({
+    required this.delivered,
+    required this.channels,
+    this.email,
+    this.phone,
+    this.smsAvailable = false,
+    this.retryAfter = 0,
+    this.expiresAt,
+  });
+
+  factory VerificationDispatch.fromApi(Map<String, dynamic>? json) {
+    final data = json ?? const <String, dynamic>{};
+    return VerificationDispatch(
+      delivered: data['delivered'] as bool? ?? false,
+      channels: (data['channels'] as List? ?? const [])
+          .map((e) => e.toString())
+          .toList(growable: false),
+      email: data['email'] as String?,
+      phone: data['phone'] as String?,
+      smsAvailable: data['sms_available'] as bool? ?? false,
+      retryAfter: int.tryParse(data['retry_after']?.toString() ?? '') ?? 0,
+      expiresAt: DateTime.tryParse(data['expires_at']?.toString() ?? ''),
+    );
+  }
+
+  /// True when at least one channel accepted the message.
+  final bool delivered;
+
+  /// Channels that accepted it: any of `email`, `sms`.
+  final List<String> channels;
+
+  /// Masked destinations, safe to show on screen.
+  final String? email;
+  final String? phone;
+
+  /// Whether the account has a number an SMS could be sent to at all.
+  final bool smsAvailable;
+
+  /// Seconds the client should wait before offering another send.
+  final int retryAfter;
+
+  final DateTime? expiresAt;
+
+  bool get sentByEmail => channels.contains('email');
+  bool get sentBySms => channels.contains('sms');
+
+  /// Where to tell the person to look, in the order they should look.
+  String get destinationSentence {
+    if (sentByEmail && sentBySms) {
+      return 'Sent to ${email ?? 'your email'} and ${phone ?? 'your phone'}.';
+    }
+    if (sentBySms) return 'Texted to ${phone ?? 'your phone'}.';
+    if (sentByEmail) return 'Sent to ${email ?? 'your email'}.';
+    return 'We could not deliver the code.';
+  }
+}
+
 class PasswordResetDispatch {
   const PasswordResetDispatch({
     required this.channel,
@@ -178,4 +284,11 @@ class ResetPasswordGrant {
 
   final String email;
   final String token;
+}
+
+class AppleAuthChallenge {
+  const AppleAuthChallenge({required this.challengeId, required this.nonce});
+
+  final String challengeId;
+  final String nonce;
 }

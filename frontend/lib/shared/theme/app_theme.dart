@@ -77,6 +77,19 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.critical, width: 1.6),
         ),
       ),
+      checkboxTheme: CheckboxThemeData(
+        side: const BorderSide(color: AppColors.borderStrong, width: 1.4),
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return accent;
+          return Colors.transparent;
+        }),
+        checkColor: const WidgetStatePropertyAll(Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm - 2),
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.brandInk,
@@ -270,6 +283,11 @@ class AppTheme {
           return Colors.transparent;
         }),
         checkColor: const WidgetStatePropertyAll(Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm - 2),
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {

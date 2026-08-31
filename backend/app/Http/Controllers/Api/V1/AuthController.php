@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Mail\EmailVerificationMail;
 use App\Mail\PasswordResetMail;
 use App\Models\CareProvider;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Services\AccountVerificationService;
+use App\Services\NewUserAdminNotifier;
 use App\Support\ApiResponse;
 use App\Support\AppleIdTokenVerifier;
 use App\Support\GoogleIdTokenVerifier;
 use App\Support\GoogleOAuth;
+use App\Support\MailDispatcher;
 use App\Support\SmsSender;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +22,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -29,7 +30,7 @@ class AuthController extends Controller
 {
     use ApiResponse;
 
-    public function register(Request $request)
+    public function register(Request $request, AccountVerificationService $verification)
     {
         $data = $request->validate([
             'first_name' => 'required|string|max:100',
@@ -53,13 +54,20 @@ class AuthController extends Controller
             'password' => $data['password'],
             'email_verified_at' => null,
         ]);
+        NewUserAdminNotifier::notify($user);
 
-        $this->sendVerificationCode($user);
+        $dispatch = $verification->issue($user);
 
         return $this->authPayload(
             $user,
-            'Account created. Enter the verification code sent to your email.',
+            $dispatch['delivered']
+                ? 'Account created. '.$this->deliverySentence($dispatch)
+                : 'Account created, but the verification code could not be delivered. Check the address and tap resend.',
             201,
+            [
+                'verification_delivery' => $dispatch['delivered'] ? 'accepted' : 'failed',
+                'verification' => $dispatch,
+            ],
         );
     }
 
@@ -175,13 +183,22 @@ class AuthController extends Controller
             'last_name' => 'nullable|string|max:100',
             'remember' => 'sometimes|boolean',
             'device_name' => 'sometimes|nullable|string|max:120',
+            'challenge_id' => 'nullable|string|size:48',
         ]);
 
         if (str_starts_with($data['id_token'], 'mock')) {
             return $this->appleMockSignIn($data);
         }
 
-        $payload = $verifier->verify($data['id_token']);
+        $challengeId = (string) ($data['challenge_id'] ?? '');
+        $expectedNonceHash = $challengeId !== ''
+            ? Cache::pull('apple_auth_nonce:'.$challengeId)
+            : null;
+        if (! is_string($expectedNonceHash) || $expectedNonceHash === '') {
+            return $this->error('Apple sign-in challenge expired. Please try again.', 401);
+        }
+
+        $payload = $verifier->verify($data['id_token'], $expectedNonceHash);
         if (! $payload) {
             return $this->error('Invalid or expired Apple sign-in. Please try again.', 401);
         }
@@ -197,6 +214,24 @@ class AuthController extends Controller
         }
 
         return $this->authPayload($resolved, 'Signed in with Apple.');
+    }
+
+    /** Issues a one-time nonce that binds the Apple authorization to mCare. */
+    public function appleChallenge()
+    {
+        $challengeId = Str::random(48);
+        $nonce = Str::random(64);
+        Cache::put(
+            'apple_auth_nonce:'.$challengeId,
+            hash('sha256', $nonce),
+            now()->addMinutes(10),
+        );
+
+        return $this->success([
+            'challenge_id' => $challengeId,
+            'nonce' => $nonce,
+            'expires_in_seconds' => 600,
+        ]);
     }
 
     /**
@@ -323,7 +358,7 @@ class AuthController extends Controller
         }
 
         if ($createAccount) {
-            return User::create([
+            $user = User::create([
                 'unique_id' => User::generateUniqueId(),
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -333,6 +368,9 @@ class AuthController extends Controller
                 'google_id' => $googleId,
                 'email_verified_at' => now(),
             ]);
+            NewUserAdminNotifier::notify($user);
+
+            return $user;
         }
 
         return $this->error(
@@ -410,6 +448,7 @@ class AuthController extends Controller
                 'google_id' => 'mock:'.$email,
                 'email_verified_at' => now(),
             ]);
+            NewUserAdminNotifier::notify($user);
         } elseif (! $user->google_id) {
             $user->update(['google_id' => 'mock:'.$email]);
         }
@@ -463,7 +502,7 @@ class AuthController extends Controller
                 );
             }
 
-            return User::create([
+            $user = User::create([
                 'unique_id' => User::generateUniqueId(),
                 'first_name' => $firstName ?: 'Patient',
                 'last_name' => $lastName ?: '',
@@ -473,6 +512,9 @@ class AuthController extends Controller
                 'apple_id' => $appleId,
                 'email_verified_at' => now(),
             ]);
+            NewUserAdminNotifier::notify($user);
+
+            return $user;
         }
 
         return $this->error(
@@ -514,6 +556,7 @@ class AuthController extends Controller
                 'apple_id' => 'mock:'.$email,
                 'email_verified_at' => now(),
             ]);
+            NewUserAdminNotifier::notify($user);
         } elseif (! $user->apple_id) {
             $user->update(['apple_id' => 'mock:'.$email]);
         }
@@ -644,23 +687,42 @@ class AuthController extends Controller
         ]);
 
         $email = strtolower(trim($data['email']));
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         $row = DB::table('password_reset_tokens')->where('email', $email)->first();
+        $linkMatches = $row && Hash::check($data['token'], $row->token);
+        $emailCode = null;
+        $codeMatches = false;
 
-        if (! $row || ! Hash::check($data['token'], $row->token)) {
+        if ($user && preg_match('/^\d{6}$/', $data['token']) === 1) {
+            $emailCode = EmailVerificationCode::query()
+                ->where('user_id', $user->id)
+                ->where('purpose', 'password_reset_email')
+                ->orderByDesc('created_at')
+                ->first();
+            $codeMatches = $emailCode
+                && $emailCode->isValid()
+                && Hash::check($data['token'], $emailCode->code);
+        }
+
+        if (! $linkMatches && ! $codeMatches) {
+            if ($emailCode && $emailCode->isValid()) {
+                $emailCode->increment('attempts');
+                if ((int) $emailCode->fresh()->attempts >= 5) {
+                    $emailCode->update(['used_at' => now()]);
+                }
+            }
+
             return $this->error('Invalid or expired reset token.', 422);
         }
 
-        $ttl = max(5, (int) config('mcare.auth.reset_token_minutes', 60));
-        $issuedAt = $row->created_at ? Carbon::parse($row->created_at) : null;
-        if ($issuedAt === null || $issuedAt->addMinutes($ttl)->isPast()) {
-            DB::table('password_reset_tokens')->where('email', $email)->delete();
+        if ($linkMatches) {
+            $ttl = max(5, (int) config('mcare.auth.reset_token_minutes', 60));
+            $issuedAt = $row->created_at ? Carbon::parse($row->created_at) : null;
+            if ($issuedAt === null || $issuedAt->addMinutes($ttl)->isPast()) {
+                DB::table('password_reset_tokens')->where('email', $email)->delete();
 
-            return $this->error('This reset link has expired. Request a new one.', 422);
-        }
-
-        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
-        if (! $user) {
-            return $this->error('Account not found.', 404);
+                return $this->error('This reset link has expired. Request a new one.', 422);
+            }
         }
 
         $user->update([
@@ -671,13 +733,18 @@ class AuthController extends Controller
         ]);
 
         DB::table('password_reset_tokens')->where('email', $email)->delete();
+        EmailVerificationCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', 'password_reset_email')
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
         $user->tokens()->delete();
         $user->fcmTokens()->delete();
 
         return $this->success(null, 'Password updated. You can sign in now.');
     }
 
-    public function verifyOtp(Request $request)
+    public function verifyOtp(Request $request, AccountVerificationService $verification)
     {
         $data = $request->validate([
             'identifier' => 'required|string',
@@ -696,54 +763,114 @@ class AuthController extends Controller
             return $this->error('Invalid verification code.', 422);
         }
 
-        $purpose = $data['purpose'] ?? 'email_verify';
-        $record = EmailVerificationCode::query()
-            ->where('user_id', $user->id)
-            ->where('purpose', $purpose)
-            ->orderByDesc('created_at')
-            ->first();
-
-        $matches = $record && $record->isValid()
-            && ((str_starts_with($record->code, '$2') && Hash::check($data['code'], $record->code))
-                || hash_equals((string) $record->code, $data['code']));
-
-        if (! $matches) {
-            if ($record && $record->isValid()) {
-                $record->increment('attempts');
-                if ((int) $record->fresh()->attempts >= 5) {
-                    $record->update(['used_at' => now()]);
-                }
-            }
-
+        if (! $verification->verifyCode($user, $data['code'])) {
             return $this->error('Invalid or expired verification code.', 422);
         }
 
-        $record->update(['used_at' => now()]);
-        if ($purpose === 'email_verify') {
-            $user->update(['email_verified_at' => now()]);
-        }
-
-        return $this->authPayload($user, 'Verified successfully.');
+        return $this->authPayload($user->fresh(), 'Verified successfully.');
     }
 
-    public function resendOtp(Request $request)
+    /**
+     * The emailed link, opened in whatever browser the inbox lives in.
+     *
+     * Public and GET on purpose: it has to work from a mail client on a device
+     * that has never signed in, so it cannot require a session, and mail
+     * clients only ever issue a GET. The token is the whole credential, which
+     * is why it is single-use, short-lived, and stored only as a hash.
+     */
+    public function verifyEmailLink(string $token, AccountVerificationService $verification)
     {
-        $data = $request->validate([
-            'identifier' => 'required|string',
-            'purpose' => 'nullable|string|in:email_verify',
-        ]);
+        $user = $verification->consumeLink($token);
+        $frontend = rtrim((string) config('mcare.frontend_url'), '/');
 
-        $identifier = trim($data['identifier']);
-        $user = User::query()
-            ->where('email', strtolower($identifier))
-            ->orWhere('phone', $identifier)
-            ->first();
-
-        if ($user && $user->email_verified_at === null) {
-            $this->sendVerificationCode($user);
+        // A link is followed by a human in a browser, so the answer is a page,
+        // not JSON. The app reads the status off the query string and says
+        // either "you are verified, sign in" or "ask for a fresh link".
+        $status = $user ? 'verified' : 'invalid';
+        $query = ['status' => $status];
+        if ($user) {
+            $query['email'] = $user->email;
         }
 
-        return $this->success(null, 'If verification is required, a new code was sent.');
+        return redirect()->away($frontend.'/verify-email?'.http_build_query($query));
+    }
+
+    public function resendOtp(Request $request, AccountVerificationService $verification)
+    {
+        $data = $request->validate([
+            'identifier' => 'sometimes|string',
+            'purpose' => 'nullable|string|in:email_verify',
+            // Which way to send it. Omitted means every channel the account
+            // has — the patient who asks again usually wants both.
+            'channel' => 'nullable|string|in:email,sms,all',
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+        if ($user->email_verified_at !== null) {
+            return $this->success(
+                [
+                    'verification_delivery' => 'not_required',
+                    'verification' => $verification->status($user),
+                ],
+                'This email address is already verified.',
+            );
+        }
+
+        $channel = $data['channel'] ?? 'all';
+        if ($channel === 'sms' && ! filled($user->phone)) {
+            return $this->error(
+                'There is no phone number on this account to send a code to.',
+                422,
+                ['verification' => $verification->status($user)],
+            );
+        }
+
+        $dispatch = $verification->issue(
+            $user,
+            $channel === 'all' ? null : [$channel],
+        );
+
+        if (! $dispatch['delivered']) {
+            return $this->error(
+                $channel === 'sms'
+                    ? 'The verification SMS could not be delivered. Check the number or try email instead.'
+                    : 'The verification email could not be delivered. Check the address or try again shortly.',
+                502,
+                [
+                    'verification_delivery' => 'failed',
+                    'verification' => $dispatch,
+                ],
+            );
+        }
+
+        return $this->success(
+            [
+                'verification_delivery' => 'accepted',
+                'verification' => $dispatch,
+            ],
+            $this->deliverySentence($dispatch),
+        );
+    }
+
+    /** Says where the code actually went, in the words a waiting person needs. */
+    private function deliverySentence(array $dispatch): string
+    {
+        $channels = $dispatch['channels'] ?? [];
+        $email = $dispatch['email'] ?? 'your email';
+        $phone = $dispatch['phone'] ?? 'your phone';
+
+        if (in_array('email', $channels, true) && in_array('sms', $channels, true)) {
+            return "We sent a code to {$email} and texted it to {$phone}.";
+        }
+        if (in_array('sms', $channels, true)) {
+            return "We texted a code to {$phone}.";
+        }
+        if (in_array('email', $channels, true)) {
+            return "We sent a code and a verification link to {$email}.";
+        }
+
+        return 'The verification code could not be delivered.';
     }
 
     public function acceptInvite(Request $request)
@@ -885,7 +1012,7 @@ class AuthController extends Controller
         return $this->success(['user' => $user->fresh()->toApiArray()], 'Profile updated.');
     }
 
-    public function changeEmail(Request $request)
+    public function changeEmail(Request $request, AccountVerificationService $verification)
     {
         $data = $request->validate([
             'current_password' => 'required|string',
@@ -917,11 +1044,19 @@ class AuthController extends Controller
             'email_verified_at' => null,
         ]);
 
-        $this->sendVerificationCode($user->fresh());
+        // The new address is unproven, so it is verified the same way the
+        // first one was — by email only. Texting the code to a phone that is
+        // still attached to the old, proven address would let someone who has
+        // the handset confirm an address the account holder never chose.
+        $dispatch = $verification->issue($user->fresh(), ['email']);
 
         return $this->success([
             'user' => $user->fresh()->toApiArray(),
-        ], 'Email updated. We sent a 6-digit verification code to your new address.');
+            'verification_delivery' => $dispatch['delivered'] ? 'accepted' : 'failed',
+            'verification' => $dispatch,
+        ], $dispatch['delivered']
+            ? 'Email updated. '.$this->deliverySentence($dispatch)
+            : 'Email updated, but the verification message could not be delivered. Check the address and tap resend.');
     }
 
     public function uploadAvatar(Request $request)
@@ -986,8 +1121,12 @@ class AuthController extends Controller
         ], 'Password updated.');
     }
 
-    private function authPayload(User $user, string $message, int $status = 200)
-    {
+    private function authPayload(
+        User $user,
+        string $message,
+        int $status = 200,
+        array $extra = [],
+    ) {
         $remember = request()->boolean('remember');
         $issued = $this->issueToken(
             $user,
@@ -1005,7 +1144,7 @@ class AuthController extends Controller
             'remember' => $remember,
             'user' => $user->toApiArray(),
             'has_health_profile' => $user->healthProfile()->exists(),
-        ];
+        ] + $extra;
 
         if ($user->role === 'mcare_assistant') {
             $payload['assistant_permissions'] = $user->assistantPermissions()
@@ -1049,23 +1188,40 @@ class AuthController extends Controller
     }
 
     /** Emails a single-use reset token plus a deep link into the reset screen. */
-    private function sendResetLink(User $user): void
+    private function sendResetLink(User $user): bool
     {
         $token = Str::random(64);
+        $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $minutes = max(5, (int) config('mcare.auth.reset_token_minutes', 60));
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $user->email],
             ['token' => Hash::make($token), 'created_at' => now()],
         );
 
-        try {
-            Mail::to($user->email)->send(new PasswordResetMail(
+        EmailVerificationCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', 'password_reset_email')
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+        EmailVerificationCode::create([
+            'user_id' => $user->id,
+            'code' => Hash::make($plainCode),
+            'purpose' => 'password_reset_email',
+            'expires_at' => now()->addMinutes($minutes),
+            'attempts' => 0,
+        ]);
+
+        return MailDispatcher::send(
+            $user->email,
+            new PasswordResetMail(
                 $user,
                 $token,
                 config('mcare.frontend_url'),
-            ));
-        } catch (\Throwable $e) {
-            report($e);
-        }
+                $plainCode,
+                $minutes,
+            ),
+            ['purpose' => 'password_reset'],
+        );
     }
 
     /**
@@ -1133,29 +1289,5 @@ class AuthController extends Controller
             ->get();
 
         return $matches->count() === 1 ? $matches->first() : null;
-    }
-
-    private function sendVerificationCode(User $user): void
-    {
-        $plainCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        EmailVerificationCode::query()
-            ->where('user_id', $user->id)
-            ->where('purpose', 'email_verify')
-            ->whereNull('used_at')
-            ->update(['used_at' => now()]);
-
-        EmailVerificationCode::create([
-            'user_id' => $user->id,
-            'code' => Hash::make($plainCode),
-            'purpose' => 'email_verify',
-            'expires_at' => now()->addMinutes(15),
-            'attempts' => 0,
-        ]);
-
-        try {
-            Mail::to($user->email)->send(new EmailVerificationMail($user, $plainCode));
-        } catch (\Throwable $e) {
-            report($e);
-        }
     }
 }

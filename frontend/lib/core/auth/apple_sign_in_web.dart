@@ -39,6 +39,7 @@ String? _str(JSObject? obj, String key) {
 Future<AppleSignInResult?> requestAppleCredentials({
   required String clientId,
   required String redirectUri,
+  required String nonce,
 }) async {
   await _ensureLoaded();
   final auth = _appleAuth()!;
@@ -47,6 +48,7 @@ Future<AppleSignInResult?> requestAppleCredentials({
     ..setProperty('clientId'.toJS, clientId.toJS)
     ..setProperty('scope'.toJS, 'name email'.toJS)
     ..setProperty('redirectURI'.toJS, redirectUri.toJS)
+    ..setProperty('nonce'.toJS, nonce.toJS)
     ..setProperty('usePopup'.toJS, true.toJS);
   auth.init(config);
 

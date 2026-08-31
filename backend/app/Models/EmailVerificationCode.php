@@ -10,7 +10,9 @@ class EmailVerificationCode extends Model
     protected $fillable = [
         'user_id',
         'code',
+        'link_token',
         'purpose',
+        'channels',
         'attempts',
         'expires_at',
         'used_at',

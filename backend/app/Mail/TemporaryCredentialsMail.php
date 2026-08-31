@@ -3,11 +3,7 @@
 namespace App\Mail;
 
 use App\Models\User;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
+use App\Support\MailContent;
 
 /**
  * The one message that carries a temporary password to the person it belongs
@@ -19,10 +15,8 @@ use Illuminate\Queue\SerializesModels;
  * address the account was opened with, and says plainly that it only lasts
  * until the first sign-in.
  */
-class TemporaryCredentialsMail extends Mailable
+class TemporaryCredentialsMail extends BrandedMail
 {
-    use Queueable, SerializesModels;
-
     public function __construct(
         public User $user,
         public string $temporaryPassword,
@@ -31,19 +25,38 @@ class TemporaryCredentialsMail extends Mailable
         public bool $approved,
     ) {}
 
-    public function envelope(): Envelope
+    protected function subjectLine(): string
     {
-        return new Envelope(
-            subject: $this->approved
-                ? 'Your mCare account is approved'
-                : 'Your mCare password was reset',
-        );
+        return $this->approved
+            ? 'Your mCare account is approved'
+            : 'Your mCare password was reset';
     }
 
-    public function content(): Content
+    protected function body(): MailContent
     {
-        return new Content(
-            text: 'mail.temporary-credentials-text',
-        );
+        $role = $this->user->roleToClient();
+
+        return MailContent::make()
+            ->eyebrow($this->approved ? 'Application approved' : 'Account security')
+            ->heading($this->approved ? 'Your account is ready' : 'Your password was reset')
+            ->preheader($this->approved
+                ? "Sign in to mCare as {$role} with the temporary password inside."
+                : 'An administrator issued you a temporary mCare password.')
+            ->greeting($this->user->first_name)
+            ->paragraph($this->approved
+                ? "Your application to join mCare as {$role} has been approved. Sign in with the details below to finish setting up your account."
+                : 'An mCare administrator has reset the password on your account. Sign in with the details below to choose a new one.')
+            ->facts([
+                'Email' => $this->user->email,
+                'Temporary password' => $this->temporaryPassword,
+                'Role' => $role,
+            ], 'Sign-in details')
+            ->button('Sign in to mCare', rtrim($this->frontendUrl, '/'), MailContent::TONE_SUCCESS)
+            ->paragraph('You will be asked to choose your own password as soon as you sign in. The temporary one stops working at that point, so it cannot be reused.')
+            ->callout(
+                'If you were not expecting this email, contact your mCare administrator straight away and do not share the password above with anyone.',
+                MailContent::TONE_DANGER,
+                'Keep this password to yourself',
+            );
     }
 }

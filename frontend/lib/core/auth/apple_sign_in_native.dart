@@ -6,6 +6,7 @@ import 'apple_sign_in_result.dart';
 Future<AppleSignInResult?> requestAppleCredentials({
   required String clientId,
   required String redirectUri,
+  required String nonce,
 }) async {
   if (!await SignInWithApple.isAvailable()) return null;
 
@@ -23,6 +24,7 @@ Future<AppleSignInResult?> requestAppleCredentials({
         AppleIDAuthorizationScopes.email,
         AppleIDAuthorizationScopes.fullName,
       ],
+      nonce: nonce,
       webAuthenticationOptions: needsWebAuthentication
           ? WebAuthenticationOptions(
               clientId: clientId,

@@ -6,6 +6,7 @@ import '../../shared/models/sos.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/models/vital.dart';
 import '../env/app_env.dart';
+import '../location/google_maps_service.dart';
 import 'api_client.dart';
 import 'patient_domain_mapper.dart';
 import 'patient_profile_mapper.dart';
@@ -207,7 +208,8 @@ class ChartPeriod {
     return '$start – ${DateFormat.yMMMd().format(to)}';
   }
 
-  static String shortRangeLabel(DateTime from, DateTime to) => _sameDay(from, to)
+  static String shortRangeLabel(DateTime from, DateTime to) =>
+      _sameDay(from, to)
       ? DateFormat.MMMd().format(from)
       : '${DateFormat.MMMd().format(from)} – ${DateFormat.MMMd().format(to)}';
 
@@ -370,7 +372,11 @@ class ChartLocation {
   bool get hasFix => latitude != null && longitude != null;
 
   String? get mapsUrl => hasFix
-      ? 'https://maps.google.com/?q=$latitude,$longitude'
+      ? GoogleMapsService.searchUri(latitude!, longitude!).toString()
+      : null;
+
+  String? get directionsUrl => hasFix
+      ? GoogleMapsService.directionsUri(latitude!, longitude!).toString()
       : null;
 
   static ChartLocation fromApi(Map<String, dynamic> json) => ChartLocation(
@@ -710,9 +716,7 @@ class PatientChartApi {
     return raw
         .replaceAll('_', ' ')
         .split(' ')
-        .map(
-          (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
-        )
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
   }
 }

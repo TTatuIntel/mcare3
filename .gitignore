@@ -13,6 +13,9 @@
 **/GoogleService-Info.plist
 **/firebase-service-account*.json
 **/firebase-adminsdk*.json
+/frontend/web/firebase-config.json
+/frontend/config/app_config.*.json
+!/frontend/config/app_config.example.json
 
 # Android release signing
 **/key.properties

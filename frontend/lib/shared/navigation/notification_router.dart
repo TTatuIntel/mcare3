@@ -53,6 +53,12 @@ class NotificationRouter {
     NotificationKind.assignment => RouteNames.patientCareTeam,
     NotificationKind.profile => RouteNames.patientProfile,
     NotificationKind.consent => RouteNames.patientReportConsents,
+    // A closed alert still points at the reading it was about, so the patient
+    // can see the number their care team acted on next to the answer.
+    NotificationKind.resolution =>
+      n.linkedVital != null
+          ? RouteNames.patientVitalDetail
+          : RouteNames.patientNotifications,
     NotificationKind.system => RouteNames.patientNotifications,
   };
 
@@ -69,6 +75,7 @@ class NotificationRouter {
     NotificationKind.assignment => RouteNames.doctorPatients,
     NotificationKind.profile => RouteNames.doctorProfile,
     NotificationKind.consent => RouteNames.doctorReports,
+    NotificationKind.resolution => RouteNames.doctorAlerts,
     NotificationKind.system => RouteNames.doctorNotifications,
   };
 
@@ -86,6 +93,7 @@ class NotificationRouter {
     NotificationKind.assignment => RouteNames.adminCareRequests,
     NotificationKind.profile => RouteNames.adminProfile,
     NotificationKind.consent => RouteNames.adminPatients,
+    NotificationKind.resolution => RouteNames.adminAlerts,
     NotificationKind.system => RouteNames.adminNotifications,
   };
 
@@ -102,6 +110,7 @@ class NotificationRouter {
     NotificationKind.assignment => RouteNames.assistantCareRequests,
     NotificationKind.profile => RouteNames.assistantProfile,
     NotificationKind.consent => RouteNames.assistantPatients,
+    NotificationKind.resolution => RouteNames.assistantAlerts,
     NotificationKind.system => RouteNames.assistantNotifications,
   };
 

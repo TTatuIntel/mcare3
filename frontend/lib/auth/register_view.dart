@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
@@ -123,7 +122,19 @@ class _RegisterViewState extends State<RegisterView> {
       AppToast.error(context, result.errorMessage ?? 'Registration failed.');
       return;
     }
-    AppToast.success(context, 'Account created! Let\'s set up your profile.');
+    if (result.deliveryFailed) {
+      AppToast.error(
+        context,
+        result.noticeMessage ??
+            'Account created, but the verification email could not be delivered. Tap resend to try again.',
+      );
+    } else {
+      AppToast.success(
+        context,
+        result.noticeMessage ??
+            'Account created! Check your email for the code.',
+      );
+    }
     AuthService.instance.completeNavigation(context, result);
   }
 
@@ -209,14 +220,16 @@ class _RegisterViewState extends State<RegisterView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SocialSignInRow(
-            compact: true,
-            onGoogle: _signUpWithGoogle,
-            onApple: _signUpWithApple,
-          ),
-          const SizedBox(height: sectionGap),
-          const OrDivider(label: 'or sign up with email'),
-          const SizedBox(height: sectionGap),
+          if (SocialSignInRow.isAvailable) ...[
+            SocialSignInRow(
+              compact: true,
+              onGoogle: _signUpWithGoogle,
+              onApple: _signUpWithApple,
+            ),
+            const SizedBox(height: sectionGap),
+            const OrDivider(label: 'or sign up with email'),
+            const SizedBox(height: sectionGap),
+          ],
           Row(
             children: [
               Expanded(
@@ -314,10 +327,6 @@ class _RegisterViewState extends State<RegisterView> {
             loading: _loading,
             onPressed: _loading ? null : _submit,
           ),
-          if (compact) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _ClinicianNotice(compact: true, inSheet: widget.asSheet),
-          ],
         ],
       ),
     );
@@ -444,73 +453,24 @@ class _RegisterViewState extends State<RegisterView> {
   }
 }
 
-/// Clinician boundary notice — compact inline on sheet, soft banner on desktop.
-class _ClinicianNotice extends StatefulWidget {
-  const _ClinicianNotice({this.compact = false, this.inSheet = false});
-  final bool compact;
-  final bool inSheet;
-
-  @override
-  State<_ClinicianNotice> createState() => _ClinicianNoticeState();
-}
-
-class _ClinicianNoticeState extends State<_ClinicianNotice> {
-  late final TapGestureRecognizer _signInTap;
-
-  @override
-  void initState() {
-    super.initState();
-    _signInTap = TapGestureRecognizer()
-      ..onTap = () {
-        if (widget.inSheet) {
-          Navigator.of(context).pop();
-          Navigator.of(context).pushNamed(RouteNames.login);
-        } else {
-          Navigator.of(context).pushReplacementNamed(RouteNames.login);
-        }
-      };
-  }
-
-  @override
-  void dispose() {
-    _signInTap.dispose();
-    super.dispose();
-  }
+/// Clinician boundary notice.
+///
+/// Says the one thing a clinician landing on the patient sign-up form needs
+/// to know: this form is not their way in, and nobody can self-serve their
+/// way to a clinical account. It deliberately carries no sign-in link of its
+/// own — every role signs in through the same page, and the card's single
+/// "Sign in" is right below it.
+class _ClinicianNotice extends StatelessWidget {
+  const _ClinicianNotice();
 
   @override
   Widget build(BuildContext context) {
-    if (widget.compact) {
-      return Center(
-        child: RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.3,
-              color: AppPalette.textMuted(context),
-            ),
-            children: [
-              const TextSpan(text: 'Clinician or assistant? '),
-              TextSpan(
-                text: 'Sign in here.',
-                style: const TextStyle(
-                  color: AppColors.brandIndigo,
-                  fontWeight: FontWeight.w700,
-                ),
-                recognizer: _signInTap,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppPalette.infoSoft(context),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.info.withOpacity(0.18)),
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.18)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,22 +485,13 @@ class _ClinicianNoticeState extends State<_ClinicianNotice> {
                   height: 1.45,
                   color: AppPalette.ink(context),
                 ),
-                children: [
-                  const TextSpan(
+                children: const [
+                  TextSpan(
                     text: 'Clinician or assistant? ',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const TextSpan(
-                    text: 'Your account is provisioned by your administrator. ',
-                  ),
                   TextSpan(
-                    text: 'Sign in here.',
-                    style: const TextStyle(
-                      color: AppColors.brandIndigo,
-                      fontWeight: FontWeight.w700,
-                      decoration: TextDecoration.underline,
-                    ),
-                    recognizer: _signInTap,
+                    text: 'Your account is provisioned by your administrator.',
                   ),
                 ],
               ),

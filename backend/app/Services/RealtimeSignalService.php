@@ -179,7 +179,12 @@ class RealtimeSignalService
     private static function channelsFor(Model $model): array
     {
         if ($model instanceof Announcement) {
-            return ['staff'];
+            // Patients now read announcements on their home feed, so one
+            // addressed to them has to reach every client, not just the
+            // console that wrote it.
+            return in_array($model->audience, ['all', 'patients'], true)
+                ? ['app', 'staff']
+                : ['staff'];
         }
 
         if ($model instanceof VitalCatalog || $model instanceof CareProvider) {
@@ -389,9 +394,11 @@ class RealtimeSignalService
             $model instanceof Conversation,
             $model instanceof ChatMessage => ['messages'],
 
+            // A closure notice is alert traffic too: it is the signal that
+            // tells a patient's open alert card to stop being an open alert.
             $model instanceof AppNotification => in_array(
                 $model->kind,
-                ['vital_warning', 'vital_critical', 'sos'],
+                [...AlertResolutionNotifier::KINDS, 'alert_resolved', 'sos_resolved'],
                 true,
             ) ? ['notifications', 'alerts'] : ['notifications'],
 

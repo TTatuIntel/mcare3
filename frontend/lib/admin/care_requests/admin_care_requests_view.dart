@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/api/admin_api.dart';
 import '../../core/api/staff_mapper.dart';
+import '../../core/async/app_busy.dart';
 import '../../core/env/app_env.dart';
 import '../../core/realtime/session_poller.dart';
 import '../../core/realtime/realtime_refresh_mixin.dart';
@@ -294,12 +295,21 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
   }) async {
     setState(() => _busyRequests.add(request.id));
     try {
-      await StaffState.instance.approveCareRequestAdminRemote(
-        request.id,
-        providerUserId: provider?.id,
-        providerName: provider?.name,
-        role: role,
-        note: note,
+      // A decision fans out across assignments, the provider's caseload and
+      // notifications to both sides — the operator must not be able to work a
+      // half-applied board while it lands, so it takes the branded blocking
+      // treatment rather than a spinner tucked inside one row.
+      await AppBusy.instance.run(
+        () => StaffState.instance.approveCareRequestAdminRemote(
+          request.id,
+          providerUserId: provider?.id,
+          providerName: provider?.name,
+          role: role,
+          note: note,
+        ),
+        mutation: true,
+        blocking: true,
+        message: 'Approving and assigning ${request.patient}…',
       );
       if (!mounted) return;
       final assigned = provider?.name ?? request.providerRequested;
@@ -318,9 +328,14 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
   Future<void> _decline(CareRequestItem request, String reason) async {
     setState(() => _busyRequests.add(request.id));
     try {
-      await StaffState.instance.rejectCareRequestAdminRemote(
-        request.id,
-        reason: reason,
+      await AppBusy.instance.run(
+        () => StaffState.instance.rejectCareRequestAdminRemote(
+          request.id,
+          reason: reason,
+        ),
+        mutation: true,
+        blocking: true,
+        message: 'Declining ${request.patient}’s request…',
       );
       if (!mounted) return;
       AppToast.info(context, 'Request declined — ${request.patient} notified.');
@@ -346,7 +361,12 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
     var decision = initial;
     DirectoryUser? chosen;
     var role = _normaliseRole(request.assignmentRole ?? 'Primary');
-    var submitting = false;
+
+    // What the operator committed to, read back once the sheet is gone. The
+    // sheet's job ends at "decided": running the request from inside a route
+    // that is being torn down is what left the panel rebuilding against
+    // disposed controllers.
+    _ReviewOutcome? outcome;
 
     await GlassSheet.show<void>(
       pageContext,
@@ -371,34 +391,25 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
           final reasonFilled = reasonCtrl.text.trim().length >= 4;
 
           final canSubmit =
-              !submitting &&
+              outcome == null &&
               switch (decision) {
                 _Decision.approve => true,
                 _Decision.reassign => chosen != null && reasonFilled,
                 _Decision.decline => reasonFilled,
               };
 
-          Future<void> submit() async {
-            setSheet(() => submitting = true);
+          void submit() {
+            if (outcome != null) return;
+            // Record and close. The mCare blocking loader carries the wait
+            // from here, so the sheet never has to render a busy state of its
+            // own — and never outlives the controllers it was reading.
+            outcome = _ReviewOutcome(
+              decision: decision,
+              provider: chosen,
+              role: role,
+              note: reasonCtrl.text.trim(),
+            );
             Navigator.of(sheetContext, rootNavigator: true).pop();
-            final note = reasonCtrl.text.trim();
-            switch (decision) {
-              case _Decision.approve:
-                await _approve(
-                  request,
-                  role: role,
-                  note: note.isEmpty ? null : note,
-                );
-              case _Decision.reassign:
-                await _approve(
-                  request,
-                  provider: chosen,
-                  role: role,
-                  note: note,
-                );
-              case _Decision.decline:
-                await _decline(request, note);
-            }
           }
 
           return Padding(
@@ -420,9 +431,7 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
                 _DecisionSelector(
                   value: decision,
                   requestedProvider: request.providerRequested,
-                  onChanged: submitting
-                      ? null
-                      : (value) => setSheet(() => decision = value),
+                  onChanged: (value) => setSheet(() => decision = value),
                 ),
                 const SizedBox(height: AppSpacing.md),
 
@@ -437,7 +446,6 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
                     controller: providerSearch,
                     hint: 'Filter by name or specialty…',
                     prefixIcon: AppIcons.search,
-                    enabled: !submitting,
                     onChanged: (_) => setSheet(() {}),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -460,7 +468,7 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
                       isExpanded: true,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       icon: const Icon(AppIcons.expandMore),
-                      onChanged: submitting || visibleProviders.isEmpty
+                      onChanged: visibleProviders.isEmpty
                           ? null
                           : (value) => setSheet(() => chosen = value),
                       items: [
@@ -490,10 +498,8 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
                       isExpanded: true,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       icon: const Icon(AppIcons.expandMore),
-                      onChanged: submitting
-                          ? null
-                          : (value) =>
-                                setSheet(() => role = value ?? 'Primary'),
+                      onChanged: (value) =>
+                          setSheet(() => role = value ?? 'Primary'),
                       items: [
                         for (final r in _roles)
                           DropdownMenuItem(value: r, child: Text(r)),
@@ -515,7 +521,6 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
                   },
                   maxLines: 3,
                   maxLength: 280,
-                  enabled: !submitting,
                   errorText:
                       needsReason && reasonCtrl.text.isNotEmpty && !reasonFilled
                       ? 'Give at least 4 characters'
@@ -537,7 +542,6 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
                       ? AppButtonVariant.danger
                       : AppButtonVariant.primary,
                   expand: true,
-                  loading: submitting,
                   onPressed: canSubmit ? submit : null,
                 ),
                 if (needsReason && !reasonFilled) ...[
@@ -556,8 +560,30 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
       ),
     );
 
+    // Safe now: `GlassSheet.show` resolves only once the panel has finished
+    // its exit transition and left the tree.
     reasonCtrl.dispose();
     providerSearch.dispose();
+
+    final decided = outcome;
+    if (decided == null || !mounted) return;
+    switch (decided.decision) {
+      case _Decision.approve:
+        await _approve(
+          request,
+          role: decided.role,
+          note: decided.note.isEmpty ? null : decided.note,
+        );
+      case _Decision.reassign:
+        await _approve(
+          request,
+          provider: decided.provider,
+          role: decided.role,
+          note: decided.note,
+        );
+      case _Decision.decline:
+        await _decline(request, decided.note);
+    }
   }
 
   /// Fast path for the common case — approve exactly what the patient asked.
@@ -1665,6 +1691,24 @@ class _CareRequestsScreenState extends State<CareRequestsScreen>
 // ---------------------------------------------------------------------------
 
 enum _Decision { approve, reassign, decline }
+
+/// What the review sheet committed to, carried back to the page.
+///
+/// Values are read out of the sheet's controllers at the moment of the tap, so
+/// the request that follows owes the closing panel nothing.
+class _ReviewOutcome {
+  const _ReviewOutcome({
+    required this.decision,
+    required this.provider,
+    required this.role,
+    required this.note,
+  });
+
+  final _Decision decision;
+  final DirectoryUser? provider;
+  final String role;
+  final String note;
+}
 
 /// A selectable care provider plus their live caseload.
 class _ProviderOption {

@@ -722,17 +722,23 @@ class _SosEventCard extends StatelessWidget {
             onPressed: onOpenChart,
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (event.status == 'active')
+          if (event.needsResponder) ...[
             AppButton(
               label: 'Acknowledge — en route',
               variant: AppButtonVariant.secondary,
               expand: true,
               onPressed: onAcknowledge,
             ),
-          if (event.status == 'active') const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          // How an emergency ends is only offered to whoever picked it up.
+          // Closing one straight off the list meant an event could be marked
+          // resolved — or a false alarm — by someone who had not called the
+          // patient, read the chart, or spoken to anyone. Respond first;
+          // the outcome is the end of that work, not a shortcut past it.
           Row(
             children: [
-              if (onOpenMap != null) ...[
+              if (onOpenMap != null)
                 Expanded(
                   child: AppButton(
                     label: 'Map',
@@ -741,25 +747,37 @@ class _SosEventCard extends StatelessWidget {
                     onPressed: onOpenMap,
                   ),
                 ),
+              if (onOpenMap != null && event.isInProgress)
                 const SizedBox(width: AppSpacing.sm),
+              if (event.isInProgress) ...[
+                Expanded(
+                  child: AppButton(
+                    label: 'Resolve',
+                    variant: AppButtonVariant.danger,
+                    onPressed: onResolve,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: AppButton(
+                    label: 'False alarm',
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onFalseAlarm,
+                  ),
+                ),
               ],
-              Expanded(
-                child: AppButton(
-                  label: 'Resolve',
-                  variant: AppButtonVariant.danger,
-                  onPressed: onResolve,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: AppButton(
-                  label: 'False alarm',
-                  variant: AppButtonVariant.secondary,
-                  onPressed: onFalseAlarm,
-                ),
-              ),
             ],
           ),
+          if (event.needsResponder)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(
+                'Respond or acknowledge before this can be closed.',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textMuted(context),
+                ),
+              ),
+            ),
         ],
       ),
     );

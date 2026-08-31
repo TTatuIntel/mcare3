@@ -54,7 +54,10 @@ class AdminApi {
       '/admin/approvals/$id/approve',
       body: note == null ? {} : {'note': note},
     );
-    return _obj(res, 'user');
+    // The whole envelope, not just the user: approval now issues and emails
+    // sign-in credentials, and whether that email left is the part the
+    // administrator has to be told.
+    return res;
   }
 
   Future<JsonMap?> rejectApplication(
@@ -78,7 +81,7 @@ class AdminApi {
       '/admin/approvals/$id/request-info',
       body: {'message': message},
     );
-    return _obj(res, 'user');
+    return res;
   }
 
   // ---------------- Care requests ----------------

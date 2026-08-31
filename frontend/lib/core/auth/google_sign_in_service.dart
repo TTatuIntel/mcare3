@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../env/app_env.dart';
+import '../env/runtime_config.dart';
 import 'google_redirect_auth_result.dart';
 import 'google_sign_in_stub.dart'
     if (dart.library.io) 'google_sign_in_native.dart'
@@ -59,7 +60,9 @@ class GoogleSignInService {
   GoogleSignInService._();
   static final GoogleSignInService instance = GoogleSignInService._();
 
-  bool get isConfigured => AppEnv.hasGoogleClientId;
+  /// Resolved from the build's dart-define when it has one, otherwise from
+  /// the API — see [RuntimeConfig].
+  bool get isConfigured => RuntimeConfig.instance.hasGoogleClientId;
 
   /// Normalise origin (e.g. redirect away from `0.0.0.0`).
   void warmUp() {
@@ -76,13 +79,15 @@ class GoogleSignInService {
   /// Opens Google's account picker and returns a verified ID token (web GSI).
   Future<GoogleSignInCredentials?> requestCredentials({
     bool selectAccount = true,
+    bool createAccount = false,
   }) async {
     if (!isConfigured) return null;
     final token = await platform.promptGoogleIdToken(
-      AppEnv.googleClientId,
+      RuntimeConfig.instance.googleClientId,
       selectAccount: selectAccount,
-      serverClientId: AppEnv.googleServerClientId,
-      iosClientId: AppEnv.googleIosClientId,
+      createAccount: createAccount,
+      serverClientId: RuntimeConfig.instance.googleServerClientId,
+      iosClientId: AppEnv.configuredGoogleIosClientId,
     );
     if (token == null || token.isEmpty) return null;
     return GoogleSignInCredentials.fromIdToken(token);
@@ -96,7 +101,8 @@ class GoogleSignInService {
   }) async {
     if (!isConfigured) {
       throw StateError(
-        'Google client ID missing. Set MCARE_GOOGLE_CLIENT_ID in dart-define.',
+        'Google client ID missing. The API reported none and this build '
+        'pinned none via MCARE_GOOGLE_CLIENT_ID.',
       );
     }
     if (!kIsWeb) {

@@ -138,9 +138,22 @@ void main() {
       await tester.tap(find.text('Blood Pressure critical'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
+      // 3. Both routes are offered straight away. Staff who already know the
+      //    outcome resolve on the spot; the resolve sheet still demands an
+      //    action and a note, so nothing is recorded unclaimed. Acknowledging
+      //    first stays available and must not remove the resolve route.
+      expect(find.text('Acknowledge'), findsOneWidget);
+      expect(find.text('Resolve'), findsOneWidget);
+      expect(
+        find.textContaining('or resolve now with a reason'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Acknowledge'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Resolve'), findsOneWidget);
 
-      // 3. Resolving documents the clinical outcome.
+      // 4. Resolving documents the clinical outcome.
       await tester.tap(find.text('Resolve'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
@@ -190,7 +203,7 @@ void main() {
 
     for (var round = 0; round < 2; round++) {
       expect(
-        find.text('Resolve'),
+        find.text('Acknowledge'),
         findsOneWidget,
         reason: 'round $round: the alert must be open and workable',
       );
@@ -213,6 +226,58 @@ void main() {
       findsOneWidget,
       reason: 'and hand the operator back real content, never a blank frame',
     );
+
+    await settle(tester);
+  });
+
+  testWidgets('an alert can be resolved with a reason, unacknowledged', (
+    tester,
+  ) async {
+    seed([alert('a1')]);
+    await pumpApp(tester);
+
+    await tester.tap(find.text('Blood Pressure critical'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    // Straight to the outcome, with no acknowledgement first. Staff who
+    // already handled the patient were previously forced through a tap that
+    // recorded nothing.
+    await tester.tap(find.text('Resolve'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Resolve alert'), findsWidgets);
+
+    // The reason is not optional — an outcome with no action is refused.
+    await tester.tap(find.widgetWithText(AppButton, 'Resolve alert'));
+    await tester.pump();
+    expect(
+      find.textContaining('Select the action you took'),
+      findsOneWidget,
+      reason: 'resolving without a reason must not be recordable',
+    );
+    expect(StaffState.instance.alerts.single.resolved, isFalse);
+
+    await tester.tap(find.text('Patient contacted').first);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(AppButton, 'Resolve alert'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    final resolved = StaffState.instance.alerts.single;
+    expect(resolved.resolved, isTrue);
+    expect(resolved.resolutionAction, 'patient_contacted');
+    expect(
+      resolved.resolutionNote,
+      isNotEmpty,
+      reason: 'the chart needs the reason, not just the fact it closed',
+    );
+    expect(
+      resolved.acknowledged,
+      isTrue,
+      reason: 'resolving takes the alert on in the same step',
+    );
+    expect(AlertCenter.instance.openQueue, isEmpty);
 
     await settle(tester);
   });

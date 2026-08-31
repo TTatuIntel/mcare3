@@ -87,7 +87,7 @@ void main() {
     expect(find.text(VitalKey.bloodPressure.unit), findsNothing);
   });
 
-  testWidgets('the period bar is one line and opens the picker', (
+  testWidgets('the period bar never truncates the window it is showing', (
     tester,
   ) async {
     ChartPeriod? chosen;
@@ -102,8 +102,12 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(tester.getSize(find.byType(PeriodFilterBar)).height, lessThan(44));
+    // On a phone the range moves to its own line rather than competing with
+    // the pill and the steppers. Squeezed onto one, the two facts this
+    // control exists to state came out as "L…" and "Jul 30 – Aug …".
     expect(find.text('Last 30 days'), findsOneWidget);
+    expect(find.text(ChartPeriod.month.rangeText), findsOneWidget);
+    expect(tester.getSize(find.byType(PeriodFilterBar)).height, lessThan(64));
 
     await tester.tap(find.text('Last 30 days'));
     await tester.pumpAndSettle();
@@ -121,6 +125,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(chosen, ChartPeriod.week);
+  });
+
+  testWidgets('a wide chart keeps the whole filter on one line', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      width: 520,
+      child: PeriodFilterBar(period: ChartPeriod.month, onChanged: (_) {}),
+    );
+
+    expect(find.text('Last 30 days'), findsOneWidget);
+    expect(find.text(ChartPeriod.month.rangeText), findsOneWidget);
+    expect(tester.getSize(find.byType(PeriodFilterBar)).height, lessThan(44));
   });
 
   testWidgets('stepping back moves the window by its own length', (

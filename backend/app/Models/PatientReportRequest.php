@@ -221,4 +221,27 @@ class PatientReportRequest extends Model
             'has_snapshot' => $this->snapshot !== null,
         ];
     }
+
+    /**
+     * The patient's own view of this request: the staff shape plus plain
+     * descriptions of every section and whether it is waiting on them.
+     *
+     * Both the consent screen and the session payload build their rows here,
+     * so the badge, the home prompt and the approval screen can never disagree
+     * about what is outstanding.
+     *
+     * @return array<string, mixed>
+     */
+    public function toPatientApiArray(): array
+    {
+        return $this->toApiArray() + [
+            'section_details' => array_map(fn (string $k) => [
+                'key' => $k,
+                'label' => PatientReportSections::label($k),
+                'description' => PatientReportSections::CATALOG[$k]['description'] ?? '',
+            ], $this->sections ?? []),
+            'awaiting_me' => $this->status === self::STATUS_PENDING_CONSENT
+                && ! $this->consentExpired(),
+        ];
+    }
 }

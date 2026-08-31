@@ -174,6 +174,16 @@ void main() {
     }
 
     Future<void> resolveFirst(WidgetTester tester) async {
+      // Closing is only offered to whoever picked the emergency up, so the
+      // workflow starts by taking it on — which confirms like any other
+      // status change.
+      await tester.tap(find.text('Acknowledge — en route').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text('Confirm').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
       await tester.tap(find.text('Resolve').first);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));

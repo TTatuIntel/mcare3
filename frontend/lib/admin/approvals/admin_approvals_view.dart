@@ -298,7 +298,9 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
       context,
       title: 'Approve clinician?',
       message:
-          '${approval.name} will receive clinician access to patient care tools.',
+          '${approval.name} gets clinician access, and a temporary password '
+          'is emailed to ${approval.email} straight away. They must choose '
+          'their own password the first time they sign in.',
       confirmLabel: 'Approve',
       icon: AppIcons.approval,
     );
@@ -306,13 +308,19 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
 
     _setApprovalBusy(approval.id, true);
     try {
+      String? outcome;
       if (AppEnv.backendEnabled) {
-        await StaffState.instance.approveApplicationRemote(approval.id);
+        outcome = await StaffState.instance.approveApplicationRemote(
+          approval.id,
+        );
       } else {
         StaffState.instance.setApproval(approval.id, 'approved');
       }
       if (!context.mounted) return true;
-      AppToast.success(context, '${approval.name} approved.');
+      // The server names the inbox it reached, and says so plainly when the
+      // email did not leave — an approval nobody was told about is a
+      // clinician who cannot sign in.
+      AppToast.success(context, outcome ?? '${approval.name} approved.');
       return true;
     } catch (error) {
       if (context.mounted) {
@@ -468,14 +476,15 @@ class _ApprovalsScreenState extends State<_ApprovalsScreen> {
 
     _setApprovalBusy(approval.id, true);
     try {
-      await AdminApi.instance.requestApplicationInfo(
+      final res = await AdminApi.instance.requestApplicationInfo(
         approval.id,
         message: message,
       );
       if (!context.mounted) return;
       AppToast.success(
         context,
-        'Information request sent to ${approval.name}.',
+        res?['message'] as String? ??
+            'Information request sent to ${approval.name}.',
       );
     } catch (error) {
       if (!context.mounted) return;

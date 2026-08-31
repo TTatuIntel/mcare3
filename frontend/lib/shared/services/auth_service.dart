@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/api_error_messages.dart';
+import '../../core/api/auth_api.dart';
+import '../../auth/verify_email_sheet.dart';
 import '../../core/auth/apple_sign_in_service.dart';
 import '../../core/auth/google_sign_in_service.dart';
 import '../../core/env/app_env.dart';
@@ -30,6 +32,25 @@ import '../../auth/widgets/google_account_picker_sheet.dart';
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
+
+  /// A social provider whose client ID never reached this build.
+  ///
+  /// Nothing is broken and retrying cannot help, so the text people see points
+  /// them at the way in that does work rather than at a wall. The build-time
+  /// cause is the developer's problem, not theirs, so it is appended only in
+  /// debug builds — where it names the exact define that is missing, which is
+  /// the one thing "not configured for this application build" never said.
+  String _unconfigured(String provider, String defineSuffix) {
+    const message =
+        'is unavailable in this build. Sign in with your email and password '
+        'instead.';
+    if (!kDebugMode) return '$provider sign-in $message';
+
+    return '$provider sign-in $message\n'
+        'Build with --dart-define=MCARE_${defineSuffix}_CLIENT_ID=... '
+        '(see frontend/config/app_config.local.json). It must match the API\'s '
+        'own client ID or the token it returns is rejected as a mismatch.';
+  }
 
   String get _deviceName {
     if (kIsWeb) return 'mCare Web';
@@ -128,9 +149,7 @@ class AuthService {
     }
 
     if (AppEnv.backendEnabled) {
-      return AuthFlowResult.failed(
-        'Google Sign-In is not configured for this application build.',
-      );
+      return AuthFlowResult.failed(_unconfigured('Google', 'GOOGLE'));
     }
     if (!AppEnv.demoDataEnabled) {
       return AuthFlowResult.failed(
@@ -189,7 +208,9 @@ class AuthService {
     required bool remember,
   }) async {
     try {
-      final creds = await GoogleSignInService.instance.requestCredentials();
+      final creds = await GoogleSignInService.instance.requestCredentials(
+        createAccount: createAccount,
+      );
       if (creds == null) return AuthFlowResult.userCancelled;
       return _googleSignInWithToken(
         idToken: creds.idToken,
@@ -399,6 +420,60 @@ class AuthService {
   Future<void> refreshAssistantPermissions() =>
       _ensureAssistantPermissionsLoaded();
 
+  /// Re-reads the signed-in account to see whether it has been verified yet.
+  ///
+  /// The verification link may be opened anywhere — a desktop mail client, a
+  /// different browser — and nothing about that reaches the waiting app. So
+  /// the app asks. Without this the person taps the link, sees "verified" in
+  /// their browser, and comes back to a popup still demanding a code.
+  ///
+  /// Returns true once the account is verified, and hydrates the session so
+  /// the caller can move straight on.
+  Future<bool> refreshVerificationStatus() async {
+    if (!AppEnv.backendEnabled) return false;
+    try {
+      final res = await ApiClient.instance.get('/auth/me');
+      final data = res['data'] as Map<String, dynamic>?;
+      final userMap = data?['user'] as Map<String, dynamic>?;
+      if (userMap == null) return false;
+
+      final user = AppUser.fromJson(userMap);
+      if (!user.emailVerified) return false;
+
+      AuthState.instance.signIn(user);
+      final hasProfile = data?['has_health_profile'] == true;
+      if (user.role == UserRole.patient) {
+        if (hasProfile) {
+          await PatientSessionService.instance.syncFromApi();
+        } else {
+          ProfileState.instance.clear(confirmedMissing: true);
+        }
+      } else {
+        await _seedStaffSession(user.role);
+      }
+      final saved = await AuthStorage.read();
+      if (saved != null) {
+        await _persistSession(
+          token: saved.token,
+          user: userMap,
+          hasProfile: hasProfile,
+          remember: saved.remember,
+          expiresAt: saved.expiresAt,
+        );
+      }
+      return true;
+    } catch (_) {
+      // A poll that cannot reach the server is not an answer. Staying on the
+      // code entry is right — it is the route that still works offline-ish.
+      return false;
+    }
+  }
+
+  /// Where a freshly verified user belongs. Exposed so the verification popup
+  /// can hand off to the same destination every other sign-in path uses.
+  String routeAfterAuth(AppUser user, {bool seededProfile = false}) =>
+      _routeAfterAuth(user, seededProfile);
+
   /// Completes the same secure session hydration after public OTP verification
   /// that password and social sign-in use.
   Future<AuthFlowResult> completeOtpPayload(Map<String, dynamic> data) async {
@@ -483,6 +558,7 @@ class AuthService {
     required String lastName,
     required bool createAccount,
     required bool remember,
+    required String challengeId,
   }) {
     return _apiPostAuth('/auth/apple', {
       'id_token': idToken,
@@ -492,6 +568,7 @@ class AuthService {
       'last_name': lastName,
       'remember': remember,
       'device_name': _deviceName,
+      'challenge_id': challengeId,
     });
   }
 
@@ -525,7 +602,13 @@ class AuthService {
   }) async {
     if (AppleSignInService.instance.isConfigured && AppEnv.backendEnabled) {
       try {
-        final creds = await AppleSignInService.instance.requestCredentials();
+        final challenge = await AuthApi.instance.appleChallenge();
+        if (challenge.challengeId.isEmpty || challenge.nonce.isEmpty) {
+          return AuthFlowResult.failed('Could not start secure Apple sign-in.');
+        }
+        final creds = await AppleSignInService.instance.requestCredentials(
+          nonce: challenge.nonce,
+        );
         if (creds == null) return AuthFlowResult.userCancelled;
         return _appleSignInWithToken(
           idToken: creds.idToken,
@@ -534,6 +617,7 @@ class AuthService {
           lastName: creds.lastName ?? '',
           createAccount: createAccount,
           remember: remember,
+          challengeId: challenge.challengeId,
         );
       } on ApiException catch (e) {
         return AuthFlowResult.failed(ApiErrorMessages.sanitize(e.message));
@@ -543,9 +627,7 @@ class AuthService {
     }
 
     if (AppEnv.backendEnabled) {
-      return AuthFlowResult.failed(
-        'Apple Sign-In is not configured for this application build.',
-      );
+      return AuthFlowResult.failed(_unconfigured('Apple', 'APPLE'));
     }
     if (!AppEnv.demoDataEnabled) {
       return AuthFlowResult.failed(
@@ -620,11 +702,51 @@ class AuthService {
       _routeAfterAuth(user, seededProfile);
 
   /// Navigate after a successful auth flow.
+  ///
+  /// An unverified account is the one case that does not navigate anywhere.
+  /// Verification is a short interruption, not a destination: pushing a full
+  /// page for it wiped the stack and made a six-digit code look like the next
+  /// stage of signing up. It opens over whatever is already on screen, and
+  /// this call finishes the journey once the popup closes.
   void completeNavigation(BuildContext context, AuthFlowResult result) {
     if (!result.isSuccess || result.user == null) return;
     final user = result.user!;
+
+    if (!user.emailVerified) {
+      unawaited(_verifyThenContinue(context, result));
+      return;
+    }
+
     final route = _routeAfterAuth(user, result.seededProfile);
     Navigator.of(context).pushNamedAndRemoveUntil(route, (_) => false);
+  }
+
+  Future<void> _verifyThenContinue(
+    BuildContext context,
+    AuthFlowResult result,
+  ) async {
+    final outcome = await VerifyEmailSheet.show(
+      context,
+      dispatch: result.verification,
+    );
+    if (!context.mounted) return;
+
+    if (outcome != VerificationOutcome.verified) {
+      // Nothing was proven, so nothing is unlocked. Landing is where an
+      // account that cannot be used yet belongs.
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(RouteNames.landing, (_) => false);
+      return;
+    }
+
+    // The session was re-hydrated while verifying, so read the user again
+    // rather than trusting the unverified copy this call started with.
+    final verified = AuthState.instance.user ?? result.user!;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      _routeAfterAuth(verified, result.seededProfile),
+      (_) => false,
+    );
   }
 
   String _routeAfterAuth(AppUser user, bool seededProfile) {
@@ -671,8 +793,9 @@ class AuthService {
             allowWhenBackendDisabled || path.startsWith('/auth/'),
       );
       final data = res['data'] as Map<String, dynamic>?;
-      if (data == null)
+      if (data == null) {
         return AuthFlowResult.failed('Invalid server response.');
+      }
       final token = data['token'] as String?;
       if (token != null) ApiClient.instance.setToken(token);
       final userMap = data['user'] as Map<String, dynamic>?;
@@ -702,7 +825,17 @@ class AuthService {
         );
       }
       await _syncNotificationDelivery(user);
-      return AuthFlowResult.signedIn(user, seededProfile: hasProfile);
+      return AuthFlowResult.signedIn(
+        user,
+        seededProfile: hasProfile,
+        noticeMessage: res['message']?.toString(),
+        deliveryFailed: data['verification_delivery'] == 'failed',
+        verification: data['verification'] is Map<String, dynamic>
+            ? VerificationDispatch.fromApi(
+                data['verification'] as Map<String, dynamic>,
+              )
+            : null,
+      );
     } on ApiException catch (e) {
       return AuthFlowResult.failed(ApiErrorMessages.sanitize(e.message));
     } catch (e) {
@@ -728,19 +861,38 @@ class AuthFlowResult {
     this.seededProfile = false,
     this.errorMessage,
     this.cancelled = false,
+    this.noticeMessage,
+    this.deliveryFailed = false,
+    this.verification,
   });
 
   final AppUser? user;
   final bool seededProfile;
   final String? errorMessage;
   final bool cancelled;
+  final String? noticeMessage;
+  final bool deliveryFailed;
+
+  /// Where the verification code was sent, when this flow issued one. Carried
+  /// through so the verification popup can name the inbox to look in without
+  /// asking the server a second time for what it was just told.
+  final VerificationDispatch? verification;
 
   bool get isSuccess => user != null && errorMessage == null && !cancelled;
 
   factory AuthFlowResult.signedIn(
     AppUser user, {
     required bool seededProfile,
-  }) => AuthFlowResult._(user: user, seededProfile: seededProfile);
+    String? noticeMessage,
+    bool deliveryFailed = false,
+    VerificationDispatch? verification,
+  }) => AuthFlowResult._(
+    user: user,
+    seededProfile: seededProfile,
+    noticeMessage: noticeMessage,
+    deliveryFailed: deliveryFailed,
+    verification: verification,
+  );
 
   factory AuthFlowResult.failed(String message) =>
       AuthFlowResult._(errorMessage: message);

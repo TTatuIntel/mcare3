@@ -52,9 +52,15 @@ return [
     ],
 
     'fcm' => [
-        'server_key' => env('FCM_SERVER_KEY'),
         'project_id' => env('FCM_PROJECT_ID'),
-        'service_account_path' => env('FCM_SERVICE_ACCOUNT_PATH'),
+        // GOOGLE_APPLICATION_CREDENTIALS is Google's preferred standard name.
+        // FCM_SERVICE_ACCOUNT_PATH remains as a convenient app-specific alias.
+        'service_account_path' => env(
+            'FCM_SERVICE_ACCOUNT_PATH',
+            env('GOOGLE_APPLICATION_CREDENTIALS')
+        ),
+        'redact_notification_content' => env('FCM_REDACT_NOTIFICATION_CONTENT', true),
+        'token_ttl_days' => (int) env('FCM_TOKEN_TTL_DAYS', 90),
     ],
 
     'sms' => [

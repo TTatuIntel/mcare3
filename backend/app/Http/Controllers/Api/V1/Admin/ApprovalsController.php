@@ -9,10 +9,10 @@ use App\Models\AppNotification;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
+use App\Support\MailDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -312,15 +312,11 @@ class ApprovalsController extends Controller
             return false;
         }
 
-        try {
-            Mail::to($user->email)->send($mailable);
-
-            return true;
-        } catch (\Throwable $e) {
-            report($e);
-
-            return false;
-        }
+        return MailDispatcher::send(
+            $user->email,
+            $mailable,
+            ['purpose' => 'application_update', 'user_id' => $user->id],
+        );
     }
 
     private function applicationPayload(User $u): array

@@ -212,6 +212,15 @@ class User extends Authenticatable
         return $this->hasMany(CareAssignment::class, 'patient_user_id');
     }
 
+    /**
+     * Meal plans a clinician assigned to this patient. Read by the patient
+     * session payload so the home feed can surface "meal assigned" cards.
+     */
+    public function mealPlans(): HasMany
+    {
+        return $this->hasMany(MealPlan::class, 'patient_user_id');
+    }
+
     public function providerProfile(): HasOne
     {
         return $this->hasOne(CareProvider::class);

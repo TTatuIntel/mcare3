@@ -1,7 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/web/web_platform.dart' as web_platform;
+import '../../core/env/app_env.dart';
+import '../../core/location/google_maps_service.dart';
+import '../maps/google_location_map.dart';
 import '../models/sos.dart';
 import '../state/staff_state.dart';
 import '../theme/app_colors.dart';
@@ -173,12 +175,41 @@ class SosRespondContextCard extends StatelessWidget {
               ),
             if (!compact && event!.mapsUrl != null) ...[
               const SizedBox(height: AppSpacing.sm),
-              AppButton(
-                label: 'Open in Google Maps',
-                icon: AppIcons.map,
-                variant: AppButtonVariant.secondary,
-                expand: true,
-                onPressed: () => SosContactActions.map(event!.mapsUrl!),
+              if (AppEnv.embeddedGoogleMapsEnabled &&
+                  event!.latitude != null &&
+                  event!.longitude != null) ...[
+                GoogleLocationMap(
+                  latitude: event!.latitude!,
+                  longitude: event!.longitude!,
+                  label: event!.patientName ?? 'SOS location',
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              Row(
+                children: [
+                  Expanded(
+                    child: AppButton(
+                      label: 'Open map',
+                      icon: AppIcons.map,
+                      variant: AppButtonVariant.secondary,
+                      expand: true,
+                      onPressed: () => SosContactActions.map(event!.mapsUrl!),
+                    ),
+                  ),
+                  if (event!.directionsUrl != null) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: AppButton(
+                        label: 'Directions',
+                        icon: AppIcons.location,
+                        variant: AppButtonVariant.secondary,
+                        expand: true,
+                        onPressed: () =>
+                            SosContactActions.map(event!.directionsUrl!),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ],
           ],
@@ -210,24 +241,20 @@ class SosRespondContextCard extends StatelessWidget {
 class SosContactActions {
   SosContactActions._();
 
-  static void call(String phone) {
+  static Future<bool> call(String phone) {
     final normalized = phone.replaceAll(RegExp(r'\s+'), '');
-    if (kIsWeb) {
-      web_platform.openWindow('tel:$normalized', '_self');
-    }
+    return launchUrl(
+      Uri(scheme: 'tel', path: normalized),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
-  static void email(String address) {
-    if (kIsWeb) {
-      web_platform.openWindow('mailto:$address', '_self');
-    }
-  }
+  static Future<bool> email(String address) => launchUrl(
+    Uri(scheme: 'mailto', path: address),
+    mode: LaunchMode.externalApplication,
+  );
 
-  static void map(String url) {
-    if (kIsWeb) {
-      web_platform.openWindow(url, '_blank');
-    }
-  }
+  static Future<bool> map(String url) => GoogleMapsService.openUrl(url);
 }
 
 class _SectionTitle extends StatelessWidget {

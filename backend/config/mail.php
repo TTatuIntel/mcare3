@@ -45,7 +45,10 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Account-recovery mail is sent inside the request that asked for
+            // it, so an unreachable relay must fail fast rather than hold the
+            // API open until PHP's own limit. Seconds.
+            'timeout' => (int) env('MAIL_TIMEOUT', 10),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
@@ -114,5 +117,26 @@ return [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reply-To and Support Address
+    |--------------------------------------------------------------------------
+    |
+    | Every message goes out from a no-reply sender for deliverability, but
+    | some of them — an application rejection, a request for more information —
+    | explicitly ask the recipient to reply. Point MAIL_REPLY_TO_ADDRESS at a
+    | monitored mailbox so those replies reach a human. MAIL_SUPPORT_ADDRESS is
+    | printed in the footer of every email; it falls back to the reply-to, then
+    | to the from address.
+    |
+    */
+
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS', ''),
+        'name' => env('MAIL_REPLY_TO_NAME', env('APP_NAME', 'mCare')),
+    ],
+
+    'support_address' => env('MAIL_SUPPORT_ADDRESS', env('MAIL_REPLY_TO_ADDRESS', '')),
 
 ];

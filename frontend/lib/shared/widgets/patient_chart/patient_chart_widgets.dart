@@ -467,7 +467,11 @@ class ChartVitalTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Icon(_trendIcon, size: 14, color: AppPalette.textMuted(context)),
+                Icon(
+                  _trendIcon,
+                  size: 14,
+                  color: AppPalette.textMuted(context),
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   flex: 2,

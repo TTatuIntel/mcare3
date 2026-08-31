@@ -4,7 +4,7 @@
 
 **Stack:** Laravel 12 REST API (`backend/`) · Flutter 3 (`frontend/`, web + Android + iOS + Windows) · MySQL 8+
 
-**Repository truth last verified:** 2026-08-28
+**Repository truth last verified:** 2026-08-29
 
 **Release status:** automated code, migration, analysis, test, and web-build
 gates are green. Production approval remains conditional on the external,
@@ -103,16 +103,16 @@ Documents may carry laboratory or radiology files, and appointments may carry ex
 | Doctor routes | **23** |
 | Administrator routes | **27** (24 compatibility routes + Work/People/More hubs) |
 | mCare Assistant routes | **25** (22 compatibility routes + Work/People/More hubs) |
-| Laravel `/api/v1` route entries | **197** |
-| API route groups | `admin` 77 · `auth` 17 · `doctor` 44 · `external` 7 · `fcm-tokens` 2 · `me` 5 · `patient` 45 |
+| Laravel `/api/v1` route entries | **204** |
+| API route groups | `admin` 77 · `auth` 23 · `doctor` 45 · `external` 7 · `fcm-tokens` 2 · `me` 5 · `patient` 45 |
 | Laravel API controllers | **60** |
 | Eloquent models | **36** |
-| Database migrations | **24**, all applied in the verified local MySQL environment |
+| Database migrations | **26**, all applied in the verified local MySQL environment |
 | Application tables | **45**, including Laravel cache/queue/session infrastructure |
-| Laravel automated tests | **118 passing, 543 assertions** across 26 feature files + 1 unit file |
+| Laravel automated tests | **142 passing, 671 assertions** across 28 feature files + 1 unit file |
 | Flutter API clients | **27** |
 | Flutter shared-state files | **14** |
-| Flutter test files | **25**; the last completed full runner pass had **73 passing**, 9 intentionally skipped platform cases; the new notification-preview test is statically verified and awaits the active SDK lock |
+| Flutter test files | **32**; **158 passing**, 9 intentionally skipped platform cases, 0 failing |
 
 Counts are descriptive audit evidence, not architecture. The source files remain authoritative:
 
@@ -162,8 +162,8 @@ The approved PDF was generated from the 99-route compatibility baseline. The six
 - The existing Admin/Assistant feature and detail routes remain registered as compatibility destinations from that hub.
 - Patient, Doctor, and External Clinical Access still use their existing route-level presentation while their PDF-approved shells are migrated.
 - Legacy presentation code and decorative design assets have not been bulk-deleted; they remain only until the route-by-route parity and rollback gates in section 11 pass.
-- Backend syntax, all migrations, route middleware, Composer metadata, Flutter analysis, both automated suites, and a release web build were verified on 2026-08-28. The production-gate upgrade re-verified the complete backend suite and direct Dart analysis.
-- Flutter analysis has no error or warning diagnostics. It currently reports 333 informational/deprecation lints that do not fail the build and should be retired incrementally.
+- Backend syntax, all migrations, route middleware, Composer metadata, Flutter analysis, both automated suites, and a release web build were verified on 2026-08-28. The 2026-08-29 authentication upgrade re-verified the complete backend and Flutter suites after adding secure-session, recovery, and Apple nonce coverage.
+- Flutter analysis has no error or warning diagnostics. It currently reports 332 informational/deprecation lints that do not fail the build and should be retired incrementally.
 - A live browser smoke test remains unverified because this review environment had no connected browser. Automated boot-render, responsive clinical layout, navigation, and deep-link widget tests passed.
 
 This status describes the repository at the verification date. Update it in the same change that cuts over another role or retires a legacy surface.
@@ -216,6 +216,13 @@ php artisan key:generate
 php artisan migrate --seed
 php artisan storage:link
 ```
+
+For local recovery testing, keep `SMS_DRIVER=log`; the six-digit SMS body is
+written to `backend/storage/logs/laravel.log`. Configure
+`SMS_DEFAULT_COUNTRY_CODE` (digits only) whenever stored/test phone numbers use
+a local trunk prefix. A production deployment must use `SMS_DRIVER=twilio`,
+real Twilio credentials, and a transactional `MAIL_MAILER`; the readiness audit
+fails those gates when they are absent.
 
 Command Prompt equivalent:
 
@@ -407,6 +414,64 @@ REST reconciliation.
 - Responsive code changes composition only; it must not change authorization or business rules.
 - `shared/` must never import Patient, Doctor, Admin, or Assistant feature folders.
 
+### Authentication, recovery, and device-session architecture
+
+Authentication is API-backed in normal builds. Password, Google, Apple,
+verification, invitation, and recovery continuations all converge on one
+Sanctum payload containing the user, role/profile gates, an absolute token
+expiry, and the selected persistence mode.
+
+- **Keep me signed in:** unchecked sessions expire after
+  `MCARE_SESSION_TOKEN_MINUTES` (8 hours by default) and live only in browser
+  `sessionStorage` or native process memory. Checked sessions expire after
+  `MCARE_REMEMBER_TOKEN_MINUTES` (30 days by default) and use
+  `flutter_secure_storage`. The web tab marker survives refresh but not tab
+  closure, so refresh does not incorrectly end a temporary session. The server
+  enforces both expiries and caps active device sessions at
+  `MCARE_MAX_DEVICE_SESSIONS` (10 by default).
+- **Session recovery:** app startup validates the saved bearer token with
+  `/auth/me`. A 401/403 clears it. A temporary network/server outage retains a
+  still-unexpired remembered identity and token for automatic reconnection
+  instead of silently converting the outage into a logout.
+- **Device control:** every token has a platform/device label and appears in
+  Settings → Signed-in devices. Users can revoke another device individually;
+  password resets, administrative resets, role/status invalidation, suspension,
+  and rejection revoke affected sessions and stale push registrations.
+- **Email reset:** `/auth/forgot-password` creates a random, hashed,
+  single-use token and sends a deep link through Laravel Mail. The default
+  expiry is 60 minutes. Successful use deletes the grant, resets lockout state,
+  and signs out every device.
+- **Phone reset:** the user explicitly selects SMS and supplies the account
+  phone. Numbers are canonicalized into indexed `users.phone_e164` values;
+  recovery proceeds only when one account owns the number. A six-digit code is
+  stored only as a password hash, expires after 10 minutes, burns after five
+  failed attempts, and is exchanged once for the normal reset grant. Known and
+  unknown identifiers receive indistinguishable responses.
+- **Recovery presentation:** sign-in opens one responsive Account Recovery
+  sheet. Email/SMS selection, OTP verification, password entry, and completion
+  transition inside that sheet with a three-step indicator. The historical
+  `/forgot-password` and `/reset-password` routes remain compatibility/deep-link
+  launchers over sign-in; an emailed token enters the same sheet at the final
+  step and the URL is normalized back to `/login` when it closes. Request,
+  verification, reset arguments, and UI now live in
+  `frontend/lib/auth/forgot_password_view.dart`; the redundant standalone reset
+  view was removed.
+- **Email verification:** registration creates an unverified account and sends
+  a hashed, single-use, 15-minute code. Until it succeeds, protected role data,
+  broadcast authorization, settings, and push registration are blocked.
+- **Social identity:** Google and Apple use platform SDK identity tokens which
+  are verified server-side for signature/provider, audience, expiry, subject,
+  and verified email where applicable. Apple additionally requires a cached,
+  single-use server challenge/nonce, preventing replay of a captured identity
+  token. Mock social identities remain disabled by default and can never sign
+  in staff roles.
+- **Background notifications:** after a verified login or restored session, the
+  server preference is applied before requesting OS permission or registering
+  FCM. Android/iOS/web delivery continues while the UI is backgrounded because
+  the provider holds the device registration; opening a notification refreshes
+  canonical REST state and routes to the role-correct screen. Disabling push or
+  signing out unregisters that device.
+
 ### Application-level triggers and event flow
 
 `RealtimeModelObserver` is registered centrally for 31 durable models. Create,
@@ -504,7 +569,7 @@ now uses grouped alert counts, eager loading, and a latest-reading subquery to
 avoid per-patient queries and loading full reading history. Conversation lists
 eager-load the latest message and calculate unread counts in SQL.
 
-### Progress report — verified 2026-08-28
+### Progress report — verified 2026-08-29
 
 #### Completed in this remediation
 
@@ -554,14 +619,33 @@ eager-load the latest message and calculate unread counts in SQL.
 - Prevented seed-time broadcast storms, added live invalidation for SOS response
   actions and invitations, and stopped seed/simulation code from writing legacy
   derived conversation counters/timestamps.
+- Implemented real remember-me semantics with server-enforced short/long
+  expiries, secure persistent storage, tab-scoped temporary storage, device
+  labels, a ten-session cap, Settings-based session review/revocation, and
+  outage-safe restoration that does not erase a valid remembered credential.
+- Replaced the placeholder recovery screen with complete email-link and
+  phone-SMS branches. Reset tokens and OTPs are hashed, expiring and single-use;
+  OTPs burn after five failures, reset success revokes sessions and FCM tokens,
+  and responses do not disclose whether an account/phone exists.
+- Added canonical indexed E.164 phone matching, Twilio delivery plus a local
+  log driver, SMS configuration readiness checks, and a production-safe rule
+  that refuses ambiguous/shared phone numbers for password recovery.
+- Added single-use server nonce binding to Apple Sign-In and preserved the
+  user's remember choice across email verification. Invalid password sign-in
+  now returns the correct generic `401 Unauthorized` response.
+- Deferred notification permission until a verified authenticated user exists,
+  applies the server push preference before registration, restores FCM
+  registration on a remembered session, and removes stale delivery tokens when
+  credentials or account authority change.
 
 #### Fully functional in code and connected to real-time invalidation
 
 - Authenticated patient, doctor, administrator, and mCare Assistant REST
   session hydration, role gates, object/caseload checks, and fallback polling.
 - Inactive-account middleware protects role data and broadcast authorization;
-  suspension/status and staff-role changes revoke existing Sanctum tokens while
-  pending users retain access only to approval/session self-service routes.
+  suspension/status and staff-role changes revoke existing Sanctum and FCM
+  tokens while pending users retain access only to verification and
+  approval/session self-service routes.
 - Vitals/threshold evaluation, alert creation/resolution, notifications, SOS,
   care requests/assignments, appointments, medications/doses, reports,
   documents, meal plans, profiles, settings, announcements, support, audit,
@@ -585,8 +669,8 @@ eager-load the latest message and calculate unread counts in SQL.
   and guest authorization, queue delivery, scheduler startup, WSS proxy
   template, and systemd units are implemented. Installation and an external
   production-domain WSS probe remain deployment evidence.
-- FCM push, SMTP email, Google web/native OAuth, Apple web/native authorization,
-  private S3 storage, and geolocation have application code and configuration
+- FCM push, SMTP email, Twilio SMS recovery, Google web/native OAuth, Apple
+  web/native authorization, private S3 storage, and geolocation have application code and configuration
   seams. They still require the owner's vendor credentials, platform-console
   registration, signing, and real-device/domain verification.
 - The database-backed queue/cache/session setup is suitable for local/small
@@ -594,8 +678,9 @@ eager-load the latest message and calculate unread counts in SQL.
 
 The code paths above use real seeded MySQL records locally. What remains
 unproven with real external data is provider delivery: Firebase/APNs device
-delivery, SMTP inbox/bounce delivery, Google/Apple production identities, S3
-object policy/scanning, geolocation permissions, and public-domain HTTPS/WSS.
+delivery, SMTP inbox/bounce delivery, Twilio carrier delivery, Google/Apple
+production identities, S3 object policy/scanning, geolocation permissions, and
+public-domain HTTPS/WSS.
 No fake device token, OAuth identity, email receipt, or cloud credential is
 inserted to make these gates appear complete.
 
@@ -603,7 +688,7 @@ inserted to make these gates appear complete.
 
 - The design-system migration remains route-by-route; compatibility screens
   are intentionally retained until visual/UAT parity is signed off.
-- Flutter has 333 non-failing informational lints, mainly SDK deprecations and
+- Flutter has 332 non-failing informational lints, mainly SDK deprecations and
   style suggestions. Retire them incrementally to avoid a risky bulk rewrite.
 - Lists are deliberately capped, but high-volume installations should replace
   remaining fixed limits with cursor pagination and add query/load telemetry.
@@ -633,21 +718,23 @@ remain outside the implemented product scope described in section 1.
 - Live production HTTPS/WSS end-to-end testing after the supplied Nginx/systemd
   templates are installed, including reconnect, missed-event reconciliation,
   and concurrent clients.
-- Real SMTP/OAuth/FCM/S3 credentials; mobile notification permissions;
+- Real SMTP/SMS/OAuth/FCM/S3 credentials; mobile notification permissions;
   Android app-bundle and iOS/TestFlight builds on signing-capable hosts.
 - Manual browser smoke/UAT, screen reader/keyboard/200%-text checks, clinical
   workflow acceptance, load tests, backup restore, monitoring, incident runbook,
   and privacy/legal approval.
 
 Automated verification completed in this review: PHP syntax for the application
-  surface, all 24 migrations applied locally, 197 API routes, 118 Laravel tests,
-direct Flutter/Dart analysis with no errors/warnings, 73 Flutter tests from the
-last completed full runner pass, Composer validation, and a successful release
-  web build. The final backend suite passed 118 tests with 543 assertions,
-including FCM invalid-device-token cleanup. A second Flutter suite invocation
-was blocked by the already-running Flutter SDK/hot-run lock; analysis still
-compiled the new native-auth, guest realtime, and notification-popup paths
-successfully.
+surface, all 26 migrations applied locally, 204 API routes, 142 Laravel tests,
+full Flutter/Dart analysis with no errors or warnings, 32 Flutter test files with
+158 passing tests, 9 intentionally skipped platform cases and zero failures,
+Composer validation, and a successful release web build from the preceding
+production-gate pass. The final backend suite passed 142 tests with 671
+assertions, including account verification, short/remembered expiry, device
+revocation, email/SMS recovery, Apple nonce replay rejection, and FCM
+invalidation. The secure-session tests cover remembered persistence, short
+session expiry, and clearing behavior. Startup rendering and active support
+ticket access were also regression-tested after the authentication upgrade.
 
 Local runtime verification on 2026-08-28 additionally confirmed HTTP health on
 port 8000, a Reverb `101 Switching Protocols` handshake on port 8080, receipt of
@@ -658,8 +745,23 @@ FCM service credentials and Apple credentials are not configured in the
 reviewed local environment; those integrations correctly remain deployment
 gates rather than using fabricated credentials.
 
+Authentication verification on 2026-08-29 confirmed all 26 migrations on the
+local MySQL database, canonical phone values for all 11 users with phone data,
+zero non-expiring Sanctum tokens, and the complete 142-test Laravel suite. Real
+SMTP, Twilio, Google, Apple, FCM/APNs and mobile-background delivery still need
+the owner credentials and device/domain evidence listed below.
+
+The final local `mcare:readiness --json` snapshot reports **10 pass, 5 warn,
+4 fail**. The failures are intentionally fail-closed deployment inputs:
+`APP_DEBUG=true` in the local environment, missing Twilio/default-country-code
+configuration, missing FCM project/service-account credentials, and a missing
+Apple client ID. Warnings cover the non-production environment/HTTP URLs,
+database queue/session drivers, and local object storage. These are not hidden
+or replaced with test credentials; section 10 lists the evidence needed to
+promote each gate.
+
 Dataset verification on 2026-08-28 rebuilt the local `mcare` MySQL database
-from all 24 migrations, passed all 22 demo-coverage gates, and confirmed zero
+from the then-current migrations, passed all 22 demo-coverage gates, and confirmed zero
 seed-generated queue/failed jobs. A live `mcare:simulate all` run created a
 critical vital, SOS, message, appointment, and their notifications; a temporary
 Reverb server received all 14 queued broadcasts, the worker completed every
@@ -946,6 +1048,7 @@ Verify limits with feature tests. A rate-limit label in documentation is not suf
 | Hosting and transport | Production HTTPS, correct CORS/Sanctum origins, `APP_DEBUG=false` |
 | Database | Dedicated non-root user, automated encrypted backups, successful restore rehearsal |
 | Email | OTP, reset, verification, and invite messages delivered using real SMTP |
+| SMS recovery | Twilio credentials/from number, correct default country code, and real-carrier OTP delivery |
 | Account state | Suspended/disabled/unapproved users rejected on every protected surface |
 | Session invalidation | Password, role, status, and grant changes invalidate affected sessions/tokens |
 | OAuth | Mock/test OAuth impossible outside local/testing; production credentials configured |
@@ -980,22 +1083,26 @@ screenshots, tickets, or the README.
 5. **Transactional email:** chosen SMTP/SES provider, host/port/encryption,
    secret credentials, approved from address/name, and DNS evidence for SPF,
    DKIM, and DMARC plus bounce/complaint handling.
-6. **Durable files:** S3-compatible endpoint/region/bucket, restricted runtime
+6. **SMS password recovery:** Twilio Account SID, Auth Token, approved
+   E.164-capable sender/phone number, the deployment's digits-only default
+   country code, destination-country messaging permissions, and an owner for
+   delivery/failure monitoring.
+7. **Durable files:** S3-compatible endpoint/region/bucket, restricted runtime
    credentials, KMS/encryption decision, private bucket/CORS/lifecycle policy,
    malware-scanning service, and retention/deletion rules.
-7. **Mobile releases:** approval of the permanent Android application ID and
+8. **Mobile releases:** approval of the permanent Android application ID and
    iOS bundle ID, Android upload keystore/alias/passwords, Apple signing access,
    store accounts, support URLs, screenshots, and an explicit supported-OS
    baseline. Minimum OS versions must not be raised without product/device
    approval.
-8. **Reliability policy:** monitoring/error-tracking destination and alert
+9. **Reliability policy:** monitoring/error-tracking destination and alert
    contacts, log retention, incident escalation owner, backup destination,
    encryption key, retention, and approved RPO/RTO.
-9. **Human acceptance:** named clinical/product owners and representative
+10. **Human acceptance:** named clinical/product owners and representative
    patient, doctor, admin, assistant, and external-clinician UAT testers;
    accessibility devices/assistive technologies; target concurrency and data
    volume for load testing.
-10. **Privacy/legal approval:** approved privacy policy, terms, consent and
+11. **Privacy/legal approval:** approved privacy policy, terms, consent and
     external-sharing wording, health/location/SOS disclosures, account/data
     deletion process, retention schedule, subprocessors, jurisdiction, breach
     contact, and store privacy declarations.
@@ -1160,6 +1267,11 @@ A role is complete only when product, clinical, security, accessibility, enginee
 | `ALLOW_MOCK_SOCIAL_LOGIN` | Disabled by default everywhere; opt in only for an isolated local patient demo. Staff mock sign-in is rejected server-side |
 | `MCARE_ALLOW_DEMO_SEED` | Keep `false` in production. A separate explicit override is required before synthetic accounts/clinical records can be seeded into a production environment |
 | `MAIL_*` | Real SMTP/SES for production messages |
+| `SMS_DRIVER`, `SMS_DEFAULT_COUNTRY_CODE` | Use `log` locally; production uses `twilio` and a digits-only country code such as `256` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Production SMS password-reset delivery; keep all values in the secret manager |
+| `MCARE_SESSION_TOKEN_MINUTES`, `MCARE_REMEMBER_TOKEN_MINUTES` | Short and remembered Sanctum token lifetimes; defaults are 480 and 43,200 minutes |
+| `MCARE_MAX_DEVICE_SESSIONS` | Maximum active Sanctum device tokens per account; default 10 |
+| `MCARE_RESET_TOKEN_MINUTES`, `MCARE_RESET_OTP_MINUTES` | Email reset-grant and SMS OTP lifetimes; defaults are 60 and 10 minutes |
 | `GOOGLE_CLIENT_*` | Production Google OAuth client and callback |
 | `MCARE_ALLOWED_RETURN_HOSTS` | Allow-list for post-OAuth return hosts |
 | `APPLE_CLIENT_ID` | Production Apple configuration if shipped |
@@ -1180,7 +1292,164 @@ A role is complete only when product, clinical, security, accessibility, enginee
 | `MCARE_GOOGLE_SERVER_CLIENT_ID` | Web client used as native backend audience |
 | `MCARE_GOOGLE_IOS_CLIENT_ID` | Google iOS OAuth client |
 | `MCARE_APPLE_CLIENT_ID`, `MCARE_APPLE_REDIRECT_URI` | Apple web OAuth values |
-| `MCARE_FIREBASE_*` | Firebase/push configuration |
+| `MCARE_FIREBASE_PROJECT_ID`, `MCARE_FIREBASE_MESSAGING_SENDER_ID` | Firebase values shared by every registered app in the project |
+| `MCARE_FIREBASE_WEB_*`, `MCARE_FIREBASE_ANDROID_*`, `MCARE_FIREBASE_IOS_*` | Platform-specific Firebase API keys/app IDs; generic `MCARE_FIREBASE_API_KEY` and `MCARE_FIREBASE_APP_ID` remain backward-compatible fallbacks |
+| `MCARE_FIREBASE_AUTH_DOMAIN`, `MCARE_FIREBASE_STORAGE_BUCKET`, `MCARE_FIREBASE_MEASUREMENT_ID`, `MCARE_FIREBASE_VAPID_KEY` | Web Firebase metadata and public web-push key |
+
+Copy `frontend/config/app_config.example.json` to an ignored environment file,
+for example `config/app_config.local.json`, fill only the public frontend values,
+then run or build with
+`--dart-define-from-file=config/app_config.local.json`. Backend secrets belong
+only in `backend/.env`/the deployment secret manager. The ignore rules cover
+local/production app-config files, Firebase service accounts, platform Firebase
+files, signing keys, and the deployed web Firebase configuration.
+
+### Provider credential acquisition checklist
+
+Never paste private keys, passwords, service-account JSON, signing files, or
+provider auth tokens into chat, tickets, the frontend JSON, or Git. Share them
+through the approved secret manager. Public client identifiers/API metadata may
+be placed in the frontend define file but should still have platform/domain/API
+restrictions.
+
+#### 1. Google Sign-In — required for the Google button
+
+Use one Google Cloud project with separate OAuth clients for each platform.
+Configure the OAuth consent/branding screen, support email, approved domains,
+privacy policy, and terms before production. Official setup:
+[Google Identity Services web setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid)
+and [Google Cloud credentials](https://console.cloud.google.com/apis/credentials).
+
+- **Web client:** obtain client ID and client secret. Add
+  `http://localhost:8090` and the production Flutter origin to Authorized
+  JavaScript origins. Register the exact backend callback from
+  `GOOGLE_REDIRECT_URI` as an authorized redirect URI.
+- **Android client:** register package `com.tattuintel.mcare` with debug and
+  production signing SHA-1/SHA-256 fingerprints. This console registration is
+  required even though its client ID is not stored as a Laravel secret.
+- **iOS client:** register the final bundle ID, obtain the iOS client ID and
+  reversed URL-scheme value.
+- Put the web values in backend `.env` as `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`; set
+  `MCARE_ALLOWED_RETURN_HOSTS` to the exact frontend hosts.
+- Put the same web ID in frontend `MCARE_GOOGLE_CLIENT_ID` and
+  `MCARE_GOOGLE_SERVER_CLIENT_ID`; put the iOS ID in
+  `MCARE_GOOGLE_IOS_CLIENT_ID`. Copy
+  `frontend/ios/Flutter/Secrets.xcconfig.example` to ignored
+  `Secrets.xcconfig` and set `GOOGLE_REVERSED_CLIENT_ID`.
+
+#### 2. Firebase Cloud Messaging — required for background push
+
+Create one Firebase project and register Web, Android
+(`com.tattuintel.mcare`), and iOS (the final bundle ID) apps. The official
+[FlutterFire setup](https://firebase.google.com/docs/flutter/setup) and
+[FCM Flutter setup](https://firebase.google.com/docs/cloud-messaging/flutter/get-started)
+cover platform registration, APNs, VAPID, and device testing.
+
+- From Project settings → General collect project ID, messaging sender ID,
+  storage bucket/auth domain, and each platform's API key and app ID. Fill the
+  matching `MCARE_FIREBASE_*` entries in the frontend app-config file.
+- For web, generate a Web Push certificate and place its **public** VAPID key in
+  `MCARE_FIREBASE_VAPID_KEY`. Copy
+  `frontend/web/firebase-config.example.json` to ignored
+  `frontend/web/firebase-config.json` with the web app metadata.
+- From Project settings → Service accounts generate the backend HTTP-v1 JSON,
+  store it outside the public tree, and set `FCM_PROJECT_ID` plus the standard
+  `GOOGLE_APPLICATION_CREDENTIALS` path. `FCM_SERVICE_ACCOUNT_PATH` is a
+  supported local fallback.
+- For Apple background delivery, create an APNs `.p8` key and upload it to
+  Firebase with its Key ID and Apple Team ID. Keep Push Notifications and
+  Background Modes enabled in the signed Xcode target.
+- `google-services.json` and `GoogleService-Info.plist` remain ignored. They may
+  be generated by `flutterfire configure`; this repository can also initialize
+  Firebase explicitly from the platform-specific dart-defines.
+
+#### 3. Google Maps and location — universal fallback plus embedded map
+
+The application captures consented/SOS device location through `geolocator`,
+resolves a human-readable label through the platform geocoder, and opens Google
+Maps search or directions on web, Android, and iOS. These universal URLs remain
+the fail-safe and require no key. Patient-chart and SOS-response views also show
+an embedded `google_maps_flutter` map when `MCARE_GOOGLE_MAPS_ENABLED=true` and
+the platform key is installed.
+
+Enable Maps SDK for Android, Maps SDK for iOS, and Maps JavaScript API. Use
+separate application-restricted keys: Android package/signing fingerprints,
+iOS bundle ID, and web HTTPS referrers. Android reads `MAPS_API_KEY` from ignored
+`android/local.properties`; iOS reads `GOOGLE_MAPS_API_KEY` from ignored
+`Flutter/Secrets.xcconfig`; web reads the public restricted key from
+`MCARE_GOOGLE_MAPS_WEB_API_KEY` and loads the SDK only when a map is displayed.
+Follow [Google Maps for Flutter setup](https://developers.google.com/maps/flutter-package/config).
+
+The focused end-to-end console, credential, database, build, and smoke-test
+sequence is in
+[`docs/FIREBASE_GOOGLE_DATABASE_SETUP.md`](docs/FIREBASE_GOOGLE_DATABASE_SETUP.md).
+
+#### 4. Sign in with Apple — required for the Apple button
+
+In the Apple Developer portal, enable Sign in with Apple for the final App ID,
+create a web Services ID, associate the primary App ID, register the production
+domain and exact HTTPS return URL, and enable the Xcode capability. See
+[Apple native configuration](https://developer.apple.com/documentation/xcode/configuring-sign-in-with-apple)
+and [Apple web configuration](https://developer.apple.com/documentation/signinwithapple/configuring-your-webpage-for-sign-in-with-apple).
+
+- Set backend `APPLE_CLIENT_ID` to the accepted audience list (web Services ID
+  and native bundle ID where both ship).
+- Set frontend `MCARE_APPLE_CLIENT_ID` to the Services ID and
+  `MCARE_APPLE_REDIRECT_URI` to the registered HTTPS return URL.
+- Provide Apple Team ID, App/Services IDs, signing team/profiles, and relay-email
+  domain setup. The current identity-token/nonce flow does not require placing
+  a Sign in with Apple private key in the client.
+
+#### 5. SMS password recovery — required for real phone OTP delivery
+
+Create a Twilio account, obtain an SMS-capable sender and enable destination
+country permissions. Twilio's
+[Messaging quickstart](https://www.twilio.com/docs/messaging/quickstart) lists
+the Account SID/Auth Token/sender steps; recipients must be E.164 numbers.
+
+- Backend only: `SMS_DRIVER=twilio`, `SMS_DEFAULT_COUNTRY_CODE=256` (or the
+  deployment's digits-only default), `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER`.
+- Trial Twilio accounts deliver only to verified recipients. Production testing
+  must cover real carriers, delivery failures, throttling, and monitored costs.
+
+#### 6. Transactional email — required for links, verification, and invites
+
+Choose a production SMTP provider. Supply `MAIL_MAILER=smtp`, `MAIL_SCHEME`,
+`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_TIMEOUT`,
+`MAIL_FROM_ADDRESS`, and `MAIL_FROM_NAME`. Approve the sender/domain and publish
+SPF, DKIM, and DMARC records. Amazon documents that
+[SES SMTP credentials are different from AWS access keys](https://docs.aws.amazon.com/ses/latest/dg/smtp-credentials.html).
+Gmail app passwords are acceptable only for controlled development, not the
+recommended production mail architecture.
+
+#### 7. Reverb real-time transport — application-generated credentials
+
+Reverb does not require a third-party API account. Generate strong independent
+`REVERB_APP_ID`, `REVERB_APP_KEY`, and `REVERB_APP_SECRET` values server-side;
+set `BROADCAST_CONNECTION=reverb`, host/port/scheme, allowed origins, and a
+supervised WSS process. Only the app key is copied to frontend
+`MCARE_WS_APP_KEY`; the app secret never enters Flutter. See
+[Laravel Reverb configuration](https://laravel.com/docs/12.x/reverb).
+
+#### 8. Database, Redis, storage, domains, and signing
+
+- MySQL: dedicated database/host/port, least-privilege username/password, TLS,
+  encrypted backup destination, and a restore-tested retention policy.
+- Redis at production scale: host, port, password/TLS, then use Redis for queue,
+  cache, and multi-instance sessions.
+- Private S3-compatible storage: `AWS_ACCESS_KEY_ID`,
+  `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`, optional endpoint,
+  private bucket policy, encryption/KMS, CORS, lifecycle, malware scanning, and
+  authorized download tests. Use a least-privilege workload identity/role where
+  the hosting platform supports it instead of long-lived keys.
+- Domains/TLS: final HTTPS API/frontend domains, DNS control, CORS/Sanctum
+  origins, WSS proxy, privacy/terms/support URLs, and `APP_DEBUG=false`.
+- Android: copy `frontend/android/key.properties.example` to ignored
+  `key.properties` and provide the upload keystore, alias, store password, and
+  key password. iOS requires the final bundle ID, Apple team, distribution
+  certificate/profile, App Store Connect access, and `APS_ENVIRONMENT`.
 
 Android release signing uses `frontend/android/key.properties`; start from
 `key.properties.example` and keep the real keystore/passwords out of version
@@ -1200,9 +1469,13 @@ the reversed iOS client ID; the real file is ignored.
   service-account validation, invalid-token cleanup, web background worker,
   iOS entitlement, and Android high-importance channel exist; real
   service-account/VAPID/APNs/mobile permission testing is still required.
-- **Email:** verification, OTP, password recovery, and invite paths use Laravel
-  mail configuration; real provider deliverability/bounce monitoring is not
-  verifiable from this repository.
+- **Email:** verification, OTP, password recovery, invite, credentials, and
+  consent paths share one synchronous audited dispatcher. Authenticated flows
+  report transport failure instead of claiming a message was sent; provider
+  bounce/suppression monitoring remains an operational requirement.
+- **SMS:** phone password recovery uses canonical E.164 lookup and Twilio's
+  Messages API in production. The `log` driver is development-only; real
+  carrier delivery and sender/country permissions remain owner-supplied gates.
 - **Google/Apple:** web OAuth, native Flutter SDK adapters, backend token
   verification, multi-audience Apple validation, and fail-closed production
   behavior exist. Platform console IDs, iOS callback scheme, signing, and
@@ -1243,6 +1516,7 @@ php artisan mcare:readiness --strict --json
 | Reverb | Supervised process behind Nginx/ALB | WSS upgrade headers and private-channel auth |
 | Files | Private S3 bucket | Encryption, signed/authorized delivery, lifecycle policy |
 | Email | Amazon SES or approved SMTP | Production sending access and monitored failures |
+| SMS | Twilio or an approved equivalent adapter | E.164 sender, country permissions, delivery/failure monitoring |
 | Flutter web | S3 + CloudFront or web server | SPA fallback to `index.html`, including `/external?token=…` |
 | DNS/TLS | Route 53 + ACM or equivalent | `api.` and `app.` HTTPS domains |
 | Monitoring | Application/error/log monitoring | Alerts for 5xx, job failures, WebSocket failure, and backup failure |

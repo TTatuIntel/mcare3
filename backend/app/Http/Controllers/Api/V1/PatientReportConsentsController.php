@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\PatientReportRequest;
 use App\Services\PatientReportService;
 use App\Support\ApiResponse;
-use App\Support\PatientReportSections;
 use Illuminate\Http\Request;
 
 /**
@@ -31,16 +30,9 @@ class PatientReportConsentsController extends Controller
             ->get();
 
         return $this->success([
-            'report_requests' => $requests->map(fn (PatientReportRequest $r) => $r->toApiArray() + [
-                // The patient sees plain descriptions, not just section keys.
-                'section_details' => array_map(fn (string $k) => [
-                    'key' => $k,
-                    'label' => PatientReportSections::label($k),
-                    'description' => PatientReportSections::CATALOG[$k]['description'] ?? '',
-                ], $r->sections ?? []),
-                'awaiting_me' => $r->status === PatientReportRequest::STATUS_PENDING_CONSENT
-                    && ! $r->consentExpired(),
-            ])->all(),
+            'report_requests' => $requests
+                ->map(fn (PatientReportRequest $r) => $r->toPatientApiArray())
+                ->all(),
         ]);
     }
 

@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\V1\PatientProfileController;
 use App\Http\Controllers\Api\V1\PatientReportConsentsController;
 use App\Http\Controllers\Api\V1\PatientSessionController;
 use App\Http\Controllers\Api\V1\PatientTrackedVitalsController;
+use App\Http\Controllers\Api\V1\PublicConfigController;
 use App\Http\Controllers\Api\V1\SosAssignmentCandidatesController;
 use App\Http\Controllers\Api\V1\SosController;
 use App\Http\Controllers\Api\V1\SosHandoverController;
@@ -58,6 +59,11 @@ use App\Http\Controllers\Api\V1\UserSettingsController;
 use App\Http\Controllers\Api\V1\VitalReportRequestsController;
 use App\Http\Controllers\Api\V1\VitalsController;
 use Illuminate\Support\Facades\Route;
+
+// Public client configuration. Unauthenticated by necessity: the app reads it
+// before anyone can sign in. Carries only values that are public by design
+// (OAuth client IDs), never secrets. Throttled as a plain anonymous endpoint.
+Route::get('config', PublicConfigController::class)->middleware('throttle:30,1');
 
 Route::prefix('auth')->group(function () {
     // Brute-force protection per README §6.5: 5/min/IP + 5/15min/email.
@@ -73,13 +79,27 @@ Route::prefix('auth')->group(function () {
         Route::post('verify-otp', [AuthController::class, 'verifyOtp']);
         Route::post('accept-invite', [AuthController::class, 'acceptInvite']);
     });
-    Route::post('resend-otp', [AuthController::class, 'resendOtp'])->middleware('throttle:auth-otp');
+    // The emailed verification link. Public and GET because a mail client on
+    // a device that has never signed in has to be able to follow it; the
+    // token in the path is the whole credential, so it is single-use and
+    // short-lived. Throttled as an anonymous guessable surface.
+    Route::get('verify-email/{token}', [AuthController::class, 'verifyEmailLink'])
+        ->where('token', '[A-Za-z0-9]{16,64}')
+        ->middleware('throttle:20,1')
+        ->name('auth.verify-email');
+
     Route::post('google', [AuthController::class, 'google'])->middleware('throttle:20,1');
     Route::get('google/redirect', [AuthController::class, 'googleRedirect']);
     Route::get('google/callback', [AuthController::class, 'googleCallback']);
+    Route::post('apple/challenge', [AuthController::class, 'appleChallenge'])->middleware('throttle:20,1');
     Route::post('apple', [AuthController::class, 'apple'])->middleware('throttle:20,1');
 
     Route::middleware('auth:sanctum')->group(function () {
+        // A verification resend belongs to the session created at registration.
+        // Authenticating it prevents address enumeration and lets the API report
+        // real delivery failure instead of returning a misleading generic success.
+        Route::post('resend-otp', [AuthController::class, 'resendOtp'])
+            ->middleware('throttle:auth-otp');
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('sessions', [AuthController::class, 'sessions']);

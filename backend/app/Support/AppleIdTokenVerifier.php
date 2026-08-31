@@ -20,7 +20,9 @@ use Illuminate\Support\Facades\Log;
 class AppleIdTokenVerifier
 {
     private const ISSUER = 'https://appleid.apple.com';
+
     private const JWKS_URL = 'https://appleid.apple.com/auth/keys';
+
     private const JWKS_CACHE_KEY = 'apple_jwks';
 
     /**
@@ -28,7 +30,7 @@ class AppleIdTokenVerifier
      *
      * @return array<string, mixed>|null
      */
-    public function verify(string $identityToken): ?array
+    public function verify(string $identityToken, ?string $expectedNonceHash = null): ?array
     {
         $allowedAudiences = $this->allowedAudiences();
         if ($allowedAudiences === []) {
@@ -73,6 +75,20 @@ class AppleIdTokenVerifier
             }
             if (empty($payload['sub'])) {
                 return null;
+            }
+            if ($expectedNonceHash !== null) {
+                $tokenNonce = (string) ($payload['nonce'] ?? '');
+                // Apple clients may place the raw nonce or its SHA-256 value
+                // in the claim. Bind either form to the one-time server
+                // challenge without ever storing the raw nonce server-side.
+                $nonceMatches = $tokenNonce !== ''
+                    && (hash_equals($expectedNonceHash, hash('sha256', $tokenNonce))
+                        || hash_equals($expectedNonceHash, $tokenNonce));
+                if (! $nonceMatches) {
+                    Log::warning('Apple token nonce mismatch.');
+
+                    return null;
+                }
             }
 
             return $payload;
@@ -180,7 +196,7 @@ class AppleIdTokenVerifier
         }
         $bytes = '';
         while ($length > 0) {
-            $bytes = chr($length & 0xff).$bytes;
+            $bytes = chr($length & 0xFF).$bytes;
             $length >>= 8;
         }
 

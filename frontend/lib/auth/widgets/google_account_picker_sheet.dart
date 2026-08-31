@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/auth/google_sign_in_service.dart';
 import '../../core/env/app_env.dart';
+import '../../core/env/runtime_config.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_icons.dart';
@@ -72,7 +73,7 @@ class GoogleAccountPickerSheet {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          if (kIsWeb && AppEnv.hasGoogleClientId) ...[
+          if (kIsWeb && RuntimeConfig.instance.hasGoogleClientId) ...[
             _RealGoogleTile(onTap: () => _pickRealGoogleAccount(context)),
             const SizedBox(height: AppSpacing.sm),
             Text(
@@ -90,7 +91,7 @@ class GoogleAccountPickerSheet {
           Divider(height: 1, color: AppPalette.border(context)),
           _UseAnotherAccountTile(
             onTap: () {
-              if (kIsWeb && AppEnv.hasGoogleClientId) {
+              if (kIsWeb && RuntimeConfig.instance.hasGoogleClientId) {
                 _pickRealGoogleAccount(context);
               } else {
                 Navigator.of(context).pop(
@@ -105,7 +106,7 @@ class GoogleAccountPickerSheet {
               }
             },
           ),
-          if (!kIsWeb || !AppEnv.hasGoogleClientId) ...[
+          if (!kIsWeb || !RuntimeConfig.instance.hasGoogleClientId) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Demo mode: pick Amara for a full profile, or another account for onboarding.',
@@ -223,7 +224,7 @@ class _UseAnotherAccountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final realGoogle = kIsWeb && AppEnv.hasGoogleClientId;
+    final realGoogle = kIsWeb && RuntimeConfig.instance.hasGoogleClientId;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(

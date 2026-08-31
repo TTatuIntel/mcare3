@@ -9,9 +9,9 @@ use App\Models\User;
 use App\Models\UserInvite;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
+use App\Support\MailDispatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -263,20 +263,16 @@ class UsersController extends Controller
         // Send it to the person it belongs to. It is still returned below so
         // an administrator is not blocked when mail is down — but the inbox
         // is the intended route, not the relay.
-        $emailSent = false;
-        if (filled($user->email)) {
-            try {
-                Mail::to($user->email)->send(new TemporaryCredentialsMail(
-                    $user,
-                    $temp,
-                    (string) config('mcare.frontend_url'),
-                    approved: false,
-                ));
-                $emailSent = true;
-            } catch (\Throwable $e) {
-                report($e);
-            }
-        }
+        $emailSent = filled($user->email) && MailDispatcher::send(
+            $user->email,
+            new TemporaryCredentialsMail(
+                $user,
+                $temp,
+                (string) config('mcare.frontend_url'),
+                approved: false,
+            ),
+            ['purpose' => 'temporary_credentials', 'user_id' => $user->id],
+        );
 
         $this->audit->record(
             $request->user(),
@@ -363,19 +359,15 @@ class UsersController extends Controller
 
     private function dispatchInviteEmail(User $user, string $inviteToken): bool
     {
-        try {
-            Mail::to($user->email)->send(new UserInviteMail(
+        return MailDispatcher::send(
+            $user->email,
+            new UserInviteMail(
                 $user,
                 $inviteToken,
                 config('mcare.frontend_url'),
-            ));
-
-            return true;
-        } catch (\Throwable $e) {
-            report($e);
-
-            return false;
-        }
+            ),
+            ['purpose' => 'user_invite', 'user_id' => $user->id],
+        );
     }
 
     private function normalizeRoleFromClient(string $clientRole): string

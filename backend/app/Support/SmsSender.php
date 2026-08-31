@@ -9,10 +9,8 @@ use Illuminate\Support\Facades\Log;
  * Outbound SMS for account-recovery codes.
  *
  * Driver is chosen by SMS_DRIVER. `twilio` posts to the real Messages API;
- * `log` writes the message to the application log so local development can
- * read the OTP without a paid gateway. An unconfigured `twilio` driver falls
- * back to `log` rather than throwing — recovery must never 500 because a
- * gateway credential is missing.
+ * `log` is strictly a local/testing aid. Missing credentials never produce a
+ * fake success response, and production logs never receive a one-time code.
  */
 class SmsSender
 {
@@ -26,11 +24,27 @@ class SmsSender
 
         $driver = (string) config('services.sms.driver', 'log');
 
-        if ($driver === 'twilio' && $this->twilioConfigured()) {
+        if ($driver === 'twilio') {
+            if (! $this->twilioConfigured()) {
+                Log::error('SMS delivery unavailable: Twilio is not fully configured');
+
+                return false;
+            }
+
             return $this->sendViaTwilio($number, $message);
         }
 
-        Log::info('SMS (log driver)', ['to' => $number, 'message' => $message]);
+        if ($driver === 'log' && app()->environment(['local', 'testing'])) {
+            Log::info('SMS (local log driver)', [
+                'to' => $this->mask($number),
+                'message' => $message,
+            ]);
+        } else {
+            Log::warning('SMS was not delivered: no real gateway is enabled', [
+                'driver' => $driver,
+                'to' => $this->mask($number),
+            ]);
+        }
 
         return false;
     }
@@ -103,6 +117,7 @@ class SmsSender
         try {
             $response = Http::asForm()
                 ->withBasicAuth($sid, (string) config('services.sms.twilio.token'))
+                ->connectTimeout(5)
                 ->timeout(15)
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json", [
                     'To' => $to,
@@ -110,16 +125,32 @@ class SmsSender
                     'Body' => $message,
                 ]);
 
-            if ($response->successful()) {
+            $messageSid = (string) $response->json('sid', '');
+            $status = strtolower((string) $response->json('status', ''));
+            if ($response->successful()
+                && $messageSid !== ''
+                && ! in_array($status, ['failed', 'undelivered', 'canceled'], true)) {
+                Log::info('SMS accepted by Twilio', [
+                    'sid' => $messageSid,
+                    'status' => $status !== '' ? $status : 'accepted',
+                    'to' => $this->mask($to),
+                ]);
+
                 return true;
             }
 
             Log::warning('Twilio SMS rejected', [
                 'status' => $response->status(),
-                'body' => $response->json('message') ?? $response->body(),
+                'code' => $response->json('code'),
+                'message' => $response->json('message'),
+                'to' => $this->mask($to),
             ]);
         } catch (\Throwable $e) {
             report($e);
+            Log::error('Twilio SMS request failed', [
+                'to' => $this->mask($to),
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return false;

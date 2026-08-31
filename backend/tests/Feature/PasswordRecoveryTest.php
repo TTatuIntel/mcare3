@@ -51,8 +51,15 @@ class PasswordRecoveryTest extends TestCase
             ->assertJsonPath('data.channel', 'email')
             ->assertJsonPath('data.destination', 'u••r@example.com');
 
-        Mail::assertSent(PasswordResetMail::class, fn ($mail) => $mail->hasTo($user->email));
+        Mail::assertSent(PasswordResetMail::class, function ($mail) use ($user) {
+            return $mail->hasTo($user->email)
+                && preg_match('/^\d{6}$/', (string) $mail->code) === 1;
+        });
         $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
+        $code = EmailVerificationCode::where('user_id', $user->id)
+            ->where('purpose', 'password_reset_email')
+            ->firstOrFail();
+        $this->assertStringStartsWith('$2', $code->code);
     }
 
     public function test_unknown_identifier_does_not_reveal_account(): void
@@ -65,6 +72,38 @@ class PasswordRecoveryTest extends TestCase
 
         Mail::assertNothingSent();
         $this->assertDatabaseCount('password_reset_tokens', 0);
+        $this->assertDatabaseMissing('email_verification_codes', [
+            'purpose' => 'password_reset_email',
+        ]);
+    }
+
+    public function test_email_code_can_reset_password_and_is_single_use(): void
+    {
+        $user = $this->makeUser();
+        $plainCode = null;
+
+        $this->postJson('/api/v1/auth/forgot-password', [
+            'identifier' => $user->email,
+            'channel' => 'email',
+        ])->assertOk();
+
+        Mail::assertSent(PasswordResetMail::class, function ($mail) use (&$plainCode) {
+            $plainCode = $mail->code;
+
+            return true;
+        });
+        $this->assertMatchesRegularExpression('/^\d{6}$/', (string) $plainCode);
+
+        $payload = [
+            'email' => $user->email,
+            'token' => $plainCode,
+            'password' => 'brand-new-secret',
+        ];
+        $this->postJson('/api/v1/auth/reset-password', $payload)->assertOk();
+        $this->assertTrue(Hash::check('brand-new-secret', $user->fresh()->password));
+
+        $payload['password'] = 'another-new-secret';
+        $this->postJson('/api/v1/auth/reset-password', $payload)->assertStatus(422);
     }
 
     public function test_sms_channel_stores_hashed_otp_and_texts_the_user(): void

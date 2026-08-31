@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/models/vital.dart';
+import '../../shared/navigation/notification_router.dart';
+import '../../shared/state/notification_state.dart';
 import '../../shared/state/sos_state.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/widgets/app_toast.dart';
@@ -37,10 +39,14 @@ class SessionPoller {
   Timer? _timer;
   Timer? _initialTimer;
   BuildContext? _context;
+  final Map<Object, BuildContext> _scopeContexts = {};
   int _openAlerts = 0;
   int _activeSos = 0;
+  final Set<String> _seenPatientNotificationIds = {};
 
-  void attach(BuildContext context) {
+  bool get hasAttachedScopes => _scopeContexts.isNotEmpty;
+
+  void attach(Object owner, BuildContext context) {
     if (!AppEnv.backendEnabled) return;
     final role = AuthState.instance.user?.role;
     if (role == null) return;
@@ -50,14 +56,35 @@ class SessionPoller {
         role != UserRole.mcareAssistant) {
       return;
     }
+    // Routes remain mounted underneath pages pushed above them. Keep every
+    // live scope registered so disposing the top route cannot disconnect the
+    // still-visible parent when the user navigates back.
+    final firstScope = _scopeContexts.isEmpty;
+    _scopeContexts
+      ..remove(owner)
+      ..[owner] = context;
     _context = context;
+    if (firstScope) {
+      _seenPatientNotificationIds
+        ..clear()
+        ..addAll(NotificationState.instance.items.map((item) => item.id));
+    }
     _snapshotCounts();
     _scheduleNext();
     _initialTimer?.cancel();
     _initialTimer = Timer(initialDelay, _tick);
   }
 
-  void detach() {
+  void detach([Object? owner]) {
+    if (owner == null) {
+      _scopeContexts.clear();
+    } else {
+      _scopeContexts.remove(owner);
+    }
+    if (_scopeContexts.isNotEmpty) {
+      _context = _scopeContexts.values.last;
+      return;
+    }
     _timer?.cancel();
     _timer = null;
     _initialTimer?.cancel();
@@ -69,6 +96,15 @@ class SessionPoller {
   void triggerNow() {
     if (!AppEnv.backendEnabled) return;
     Future.microtask(_tick);
+  }
+
+  /// Push and Reverb often deliver the same database event milliseconds
+  /// apart. Recording the pushed ID keeps the fallback presenter from drawing
+  /// a duplicate popup after its reconciliation sync. Returns false when the
+  /// same persisted notification has already been presented.
+  bool markPatientNotificationSeen(String? id) {
+    if (id == null || id.isEmpty) return true;
+    return _seenPatientNotificationIds.add(id);
   }
 
   /// Called by [RealtimeChannel] after subscription or disconnect.
@@ -93,6 +129,12 @@ class SessionPoller {
   }
 
   void _snapshotCounts() {
+    final user = AuthState.instance.user;
+    if (user?.role == UserRole.patient) {
+      _openAlerts = 0;
+      _activeSos = SosState.instance.hasActiveSos ? 1 : 0;
+      return;
+    }
     final scope = _scopePatientIds();
     _openAlerts = StaffState.instance.alerts
         .where(
@@ -134,6 +176,8 @@ class SessionPoller {
 
     if (user.role == UserRole.patient) {
       _maybeNotifyPatientUrgent(beforeSos);
+      _activeSos = SosState.instance.hasActiveSos ? 1 : 0;
+      _maybeNotifyPatientUpdate();
       return;
     }
 
@@ -193,6 +237,35 @@ class SessionPoller {
       );
     }
   }
+
+  void _maybeNotifyPatientUpdate() {
+    final current = NotificationState.instance.items;
+    final unseen =
+        current
+            .where(
+              (item) =>
+                  !item.read &&
+                  !item.resolved &&
+                  !_seenPatientNotificationIds.contains(item.id),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _seenPatientNotificationIds.addAll(current.map((item) => item.id));
+    if (unseen.isEmpty) return;
+
+    final ctx = _context;
+    if (ctx == null || !ctx.mounted) return;
+    final newest = unseen.first;
+    final more = unseen.length - 1;
+    AppToast.notification(
+      ctx,
+      title: newest.title,
+      message: more > 0
+          ? '${newest.body} · $more more ${more == 1 ? 'update' : 'updates'}'
+          : newest.body,
+      onOpen: () => NotificationRouter.handleTap(ctx, newest),
+    );
+  }
 }
 
 /// Starts [SessionPoller] while this widget is mounted (used inside shells).
@@ -205,13 +278,17 @@ class SessionPollerScope extends StatefulWidget {
   State<SessionPollerScope> createState() => _SessionPollerScopeState();
 }
 
-class _SessionPollerScopeState extends State<SessionPollerScope> {
+class _SessionPollerScopeState extends State<SessionPollerScope>
+    with WidgetsBindingObserver {
+  final Object _owner = Object();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        SessionPoller.instance.attach(context);
+        SessionPoller.instance.attach(_owner, context);
         // Opt-in WebSocket channel (§7.1). No-op unless MCARE_WS_URL +
         // MCARE_WS_APP_KEY are set — REST polling continues either way.
         RealtimeChannel.instance.attach();
@@ -221,9 +298,19 @@ class _SessionPollerScopeState extends State<SessionPollerScope> {
 
   @override
   void dispose() {
-    SessionPoller.instance.detach();
-    RealtimeChannel.instance.detach();
+    WidgetsBinding.instance.removeObserver(this);
+    SessionPoller.instance.detach(_owner);
+    if (!SessionPoller.instance.hasAttachedScopes) {
+      RealtimeChannel.instance.detach();
+    }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    SessionPoller.instance.triggerNow();
+    RealtimeChannel.instance.attach();
   }
 
   @override

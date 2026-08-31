@@ -2,13 +2,17 @@ import 'dart:convert';
 
 import '../../shared/auth/auth_state.dart';
 import '../../shared/models/message.dart';
+import '../../shared/models/patient_report_request.dart';
+import '../../shared/state/announcements_state.dart';
 import '../../shared/state/appointments_state.dart';
 import '../../shared/state/care_state.dart';
 import '../../shared/state/documents_state.dart';
+import '../../shared/state/meal_plans_state.dart';
 import '../../shared/state/medications_state.dart';
 import '../../shared/state/messages_state.dart';
 import '../../shared/state/notification_state.dart';
 import '../../shared/state/profile_state.dart';
+import '../../shared/state/report_consents_state.dart';
 import '../../shared/state/sos_state.dart';
 import '../../shared/state/support_state.dart';
 import '../../shared/state/vital_report_state.dart';
@@ -188,6 +192,32 @@ class PatientSessionSync {
         .toList();
     VitalReportState.instance.seed(reportRequests);
 
+    final mealPlans = (data['meal_plans'] as List? ?? [])
+        .map(
+          (e) => PatientDomainMapper.mealPlanFromApi(e as Map<String, dynamic>),
+        )
+        .toList();
+    MealPlansState.instance.seed(mealPlans);
+
+    // Consent requests, so a pending approval survives a missed notification.
+    final reportConsents = (data['report_consents'] as List? ?? [])
+        .map(
+          (e) => PatientReportRequestItem.fromJson(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
+    ReportConsentsState.instance.seed(reportConsents);
+
+    final announcements = (data['announcements'] as List? ?? [])
+        .map(
+          (e) => PatientDomainMapper.announcementFromApi(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+    AnnouncementsState.instance.seed(announcements);
+
     return true;
   }
 
@@ -204,5 +234,8 @@ class PatientSessionSync {
     SosState.instance.seed(contacts: const [], history: const []);
     CareState.instance.seed(providers: const [], requests: const []);
     VitalReportState.instance.seed([]);
+    ReportConsentsState.instance.seed(const []);
+    MealPlansState.instance.seed(const []);
+    AnnouncementsState.instance.seed(const []);
   }
 }

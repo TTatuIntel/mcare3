@@ -18,14 +18,32 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static FirebaseOptions get web => _options;
-  static FirebaseOptions get android => _options;
-  static FirebaseOptions get ios => _options;
-
-  static FirebaseOptions get _options => FirebaseOptions(
-    apiKey: AppEnv.firebaseApiKey,
-    appId: AppEnv.firebaseAppId,
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: AppEnv.firebaseWebApiKey,
+    appId: AppEnv.firebaseWebAppId,
     messagingSenderId: AppEnv.firebaseMessagingSenderId,
     projectId: AppEnv.firebaseProjectId,
+    authDomain: _emptyToNull(AppEnv.firebaseAuthDomain),
+    storageBucket: _emptyToNull(AppEnv.firebaseStorageBucket),
+    measurementId: _emptyToNull(AppEnv.firebaseMeasurementId),
   );
+
+  static FirebaseOptions get android => FirebaseOptions(
+    apiKey: AppEnv.firebaseAndroidApiKey,
+    appId: AppEnv.firebaseAndroidAppId,
+    messagingSenderId: AppEnv.firebaseMessagingSenderId,
+    projectId: AppEnv.firebaseProjectId,
+    storageBucket: _emptyToNull(AppEnv.firebaseStorageBucket),
+  );
+
+  static FirebaseOptions get ios => FirebaseOptions(
+    apiKey: AppEnv.firebaseIosApiKey,
+    appId: AppEnv.firebaseIosAppId,
+    messagingSenderId: AppEnv.firebaseMessagingSenderId,
+    projectId: AppEnv.firebaseProjectId,
+    storageBucket: _emptyToNull(AppEnv.firebaseStorageBucket),
+    iosBundleId: AppEnv.firebaseIosBundleId,
+  );
+
+  static String? _emptyToNull(String value) => value.isEmpty ? null : value;
 }

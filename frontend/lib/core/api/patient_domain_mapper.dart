@@ -1,6 +1,8 @@
+import '../../shared/models/announcement.dart';
 import '../../shared/models/appointment.dart';
 import '../../shared/models/care_provider.dart';
 import '../../shared/models/document.dart';
+import '../../shared/models/meal_plan.dart';
 import '../../shared/models/medication.dart';
 import '../../shared/models/message.dart';
 import '../../shared/models/notification_item.dart';
@@ -69,11 +71,25 @@ class PatientDomainMapper {
     );
   }
 
+  /// The API names notification kinds after what raised them, not after the
+  /// client enum. Matching on enum name alone quietly filed every vital alert
+  /// and every resolution notice under [NotificationKind.system], so a
+  /// critical reading reached the patient's inbox as a grey info row.
   static NotificationKind notificationKindFromApi(String? raw) {
-    return NotificationKind.values.firstWhere(
-      (e) => e.name == raw,
-      orElse: () => NotificationKind.system,
-    );
+    return switch (raw) {
+      'vital_warning' ||
+      'vital_critical' ||
+      'alert' => NotificationKind.vitalAlert,
+      'alert_resolved' || 'sos_resolved' => NotificationKind.resolution,
+      'care_request' => NotificationKind.careRequest,
+      'new_user' => NotificationKind.profile,
+      'medication_reminder' => NotificationKind.medication,
+      'report_ready' => NotificationKind.report,
+      _ => NotificationKind.values.firstWhere(
+        (e) => e.name == raw,
+        orElse: () => NotificationKind.system,
+      ),
+    };
   }
 
   static TicketCategory ticketCategoryFromApi(String? raw) {
@@ -144,7 +160,11 @@ class PatientDomainMapper {
       return raw;
     }
     if (raw is Map) {
-      final vital = raw['vital'] as String?;
+      // The API names this `vital_key` on every alert it raises; reading only
+      // `vital` meant a server-sent alert never linked back to the vital it
+      // was about, so the patient's vital screen could not show which reading
+      // the care team had acted on.
+      final vital = (raw['vital'] ?? raw['vital_key']) as String?;
       if (vital != null) return vitalKeyFromApi(vital);
       return Map<String, dynamic>.from(raw);
     }
@@ -394,6 +414,50 @@ class PatientDomainMapper {
       lastEscalatedAt: parseDate(json['last_escalated_at'] as String?),
     );
   }
+
+  static MealType mealTypeFromApi(String? raw) => MealType.values.firstWhere(
+    (t) => t.name == raw,
+    orElse: () => MealType.general,
+  );
+
+  /// Clinician-assigned nutrition. Same payload the staff apps read, so the
+  /// shared [StaffMealPlan] model is reused rather than duplicated.
+  static StaffMealPlan mealPlanFromApi(Map<String, dynamic> json) =>
+      StaffMealPlan(
+        id: (json['id'] ?? '').toString(),
+        patientId: (json['patient_id'] ?? '').toString(),
+        patientName: (json['patient_name'] as String?) ?? '',
+        title: (json['title'] as String?) ?? '',
+        mealType: mealTypeFromApi(json['meal_type'] as String?),
+        description: json['description'] as String?,
+        calories: (json['calories'] as num?)?.toInt(),
+        protein: json['protein'] as String?,
+        carbs: json['carbs'] as String?,
+        fat: json['fat'] as String?,
+        notes: json['notes'] as String?,
+        assignedAt:
+            parseDate(json['assigned_at'] as String?) ??
+            parseDate(json['created_at'] as String?) ??
+            DateTime.now(),
+        assignedBy: (json['assigned_by'] as String?) ?? '',
+      );
+
+  static AppAnnouncement announcementFromApi(Map<String, dynamic> json) =>
+      AppAnnouncement(
+        id: (json['id'] ?? '').toString(),
+        title: (json['title'] as String?) ?? '',
+        body: (json['body'] as String?) ?? '',
+        audience: (json['audience'] as String?) ?? 'all',
+        ctaLabel: json['cta_label'] as String?,
+        ctaUrl: json['cta_url'] as String?,
+        startsAt: parseDate(json['starts_at'] as String?),
+        endsAt: parseDate(json['ends_at'] as String?),
+        createdBy: json['created_by'] as String?,
+        createdAt:
+            parseDate(json['created_at'] as String?) ??
+            parseDate(json['starts_at'] as String?) ??
+            DateTime.now(),
+      );
 
   // ---------------------------------------------------------------------------
   // toApi (mutations)

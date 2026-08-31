@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../alerts/urgent_alerts_card.dart';
+import '../constants/route_names.dart';
 import '../models/user_role.dart';
+import '../models/notification_item.dart';
+import '../navigation/notification_router.dart';
+import '../state/notification_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_icons.dart';
@@ -175,6 +179,12 @@ class StaffHubHomePage extends StatelessWidget {
           },
         ),
         const SizedBox(height: AppSpacing.xxl),
+        if (role == UserRole.admin) ...[
+          _AdminNotificationCentre(
+            onOpenAll: () => openRoute(RouteNames.adminNotifications),
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+        ],
         StaffHubSectionHeading(
           title: 'Next actions',
           subtitle: snapshot.workItems.isEmpty
@@ -249,6 +259,310 @@ class StaffHubHomePage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AdminNotificationCentre extends StatelessWidget {
+  const _AdminNotificationCentre({required this.onOpenAll});
+
+  final VoidCallback onOpenAll;
+
+  bool _isUrgent(AppNotification item) =>
+      item.kind == NotificationKind.sos ||
+      item.kind == NotificationKind.vitalAlert;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: NotificationState.instance,
+      builder: (context, _) {
+        final state = NotificationState.instance;
+        final active = state.activeItems;
+        final urgent = active.where(_isUrgent).toList();
+        final updates = active.where((item) => !_isUrgent(item)).toList();
+        final unread = state.unreadCount;
+
+        return Semantics(
+          container: true,
+          label: 'Admin notifications. $unread unread updates.',
+          child: StaffHubSurface(
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppColors.brandIndigo.withValues(alpha: 0.13),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusMd,
+                          ),
+                        ),
+                        child: const Icon(
+                          AppIcons.bell,
+                          color: AppColors.brandIndigo,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Notifications',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            Text(
+                              unread == 0
+                                  ? 'You are up to date'
+                                  : '$unread unread ${unread == 1 ? 'update' : 'updates'}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: unread > 0
+                                        ? AppColors.brandIndigo
+                                        : AppPalette.textMuted(context),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (unread > 0)
+                        TextButton(
+                          onPressed: () => state.markAllReadRemote(),
+                          child: const Text('Mark all read'),
+                        ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: AppPalette.border(context)),
+                _AdminNotificationGroup(
+                  title: 'Urgent care queue',
+                  items: urgent,
+                  urgent: true,
+                  emptyMessage: 'No urgent alerts need acknowledgement.',
+                ),
+                Divider(height: 1, color: AppPalette.border(context)),
+                _AdminNotificationGroup(
+                  title: 'Updates',
+                  items: updates,
+                  emptyMessage: 'No other updates are waiting.',
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    0,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
+                  child: OutlinedButton.icon(
+                    onPressed: onOpenAll,
+                    icon: const Icon(AppIcons.bell, size: 18),
+                    label: Text(
+                      active.isEmpty
+                          ? 'Open notification history'
+                          : 'Open all notifications',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AdminNotificationGroup extends StatelessWidget {
+  const _AdminNotificationGroup({
+    required this.title,
+    required this.items,
+    required this.emptyMessage,
+    this.urgent = false,
+  });
+
+  final String title;
+  final List<AppNotification> items;
+  final String emptyMessage;
+  final bool urgent;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = items.take(3).toList();
+    final accent = urgent ? AppColors.critical : AppColors.info;
+
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Text(
+                '${items.length}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: items.isEmpty ? AppPalette.textMuted(context) : accent,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (visible.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppPalette.surfaceAlt(context),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+              child: Row(
+                children: [
+                  Icon(AppIcons.info, color: AppPalette.textMuted(context)),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      emptyMessage,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: urgent
+                    ? AppColors.critical.withValues(alpha: 0.045)
+                    : AppPalette.surfaceAlt(context),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(
+                  color: urgent
+                      ? AppColors.critical.withValues(alpha: 0.30)
+                      : AppPalette.border(context),
+                ),
+              ),
+              child: Column(
+                children: [
+                  for (var i = 0; i < visible.length; i++) ...[
+                    _AdminNotificationPreviewRow(item: visible[i]),
+                    if (i < visible.length - 1)
+                      Divider(height: 1, color: AppPalette.border(context)),
+                  ],
+                ],
+              ),
+            ),
+          if (items.length > visible.length) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '+${items.length - visible.length} more ${urgent ? 'urgent' : 'updates'}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminNotificationPreviewRow extends StatelessWidget {
+  const _AdminNotificationPreviewRow({required this.item});
+
+  final AppNotification item;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = item.kind.tint;
+    return InkWell(
+      onTap: () => NotificationRouter.handleTap(context, item),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(item.kind.icon, color: accent, size: 18),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                fontWeight: item.read
+                                    ? FontWeight.w600
+                                    : FontWeight.w800,
+                              ),
+                        ),
+                      ),
+                      if (!item.read)
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: accent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Icon(AppIcons.chevronRight, color: accent, size: 18),
+          ],
+        ),
+      ),
     );
   }
 }

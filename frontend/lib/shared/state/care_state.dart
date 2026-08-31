@@ -18,6 +18,23 @@ class CareState extends ChangeNotifier {
       _providers.where((p) => !p.assigned).toList();
   List<CareRequest> get requests => List.unmodifiable(_requests);
 
+  /// The still-open request for [providerId], if the patient already has one.
+  ///
+  /// One open request per provider is the rule everywhere: the browse list
+  /// reads this to show "Requested" instead of a second call to action, and
+  /// [requestCareRemote] reads it to refuse a duplicate outright.
+  CareRequest? pendingRequestFor(String providerId) {
+    for (final r in _requests) {
+      if (r.providerId == providerId && r.status == CareRequestStatus.pending) {
+        return r;
+      }
+    }
+    return null;
+  }
+
+  bool hasPendingRequest(String providerId) =>
+      pendingRequestFor(providerId) != null;
+
   void seed({
     required List<CareProvider> providers,
     required List<CareRequest> requests,
@@ -32,6 +49,8 @@ class CareState extends ChangeNotifier {
   }
 
   void requestCare(CareProvider p, {String? reason}) {
+    final open = pendingRequestFor(p.id);
+    if (open != null) return;
     _requests.insert(
       0,
       CareRequest(
@@ -65,10 +84,18 @@ class CareState extends ChangeNotifier {
 
   /// Persisting variant of [requestCare]. POSTs to the API and inserts the
   /// server-canonical row.
+  ///
+  /// Throws [DuplicateCareRequest] when this provider already has an open
+  /// request. The API enforces the same rule — this only spares the round trip
+  /// and gives the sheet something specific to say.
   Future<CareRequest> requestCareRemote(
     CareProvider p, {
     String? reason,
   }) async {
+    final open = pendingRequestFor(p.id);
+    if (open != null) throw DuplicateCareRequest(p.name, open);
+    if (p.assigned) throw AlreadyOnCareTeam(p.name);
+
     if (!AppEnv.backendEnabled) {
       requestCare(p, reason: reason);
       return _requests.first;
@@ -88,7 +115,15 @@ class CareState extends ChangeNotifier {
           status: CareRequestStatus.pending,
           reason: reason,
         );
-    _requests.insert(0, canonical);
+    // The API answers a duplicate with the request that already exists, so
+    // match on id before inserting — otherwise a stale local copy would be
+    // listed twice.
+    final existing = _requests.indexWhere((r) => r.id == canonical.id);
+    if (existing >= 0) {
+      _requests[existing] = canonical;
+    } else {
+      _requests.insert(0, canonical);
+    }
     notifyListeners();
     return canonical;
   }
@@ -113,4 +148,27 @@ class CareState extends ChangeNotifier {
       rethrow;
     }
   }
+}
+
+/// Raised when a patient tries to request a provider they already have an open
+/// request with. Carries the existing request so callers can point at it.
+class DuplicateCareRequest implements Exception {
+  const DuplicateCareRequest(this.providerName, this.existing);
+
+  final String providerName;
+  final CareRequest existing;
+
+  @override
+  String toString() =>
+      'You already have a pending request with $providerName.';
+}
+
+/// Raised when the provider is already on the patient's care team.
+class AlreadyOnCareTeam implements Exception {
+  const AlreadyOnCareTeam(this.providerName);
+
+  final String providerName;
+
+  @override
+  String toString() => '$providerName is already on your care team.';
 }

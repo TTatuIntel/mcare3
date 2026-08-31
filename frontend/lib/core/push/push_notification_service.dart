@@ -6,11 +6,15 @@ import 'package:flutter/material.dart';
 import '../../firebase_options.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/constants/route_names.dart';
+import '../../shared/models/notification_item.dart';
 import '../../shared/models/user_role.dart';
+import '../../shared/navigation/notification_router.dart';
 import '../../shared/navigation/root_navigator.dart';
 import '../../shared/alerts/alert_center.dart';
+import '../../shared/state/notification_state.dart';
 import '../../shared/widgets/app_toast.dart';
 import '../realtime/background_session_sync.dart';
+import '../realtime/session_poller.dart';
 import '../api/api_client.dart';
 import '../api/fcm_api.dart';
 import '../env/app_env.dart';
@@ -139,35 +143,105 @@ class PushNotificationService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
+    final notificationId = message.data['notification_id']?.toString();
+    if (!SessionPoller.instance.markPatientNotificationSeen(notificationId)) {
+      return;
+    }
     final kind = message.data['kind'] as String?;
     switch (kind) {
       case 'sos':
       case 'sos_resolved':
         _handleSosPush(message.data);
       case 'alert':
+      case 'vital_warning':
       case 'vital_critical':
         _handleAlertPush(message.data);
+      case 'alert_resolved':
+        _handleAlertResolvedPush(message.data);
       case 'appointment':
         _handleAppointmentPush(message.data);
       case 'message':
         _handleMessagePush(message.data);
+      default:
+        _handleGenericPush(message);
     }
   }
 
   void _onMessageOpened(RemoteMessage message) {
+    SessionPoller.instance.markPatientNotificationSeen(
+      message.data['notification_id']?.toString(),
+    );
     final kind = message.data['kind'] as String?;
     switch (kind) {
       case 'sos':
       case 'sos_resolved':
         _handleSosPush(message.data, fromTap: true);
       case 'alert':
+      case 'vital_warning':
       case 'vital_critical':
         _handleAlertPush(message.data, fromTap: true);
+      case 'alert_resolved':
+        _handleAlertResolvedPush(message.data, fromTap: true);
       case 'appointment':
         _handleAppointmentPush(message.data, fromTap: true);
       case 'message':
         _handleMessagePush(message.data, fromTap: true);
+      default:
+        _handleGenericPush(message, fromTap: true);
     }
+  }
+
+  /// Handles persisted inbox updates that do not need an emergency-specific
+  /// popup: prescriptions, reports, consent, care-team and profile changes.
+  Future<void> _handleGenericPush(
+    RemoteMessage message, {
+    bool fromTap = false,
+  }) async {
+    final user = AuthState.instance.user;
+    if (user == null) return;
+    await BackgroundSessionSync.refresh(role: user.role);
+
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    final kind = message.data['kind'] as String? ?? 'general';
+    final route = _routeForPush(kind, user.role);
+    final notification = _notificationFromData(message.data);
+    if (fromTap && route != null) {
+      if (notification != null) {
+        NotificationRouter.handleTap(ctx, notification);
+      } else {
+        _openRoute(ctx, route, data: message.data);
+      }
+      return;
+    }
+
+    AppToast.notification(
+      ctx,
+      // FCM carries intentionally generic lock-screen copy. Once the app is
+      // authenticated and has reconciled its session, show the real inbox
+      // title/body from Laravel instead of repeating the redacted preview.
+      title:
+          notification?.title ??
+          message.notification?.title ??
+          'New mCare update',
+      message:
+          notification?.body ??
+          message.notification?.body ??
+          'A secure update is waiting in mCare.',
+      onOpen: notification != null
+          ? () => NotificationRouter.handleTap(ctx, notification)
+          : route == null
+          ? null
+          : () => _openRoute(ctx, route, data: message.data),
+    );
+  }
+
+  AppNotification? _notificationFromData(Map<String, dynamic> data) {
+    final id = data['notification_id']?.toString();
+    if (id == null || id.isEmpty) return null;
+    return NotificationState.instance.items
+        .where((item) => item.id == id)
+        .firstOrNull;
   }
 
   Future<void> _handleSosPush(
@@ -247,6 +321,44 @@ class PushNotificationService {
     );
   }
 
+  /// A clinician has closed an alert about this patient.
+  ///
+  /// Deliberately quiet: this is the answer to an alert, not a new one, so it
+  /// refreshes the session — which is what actually clears the red card off
+  /// the home screen — and offers the reason rather than sounding an alarm.
+  Future<void> _handleAlertResolvedPush(
+    Map<String, dynamic> data, {
+    bool fromTap = false,
+  }) async {
+    final user = AuthState.instance.user;
+    if (user == null) return;
+
+    await BackgroundSessionSync.refresh(role: user.role, urgent: true);
+
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    final route = _routeForPush('alert_resolved', user.role);
+    if (fromTap && route != null) {
+      _openRoute(ctx, route, data: data);
+      return;
+    }
+
+    if (_isStaff(user.role)) {
+      AlertCenter.instance.refresh();
+      return;
+    }
+
+    AppToast.notification(
+      ctx,
+      title: 'Alert reviewed',
+      message:
+          (data['message'] as String?) ??
+          'Your care team has reviewed an alert. Open to read what they decided.',
+      onOpen: route == null ? null : () => _openRoute(ctx, route, data: data),
+    );
+  }
+
   Future<void> _handleAppointmentPush(
     Map<String, dynamic> data, {
     bool fromTap = false,
@@ -314,7 +426,10 @@ class PushNotificationService {
       UserRole.mcareAssistant => RouteNames.assistantSos,
       _ => null,
     },
-    'alert' || 'vital_critical' => switch (role) {
+    'alert' ||
+    'vital_warning' ||
+    'vital_critical' ||
+    'alert_resolved' => switch (role) {
       UserRole.patient => RouteNames.patientVitals,
       UserRole.doctor => RouteNames.doctorAlerts,
       UserRole.admin => RouteNames.adminAlerts,
@@ -335,7 +450,49 @@ class PushNotificationService {
       UserRole.mcareAssistant => RouteNames.assistantMessages,
       _ => null,
     },
-    _ => null,
+    'medication' || 'medication_reminder' => switch (role) {
+      UserRole.patient => RouteNames.patientMedications,
+      UserRole.doctor => RouteNames.doctorPrescriptions,
+      UserRole.admin => RouteNames.adminNotifications,
+      UserRole.mcareAssistant => RouteNames.assistantNotifications,
+      _ => null,
+    },
+    'report' || 'report_ready' => switch (role) {
+      UserRole.patient => RouteNames.patientDocuments,
+      UserRole.doctor => RouteNames.doctorReports,
+      UserRole.admin => RouteNames.adminNotifications,
+      UserRole.mcareAssistant => RouteNames.assistantNotifications,
+      _ => null,
+    },
+    'consent' => switch (role) {
+      UserRole.patient => RouteNames.patientReportConsents,
+      UserRole.doctor => RouteNames.doctorReports,
+      UserRole.admin => RouteNames.adminNotifications,
+      UserRole.mcareAssistant => RouteNames.assistantNotifications,
+      _ => null,
+    },
+    'care_request' || 'assignment' => switch (role) {
+      UserRole.patient => RouteNames.patientCareTeam,
+      UserRole.doctor => RouteNames.doctorPatients,
+      UserRole.admin => RouteNames.adminCareRequests,
+      UserRole.mcareAssistant => RouteNames.assistantCareRequests,
+      _ => null,
+    },
+    'profile' => switch (role) {
+      UserRole.patient => RouteNames.patientProfile,
+      UserRole.doctor => RouteNames.doctorProfile,
+      UserRole.admin => RouteNames.adminProfile,
+      UserRole.mcareAssistant => RouteNames.assistantProfile,
+      _ => null,
+    },
+    'new_user' => role == UserRole.admin ? RouteNames.adminUsers : null,
+    _ => switch (role) {
+      UserRole.patient => RouteNames.patientNotifications,
+      UserRole.doctor => RouteNames.doctorNotifications,
+      UserRole.admin => RouteNames.adminNotifications,
+      UserRole.mcareAssistant => RouteNames.assistantNotifications,
+      _ => null,
+    },
   };
 
   void _openRoute(

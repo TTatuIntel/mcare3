@@ -230,7 +230,8 @@ void main() {
   });
 
   testWidgets('the closing confirmation takes itself away', (tester) async {
-    seed([unowned()]);
+    // Owned, because closing is only offered to whoever picked it up.
+    seed([handedOver()]);
     await pumpHub(tester);
 
     await tester.tap(find.widgetWithText(AppButton, 'Resolve'));
@@ -256,6 +257,42 @@ void main() {
       find.text('No active SOS'),
       findsOneWidget,
       reason: 'and leaves the queue it was covering',
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('an emergency nobody picked up cannot be closed from the list', (
+    tester,
+  ) async {
+    seed([unowned()]);
+    await pumpHub(tester);
+
+    // Marking an emergency resolved — or a false alarm — without having
+    // called the patient, read the chart, or spoken to anyone is not a
+    // shortcut, it is a wrong record. Respond first.
+    expect(find.widgetWithText(AppButton, 'Resolve'), findsNothing);
+    expect(find.widgetWithText(AppButton, 'False alarm'), findsNothing);
+    expect(find.widgetWithText(AppButton, 'Respond now'), findsOneWidget);
+    expect(
+      find.widgetWithText(AppButton, 'Acknowledge — en route'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('before this can be closed'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('picking it up is what opens the outcomes', (tester) async {
+    seed([handedOver()]);
+    await pumpHub(tester);
+
+    expect(find.widgetWithText(AppButton, 'Resolve'), findsOneWidget);
+    expect(find.widgetWithText(AppButton, 'False alarm'), findsOneWidget);
+    expect(
+      find.widgetWithText(AppButton, 'Acknowledge — en route'),
+      findsNothing,
+      reason: 'it is already owned — there is nothing left to acknowledge',
     );
 
     await unmount(tester);

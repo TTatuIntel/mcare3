@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../admin/reports/patient_report_builder_sheet.dart';
+import '../../../doctors/appointments/doctor_schedule_appointment_sheet.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/patient_chart_api.dart';
 import '../../../core/env/app_env.dart';
+import '../../../core/location/google_maps_service.dart';
 import '../../../core/realtime/realtime_refresh_mixin.dart';
 import '../../../core/web/web_platform.dart' as web_platform;
 import '../../auth/auth_state.dart';
@@ -14,6 +16,7 @@ import '../../constants/route_names.dart';
 import '../../models/patient_profile.dart';
 import '../../models/sos.dart';
 import '../../models/user_role.dart';
+import '../../maps/google_location_map.dart';
 import '../../state/staff_state.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -42,6 +45,7 @@ class PatientChartBody extends StatefulWidget {
     required this.patientId,
     required this.fallbackName,
     this.header,
+    this.careActions = const [],
   });
 
   final String patientId;
@@ -49,6 +53,11 @@ class PatientChartBody extends StatefulWidget {
 
   /// Rendered above the chart — the emergency this chart was opened from.
   final Widget? header;
+
+  /// What to do about that emergency, placed with the other things a
+  /// clinician does from a chart rather than above the chart itself. Reading
+  /// the record comes first; the outcome is what you record afterwards.
+  final List<Widget> careActions;
 
   @override
   State<PatientChartBody> createState() => _PatientChartBodyState();
@@ -159,13 +168,11 @@ class _PatientChartBodyState extends State<PatientChartBody>
   }
 
   Future<void> _openMap(String url) async {
-    if (kIsWeb) {
-      web_platform.openWindow(url, '_blank');
-      return;
-    }
+    final opened = await GoogleMapsService.openUrl(url);
+    if (opened || !mounted) return;
     await Clipboard.setData(ClipboardData(text: url));
     if (!mounted) return;
-    AppToast.success(context, 'Map link copied.');
+    AppToast.warn(context, 'Google Maps could not open. The link was copied.');
   }
 
   Future<void> _addNote(String title, String body, bool publish) async {
@@ -217,6 +224,7 @@ class _PatientChartBodyState extends State<PatientChartBody>
             chart: chart,
             fallbackName: widget.fallbackName,
             sections: _sections,
+            careActions: widget.careActions,
             onJump: _jumpToSection,
             onCall: _call,
             onMap: _openMap,
@@ -235,6 +243,7 @@ class _ChartContent extends StatelessWidget {
     required this.chart,
     required this.fallbackName,
     required this.sections,
+    required this.careActions,
     required this.onJump,
     required this.onCall,
     required this.onMap,
@@ -243,6 +252,7 @@ class _ChartContent extends StatelessWidget {
 
   final PatientChart chart;
   final String fallbackName;
+  final List<Widget> careActions;
 
   /// Keyed by the same names the summary strip jumps to.
   final Map<String, GlobalKey<ChartSectionState>> sections;
@@ -280,6 +290,9 @@ class _ChartContent extends StatelessWidget {
         _QuickActions(
           phone: chart.phone,
           mapsUrl: chart.location.mapsUrl,
+          patientId: chart.patientId,
+          patientName: _name,
+          careActions: careActions,
           onCall: onCall,
           onMap: onMap,
         ),
@@ -883,9 +896,7 @@ class _StatStrip extends StatelessWidget {
           label: 'alerts',
           value: '${s.alerts}',
           icon: AppIcons.alert,
-          accent: s.alertsCritical > 0
-              ? AppColors.critical
-              : AppColors.warning,
+          accent: s.alertsCritical > 0 ? AppColors.critical : AppColors.warning,
           flag: s.alertsCritical > 0 ? '${s.alertsCritical} critical' : null,
           tooltip: s.alerts == 0
               ? 'No alerts in this period'
@@ -910,7 +921,9 @@ class _StatStrip extends StatelessWidget {
           value: '${s.medicationsActive}',
           icon: AppIcons.medication,
           accent: AppColors.doctorGreen,
-          flag: adherence != null && adherence < 80 ? '$adherence% taken' : null,
+          flag: adherence != null && adherence < 80
+              ? '$adherence% taken'
+              : null,
           tooltip: s.medicationsActive == 0
               ? 'Nothing active in this period'
               : '${s.medicationsActive} active'
@@ -942,48 +955,88 @@ class _StatStrip extends StatelessWidget {
   }
 }
 
+/// The things a clinician does from a chart, in one place.
+///
+/// Reaching the patient, finding them, booking them in — and, when the chart
+/// was opened from an alert, recording what came of it. That outcome used to
+/// sit in a banner above the record, which put the decision before the
+/// reading: the profile is what someone opened this to see, so the action
+/// belongs beside the other actions, after it.
 class _QuickActions extends StatelessWidget {
   const _QuickActions({
     required this.phone,
     required this.mapsUrl,
+    required this.patientId,
+    required this.patientName,
+    required this.careActions,
     required this.onCall,
     required this.onMap,
   });
 
   final String? phone;
   final String? mapsUrl;
+  final String patientId;
+  final String patientName;
+  final List<Widget> careActions;
   final Future<void> Function(String phone) onCall;
   final Future<void> Function(String url) onMap;
 
   @override
   Widget build(BuildContext context) {
     final hasPhone = phone != null && phone!.trim().isNotEmpty;
-    if (!hasPhone && mapsUrl == null) return const SizedBox.shrink();
+    // Booking is a doctor's action — the sheet it opens works from their own
+    // caseload, so offering it to a coordinator would dead-end.
+    final canBook = AuthState.instance.user?.role == UserRole.doctor;
 
-    return Row(
-      children: [
-        if (hasPhone)
-          Expanded(
-            child: AppButton(
-              label: kIsWeb ? 'Call patient' : 'Copy number',
-              icon: AppIcons.phone,
-              variant: AppButtonVariant.secondary,
-              expand: true,
-              onPressed: () => onCall(phone!),
-            ),
+    final actions = <Widget>[
+      if (hasPhone)
+        AppButton(
+          label: kIsWeb ? 'Call patient' : 'Copy number',
+          icon: AppIcons.phone,
+          variant: AppButtonVariant.secondary,
+          expand: true,
+          onPressed: () => onCall(phone!),
+        ),
+      ...careActions,
+      if (mapsUrl != null)
+        AppButton(
+          label: 'Open location',
+          icon: AppIcons.location,
+          variant: AppButtonVariant.secondary,
+          expand: true,
+          onPressed: () => onMap(mapsUrl!),
+        ),
+      if (canBook)
+        AppButton(
+          label: 'Book appointment',
+          icon: AppIcons.appointment,
+          variant: AppButtonVariant.secondary,
+          expand: true,
+          onPressed: () => DoctorScheduleAppointmentSheet.show(
+            context,
+            patientId: patientId,
+            patientName: patientName,
           ),
-        if (hasPhone && mapsUrl != null) const SizedBox(width: AppSpacing.sm),
-        if (mapsUrl != null)
-          Expanded(
-            child: AppButton(
-              label: kIsWeb ? 'Open location' : 'Copy map link',
-              icon: AppIcons.location,
-              variant: AppButtonVariant.secondary,
-              expand: true,
-              onPressed: () => onMap(mapsUrl!),
-            ),
-          ),
-      ],
+        ),
+    ];
+
+    if (actions.isEmpty) return const SizedBox.shrink();
+
+    // Two to a row, so a third action never squeezes the first two into
+    // unreadable stubs.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth > 520 ? 3 : 2;
+        final width =
+            (constraints.maxWidth - (columns - 1) * AppSpacing.sm) / columns;
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final action in actions) SizedBox(width: width, child: action),
+          ],
+        );
+      },
     );
   }
 }
@@ -1104,6 +1157,7 @@ class _LocationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = location.mapsUrl;
+    final directionsUrl = location.directionsUrl;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1137,12 +1191,38 @@ class _LocationPanel extends StatelessWidget {
           ),
         if (url != null) ...[
           const SizedBox(height: AppSpacing.sm),
-          AppButton(
-            label: kIsWeb ? 'Open on the map' : 'Copy map link',
-            icon: AppIcons.location,
-            variant: AppButtonVariant.secondary,
-            expand: true,
-            onPressed: () => onMap(url),
+          if (AppEnv.embeddedGoogleMapsEnabled && location.hasFix) ...[
+            GoogleLocationMap(
+              latitude: location.latitude!,
+              longitude: location.longitude!,
+              label: location.address ?? 'Patient location',
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: 'Open map',
+                  icon: AppIcons.map,
+                  variant: AppButtonVariant.secondary,
+                  expand: true,
+                  onPressed: () => onMap(url),
+                ),
+              ),
+              if (directionsUrl != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: AppButton(
+                    label: 'Directions',
+                    icon: AppIcons.location,
+                    variant: AppButtonVariant.secondary,
+                    expand: true,
+                    onPressed: () => onMap(directionsUrl),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ],

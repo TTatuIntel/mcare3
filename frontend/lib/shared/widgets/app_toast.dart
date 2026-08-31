@@ -117,9 +117,12 @@ class _GlassToastBanner extends StatefulWidget {
 
 class _GlassToastBannerState extends State<_GlassToastBanner>
     with SingleTickerProviderStateMixin {
+  /// Below this width the layout is single-column with a bottom CTA.
+  static const double _topAnchorMaxWidth = 640;
+
   late final AnimationController _controller;
+  late final CurvedAnimation _curve;
   late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
 
   @override
   void initState() {
@@ -130,16 +133,12 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
       duration: AppMotion.page,
       reverseDuration: const Duration(milliseconds: 260),
     );
-    final curve = CurvedAnimation(
+    _curve = CurvedAnimation(
       parent: _controller,
       curve: AppMotion.easeOut,
       reverseCurve: Curves.easeInCubic,
     );
-    _fade = Tween<double>(begin: 0, end: 1).animate(curve);
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.22),
-      end: Offset.zero,
-    ).animate(curve);
+    _fade = Tween<double>(begin: 0, end: 1).animate(_curve);
     _controller.forward();
   }
 
@@ -150,6 +149,7 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
 
   @override
   void dispose() {
+    _curve.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -181,20 +181,35 @@ class _GlassToastBannerState extends State<_GlassToastBanner>
   @override
   Widget build(BuildContext context) {
     final palette = _palette(context);
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final media = MediaQuery.of(context);
+
+    // Narrow screens put the primary call-to-action near the bottom of the
+    // page, so anchor the toast under the status bar there — a bottom banner
+    // would sit on top of the very button the message is about. Wider layouts
+    // keep the familiar bottom-corner placement, lifted above the keyboard.
+    final anchorTop = media.size.width < _topAnchorMaxWidth;
+    final slide = _curve.drive(
+      Tween<Offset>(
+        begin: Offset(0, anchorTop ? -0.22 : 0.22),
+        end: Offset.zero,
+      ),
+    );
 
     return Positioned(
       left: AppSpacing.lg,
       right: AppSpacing.lg,
-      bottom: bottomInset + 108,
+      top: anchorTop ? media.padding.top + AppSpacing.md : null,
+      bottom: anchorTop
+          ? null
+          : media.viewInsets.bottom + media.padding.bottom + AppSpacing.xl,
       child: Align(
-        alignment: Alignment.bottomCenter,
+        alignment: anchorTop ? Alignment.topCenter : Alignment.bottomCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 540),
           child: FadeTransition(
             opacity: _fade,
             child: SlideTransition(
-              position: _slide,
+              position: slide,
               child: Semantics(
                 container: true,
                 liveRegion: true,

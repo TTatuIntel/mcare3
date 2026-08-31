@@ -109,7 +109,13 @@ class _SupportQueueScreenState extends State<SupportQueueScreen> {
   List<SupportTicket> _filtered(List<SupportTicket> all) {
     if (_filter == 'all') return all;
     return all.where((t) {
-      if (_filter == 'open') return t.status == TicketStatus.open;
+      // "Open" is the active-work bucket used by the summary count: it must
+      // include both newly opened and already assigned/in-progress tickets.
+      // The dedicated In Progress chip remains available as a narrower view.
+      if (_filter == 'open') {
+        return t.status == TicketStatus.open ||
+            t.status == TicketStatus.inProgress;
+      }
       if (_filter == 'in_progress') return t.status == TicketStatus.inProgress;
       if (_filter == 'resolved') return t.status == TicketStatus.resolved;
       if (_filter == 'closed') return t.status == TicketStatus.closed;

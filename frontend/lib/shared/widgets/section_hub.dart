@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
 import 'glass_card.dart';
+import 'nav_badge.dart';
 
 /// A route-backed task exposed by a grouped role hub.
 class AppSectionLink {
@@ -13,6 +14,7 @@ class AppSectionLink {
     required this.icon,
     required this.route,
     this.color,
+    this.badge = 0,
   });
 
   final String title;
@@ -20,6 +22,11 @@ class AppSectionLink {
   final IconData icon;
   final String route;
   final Color? color;
+
+  /// How many items are waiting behind this tile. Zero renders nothing. The
+  /// hub recomputes it on every state change, so it stays the same number the
+  /// tab badge shows.
+  final int badge;
 }
 
 class AppSectionGroup {
@@ -140,15 +147,26 @@ class _SectionLinkCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.11),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            ),
-            child: Icon(link.icon, color: accent, size: 24),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+                child: Icon(link.icon, color: accent, size: 24),
+              ),
+              if (link.badge > 0)
+                Positioned(
+                  top: -5,
+                  right: -6,
+                  child: NavBadge(count: link.badge),
+                ),
+            ],
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -158,6 +176,9 @@ class _SectionLinkCard extends StatelessWidget {
                 Text(
                   link.title,
                   style: Theme.of(context).textTheme.titleMedium,
+                  semanticsLabel: link.badge > 0
+                      ? '${link.title}, ${link.badge} waiting'
+                      : null,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(

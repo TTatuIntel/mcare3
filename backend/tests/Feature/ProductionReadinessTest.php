@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Support\ProductionReadiness;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class ProductionReadinessTest extends TestCase
@@ -42,5 +43,27 @@ class ProductionReadinessTest extends TestCase
             ->firstWhere('gate', 'demo-seed');
 
         $this->assertSame('fail', $check['status']);
+    }
+
+    public function test_placeholder_smtp_key_is_reported_without_contacting_the_provider(): void
+    {
+        config([
+            'mail.default' => 'smtp',
+            'mail.from.address' => 'onboarding@resend.dev',
+            'mail.mailers.smtp.host' => 'smtp.resend.com',
+            'mail.mailers.smtp.username' => 'resend',
+            'mail.mailers.smtp.password' => 're_REPLACE_WITH_REAL_KEY',
+        ]);
+        Mail::fake();
+
+        $email = collect(ProductionReadiness::audit())->firstWhere('gate', 'email');
+        $this->assertSame('fail', $email['status']);
+        $this->assertStringContainsString('still a placeholder', $email['detail']);
+
+        $this->artisan('mcare:mail-test', ['email' => 'owner@example.test'])
+            ->expectsOutputToContain('DELIVERY BLOCKED')
+            ->expectsOutputToContain('still a placeholder')
+            ->assertFailed();
+        Mail::assertNothingSent();
     }
 }

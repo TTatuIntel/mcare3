@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../constants/route_names.dart';
+import '../navigation/patient_nav_badges.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
 import 'app_icons.dart';
 import 'brand_logo.dart';
+import 'nav_badge.dart';
 import 'responsive.dart';
 
 class PatientNavDestination {
@@ -108,22 +110,29 @@ class PatientBottomNav extends StatelessWidget {
             horizontal: AppSpacing.sm,
             vertical: AppSpacing.sm,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: destinations
-                .map(
-                  (d) => _NavItem(
-                    destination: d,
-                    selected: !detached && d.isActive(currentRoute),
-                    onTap: () {
-                      if (!detached && d.route == currentRoute) return;
-                      Navigator.of(
-                        context,
-                      ).pushNamedAndRemoveUntil(d.route, (_) => false);
-                    },
-                  ),
-                )
-                .toList(),
+          // Rebuilds whenever a dose, message or notification lands, so the
+          // tabs show what is waiting the moment it arrives rather than the
+          // next time the patient happens to open them.
+          child: AnimatedBuilder(
+            animation: PatientNavBadges.listenable,
+            builder: (context, _) => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: destinations
+                  .map(
+                    (d) => _NavItem(
+                      destination: d,
+                      selected: !detached && d.isActive(currentRoute),
+                      badge: PatientNavBadges.forRoute(d.route),
+                      onTap: () {
+                        if (!detached && d.route == currentRoute) return;
+                        Navigator.of(
+                          context,
+                        ).pushNamedAndRemoveUntil(d.route, (_) => false);
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
           ),
         ),
       ),
@@ -136,10 +145,12 @@ class _NavItem extends StatelessWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    this.badge = 0,
   });
   final PatientNavDestination destination;
   final bool selected;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +162,9 @@ class _NavItem extends StatelessWidget {
         key: ValueKey('patient-bottom-nav:${destination.route}'),
         button: true,
         selected: selected,
-        label: '${destination.label} navigation tab',
+        label: badge > 0
+            ? '${destination.label} navigation tab, $badge waiting'
+            : '${destination.label} navigation tab',
         child: InkWell(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           onTap: onTap,
@@ -162,19 +175,32 @@ class _NavItem extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedContainer(
-                  duration: AppMotion.micro,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? accent.withOpacity(0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                  ),
-                  child: Icon(destination.icon, color: color, size: 22),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AnimatedContainer(
+                      duration: AppMotion.micro,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? accent.withOpacity(0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
+                      ),
+                      child: Icon(destination.icon, color: color, size: 22),
+                    ),
+                    if (badge > 0)
+                      Positioned(
+                        top: -4,
+                        right: 4,
+                        child: NavBadge(count: badge),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -232,17 +258,27 @@ class PatientSideRail extends StatelessWidget {
                   : const BrandLogo(height: BrandLogo.railHeight),
             ),
             const SizedBox(height: AppSpacing.sm),
-            ...PatientBottomNav.destinations.map(
-              (d) => _RailItem(
-                destination: d,
-                selected: d.isActive(currentRoute),
-                compact: compact,
-                onTap: () {
-                  if (d.route == currentRoute) return;
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil(d.route, (_) => false);
-                },
+            AnimatedBuilder(
+              animation: PatientNavBadges.listenable,
+              builder: (context, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: PatientBottomNav.destinations
+                    .map(
+                      (d) => _RailItem(
+                        destination: d,
+                        selected: d.isActive(currentRoute),
+                        compact: compact,
+                        badge: PatientNavBadges.forRoute(d.route),
+                        onTap: () {
+                          if (d.route == currentRoute) return;
+                          Navigator.of(
+                            context,
+                          ).pushNamedAndRemoveUntil(d.route, (_) => false);
+                        },
+                      ),
+                    )
+                    .toList(),
               ),
             ),
             const Spacer(),
@@ -260,11 +296,13 @@ class _RailItem extends StatelessWidget {
     required this.selected,
     required this.compact,
     required this.onTap,
+    this.badge = 0,
   });
   final PatientNavDestination destination;
   final bool selected;
   final bool compact;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -292,16 +330,34 @@ class _RailItem extends StatelessWidget {
                   ? MainAxisAlignment.center
                   : MainAxisAlignment.start,
               children: [
-                Icon(destination.icon, color: color, size: 20),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(destination.icon, color: color, size: 20),
+                    // The collapsed rail has no label to carry the count, so
+                    // the badge rides the icon there instead.
+                    if (badge > 0 && compact)
+                      Positioned(
+                        top: -6,
+                        right: -8,
+                        child: NavBadge(count: badge),
+                      ),
+                  ],
+                ),
                 if (!compact) ...[
                   const SizedBox(width: AppSpacing.md),
-                  Text(
-                    destination.label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected ? AppPalette.ink(context) : color,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      destination.label,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: selected ? AppPalette.ink(context) : color,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
                     ),
                   ),
+                  if (badge > 0) NavBadge(count: badge),
                 ],
               ],
             ),
@@ -313,7 +369,9 @@ class _RailItem extends StatelessWidget {
       key: ValueKey('patient-rail-nav:${destination.route}'),
       button: true,
       selected: selected,
-      label: '${destination.label} navigation tab',
+      label: badge > 0
+          ? '${destination.label} navigation tab, $badge waiting'
+          : '${destination.label} navigation tab',
       child: item,
     );
     if (!compact) return semanticItem;

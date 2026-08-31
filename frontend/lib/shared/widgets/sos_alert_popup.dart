@@ -1,8 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/web/web_platform.dart' as web_platform;
+import '../../core/location/google_maps_service.dart';
 import '../models/user_role.dart';
 import '../navigation/sos_navigation.dart';
 import '../services/sos_ring_service.dart';
@@ -306,9 +305,7 @@ class _SosAlertDialog extends StatelessWidget {
   }
 
   Future<void> _openMap(String url) async {
-    if (kIsWeb) {
-      web_platform.openWindow(url, '_blank');
-    }
+    await GoogleMapsService.openUrl(url);
   }
 }
 

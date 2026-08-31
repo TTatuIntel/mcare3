@@ -5,6 +5,7 @@ import '../../core/env/app_env.dart';
 import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/patient_report_request.dart';
+import '../../shared/state/report_consents_state.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
@@ -56,10 +57,12 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView>
     }
     setState(() => _loading = true);
     try {
-      final rows = await ReportConsentsApi.instance.list();
+      // Refresh through the shared store, so the More badge and the home
+      // prompt clear at the same moment this list does.
+      await ReportConsentsState.instance.refresh();
       if (!mounted) return;
       setState(() {
-        _items = rows.map(PatientReportRequestItem.fromJson).toList();
+        _items = ReportConsentsState.instance.requests;
         _loading = false;
         _error = null;
       });

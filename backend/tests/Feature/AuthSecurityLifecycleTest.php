@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\EmailVerificationMail;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
+use App\Support\AppleIdTokenVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,7 @@ class AuthSecurityLifecycleTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(ThrottleRequests::class);
         Mail::fake();
+        config()->set('mail.default', 'smtp');
         config()->set('services.sms.default_country_code', '234');
     }
 
@@ -39,6 +41,7 @@ class AuthSecurityLifecycleTest extends TestCase
             'device_name' => 'Ada Android',
         ])->assertCreated()
             ->assertJsonPath('data.remember', true)
+            ->assertJsonPath('data.verification_delivery', 'accepted')
             ->assertJsonPath('data.user.email_verified', false);
 
         $user = User::where('email', 'ada@example.com')->firstOrFail();
@@ -74,6 +77,37 @@ class AuthSecurityLifecycleTest extends TestCase
         $remainingDays = now()->diffInDays($verified->json('data.expires_at'));
         $this->assertGreaterThanOrEqual(29, $remainingDays);
         $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_verification_resend_is_authenticated_and_reports_transport_failure(): void
+    {
+        $registered = $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Asha',
+            'last_name' => 'Nabirye',
+            'email' => 'asha@example.com',
+            'phone' => '0700000000',
+            'password' => 'correct-horse',
+        ])->assertCreated();
+
+        $this->postJson('/api/v1/auth/resend-otp', [
+            'identifier' => 'asha@example.com',
+        ])->assertUnauthorized();
+
+        $this->withToken($registered->json('data.token'))
+            ->postJson('/api/v1/auth/resend-otp', [
+                'identifier' => 'asha@example.com',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.verification_delivery', 'accepted');
+
+        config()->set('mail.default', 'log');
+
+        $this->withToken($registered->json('data.token'))
+            ->postJson('/api/v1/auth/resend-otp', [
+                'identifier' => 'asha@example.com',
+            ])
+            ->assertStatus(502)
+            ->assertJsonPath('data.verification_delivery', 'failed');
     }
 
     public function test_device_sessions_are_scoped_and_individually_revocable(): void
@@ -115,5 +149,55 @@ class AuthSecurityLifecycleTest extends TestCase
         // requests, so verify revocation against Sanctum's token resolver.
         $this->assertNull(PersonalAccessToken::findToken($firstToken));
         $this->assertNotNull(PersonalAccessToken::findToken($secondToken));
+    }
+
+    public function test_apple_sign_in_challenge_is_bound_and_single_use(): void
+    {
+        $challenge = $this->postJson('/api/v1/auth/apple/challenge')
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['challenge_id', 'nonce', 'expires_in_seconds']])
+            ->json('data');
+
+        $this->app->instance(
+            AppleIdTokenVerifier::class,
+            new BoundAppleVerifier($challenge['nonce']),
+        );
+
+        $body = [
+            'id_token' => 'signed-test-token',
+            'challenge_id' => $challenge['challenge_id'],
+            'create_account' => true,
+            'first_name' => 'Amina',
+            'last_name' => 'Nabirye',
+            'remember' => true,
+        ];
+
+        $this->postJson('/api/v1/auth/apple', $body)
+            ->assertOk()
+            ->assertJsonPath('data.user.email', 'apple-user@example.com')
+            ->assertJsonPath('data.remember', true);
+
+        $this->postJson('/api/v1/auth/apple', $body)
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Apple sign-in challenge expired. Please try again.');
+    }
+}
+
+class BoundAppleVerifier extends AppleIdTokenVerifier
+{
+    public function __construct(private readonly string $nonce) {}
+
+    public function verify(string $identityToken, ?string $expectedNonceHash = null): ?array
+    {
+        if ($identityToken !== 'signed-test-token'
+            || $expectedNonceHash !== hash('sha256', $this->nonce)) {
+            return null;
+        }
+
+        return [
+            'sub' => 'apple-test-subject',
+            'email' => 'apple-user@example.com',
+            'nonce' => $this->nonce,
+        ];
     }
 }

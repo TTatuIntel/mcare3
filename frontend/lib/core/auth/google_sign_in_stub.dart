@@ -19,6 +19,7 @@ Future<void> beginRedirectSignIn({
 Future<String?> promptGoogleIdToken(
   String clientId, {
   bool selectAccount = true,
+  bool createAccount = false,
   String serverClientId = '',
   String iosClientId = '',
 }) async {

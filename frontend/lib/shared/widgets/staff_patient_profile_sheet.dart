@@ -55,9 +55,14 @@ class StaffPatientProfileSheet {
       child: PatientChartBody(
         patientId: patientId,
         fallbackName: name,
+        // The banner states what is wrong; acting on it waits until the
+        // reader has the record in front of them.
         header: urgentItem == null
             ? null
-            : _UrgentCareContext(item: urgentItem),
+            : _UrgentCareContext(item: urgentItem, showActions: false),
+        careActions: urgentItem == null
+            ? const []
+            : [_UrgentActionButton(item: urgentItem)],
       ),
     );
   }
@@ -483,9 +488,135 @@ class _ProfileContent extends StatelessWidget {
 /// Pins the reason this patient was opened above their clinical profile. It
 /// reads the live queue on every rebuild so acknowledgement feedback is
 /// immediate and a resolved item cannot keep showing actionable controls.
-class _UrgentCareContext extends StatefulWidget {
-  const _UrgentCareContext({required this.item});
+/// The one button that acts on the alert this chart was opened from.
+///
+/// It carries the same rule the queue does: an outcome belongs to whoever
+/// took the item on, so it offers acknowledgement first and only becomes
+/// "resolve" once the case is owned. One control rather than two, because it
+/// sits in a row of equals beside Call patient — and because the next step is
+/// never ambiguous.
+class _UrgentActionButton extends StatefulWidget {
+  const _UrgentActionButton({required this.item});
+
   final UrgentItem item;
+
+  @override
+  State<_UrgentActionButton> createState() => _UrgentActionButtonState();
+}
+
+class _UrgentActionButtonState extends State<_UrgentActionButton> {
+  bool _busy = false;
+
+  UrgentItem? get _liveItem {
+    for (final item in AlertCenter.instance.openQueue) {
+      if (item.id == widget.item.id) return item;
+    }
+    return null;
+  }
+
+  Future<bool> _acknowledge(UrgentItem item) async {
+    final ok = item.alert != null
+        ? await StaffState.instance.acknowledgeAlert(item.alert!.id)
+        : await StaffState.instance.updateSosForCurrentRole(
+            item.sos!.id,
+            status: 'acknowledged',
+          );
+    if (!mounted) return false;
+    if (ok) {
+      AppToast.success(
+        context,
+        'Acknowledged — the case remains open until resolved.',
+      );
+    } else {
+      AppToast.error(context, 'Could not acknowledge — try again.');
+    }
+    return ok;
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _finish(UrgentItem item) => _run(() async {
+    if (item.isSos) {
+      if (!item.acknowledged && !await _acknowledge(item)) return;
+      if (!mounted) return;
+      final navigator = Navigator.of(context, rootNavigator: true);
+      final pageContext = navigator.context;
+      navigator.pop();
+      await Future<void>.delayed(Duration.zero);
+      if (!pageContext.mounted) return;
+      await SosNavigation.openRespond(
+        pageContext,
+        patientId: item.patientId,
+        eventId: item.sos!.id,
+      );
+      return;
+    }
+    if (item.alert != null) {
+      await DoctorAlertResolveFlow.resolve(context, item.alert!);
+    }
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: AlertCenter.instance,
+      builder: (context, _) {
+        final item = _liveItem;
+        if (item == null) {
+          // Someone closed it while this chart was open. Say so rather than
+          // leaving a button that would act on nothing.
+          return AppButton(
+            label: 'Already handled',
+            icon: AppIcons.check,
+            variant: AppButtonVariant.secondary,
+            expand: true,
+            onPressed: null,
+          );
+        }
+
+        if (!item.acknowledged) {
+          return AppButton(
+            label: item.isSos ? 'Respond now' : 'Acknowledge alert',
+            icon: item.isSos ? AppIcons.sos : AppIcons.checkMark,
+            variant: AppButtonVariant.danger,
+            expand: true,
+            loading: _busy,
+            onPressed: _busy
+                ? null
+                : () => item.isSos
+                      ? _finish(item)
+                      : _run(() => _acknowledge(item)),
+          );
+        }
+
+        return AppButton(
+          label: item.isSos ? 'Continue response' : 'Resolve alert',
+          icon: item.isSos ? AppIcons.sos : AppIcons.check,
+          variant: AppButtonVariant.danger,
+          expand: true,
+          loading: _busy,
+          onPressed: _busy ? null : () => _finish(item),
+        );
+      },
+    );
+  }
+}
+
+class _UrgentCareContext extends StatefulWidget {
+  const _UrgentCareContext({required this.item, this.showActions = true});
+  final UrgentItem item;
+
+  /// False when the chart carries the actions in its own row. The banner then
+  /// states what is wrong and stops there — which is the point: the record is
+  /// what the reader came for, and the outcome is recorded after reading it.
+  final bool showActions;
 
   @override
   State<_UrgentCareContext> createState() => _UrgentCareContextState();
@@ -667,7 +798,7 @@ class _UrgentCareContextState extends State<_UrgentCareContext> {
                     fontSize: 10,
                   ),
                 ),
-                if (isOpen) ...[
+                if (isOpen && widget.showActions) ...[
                   const SizedBox(height: AppSpacing.md),
                   if (!item.acknowledged) ...[
                     AppButton(

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/auth/apple_sign_in_service.dart';
+import '../../core/auth/google_sign_in_service.dart';
+import '../../core/env/app_env.dart';
 import '../../shared/theme/app_layout.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
@@ -15,8 +18,9 @@ abstract final class _GoogleColors {
 }
 
 /// Side-by-side social provider chips — the pattern used by Notion, Linear,
-/// Airbnb and most modern auth flows. Always shows **Google** and **Apple**
-/// labels for clarity.
+/// Airbnb and most modern auth flows. Each provider is labelled rather than
+/// reduced to a bare glyph, and only providers this build can actually sign
+/// in with are rendered (see [isAvailable]).
 class SocialSignInRow extends StatelessWidget {
   const SocialSignInRow({
     super.key,
@@ -31,19 +35,37 @@ class SocialSignInRow extends StatelessWidget {
   /// Smaller height and type for registration sheets.
   final bool compact;
 
+  /// A provider only earns a button when tapping it can actually sign someone
+  /// in: configured against the API, or the demo flow in a mock build. Showing
+  /// a chip that can only answer "unavailable in this build" is a dead end.
+  static bool get hasGoogle => AppEnv.backendEnabled
+      ? GoogleSignInService.instance.isConfigured
+      : AppEnv.demoDataEnabled;
+
+  static bool get hasApple => AppEnv.backendEnabled
+      ? AppleSignInService.instance.isConfigured
+      : AppEnv.demoDataEnabled;
+
+  /// True when at least one provider is usable — callers use this to drop the
+  /// "or continue with" divider along with the row.
+  static bool get isAvailable => hasGoogle || hasApple;
+
   @override
   Widget build(BuildContext context) {
     final gap = compact ? AppSpacing.sm : AppSpacing.md;
+    if (!isAvailable) return const SizedBox.shrink();
 
     return Row(
       children: [
-        Expanded(
-          child: _GoogleChip(compact: compact, onTap: onGoogle),
-        ),
-        SizedBox(width: gap),
-        Expanded(
-          child: _AppleChip(compact: compact, onTap: onApple),
-        ),
+        if (hasGoogle)
+          Expanded(
+            child: _GoogleChip(compact: compact, onTap: onGoogle),
+          ),
+        if (hasGoogle && hasApple) SizedBox(width: gap),
+        if (hasApple)
+          Expanded(
+            child: _AppleChip(compact: compact, onTap: onApple),
+          ),
       ],
     );
   }

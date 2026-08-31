@@ -29,6 +29,7 @@ class ApplicationOnboardingTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $applicant;
 
     protected function setUp(): void
@@ -36,6 +37,9 @@ class ApplicationOnboardingTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(ThrottleRequests::class);
         Mail::fake();
+        // The fake models an accepting transport. The production dispatcher
+        // intentionally treats phpunit's default `array` mailer as unsent.
+        config()->set('mail.default', 'smtp');
 
         $this->admin = User::factory()->role('admin')->create();
         $this->applicant = User::factory()->role('doctor')->create([

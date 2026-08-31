@@ -1,10 +1,12 @@
 import 'dart:math';
 
 import '../../shared/constants/route_names.dart';
+import '../../shared/models/announcement.dart';
 import '../../shared/models/app_user.dart';
 import '../../shared/models/appointment.dart';
 import '../../shared/models/care_provider.dart';
 import '../../shared/models/document.dart';
+import '../../shared/models/meal_plan.dart';
 import '../../shared/models/medication.dart';
 import '../../shared/models/message.dart';
 import '../../shared/models/notification_item.dart';
@@ -17,6 +19,74 @@ import '../../shared/models/vital_report_request.dart';
 
 class MockData {
   MockData._();
+
+  /// Nutrition assigned by the demo care team — two plans stamped today so the
+  /// home feed has a "meal assigned" card to rotate through.
+  static List<StaffMealPlan> seedMealPlans() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return [
+      StaffMealPlan(
+        id: 'meal_1',
+        patientId: 'u_001',
+        patientName: 'Amara Okonkwo',
+        title: 'Steel-cut oats with berries',
+        mealType: MealType.breakfast,
+        description:
+            'Half a cup of oats, unsweetened, with a handful of berries.',
+        calories: 320,
+        protein: '12 g',
+        carbs: '48 g',
+        fat: '7 g',
+        notes: 'Take Metformin with this meal.',
+        assignedAt: today.add(const Duration(hours: 6, minutes: 30)),
+        assignedBy: 'Dr. Kojo Mensah',
+      ),
+      StaffMealPlan(
+        id: 'meal_2',
+        patientId: 'u_001',
+        patientName: 'Amara Okonkwo',
+        title: 'Grilled fish, greens and brown rice',
+        mealType: MealType.lunch,
+        description: 'Palm-sized fish portion, half a plate of greens.',
+        calories: 540,
+        protein: '38 g',
+        carbs: '52 g',
+        fat: '14 g',
+        assignedAt: today.add(const Duration(hours: 7)),
+        assignedBy: 'Dr. Kojo Mensah',
+      ),
+    ];
+  }
+
+  /// Platform announcements addressed to patients.
+  static List<AppAnnouncement> seedAnnouncements() {
+    final now = DateTime.now();
+    return [
+      AppAnnouncement(
+        id: 'ann_1',
+        title: 'Clinic hours extended this week',
+        body:
+            'The Nairobi clinic is open until 8:00 PM Monday to Friday this '
+            'week. Walk-in vitals checks are available without an appointment.',
+        audience: 'patients',
+        createdBy: 'mCare Admin',
+        createdAt: now.subtract(const Duration(hours: 5)),
+      ),
+      AppAnnouncement(
+        id: 'ann_2',
+        title: 'World Hypertension Day screening',
+        body:
+            'Free blood-pressure screening at all partner pharmacies this '
+            'Saturday. Bring your mCare ID.',
+        audience: 'all',
+        ctaLabel: 'See participating pharmacies',
+        ctaUrl: 'https://mcare.health/screening',
+        createdBy: 'mCare Admin',
+        createdAt: now.subtract(const Duration(days: 1, hours: 2)),
+      ),
+    ];
+  }
 
   static AppUser samplePatient() => const AppUser(
     id: 'u_001',

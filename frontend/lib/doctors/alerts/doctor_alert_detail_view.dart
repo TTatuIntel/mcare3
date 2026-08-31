@@ -145,6 +145,19 @@ class DoctorAlertDetailView extends StatelessWidget {
                                     ?.copyWith(color: AppPalette.textMuted(context)),
                               ),
                             ],
+                            if (alert.resolvedBy?.isNotEmpty ?? false) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Closed by ${alert.resolvedBy}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: AppPalette.textMuted(context),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

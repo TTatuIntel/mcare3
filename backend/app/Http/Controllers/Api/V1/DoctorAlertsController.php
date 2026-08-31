@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
+use App\Models\User;
+use App\Services\AlertResolutionNotifier;
 use App\Support\ApiResponse;
 use App\Support\VitalAlertPayload;
 use Illuminate\Http\Request;
@@ -16,14 +18,18 @@ class DoctorAlertsController extends Controller
     {
         $patientIds = DoctorAccess::caseloadPatientIds($request->user());
         $query = AppNotification::whereIn('user_id', $patientIds)
-            ->whereIn('kind', ['vital_warning', 'vital_critical', 'sos'])
+            ->whereIn('kind', AlertResolutionNotifier::KINDS)
             ->orderByDesc('created_at');
 
         if ($request->boolean('open_only')) {
-            $query->where('read', false);
+            // Open means unresolved, not unread. A doctor who acknowledges an
+            // alert has said "I have seen this", not "this is dealt with" —
+            // filtering on `read` made the alert vanish from the very list the
+            // doctor works from the moment they touched it.
+            $query->where('resolved', false);
         }
 
-        $patients = \App\Models\User::whereIn('id', $patientIds)
+        $patients = User::whereIn('id', $patientIds)
             ->get()
             ->keyBy('id');
 
@@ -42,36 +48,38 @@ class DoctorAlertsController extends Controller
     public function acknowledge(Request $request, AppNotification $alert)
     {
         DoctorAccess::assertCaseload($request->user(), $alert->user_id);
-        $alert->update(['read' => true]);
+
+        $alert = AlertResolutionNotifier::acknowledge($alert, $request->user());
+
         DoctorAccess::audit($request->user(), 'Acknowledged alert', "Alert #{$alert->id}");
-        return $this->success(['alert' => $alert->fresh()->toApiArray()], 'Alert acknowledged.');
+
+        return $this->success(['alert' => $alert->toApiArray()], 'Alert acknowledged.');
     }
 
     public function resolve(Request $request, AppNotification $alert)
     {
         DoctorAccess::assertCaseload($request->user(), $alert->user_id);
+
         $data = $request->validate([
-            'action_taken' => 'required|string|in:patient_contacted,medication_adjusted,follow_up_scheduled,monitored,referred,reading_error,other',
+            'action_taken' => 'required|string|in:'.implode(',', AlertResolutionNotifier::ACTIONS),
             'custom_action' => 'required_if:action_taken,other|nullable|string|min:3|max:120',
             'note' => 'required|string|min:4|max:500',
         ]);
-        $args = is_array($alert->action_arguments) ? $alert->action_arguments : [];
-        $args['resolution_action'] = $data['action_taken'];
-        $args['resolution_note'] = $data['note'];
-        if ($data['action_taken'] === 'other' && ! empty($data['custom_action'])) {
-            $args['resolution_custom_action'] = $data['custom_action'];
-        }
-        $alert->update([
-            'read' => true,
-            'resolved' => true,
-            'resolved_at' => now(),
-            'action_arguments' => $args,
-        ]);
+
+        $alert = AlertResolutionNotifier::resolve(
+            $alert,
+            $request->user(),
+            $data['action_taken'],
+            $data['custom_action'] ?? null,
+            $data['note'],
+        );
+
         DoctorAccess::audit(
             $request->user(),
             'Resolved alert',
             "Alert #{$alert->id} — {$data['action_taken']}: {$data['note']}"
         );
-        return $this->success(['alert' => $alert->fresh()->toApiArray()], 'Alert resolved.');
+
+        return $this->success(['alert' => $alert->toApiArray()], 'Alert resolved.');
     }
 }

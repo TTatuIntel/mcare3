@@ -19,6 +19,12 @@ enum NotificationKind {
 
   /// Request for the patient to approve disclosure of part of their record.
   consent,
+
+  /// An alert or emergency a clinician has closed, carrying who closed it and
+  /// what they decided. Deliberately not a [vitalAlert]: the patient is being
+  /// told a problem is over, and dressing that in critical red would make an
+  /// answer look like a new emergency.
+  resolution,
   system,
 }
 
@@ -36,6 +42,7 @@ extension NotificationKindX on NotificationKind {
     NotificationKind.assignment => AppIcons.careTeam,
     NotificationKind.profile => AppIcons.user,
     NotificationKind.consent => AppIcons.lock,
+    NotificationKind.resolution => AppIcons.check,
     NotificationKind.system => AppIcons.info,
   };
 
@@ -52,6 +59,7 @@ extension NotificationKindX on NotificationKind {
     NotificationKind.assignment => AppColors.brandIndigo,
     NotificationKind.profile => AppColors.brandIndigo,
     NotificationKind.consent => AppColors.warning,
+    NotificationKind.resolution => AppColors.success,
     NotificationKind.system => AppColors.textMutedAA,
   };
 }
@@ -82,7 +90,13 @@ class AppNotification {
   final Object? actionArguments;
 
   VitalKey? get linkedVital {
-    if (kind != NotificationKind.vitalAlert) return null;
+    // A resolution notice is about the same vital as the alert it closes, and
+    // has to link back to it — otherwise the patient is told a problem was
+    // reviewed with no way to see which reading was meant.
+    if (kind != NotificationKind.vitalAlert &&
+        kind != NotificationKind.resolution) {
+      return null;
+    }
     final args = actionArguments;
     return args is VitalKey ? args : null;
   }

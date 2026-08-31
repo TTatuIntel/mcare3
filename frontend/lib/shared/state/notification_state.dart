@@ -84,6 +84,21 @@ class NotificationState extends ChangeNotifier {
     return null;
   }
 
+  /// The latest "your care team reviewed this" notice about [key].
+  ///
+  /// This is the message that carries who closed the alert and what they
+  /// decided, so it is what the patient's screens read from when they need to
+  /// show an answer in place of an alarm.
+  AppNotification? resolutionNoticeFor(VitalKey key) {
+    AppNotification? latest;
+    for (final n in _items) {
+      if (n.kind != NotificationKind.resolution) continue;
+      if (n.linkedVital != key) continue;
+      if (latest == null || n.createdAt.isAfter(latest.createdAt)) latest = n;
+    }
+    return latest;
+  }
+
   int get resolvedVitalAlertCount => _items
       .where(
         (n) =>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
 use App\Models\User;
+use App\Services\AlertResolutionNotifier;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
 use App\Support\VitalAlertPayload;
@@ -25,7 +26,7 @@ class AdminAlertsController extends Controller
         $patientIds = User::where('role', 'patient')->pluck('id');
 
         $query = AppNotification::whereIn('user_id', $patientIds)
-            ->whereIn('kind', ['vital_warning', 'vital_critical', 'sos'])
+            ->whereIn('kind', AlertResolutionNotifier::KINDS)
             ->orderByDesc('created_at');
 
         if ($request->boolean('open_only')) {
@@ -50,7 +51,7 @@ class AdminAlertsController extends Controller
     {
         $this->assertVitalAlert($alert);
 
-        $alert->update(['read' => true]);
+        $alert = AlertResolutionNotifier::acknowledge($alert, $request->user());
 
         $this->audit->record(
             $request->user(),
@@ -60,7 +61,7 @@ class AdminAlertsController extends Controller
             ['alert_id' => $alert->id, 'patient_user_id' => $alert->user_id],
         );
 
-        return $this->success(['alert' => $alert->fresh()->toApiArray()], 'Alert acknowledged.');
+        return $this->success(['alert' => $alert->toApiArray()], 'Alert acknowledged.');
     }
 
     public function resolve(Request $request, AppNotification $alert)
@@ -68,24 +69,18 @@ class AdminAlertsController extends Controller
         $this->assertVitalAlert($alert);
 
         $data = $request->validate([
-            'action_taken' => 'required|string|in:patient_contacted,medication_adjusted,follow_up_scheduled,monitored,referred,reading_error,other',
+            'action_taken' => 'required|string|in:'.implode(',', AlertResolutionNotifier::ACTIONS),
             'custom_action' => 'required_if:action_taken,other|nullable|string|min:3|max:120',
             'note' => 'required|string|min:4|max:500',
         ]);
 
-        $args = is_array($alert->action_arguments) ? $alert->action_arguments : [];
-        $args['resolution_action'] = $data['action_taken'];
-        $args['resolution_note'] = $data['note'];
-        if ($data['action_taken'] === 'other' && ! empty($data['custom_action'])) {
-            $args['resolution_custom_action'] = $data['custom_action'];
-        }
-
-        $alert->update([
-            'read' => true,
-            'resolved' => true,
-            'resolved_at' => now(),
-            'action_arguments' => $args,
-        ]);
+        $alert = AlertResolutionNotifier::resolve(
+            $alert,
+            $request->user(),
+            $data['action_taken'],
+            $data['custom_action'] ?? null,
+            $data['note'],
+        );
 
         $this->audit->record(
             $request->user(),
@@ -95,12 +90,12 @@ class AdminAlertsController extends Controller
             ['alert_id' => $alert->id, 'patient_user_id' => $alert->user_id],
         );
 
-        return $this->success(['alert' => $alert->fresh()->toApiArray()], 'Alert resolved.');
+        return $this->success(['alert' => $alert->toApiArray()], 'Alert resolved.');
     }
 
     private function assertVitalAlert(AppNotification $alert): void
     {
-        if (! in_array($alert->kind, ['vital_warning', 'vital_critical', 'sos'], true)) {
+        if (! in_array($alert->kind, AlertResolutionNotifier::KINDS, true)) {
             abort(404);
         }
 

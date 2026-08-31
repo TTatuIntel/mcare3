@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\AppNotification;
+use App\Observers\AppNotificationPushObserver;
 use App\Observers\RealtimeModelObserver;
 use App\Services\RealtimeSignalService;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         foreach (RealtimeSignalService::observedModels() as $model) {
             $model::observe(RealtimeModelObserver::class);
         }
+        AppNotification::observe(AppNotificationPushObserver::class);
     }
 
     /**

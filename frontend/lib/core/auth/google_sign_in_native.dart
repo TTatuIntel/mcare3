@@ -40,6 +40,7 @@ Future<void> _initialize({
 Future<String?> promptGoogleIdToken(
   String clientId, {
   bool selectAccount = true,
+  bool createAccount = false,
   String serverClientId = '',
   String iosClientId = '',
 }) async {

@@ -75,6 +75,24 @@ class StaffState extends ChangeNotifier {
   List<StaffPatientVitalReading> get patientVitalReadings =>
       List.unmodifiable(_vitalReadings);
 
+  /// How the signed-in responder is named on anything they close.
+  ///
+  /// Mirrors `AlertResolutionNotifier::responderLabel()` on the server so the
+  /// name shown the instant a clinician resolves something is the same name
+  /// that comes back on the next refresh — and the same one the patient is
+  /// reading in their own inbox.
+  static String? currentResponderLabel() {
+    final user = AuthState.instance.user;
+    if (user == null) return null;
+    final name = '${user.firstName} ${user.lastName}'.trim();
+    return switch (user.role) {
+      UserRole.doctor => 'Dr. $name',
+      UserRole.admin => '$name (Care admin)',
+      UserRole.mcareAssistant => '$name (Care team)',
+      _ => name,
+    };
+  }
+
   /// Display name used in `StaffPatient.assignedDoctor` seed data.
   static String? currentDoctorDisplayName() {
     final user = AuthState.instance.user;
@@ -2376,6 +2394,8 @@ class StaffState extends ChangeNotifier {
           resolutionNote: a.resolutionNote,
           resolutionAction: a.resolutionAction,
           resolutionCustomAction: a.resolutionCustomAction,
+          resolvedBy: a.resolvedBy,
+          acknowledgedBy: a.acknowledgedBy,
         );
         break;
       }
@@ -2385,12 +2405,18 @@ class StaffState extends ChangeNotifier {
     return _doctorMutation(
       apply: () {
         for (final a in _alerts) {
-          if (a.id == id) a.acknowledged = true;
+          if (a.id == id) {
+            a.acknowledged = true;
+            a.acknowledgedBy = currentResponderLabel();
+          }
         }
       },
       revert: () {
         for (final a in _alerts) {
-          if (a.id == id) a.acknowledged = before!.acknowledged;
+          if (a.id == id) {
+            a.acknowledged = before!.acknowledged;
+            a.acknowledgedBy = before.acknowledgedBy;
+          }
         }
       },
       apiCall: () {
@@ -2425,6 +2451,8 @@ class StaffState extends ChangeNotifier {
           resolutionNote: a.resolutionNote,
           resolutionAction: a.resolutionAction,
           resolutionCustomAction: a.resolutionCustomAction,
+          resolvedBy: a.resolvedBy,
+          acknowledgedBy: a.acknowledgedBy,
         );
         break;
       }
@@ -2440,6 +2468,7 @@ class StaffState extends ChangeNotifier {
             a.resolutionNote = note;
             a.resolutionAction = actionTaken;
             a.resolutionCustomAction = customAction;
+            a.resolvedBy = currentResponderLabel();
           }
         }
       },
@@ -2451,6 +2480,7 @@ class StaffState extends ChangeNotifier {
             a.resolutionNote = before.resolutionNote;
             a.resolutionAction = before.resolutionAction;
             a.resolutionCustomAction = before.resolutionCustomAction;
+            a.resolvedBy = before.resolvedBy;
           }
         }
       },
@@ -2940,9 +2970,15 @@ class StaffState extends ChangeNotifier {
   }
 
   /// Approve a healthworker via AdminApi. Updates approvals list locally.
-  Future<void> approveApplicationRemote(String userId, {String? note}) async {
-    if (!AppEnv.backendEnabled) return;
-    await AdminApi.instance.approveApplication(userId, note: note);
+  /// Approve, and return what the server said about it — approval issues the
+  /// clinician's temporary credentials by email, so "approved" on its own is
+  /// no longer the whole outcome.
+  Future<String?> approveApplicationRemote(
+    String userId, {
+    String? note,
+  }) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await AdminApi.instance.approveApplication(userId, note: note);
     for (final a in _approvals) {
       if (a.id == userId) {
         a.status = 'approved';
@@ -2950,6 +2986,7 @@ class StaffState extends ChangeNotifier {
       }
     }
     notifyListeners();
+    return res?['message'] as String?;
   }
 
   /// Reject a healthworker via AdminApi.

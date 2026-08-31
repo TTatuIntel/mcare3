@@ -45,6 +45,11 @@ abstract final class BackgroundSessionSync {
             return false;
         }
       });
+    } catch (_) {
+      // Background reconciliation must never crash a timer, popup lifecycle,
+      // or the visible page. Stores retain their last successful snapshot and
+      // the next Reverb event/poll/resume will retry.
+      return false;
     } finally {
       StaffState.instance.endSync();
       _inFlight = false;

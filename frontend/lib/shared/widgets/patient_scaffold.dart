@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/realtime/session_poller.dart';
+import '../constants/route_names.dart';
 import '../navigation/navigation_roots.dart';
 import '../navigation/root_navigation_scope.dart';
+import '../services/patient_session_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'app_toast.dart';
 import 'bubble_background.dart';
 import 'patient_app_header.dart';
 import 'patient_bottom_nav.dart';
@@ -40,10 +43,37 @@ class PatientScaffold extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final bool detachedNav;
 
+  Future<void> _refresh(BuildContext context) async {
+    try {
+      await PatientSessionService.instance.syncFromApi();
+    } catch (_) {
+      if (context.mounted) {
+        AppToast.warn(
+          context,
+          'Could not refresh right now. Your last synced information is still available.',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tier = ResponsiveBuilder.of(context);
     final isHome = NavigationRoots.isPrimaryHome(currentRoute);
+
+    // A tab switch replaces the whole stack, so on a hub tab there is nothing
+    // left to pop and a system back would close the app. Android users expect
+    // it to land on Home first, so the pop is blocked and redirected there.
+    final isTabHub =
+        !isHome &&
+        PatientBottomNav.destinations.any((d) => d.route == currentRoute);
+
+    void popToHome(bool didPop, Object? _) {
+      if (didPop || !isTabHub) return;
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(RouteNames.patientDashboard, (_) => false);
+    }
 
     final pad = padding ??
         EdgeInsets.symmetric(
@@ -63,10 +93,14 @@ class PatientScaffold extends StatelessWidget {
     );
 
     final scrollBody = scrollable
-        ? SingleChildScrollView(
-            physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics()),
-            child: centered,
+        ? RefreshIndicator(
+            onRefresh: () => _refresh(context),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              child: centered,
+            ),
           )
         : centered;
 
@@ -77,37 +111,38 @@ class PatientScaffold extends StatelessWidget {
         child: RootNavigationScope(
           route: currentRoute,
           child: PopScope(
-            canPop: !isHome,
+            canPop: !isHome && !isTabHub,
+            onPopInvokedWithResult: popToHome,
             child: Scaffold(
-          backgroundColor: surface,
-          body: Row(
-            children: [
-              PatientSideRail(
-                currentRoute: currentRoute,
-                compact: tier.isTablet,
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    PatientAppHeader(
-                      title: title,
-                      subtitle: subtitle,
-                      actions: headerActions,
-                      currentRoute: currentRoute,
+              backgroundColor: surface,
+              body: Row(
+                children: [
+                  PatientSideRail(
+                    currentRoute: currentRoute,
+                    compact: tier.isTablet,
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        PatientAppHeader(
+                          title: title,
+                          subtitle: subtitle,
+                          actions: headerActions,
+                          currentRoute: currentRoute,
+                        ),
+                        Expanded(
+                          child: BubbleBackground(
+                            bubbleCount: 5,
+                            surfaceColor: surface,
+                            child: scrollBody,
+                          ),
+                        ),
+                      ],
                     ),
-                    Expanded(
-                      child: BubbleBackground(
-                        bubbleCount: 5,
-                        surfaceColor: surface,
-                        child: scrollBody,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          floatingActionButton: floatingActionButton,
+              floatingActionButton: floatingActionButton,
             ),
           ),
         ),
@@ -118,24 +153,25 @@ class PatientScaffold extends StatelessWidget {
       child: RootNavigationScope(
         route: currentRoute,
         child: PopScope(
-          canPop: !isHome,
+          canPop: !isHome && !isTabHub,
+          onPopInvokedWithResult: popToHome,
           child: Scaffold(
-        backgroundColor: surface,
-        appBar: PatientAppHeader(
-          title: title,
-          subtitle: subtitle,
-          actions: headerActions,
-          currentRoute: currentRoute,
-        ),
-        body: BubbleBackground(
-          bubbleCount: 5,
-          surfaceColor: surface,
-          child: scrollBody,
-        ),
-        bottomNavigationBar: detachedNav
-            ? const PatientBottomNav.detached()
-            : PatientBottomNav(currentRoute: currentRoute),
-        floatingActionButton: floatingActionButton,
+            backgroundColor: surface,
+            appBar: PatientAppHeader(
+              title: title,
+              subtitle: subtitle,
+              actions: headerActions,
+              currentRoute: currentRoute,
+            ),
+            body: BubbleBackground(
+              bubbleCount: 5,
+              surfaceColor: surface,
+              child: scrollBody,
+            ),
+            bottomNavigationBar: detachedNav
+                ? const PatientBottomNav.detached()
+                : PatientBottomNav(currentRoute: currentRoute),
+            floatingActionButton: floatingActionButton,
           ),
         ),
       ),

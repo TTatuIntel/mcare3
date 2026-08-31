@@ -218,6 +218,9 @@ void main() {
     await tester.tap(find.text('Dr. Sarah Adeyemi'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
+    // A sheet now hands control back only once its exit transition has
+    // finished, so the work it triggered lands a frame later.
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(handoverCalls, 1, reason: 'one call, not an assignment then a step');
     expect(handoverPayload?['provider_id'], '77');
@@ -244,6 +247,9 @@ void main() {
 
     await tester.tap(find.text('Dr. Sarah Adeyemi'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    // A sheet now hands control back only once its exit transition has
+    // finished, so the work it triggered lands a frame later.
     await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('This emergency is already closed.'), findsOneWidget);

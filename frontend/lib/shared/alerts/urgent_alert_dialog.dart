@@ -238,7 +238,11 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
       }
       AppToast.success(context, 'Responding — patient notified.');
     }
-    _advance();
+    // Acknowledging a vital alert is the middle of the work, not the end of
+    // it: it is what unlocks recording an outcome, so moving to the next item
+    // here would put the outcome permanently out of reach. An SOS is
+    // different — it continues in the responder workspace, not this popup.
+    if (item.isSos) _advance();
   });
 
   Future<void> _resolve(UrgentItem item) => _run(() async {
@@ -390,11 +394,18 @@ class _UrgentDialogBodyState extends State<_UrgentDialogBody> {
                         ),
                         const SizedBox(height: AppSpacing.md),
                         _UrgentCareTeam(item: item),
-                        const SizedBox(height: AppSpacing.md),
-                        PatientThreeDaySummary(
-                          patientId: item.patientId,
-                          highlightedVital: item.alert?.vital,
-                        ),
+                        // The summary hides itself when the patient has no
+                        // verified records; take its leading spacer with it so
+                        // the gap above the actions stays a single step.
+                        if (PatientThreeDaySummary.hasDataFor(
+                          item.patientId,
+                        )) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          PatientThreeDaySummary(
+                            patientId: item.patientId,
+                            highlightedVital: item.alert?.vital,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.lg),
                         _Actions(
                           item: item,
@@ -737,6 +748,12 @@ class _Actions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Both routes stay open. Acknowledging takes the item on without
+        // closing it; resolving records the outcome and takes it on in the
+        // same step — the resolve sheet demands an action and a note, and the
+        // backend stamps the alert read, resolved and audited together, so
+        // there is no unclaimed judgement either way. Making acknowledgement
+        // a prerequisite only stranded staff who already knew the answer.
         Row(
           children: [
             if (!item.acknowledged) ...[
@@ -745,7 +762,9 @@ class _Actions extends StatelessWidget {
                   label: 'Acknowledge',
                   icon: AppIcons.check,
                   size: AppButtonSize.sm,
-                  variant: AppButtonVariant.secondary,
+                  variant: item.isSos
+                      ? AppButtonVariant.secondary
+                      : AppButtonVariant.primary,
                   onPressed: busy ? null : onAcknowledge,
                 ),
               ),
@@ -763,6 +782,16 @@ class _Actions extends StatelessWidget {
             ),
           ],
         ),
+        if (!item.isSos && !item.acknowledged)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              'Acknowledge to take it on, or resolve now with a reason.',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+              ),
+            ),
+          ),
         const SizedBox(height: AppSpacing.md),
         Row(
           children: [

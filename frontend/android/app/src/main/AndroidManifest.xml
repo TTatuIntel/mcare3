@@ -35,7 +35,12 @@
             android:value="2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="sos_emergency" />
+            android:value="mcare_updates" />
+        <!-- Read from ignored android/local.properties by the Maps secrets
+             Gradle plugin. Use an Android-restricted Maps SDK key. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/async/app_busy.dart';
-import '../shared/constants/route_names.dart';
 import '../shared/services/auth_service.dart';
 import '../shared/theme/app_colors.dart';
+import '../shared/theme/app_layout.dart';
 import '../shared/theme/app_spacing.dart';
 import '../shared/widgets/app_button.dart';
 import '../shared/widgets/app_icons.dart';
@@ -12,6 +12,7 @@ import '../shared/navigation/root_navigator.dart';
 import '../shared/widgets/app_toast.dart';
 import '../shared/widgets/responsive.dart';
 import 'register_view.dart';
+import 'forgot_password_view.dart';
 import 'widgets/auth_shell.dart';
 import 'widgets/auth_form_layout.dart';
 import 'widgets/social_buttons.dart';
@@ -68,7 +69,7 @@ class _LoginViewState extends State<LoginView> {
   Future<void> _signInWithGoogle() async {
     if (_loading) return;
     setState(() => _loading = true);
-  final result = await AuthService.instance.signInWithGoogle(
+    final result = await AuthService.instance.signInWithGoogle(
       context: context,
       createAccount: false,
       remember: _remember,
@@ -115,14 +116,16 @@ class _LoginViewState extends State<LoginView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SocialSignInRow(
-              compact: true,
-              onGoogle: _loading ? null : _signInWithGoogle,
-              onApple: _loading ? null : _signInWithApple,
-            ),
-            const SizedBox(height: AuthFormLayout.sectionGap),
-            const OrDivider(label: 'or use your email'),
-            const SizedBox(height: AuthFormLayout.sectionGap),
+            if (SocialSignInRow.isAvailable) ...[
+              SocialSignInRow(
+                compact: true,
+                onGoogle: _loading ? null : _signInWithGoogle,
+                onApple: _loading ? null : _signInWithApple,
+              ),
+              const SizedBox(height: AuthFormLayout.sectionGap),
+              const OrDivider(label: 'or use your email'),
+              const SizedBox(height: AuthFormLayout.sectionGap),
+            ],
             AppTextField(
               label: 'Email, phone, or mCare ID',
               hint: 'you@example.com',
@@ -149,20 +152,21 @@ class _LoginViewState extends State<LoginView> {
               validator: (v) =>
                   (v == null || v.length < 6) ? 'At least 6 characters' : null,
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
-                Checkbox(
-                  value: _remember,
-                  onChanged: (v) => setState(() => _remember = v ?? false),
-                  visualDensity: VisualDensity.compact,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _rememberToggle(context),
+                  ),
                 ),
-                Text('Keep me signed in',
-                    style: TextStyle(color: AppPalette.textMuted(context))),
-                const Spacer(),
+                const SizedBox(width: AppSpacing.sm),
                 TextButton(
-                  onPressed: () => Navigator.of(context)
-                      .pushNamed(RouteNames.forgotPassword),
+                  style: AuthFormLayout.inlineLinkStyle,
+                  onPressed: _loading
+                      ? null
+                      : () => ForgotPasswordView.show(context),
                   child: const Text('Forgot password?'),
                 ),
               ],
@@ -182,13 +186,60 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
+  /// Checkbox + label as one tap target, flush with the field edge.
+  Widget _rememberToggle(BuildContext context) {
+    void toggle() => setState(() => _remember = !_remember);
+
+    return InkWell(
+      onTap: _loading ? null : toggle,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 20,
+              width: 20,
+              child: Checkbox(
+                value: _remember,
+                onChanged: _loading
+                    ? null
+                    : (v) => setState(() => _remember = v ?? false),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm + 2),
+            Flexible(
+              child: Text(
+                'Keep me signed in',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppPalette.textMuted(context),
+                  fontSize: AppLayout.body,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _footer(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text("Don't have an account?",
-            style: TextStyle(color: AppPalette.textMuted(context))),
+        Text(
+          "Don't have an account?",
+          style: TextStyle(
+            color: AppPalette.textMuted(context),
+            fontSize: AppLayout.body,
+          ),
+        ),
         TextButton(
+          style: AuthFormLayout.inlineLinkStyle,
           onPressed: () => RegisterView.show(context),
           child: const Text('Create one'),
         ),

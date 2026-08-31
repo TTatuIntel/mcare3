@@ -543,11 +543,16 @@ class _ResponderBodyState extends State<_ResponderBody>
             accent: AppColors.warning,
             onTap: _acknowledge,
           ),
+        // An outcome is the end of a response, so it is offered only to
+        // whoever took the emergency on. Disabled rather than hidden: the
+        // responder needs to know closing exists and what unlocks it.
         _ResponderAction(
           icon: AppIcons.checkMark,
           title: 'Resolve the emergency',
-          subtitle: 'The patient is safe and the event is closed',
-          enabled: _live,
+          subtitle: owned
+              ? 'The patient is safe and the event is closed'
+              : 'Take ownership first — then you can close this',
+          enabled: _live && owned,
           done: false,
           accent: AppColors.success,
           onTap: () => _close('resolved'),
@@ -555,8 +560,10 @@ class _ResponderBodyState extends State<_ResponderBody>
         _ResponderAction(
           icon: AppIcons.close,
           title: 'False alarm',
-          subtitle: 'Triggered accidentally — no emergency took place',
-          enabled: _live,
+          subtitle: owned
+              ? 'Triggered accidentally — no emergency took place'
+              : 'Take ownership first — then you can close this',
+          enabled: _live && owned,
           done: false,
           accent: AppColors.critical,
           onTap: () => _close('falseAlarm'),

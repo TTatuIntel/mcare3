@@ -5,4 +5,5 @@ import 'apple_sign_in_result.dart';
 Future<AppleSignInResult?> requestAppleCredentials({
   required String clientId,
   required String redirectUri,
+  required String nonce,
 }) async => null;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\CareAssignment;
 use App\Models\CareProvider;
 use App\Models\CareRequest;
 use App\Support\ApiResponse;
@@ -41,7 +42,35 @@ class CareController extends Controller
             ->exists()) {
             return $this->error('That care provider is not currently available.', 422);
         }
-        $req = $request->user()->careRequests()->create([
+        $user = $request->user();
+
+        // Already on the team — a second request would ask for what the patient
+        // already has, and would land on the admin queue as noise.
+        $assigned = CareAssignment::query()
+            ->where('patient_user_id', $user->id)
+            ->where('provider_id', $provider->id)
+            ->whereNull('ended_at')
+            ->exists();
+        if ($assigned) {
+            return $this->error($provider->name.' is already on your care team.', 422);
+        }
+
+        // One open request per provider. A duplicate tap returns the request the
+        // patient already has rather than creating a second one, so a retry on a
+        // flaky connection stays safe and the admin queue never doubles up.
+        $existing = $user->careRequests()
+            ->where('provider_id', $provider->id)
+            ->where('status', 'pending')
+            ->latest('id')
+            ->first();
+        if ($existing) {
+            return $this->success(
+                ['request' => $existing->toApiArray()],
+                'You already have a pending request with '.$provider->name.'.',
+            );
+        }
+
+        $req = $user->careRequests()->create([
             'provider_id' => $provider->id,
             'provider_name' => $provider->name,
             'provider_specialty' => $provider->specialty,

@@ -50,6 +50,9 @@ $RuntimeLogDirectory = Join-Path $Backend "storage\logs\local-runtime"
 $RuntimePidDirectory = Join-Path $Backend "storage\framework\mcare-runtime"
 $StartedRuntimeProcesses = @()
 $FlutterExecutable = $null
+$AppConfigPath = Join-Path $Frontend "configpp_config.local.json"
+
+. (Join-Path $PSScriptRoot "dart-defines.ps1")
 
 function Require-Command($name, $hint) {
   if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
@@ -274,14 +277,23 @@ try {
   Write-Host "==> Running Flutter on '$FlutterDevice'" -ForegroundColor Cyan
   # AppEnv.realtimeEnabled needs BOTH defines; with either missing the client
   # silently falls back to polling, so they are passed as a pair or not at all.
-  $defines = @(
+  #
+  # Google/Apple client IDs, Firebase and Maps keys come from the project
+  # config file. Without them the app builds fine and then tells the user
+  # those features are "not configured for this application build", which is
+  # indistinguishable from them being broken.
+  $explicit = @(
     "--dart-define=MCARE_USE_BACKEND=true",
     "--dart-define=MCARE_API_URL=$ApiUrl/api/v1"
   )
   if ($wsUrl -and $wsKey) {
-    $defines += "--dart-define=MCARE_WS_URL=$wsUrl"
-    $defines += "--dart-define=MCARE_WS_APP_KEY=$wsKey"
+    $explicit += "--dart-define=MCARE_WS_URL=$wsUrl"
+    $explicit += "--dart-define=MCARE_WS_APP_KEY=$wsKey"
   }
+
+  # The local API and Reverb settings this script just worked out are the
+  # authoritative ones, so they go last and win over the file's.
+  $defines = Merge-McareDefines -FromConfig (Get-McareConfigDefines $AppConfigPath) -Explicit $explicit
 
   Invoke-Flutter $defines
 } finally {
