@@ -103,7 +103,7 @@ void main() {
     await _type(tester, 'Diastolic', '80');
 
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     final saved = VitalsState.instance.all;
     expect(saved, hasLength(1));
@@ -130,11 +130,11 @@ void main() {
     expect(find.text('Save 2 vitals'), findsOneWidget);
 
     await tester.tap(find.text('Save 2 vitals'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     // One request per reading, both actually sent.
     expect(posted, hasLength(2));
-    expect(posted.map((b) => b['vital_key']), ['blood_pressure', 'heart_rate']);
+    expect(posted.map((b) => b['vital_key']), ['bloodPressure', 'heartRate']);
     expect(posted.first['value'], 128);
     expect(posted.first['secondary_value'], 82);
     expect(posted.last['value'], 74);
@@ -164,7 +164,7 @@ void main() {
 
     expect(find.text('Save'), findsOneWidget); // one ready, not two
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     final saved = VitalsState.instance.all;
     expect(saved, hasLength(1));
@@ -182,7 +182,7 @@ void main() {
     await _type(tester, 'Note (optional)', 'before breakfast');
 
     await tester.tap(find.text('Save 2 vitals'));
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     final saved = VitalsState.instance.all;
     expect(saved, hasLength(2));
@@ -195,7 +195,7 @@ void main() {
     // Save is inert until at least one vital carries a value, so pressing it
     // on an empty sheet cannot file a blank reading.
     await tester.tap(find.text('Save'), warnIfMissed: false);
-    await tester.pumpAndSettle();
+    await _settle(tester);
 
     expect(VitalsState.instance.all, isEmpty);
   });
@@ -237,5 +237,13 @@ Future<void> _type(WidgetTester tester, String label, String text) async {
     matching: find.byType(TextField),
   );
   await tester.enterText(field.first, text);
+  await tester.pumpAndSettle();
+}
+
+/// Saving raises a toast that holds a 3.5s timer. Letting it expire before the
+/// test ends stops the tree being torn down with a timer still pending.
+Future<void> _settle(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(seconds: 4));
   await tester.pumpAndSettle();
 }
