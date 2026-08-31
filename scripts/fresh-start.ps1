@@ -4,9 +4,11 @@
 # The realtime stack is three long-running hidden processes with logs under
 # backend/storage/logs/local-runtime/:
 #   reverb:start   the websocket server clients subscribe to
-#   queue:work     drains broadcasts; without it they pile up in `jobs`
+#   queue:work     queued mail and other jobs (broadcasts no longer queue)
 #   schedule:work  ticks the hourly vitals SLA escalation
-# Without all three the app still works; it falls back to a 30s REST poll.
+# Without any of them the app still receives changes within seconds: signals
+# are buffered server-side and clients read them from GET /me/pulse. Reverb
+# only makes the same delivery instant.
 #
 # Run from Windows PowerShell anywhere:
 #   .\scripts\fresh-start.ps1
@@ -220,7 +222,7 @@ $wsUrl = ""
 $wsKey = ""
 
 if ($NoRealtime) {
-  Write-Host "==> Realtime skipped (-NoRealtime): the app will poll every 30s; background schedules stay active." -ForegroundColor Yellow
+  Write-Host "==> Reverb skipped (-NoRealtime): changes still arrive within seconds over the /me/pulse cursor; background schedules stay active." -ForegroundColor Yellow
 } else {
   # The client needs the same app key Reverb was started with, so read it
   # from the one place that already holds it.
@@ -230,12 +232,15 @@ if ($NoRealtime) {
     Write-Host "REVERB_APP_KEY is not set in backend\.env; starting without realtime." -ForegroundColor Yellow
     Write-Host "Run 'php artisan reverb:install' to generate one, then re-run." -ForegroundColor Yellow
   } else {
+    # Bound to loopback: a phone or another machine on the LAN cannot reach
+    # this socket, and falls back to the pulse cursor. Change the host here to
+    # expose it deliberately.
     Write-Host "==> Starting Reverb on ws://127.0.0.1:$ReverbPort" -ForegroundColor Cyan
     Start-Php-Service "reverb" @("artisan", "reverb:start", "--host=127.0.0.1", "--port=$ReverbPort")
 
-    # Broadcasts are queued, so without a worker they sit in `jobs` and no
-    # client ever hears them. This is the piece that is easiest to forget.
-    Write-Host "==> Starting queue worker (drains broadcasts)" -ForegroundColor Cyan
+    # Broadcasts publish inline now, so real-time no longer depends on this.
+    # It still drains queued mail and any other job.
+    Write-Host "==> Starting queue worker (queued mail and jobs)" -ForegroundColor Cyan
     Start-Php-Service "queue" @("artisan", "queue:work", "--tries=3", "--sleep=1", "--timeout=120")
 
     $wsUrl = "ws://127.0.0.1:$ReverbPort"

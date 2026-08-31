@@ -7,12 +7,15 @@ namespace App\Support;
  *
  * Confidentiality model: a section is either `open` (administrative facts the
  * patient already shares with staff to receive care) or `restricted` (clinical
- * detail or personally-identifying contact data). Ticking ANY restricted
- * section makes the whole request consent-gated — the patient must approve it
- * with an OTP or the approval link before the report can be assembled.
+ * detail or personally-identifying contact data), and separately either
+ * clinical or not.
  *
- * Clinical sections additionally force a doctor signature on the finished
- * report; an administrative-only report can be issued without one.
+ * Both are now presentation only — they tell the admin how sensitive a tick is
+ * and let the UI group and badge accordingly. Neither decides a gate. Every
+ * report takes the same route regardless of what is ticked: a nominated doctor
+ * signs it, then an admin issues it. Deriving the gate from the selection meant
+ * an administrative-only report could be issued with nobody having read it,
+ * while a clinical one stalled behind a one-time code the patient rarely saw.
  */
 class PatientReportSections
 {
@@ -186,7 +189,9 @@ class PatientReportSections
                 'group' => $meta['group'],
                 'sensitivity' => $meta['sensitivity'],
                 'clinical' => $meta['clinical'],
-                'requires_consent' => $meta['sensitivity'] === self::RESTRICTED,
+                // Named for what it is rather than what it used to trigger:
+                // the tick-list badges it, nothing gates on it.
+                'confidential' => $meta['sensitivity'] === self::RESTRICTED,
             ];
         }
 
@@ -194,28 +199,14 @@ class PatientReportSections
     }
 
     /**
-     * True when any ticked section is restricted — the patient must consent.
+     * True when any ticked section carries clinical content.
+     *
+     * Informational: it drives the wording shown to the signing doctor, not
+     * whether a signature is needed — every report needs one.
      *
      * @param  list<string>  $sections
      */
-    public static function requiresConsent(array $sections): bool
-    {
-        foreach ($sections as $key) {
-            if ((self::CATALOG[$key]['sensitivity'] ?? self::RESTRICTED) === self::RESTRICTED) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * True when any ticked section carries clinical content — a doctor must
-     * sign the report before it can be issued.
-     *
-     * @param  list<string>  $sections
-     */
-    public static function requiresSignature(array $sections): bool
+    public static function hasClinicalContent(array $sections): bool
     {
         foreach ($sections as $key) {
             if (self::CATALOG[$key]['clinical'] ?? false) {
@@ -232,8 +223,8 @@ class PatientReportSections
     }
 
     /**
-     * Human-readable list used in consent messages so the patient knows
-     * exactly what they are approving.
+     * Human-readable list, used wherever a person has to be told exactly which
+     * parts of a record a report covers.
      *
      * @param  list<string>  $sections
      */

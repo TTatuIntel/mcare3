@@ -167,11 +167,6 @@ class PatientReportRequestItem {
   bool get awaitingSignature => blockedOn == 'doctor_signature';
   bool get readyToIssue => blockedOn == 'issue';
 
-  /// There is a document to read — a draft once the patient has consented, the
-  /// frozen snapshot once it has been issued.
-  bool get hasReadableDocument =>
-      isIssued || (consentedAt != null || !consentRequired) && !isClosed;
-
   static PatientReportRequestItem fromJson(Map<String, dynamic> j) =>
       PatientReportRequestItem(
         id: '${j['id'] ?? ''}',

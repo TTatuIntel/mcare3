@@ -46,6 +46,7 @@ class PulseWatcher {
   Timer? _timer;
   bool _running = false;
   bool _inFlight = false;
+  bool _baselined = false;
   int _cursor = 0;
   int _consecutiveFailures = 0;
 
@@ -82,6 +83,7 @@ class PulseWatcher {
   /// rather than replaying the previous user's changes.
   void reset() {
     stop();
+    _baselined = false;
     _cursor = 0;
     _consecutiveFailures = 0;
   }
@@ -119,13 +121,27 @@ class PulseWatcher {
       _consecutiveFailures = 0;
 
       final cursor = int.tryParse('${data['cursor'] ?? ''}') ?? _cursor;
-      final wasBaseline = _cursor == 0;
+      // Whether we had a baseline is not the same question as whether the
+      // cursor is zero: a client that first asked while the buffer was empty
+      // is caught up at zero, and treating that as "not started yet" would
+      // silently discard the first changes to arrive after it.
+      final wasBaseline = !_baselined;
+      final startedFromEmpty = _baselined && _cursor == 0;
+      _baselined = true;
       _cursor = cursor > _cursor ? cursor : _cursor;
 
       // The first answer only establishes where to watch from. The data on
       // screen was just loaded through REST; replaying what happened before
       // the client arrived would be noise.
       if (wasBaseline) return;
+
+      // The buffer was empty when we last looked and is not now. The server
+      // answers a zero cursor with a baseline, so it has not told us which
+      // domains those rows touched — re-read rather than miss them.
+      if (startedFromEmpty && cursor > 0) {
+        _gaps.add(null);
+        return;
+      }
 
       if (data['stale'] == true) {
         _gaps.add(null);

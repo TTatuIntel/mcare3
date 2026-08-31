@@ -10,8 +10,14 @@ use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
 /**
- * Patient-facing consent surface: see exactly which parts of the record staff
- * want to disclose, to whom, and why — then approve or decline.
+ * The patient's own view of every report drawn from their record: which
+ * sections it covered, who it went to, which doctor signed it, and the report
+ * itself once issued.
+ *
+ * It used to be an approval surface — staff asked, the patient granted or
+ * refused by one-time code. That gate is gone; a doctor's signature authorises
+ * the report now. What remains is the half that was always the more useful one:
+ * the patient can see what was sent about them, and read it.
  *
  * Every route re-checks ownership against the authenticated user; a report
  * request id is never sufficient on its own.
@@ -38,56 +44,6 @@ class PatientReportConsentsController extends Controller
                 ->map(fn (PatientReportRequest $r) => $r->toPatientApiArray())
                 ->all(),
         ]);
-    }
-
-    public function approve(Request $request, PatientReportRequest $reportRequest)
-    {
-        $this->assertOwned($request, $reportRequest);
-
-        if ($reportRequest->consented_at !== null) {
-            return $this->success(
-                ['report_request' => $reportRequest->toApiArray()],
-                'You have already approved this request.',
-            );
-        }
-        if ($reportRequest->isTerminal()) {
-            return $this->error('This request is no longer open.', 422);
-        }
-        if ($reportRequest->consentExpired()) {
-            $reportRequest->update(['status' => PatientReportRequest::STATUS_EXPIRED]);
-
-            return $this->error(
-                'This approval request has expired. Ask mCare to send a new one.',
-                422,
-            );
-        }
-
-        $this->reports->grantConsent($reportRequest, 'in_app', $request->user());
-
-        return $this->success(
-            ['report_request' => $reportRequest->fresh()->toApiArray()],
-            'Thank you — your approval has been recorded.',
-        );
-    }
-
-    public function decline(Request $request, PatientReportRequest $reportRequest)
-    {
-        $this->assertOwned($request, $reportRequest);
-
-        $data = $request->validate([
-            'reason' => 'nullable|string|max:280',
-        ]);
-
-        if ($reportRequest->isTerminal()) {
-            return $this->error('This request is no longer open.', 422);
-        }
-
-        $this->reports->declineConsent($reportRequest, $data['reason'] ?? null);
-
-        return $this->success(
-            ['report_request' => $reportRequest->fresh()->toApiArray()],
-            'Declined — nothing from your record will be shared.',
-        );
     }
 
     /**

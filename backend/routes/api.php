@@ -216,10 +216,9 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::post('vital-report-requests', [VitalReportRequestsController::class, 'store']);
     Route::patch('vital-report-requests/{vitalReportRequest}', [VitalReportRequestsController::class, 'cancel']);
 
-    // Consent requests for customised reports drawn from this patient's record.
+    // Reports drawn from this patient's record. Read-only: a doctor's
+    // signature authorises a report now, so there is nothing here to approve.
     Route::get('report-consents', [PatientReportConsentsController::class, 'index']);
-    Route::post('report-consents/{reportRequest}/approve', [PatientReportConsentsController::class, 'approve']);
-    Route::post('report-consents/{reportRequest}/decline', [PatientReportConsentsController::class, 'decline']);
     // The issued report itself, for the patient to read, print or save as PDF.
     Route::get('report-consents/{reportRequest}/document', [PatientReportConsentsController::class, 'document']);
 
@@ -281,6 +280,9 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     // Sign-off on customised patient reports the doctor was nominated for.
     Route::get('report-requests', [DoctorReportSignaturesController::class, 'index']);
     Route::get('report-requests/{reportRequest}', [DoctorReportSignaturesController::class, 'preview']);
+    // The report as a page to open and print — a signature needs a proper read,
+    // not a glance at a summary in a sheet.
+    Route::get('report-requests/{reportRequest}/document', [DoctorReportSignaturesController::class, 'document']);
     Route::post('report-requests/{reportRequest}/sign', [DoctorReportSignaturesController::class, 'sign']);
     Route::post('report-requests/{reportRequest}/decline', [DoctorReportSignaturesController::class, 'decline']);
 
@@ -406,15 +408,18 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
         ->middleware('permission:can_create_users');
     Route::get('report-requests/{reportRequest}', [AdminPatientReportsController::class, 'show'])
         ->middleware('permission:can_create_users');
-    Route::post('report-requests/{reportRequest}/resend-consent', [AdminPatientReportsController::class, 'resendConsent'])
-        ->middleware('permission:can_create_users');
-    Route::post('report-requests/{reportRequest}/verify-consent', [AdminPatientReportsController::class, 'verifyConsent'])
+    // Who may be nominated to sign — the patient's care-team doctors.
+    Route::get('patients/{patient}/report-signers', [AdminPatientReportsController::class, 'signers'])
         ->middleware('permission:can_create_users');
     Route::post('report-requests/{reportRequest}/issue', [AdminPatientReportsController::class, 'issue'])
         ->middleware('permission:can_create_users');
-    // The third exit from a signed report: back to the doctor for a fix,
-    // keeping the patient's consent rather than throwing it away.
+    // The other three exits from a signed report: back to the doctor for a
+    // fix, parked while the admin checks something, or refused outright.
     Route::post('report-requests/{reportRequest}/send-back', [AdminPatientReportsController::class, 'sendBack'])
+        ->middleware('permission:can_create_users');
+    Route::post('report-requests/{reportRequest}/under-review', [AdminPatientReportsController::class, 'markUnderReview'])
+        ->middleware('permission:can_create_users');
+    Route::delete('report-requests/{reportRequest}', [AdminPatientReportsController::class, 'reject'])
         ->middleware('permission:can_create_users');
     // The issued report as a file — what staff hand to the recipient.
     Route::get('report-requests/{reportRequest}/document', [AdminPatientReportsController::class, 'document'])

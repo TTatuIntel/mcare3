@@ -223,7 +223,7 @@ class PatientDocumentDeliveryTest extends TestCase
             'title' => 'Still a draft',
             'purpose' => 'Internal review',
             'sections' => ['identity'],
-            'status' => PatientReportRequest::STATUS_PENDING_CONSENT,
+            'status' => PatientReportRequest::STATUS_PENDING_SIGNATURE,
         ]);
 
         Sanctum::actingAs($this->patient);
@@ -270,7 +270,7 @@ class PatientDocumentDeliveryTest extends TestCase
             'title' => 'Not issued',
             'purpose' => 'Internal review',
             'sections' => ['identity'],
-            'status' => PatientReportRequest::STATUS_PENDING_CONSENT,
+            'status' => PatientReportRequest::STATUS_PENDING_SIGNATURE,
         ]);
 
         Sanctum::actingAs($this->patient);

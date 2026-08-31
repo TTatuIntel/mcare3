@@ -2,34 +2,28 @@
 
 namespace App\Services;
 
-use App\Mail\PatientReportConsentMail;
 use App\Models\AppNotification;
-use App\Models\CareAssignment;
-use App\Models\CareProvider;
 use App\Models\MedicalDocument;
 use App\Models\PatientReportRequest;
 use App\Models\User;
 use App\Support\DocumentDelivery;
-use App\Support\MailDispatcher;
 use App\Support\MedicalDocumentFiles;
 use App\Support\PatientReportSections;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
  * Workflow for issuing a customised patient report.
  *
- *   draft → pending_consent → consented → pending_signature → signed → issued
+ *   draft → pending_signature → signed → issued
+ *                             ↘ under_review   (admin parked it)
+ *                             ↘ returned       (back to the doctor)
+ *                             ↘ rejected       (deleted, never disclosed)
  *
- * Consent and signature steps are skipped only when the ticked sections do
- * not require them (see PatientReportSections). Every state change is
- * audited, and the report body is assembled exactly once — at issue time.
+ * One gate, always: the nominated doctor signs, then an admin decides. The
+ * report body is assembled exactly once — at issue time — and every state
+ * change is audited.
  */
 class PatientReportService
 {
-    /** How long a consent challenge stays valid. */
-    private const CONSENT_TTL_MINUTES = 30;
-
     public function __construct(
         private readonly AuditService $audit,
         private readonly PatientReportAssembler $assembler,
@@ -37,8 +31,13 @@ class PatientReportService
     ) {}
 
     /**
-     * Create the request and, when the ticked sections demand it, immediately
-     * issue the consent challenge to the patient.
+     * Create the request and send it straight to the nominated doctor.
+     *
+     * [$doctor] is required. It used to be optional, falling back to whichever
+     * provider the patient's assignments happened to rank first — fine while a
+     * signature was one gate among two, wrong now that it is the only one. A
+     * patient with a GP and two specialists has no obvious signer, and picking
+     * for the admin silently sends a cardiology report to a dermatologist.
      *
      * @param  list<string>  $sections
      */
@@ -49,24 +48,21 @@ class PatientReportService
         string $title,
         string $purpose,
         ?string $recipient,
-        ?User $doctor,
+        User $doctor,
     ): PatientReportRequest {
         $sections = $this->normalizeSections($sections);
-
-        $consentRequired = PatientReportSections::requiresConsent($sections);
-        $signatureRequired = PatientReportSections::requiresSignature($sections);
 
         $request = PatientReportRequest::create([
             'patient_user_id' => $patient->id,
             'requested_by_user_id' => $actor->id,
-            'doctor_user_id' => $doctor?->id ?? $this->suggestDoctorId($patient),
+            'doctor_user_id' => $doctor->id,
             'title' => $title,
             'purpose' => $purpose,
             'recipient' => $recipient,
             'sections' => $sections,
-            'consent_required' => $consentRequired,
-            'signature_required' => $signatureRequired,
-            'status' => PatientReportRequest::STATUS_DRAFT,
+            'consent_required' => false,
+            'signature_required' => true,
+            'status' => PatientReportRequest::STATUS_PENDING_SIGNATURE,
         ]);
 
         $this->audit->record(
@@ -79,217 +75,21 @@ class PatientReportService
                 'target_user_id' => $patient->id,
                 'report_request_id' => $request->id,
                 'sections' => $sections,
-                'consent_required' => $consentRequired,
-                'signature_required' => $signatureRequired,
+                'doctor_user_id' => $doctor->id,
             ],
         );
 
-        if ($consentRequired) {
-            $this->sendConsentChallenge($actor, $request->fresh());
-        } else {
-            $request->update([
-                'status' => $signatureRequired
-                    ? PatientReportRequest::STATUS_PENDING_SIGNATURE
-                    : PatientReportRequest::STATUS_CONSENTED,
-            ]);
-            if ($signatureRequired) {
-                $this->notifyDoctor($request->fresh());
-            }
-        }
+        $this->notifyDoctor($request->fresh());
 
         return $request->fresh();
     }
 
     /**
-     * Mint a fresh OTP + approval link and deliver both to the patient.
-     * Any previous challenge on this request is invalidated.
+     * Doctor sign-off — the single authorisation for issuing a report.
      *
-     * @return string the plaintext code, returned once so staff can read it
-     *                back over the phone when email is unavailable
-     */
-    public function sendConsentChallenge(User $actor, PatientReportRequest $request): string
-    {
-        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $token = Str::random(48);
-
-        $request->update([
-            'status' => PatientReportRequest::STATUS_PENDING_CONSENT,
-            'consent_code_hash' => Hash::make($code),
-            'consent_token' => $token,
-            'consent_channel' => 'otp_and_link',
-            'consent_sent_at' => now(),
-            'consent_expires_at' => now()->addMinutes(self::CONSENT_TTL_MINUTES),
-            'consent_attempts' => 0,
-            'consented_at' => null,
-            'consent_method' => null,
-            'declined_at' => null,
-            'decline_reason' => null,
-        ]);
-
-        $patient = $request->patient;
-        $labels = array_map(
-            fn (string $k) => PatientReportSections::label($k),
-            $request->sections ?? [],
-        );
-
-        AppNotification::create([
-            'user_id' => $patient->id,
-            'kind' => 'consent',
-            'title' => 'Approve sharing of your record',
-            'body' => 'mCare staff need your approval to include '
-                .count($labels).' part'.(count($labels) === 1 ? '' : 's')
-                .' of your record in a report for '.$request->purpose
-                .'. Approve or decline in the app.',
-            'action_route' => '/patient/report-consents',
-            'read' => false,
-        ]);
-
-        $this->dispatchConsentEmail($request, $patient, $code, $labels);
-
-        $this->audit->record(
-            $actor,
-            'report.consent_requested',
-            $patient->fullName().' — '.$request->title,
-            'security',
-            [
-                'patient_user_id' => $patient->id,
-                'target_user_id' => $patient->id,
-                'report_request_id' => $request->id,
-                'expires_at' => $request->fresh()->consent_expires_at?->toIso8601String(),
-            ],
-        );
-
-        return $code;
-    }
-
-    /**
-     * Staff-assisted consent: the patient reads the code back over the phone
-     * and the admin types it in. Rate-limited by attempt count.
-     */
-    public function verifyConsentCode(User $actor, PatientReportRequest $request, string $code): bool
-    {
-        if ($request->status !== PatientReportRequest::STATUS_PENDING_CONSENT) {
-            return false;
-        }
-
-        if ($request->consentExpired()) {
-            $request->update(['status' => PatientReportRequest::STATUS_EXPIRED]);
-
-            return false;
-        }
-
-        if ($request->consent_attempts >= PatientReportRequest::MAX_CONSENT_ATTEMPTS) {
-            $request->update(['status' => PatientReportRequest::STATUS_EXPIRED]);
-
-            return false;
-        }
-
-        if (! $request->consent_code_hash || ! Hash::check($code, $request->consent_code_hash)) {
-            $request->increment('consent_attempts');
-
-            return false;
-        }
-
-        $this->grantConsent($request, 'otp_staff_assisted', $actor);
-
-        return true;
-    }
-
-    /**
-     * Patient-driven consent from inside the app or the approval link.
-     */
-    public function grantConsent(
-        PatientReportRequest $request,
-        string $method,
-        ?User $actor = null,
-    ): void {
-        $request->update([
-            'consented_at' => now(),
-            'consent_method' => $method,
-            'consent_code_hash' => null,
-            'consent_token' => null,
-            'status' => $request->signature_required
-                ? PatientReportRequest::STATUS_PENDING_SIGNATURE
-                : PatientReportRequest::STATUS_CONSENTED,
-        ]);
-
-        $request->refresh();
-
-        $this->audit->record(
-            $actor ?? $request->patient,
-            'report.consent_granted',
-            $request->patient?->fullName().' — '.$request->title,
-            'security',
-            [
-                'patient_user_id' => $request->patient_user_id,
-                'target_user_id' => $request->patient_user_id,
-                'report_request_id' => $request->id,
-                'method' => $method,
-                'sections' => $request->sections,
-            ],
-        );
-
-        // Tell the requesting admin the block has cleared.
-        if ($request->requested_by_user_id) {
-            AppNotification::create([
-                'user_id' => $request->requested_by_user_id,
-                'kind' => 'consent',
-                'title' => 'Report consent granted',
-                'body' => ($request->patient?->fullName() ?? 'The patient')
-                    .' approved "'.$request->title.'".'
-                    .($request->signature_required
-                        ? ' Awaiting doctor signature.'
-                        : ' Ready to issue.'),
-                'action_route' => '/admin/reports',
-                'read' => false,
-            ]);
-        }
-
-        if ($request->signature_required) {
-            $this->notifyDoctor($request);
-        }
-    }
-
-    public function declineConsent(PatientReportRequest $request, ?string $reason): void
-    {
-        $request->update([
-            'status' => PatientReportRequest::STATUS_DECLINED,
-            'declined_at' => now(),
-            'decline_reason' => $reason,
-            'consent_code_hash' => null,
-            'consent_token' => null,
-        ]);
-
-        $this->audit->record(
-            $request->patient,
-            'report.consent_declined',
-            $request->patient?->fullName().' — '.$request->title,
-            'security',
-            [
-                'patient_user_id' => $request->patient_user_id,
-                'target_user_id' => $request->patient_user_id,
-                'report_request_id' => $request->id,
-                'reason' => $reason,
-            ],
-        );
-
-        if ($request->requested_by_user_id) {
-            AppNotification::create([
-                'user_id' => $request->requested_by_user_id,
-                'kind' => 'consent',
-                'title' => 'Report consent declined',
-                'body' => ($request->patient?->fullName() ?? 'The patient')
-                    .' declined "'.$request->title.'".'
-                    .($reason ? ' Reason: '.$reason : ''),
-                'action_route' => '/admin/reports',
-                'read' => false,
-            ]);
-        }
-    }
-
-    /**
-     * Doctor sign-off. Refuses to sign before the patient has consented so a
-     * signature can never pre-authorise a disclosure the patient later blocks.
+     * Nothing is disclosed by signing. The signature says the content is
+     * accurate and appropriate to send; an admin still has to issue it, and
+     * can send it back instead.
      */
     public function sign(
         User $doctor,
@@ -310,6 +110,9 @@ class PatientReportService
             // clearing it would hide exactly the thing worth seeing.
             'returned_at' => null,
             'return_note' => null,
+            // A fresh signature is a fresh decision for the admin to make.
+            'under_review_at' => null,
+            'under_review_note' => null,
         ]);
 
         $this->audit->record(
@@ -399,6 +202,8 @@ class PatientReportService
             'returned_by_user_id' => $actor->id,
             'return_note' => $note,
             'return_count' => (int) $request->return_count + 1,
+            'under_review_at' => null,
+            'under_review_note' => null,
         ]);
 
         $request->refresh();
@@ -434,7 +239,102 @@ class PatientReportService
     }
 
     /**
-     * Freeze the consented sections into the snapshot. This is the only place
+     * Park a signed report an admin has read but is not ready to issue.
+     *
+     * Without it the queue could not tell a report nobody had opened from one
+     * an admin had read, questioned, and left while they checked something —
+     * so a second admin would open it cold and redo the same reading, or worse,
+     * issue what the first had doubts about. Purely an annotation: the report
+     * stays signed and issuable, and issuing it needs no un-parking step.
+     */
+    public function markUnderReview(
+        User $actor,
+        PatientReportRequest $request,
+        ?string $note,
+    ): void {
+        $request->update([
+            'status' => PatientReportRequest::STATUS_UNDER_REVIEW,
+            'under_review_at' => now(),
+            'under_review_note' => $note,
+        ]);
+
+        $this->audit->record(
+            $actor,
+            'report.under_review',
+            $request->patient?->fullName().' — '.$request->title,
+            'activity',
+            [
+                'patient_user_id' => $request->patient_user_id,
+                'target_user_id' => $request->patient_user_id,
+                'report_request_id' => $request->id,
+                'note' => $note,
+            ],
+        );
+    }
+
+    /**
+     * Reject a report and delete it.
+     *
+     * Only reachable before issue, which is what makes deletion the right
+     * answer rather than a destroyed record: nothing was disclosed, so there is
+     * no disclosure to preserve — only the fact that a report was asked for and
+     * refused, and that belongs in the audit trail, which outlives the row. A
+     * rejected request left sitting in the list as a tombstone is noise in a
+     * queue admins work daily.
+     *
+     * The audit entry carries the whole request, because after this call the
+     * row is the only other place that information existed.
+     */
+    public function reject(User $actor, PatientReportRequest $request, string $reason): void
+    {
+        $doctorId = $request->doctor_user_id;
+        $title = $request->title;
+        $patientName = $request->patient?->fullName();
+        $wasSigned = $request->signed_at !== null;
+
+        $this->audit->record(
+            $actor,
+            'report.rejected',
+            $patientName.' — '.$title,
+            'security',
+            [
+                'patient_user_id' => $request->patient_user_id,
+                'target_user_id' => $request->patient_user_id,
+                'report_request_id' => $request->id,
+                'title' => $title,
+                'purpose' => $request->purpose,
+                'recipient' => $request->recipient,
+                'sections' => $request->sections,
+                'doctor_user_id' => $doctorId,
+                'signature_name' => $request->signature_name,
+                'signed_at' => $request->signed_at?->toIso8601String(),
+                'requested_by_user_id' => $request->requested_by_user_id,
+                'reason' => $reason,
+            ],
+        );
+
+        $request->delete();
+
+        // A doctor who put their name to it is told it was thrown out. The
+        // patient is not: nothing left mCare, and telling them a report they
+        // never knew about was cancelled is noise, not transparency.
+        if ($doctorId && $wasSigned) {
+            AppNotification::create([
+                'user_id' => $doctorId,
+                'kind' => 'consent',
+                'title' => 'Signed report rejected',
+                'body' => $actor->fullName().' rejected "'.$title.'" for '
+                    .($patientName ?? 'a patient')
+                    .', which you signed, and deleted the request. Reason: '
+                    .$reason,
+                'action_route' => '/doctor/reports',
+                'read' => false,
+            ]);
+        }
+    }
+
+    /**
+     * Freeze the signed-off sections into the snapshot. This is the only place
      * report content is ever produced.
      *
      * @return array<string, mixed>
@@ -470,7 +370,10 @@ class PatientReportService
         // patient has it" the same event.
         $this->fileCopyForPatient($actor, $request, $document);
 
-        // The patient is always told when their record actually went out.
+        // The patient is always told when their record actually went out, and
+        // told by whom it was signed — with the consent step gone, that is the
+        // transparency they have left, so it goes in the message rather than
+        // being something they must open the report to discover.
         AppNotification::create([
             'user_id' => $request->patient_user_id,
             'kind' => 'consent',
@@ -478,8 +381,9 @@ class PatientReportService
             'body' => '"'.$request->title.'" was issued'
                 .($request->recipient ? ' to '.$request->recipient : '')
                 .' covering '.count($request->sections ?? []).' section'
-                .(count($request->sections ?? []) === 1 ? '' : 's').' you approved.'
-                .' A copy is in your documents.',
+                .(count($request->sections ?? []) === 1 ? '' : 's').' of your record'
+                .($request->signature_name ? ', signed by '.$request->signature_name : '')
+                .'. A copy is in your documents.',
             'action_route' => '/patient/report-consents',
             'read' => false,
         ]);
@@ -488,14 +392,13 @@ class PatientReportService
     }
 
     /**
-     * Close a report request for good.
+     * Withdraw a report that has already been issued.
      *
-     * Covers two outwardly different things that are one operation underneath:
-     * discarding a draft nobody outside has seen, and withdrawing a report that
-     * has already been disclosed. Neither deletes the row — the point of a
-     * consent ledger is that it records what was asked for and what became of
-     * it, and a deleted request answers neither question. Who gets told differs,
-     * which is the only reason the two cases are distinguished here at all.
+     * The row is never deleted here, and that is the whole difference from
+     * {@see reject()}: this report went out. Something exists in the world that
+     * a recipient may act on and the patient holds a copy of, so the record has
+     * to say it existed and was withdrawn. Deleting it would erase the evidence
+     * of a disclosure rather than undo one — which is not in anyone's power.
      */
     public function revoke(User $actor, PatientReportRequest $request, string $reason): void
     {
@@ -653,25 +556,6 @@ class PatientReportService
         ));
     }
 
-    /**
-     * Default signer = the patient's current primary care provider, so the
-     * admin does not have to know who covers this patient.
-     */
-    private function suggestDoctorId(User $patient): ?int
-    {
-        $assignment = CareAssignment::where('patient_user_id', $patient->id)
-            ->whereNull('ended_at')
-            ->orderByRaw("CASE WHEN role = 'primary' THEN 0 ELSE 1 END")
-            ->orderByDesc('assigned_at')
-            ->first();
-
-        if (! $assignment) {
-            return null;
-        }
-
-        return CareProvider::find($assignment->provider_id)?->user_id;
-    }
-
     private function notifyDoctor(PatientReportRequest $request): void
     {
         if (! $request->doctor_user_id) {
@@ -690,35 +574,4 @@ class PatientReportService
         ]);
     }
 
-    /**
-     * @param  list<string>  $labels
-     */
-    private function dispatchConsentEmail(
-        PatientReportRequest $request,
-        User $patient,
-        string $code,
-        array $labels,
-    ): void {
-        if (! $patient->email) {
-            return;
-        }
-
-        // Deliberately an authenticated in-app destination rather than a
-        // one-click token link: consent is the one decision that must not be
-        // exercisable by anyone who merely gains access to the mailbox. The
-        // OTP in the body covers the phone-assisted path.
-        $url = rtrim(config('mcare.frontend_url'), '/').'/#/patient/report-consents';
-
-        MailDispatcher::send(
-            $patient->email,
-            new PatientReportConsentMail(
-                $patient,
-                $request,
-                $code,
-                $url,
-                $labels,
-            ),
-            ['purpose' => 'patient_report_consent', 'request_id' => $request->id],
-        );
-    }
 }

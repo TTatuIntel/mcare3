@@ -142,6 +142,25 @@ void main() {
     await sub.cancel();
   });
 
+  test('a client that started against an empty buffer misses nothing', () async {
+    // Nothing had happened yet when this client first looked, so the server
+    // had no id to hand it. The changes that follow are still its business.
+    serve([
+      answer(cursor: 0),
+      answer(cursor: 9),
+    ]);
+
+    var gaps = 0;
+    final sub = PulseWatcher.instance.gaps.listen((_) => gaps++);
+
+    await PulseWatcher.instance.poll(); // baseline against an empty buffer
+    await PulseWatcher.instance.poll(); // rows now exist
+
+    expect(PulseWatcher.instance.cursor, 9);
+    expect(gaps, 1, reason: 'the domains behind those rows were never listed');
+    await sub.cancel();
+  });
+
   test('the cursor never moves backwards', () async {
     serve([
       answer(cursor: 40),

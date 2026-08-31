@@ -144,18 +144,17 @@ class ReportIssueAndRecordProtectionTest extends TestCase
         $this->assertStringContainsString('Discharge paperwork', $html);
     }
 
-    public function test_the_draft_preview_is_refused_until_the_patient_consents(): void
+    /**
+     * An unsigned report is readable — the admin who raised it is allowed to
+     * check what they asked for. A closed one is not, because there is nothing
+     * to decide and nothing was ever issued.
+     */
+    public function test_a_closed_request_has_no_report_to_open(): void
     {
-        $report = PatientReportRequest::create([
-            'patient_user_id' => $this->patient->id,
-            'requested_by_user_id' => $this->admin->id,
-            'doctor_user_id' => $this->doctor->id,
-            'title' => 'Discharge paperwork',
-            'purpose' => 'Insurance claim',
-            'sections' => ['identity'],
-            'status' => PatientReportRequest::STATUS_PENDING_CONSENT,
-            'consent_required' => true,
-            'signature_required' => true,
+        $report = $this->readyToIssue();
+        $report->update([
+            'status' => PatientReportRequest::STATUS_REVOKED,
+            'revoked_at' => now(),
         ]);
 
         Sanctum::actingAs($this->admin);
@@ -167,11 +166,298 @@ class ReportIssueAndRecordProtectionTest extends TestCase
             ->assertJsonMissingPath('data.document');
     }
 
+    public function test_an_unsigned_report_can_still_be_read_as_a_draft(): void
+    {
+        $report = $this->readyToIssue();
+        $report->update([
+            'status' => PatientReportRequest::STATUS_PENDING_SIGNATURE,
+            'signed_at' => null,
+            'signature_name' => null,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+        $html = $this->get("/api/v1/admin/report-requests/{$report->id}/document")
+            ->assertOk()
+            ->getContent();
+
+        // Says both things that are missing, not just one of them.
+        $this->assertStringContainsString('DRAFT', $html);
+        $this->assertStringContainsString('or signed', $html);
+    }
+
+    // ---------------------------------------------------------------
+    // Raising a report: no patient consent, a nominated doctor
+    // ---------------------------------------------------------------
+
+    public function test_raising_a_report_goes_straight_to_the_doctor(): void
+    {
+        $this->attachDoctor();
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson("/api/v1/admin/patients/{$this->patient->id}/report-requests", [
+            'sections' => ['identity', 'health_profile'],
+            'title' => 'Referral letter',
+            'purpose' => 'Specialist referral',
+            'doctor_user_id' => $this->doctor->id,
+        ])->assertCreated();
+
+        $report = PatientReportRequest::where('patient_user_id', $this->patient->id)
+            ->firstOrFail();
+
+        $this->assertSame(PatientReportRequest::STATUS_PENDING_SIGNATURE, $report->status);
+        $this->assertFalse((bool) $report->consent_required);
+        $this->assertTrue((bool) $report->signature_required);
+        $this->assertNull($report->consent_code_hash, 'A consent challenge was still minted.');
+
+        // Nobody asked the patient for anything.
+        $this->assertDatabaseMissing('app_notifications', [
+            'user_id' => $this->patient->id,
+            'title' => 'Approve sharing of your record',
+        ]);
+
+        // The nominated doctor was told.
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $this->doctor->id,
+            'title' => 'Report awaiting your signature',
+        ]);
+    }
+
+    /**
+     * Even a report of nothing but a name and patient id needs a signature.
+     * Deriving the gate from the ticked sections meant an administrative-only
+     * report could be issued with nobody having read it.
+     */
+    public function test_even_an_administrative_report_needs_a_signature(): void
+    {
+        $this->attachDoctor();
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson("/api/v1/admin/patients/{$this->patient->id}/report-requests", [
+            'sections' => ['identity'],
+            'title' => 'Proof of registration',
+            'purpose' => 'Employer letter',
+            'doctor_user_id' => $this->doctor->id,
+        ])->assertCreated();
+
+        $report = PatientReportRequest::where('patient_user_id', $this->patient->id)
+            ->firstOrFail();
+
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/issue")
+            ->assertStatus(422);
+    }
+
+    public function test_a_report_cannot_be_raised_without_naming_a_doctor(): void
+    {
+        $this->attachDoctor();
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson("/api/v1/admin/patients/{$this->patient->id}/report-requests", [
+            'sections' => ['identity'],
+            'title' => 'Referral letter',
+            'purpose' => 'Specialist referral',
+        ])->assertStatus(422)->assertJsonValidationErrors('doctor_user_id');
+    }
+
+    /**
+     * Nominating a signer must not become a way to hand a whole record to a
+     * clinician who has no relationship with the patient — the caseload gate
+     * everywhere else exists to stop exactly that.
+     */
+    public function test_a_doctor_off_the_care_team_cannot_be_nominated(): void
+    {
+        $stranger = User::factory()->role('doctor')->create();
+        $this->attachDoctor();
+        Sanctum::actingAs($this->admin);
+
+        $this->postJson("/api/v1/admin/patients/{$this->patient->id}/report-requests", [
+            'sections' => ['identity'],
+            'title' => 'Referral letter',
+            'purpose' => 'Specialist referral',
+            'doctor_user_id' => $stranger->id,
+        ])->assertStatus(422);
+
+        $this->assertDatabaseCount('patient_report_requests', 0);
+    }
+
+    public function test_the_signer_list_is_the_patients_care_team_doctors(): void
+    {
+        $this->attachDoctor();
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson("/api/v1/admin/patients/{$this->patient->id}/report-signers")
+            ->assertOk()
+            ->assertJsonPath('data.signers.0.user_id', (string) $this->doctor->id)
+            ->assertJsonPath('data.signers.0.is_primary', true)
+            ->assertJsonCount(1, 'data.signers');
+    }
+
+    public function test_a_patient_with_no_care_team_offers_no_signer(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson("/api/v1/admin/patients/{$this->patient->id}/report-signers")
+            ->assertOk()
+            ->assertJsonCount(0, 'data.signers');
+    }
+
+    // ---------------------------------------------------------------
+    // The admin's decision on a signed report
+    // ---------------------------------------------------------------
+
+    public function test_a_signed_report_can_be_parked_under_review(): void
+    {
+        $report = $this->readyToIssue();
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/under-review", [
+            'note' => 'Checking the discharge date with the ward.',
+        ])->assertOk();
+
+        $report->refresh();
+        $this->assertSame(PatientReportRequest::STATUS_UNDER_REVIEW, $report->status);
+        $this->assertNotNull($report->under_review_at);
+        $this->assertSame('Checking the discharge date with the ward.', $report->under_review_note);
+
+        // Parking is an annotation, not a new gate — it stays issuable.
+        $this->assertNotNull($report->signed_at);
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/issue")->assertOk();
+    }
+
+    public function test_an_unsigned_report_cannot_be_parked(): void
+    {
+        $report = $this->readyToIssue();
+        $report->update(['signed_at' => null, 'status' => PatientReportRequest::STATUS_PENDING_SIGNATURE]);
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/under-review")
+            ->assertStatus(422);
+    }
+
+    public function test_rejecting_deletes_the_request(): void
+    {
+        $report = $this->readyToIssue();
+
+        Sanctum::actingAs($this->admin);
+        $this->deleteJson("/api/v1/admin/report-requests/{$report->id}", [
+            'reason' => 'Prepared for the wrong patient.',
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('patient_report_requests', ['id' => $report->id]);
+
+        // Nothing was disclosed, so nothing reached the patient's documents.
+        $this->assertDatabaseMissing('medical_documents', [
+            'user_id' => $this->patient->id,
+        ]);
+    }
+
+    /**
+     * The row goes; what it was does not. Deleting is only defensible because
+     * the audit entry outlives it.
+     */
+    public function test_a_rejection_leaves_the_whole_request_in_the_audit_trail(): void
+    {
+        $report = $this->readyToIssue();
+
+        Sanctum::actingAs($this->admin);
+        $this->deleteJson("/api/v1/admin/report-requests/{$report->id}", [
+            'reason' => 'Prepared for the wrong patient.',
+        ])->assertOk();
+
+        $entry = \App\Models\AuditEntry::where('action', 'report.rejected')->first();
+
+        $this->assertNotNull($entry, 'A deleted report request left no trace.');
+        $meta = json_encode($entry->meta);
+        $this->assertStringContainsString('Prepared for the wrong patient.', $meta);
+        $this->assertStringContainsString('Discharge paperwork', $meta);
+        $this->assertStringContainsString('Dr. Signer', $meta);
+    }
+
+    public function test_the_doctor_is_told_their_signed_report_was_rejected(): void
+    {
+        $report = $this->readyToIssue();
+
+        Sanctum::actingAs($this->admin);
+        $this->deleteJson("/api/v1/admin/report-requests/{$report->id}", [
+            'reason' => 'Prepared for the wrong patient.',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $this->doctor->id,
+            'title' => 'Signed report rejected',
+        ]);
+    }
+
+    /**
+     * Once a copy is in the patient's documents, "delete" is not an operation
+     * anyone can perform on what already happened.
+     */
+    public function test_an_issued_report_cannot_be_rejected(): void
+    {
+        $report = $this->readyToIssue();
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/issue")->assertOk();
+
+        $this->deleteJson("/api/v1/admin/report-requests/{$report->id}", [
+            'reason' => 'Changed my mind.',
+        ])->assertStatus(422);
+
+        $this->assertDatabaseHas('patient_report_requests', ['id' => $report->id]);
+    }
+
+    public function test_an_unissued_report_cannot_be_revoked(): void
+    {
+        $report = $this->readyToIssue();
+
+        Sanctum::actingAs($this->admin);
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/revoke", [
+            'reason' => 'Nothing went out.',
+        ])->assertStatus(422);
+
+        $this->assertDatabaseHas('patient_report_requests', ['id' => $report->id]);
+    }
+
+    // ---------------------------------------------------------------
+    // The retired consent surface
+    // ---------------------------------------------------------------
+
+    public function test_the_patient_consent_endpoints_are_gone(): void
+    {
+        $report = $this->readyToIssue();
+        Sanctum::actingAs($this->patient);
+
+        $this->postJson("/api/v1/patient/report-consents/{$report->id}/approve")
+            ->assertNotFound();
+        $this->postJson("/api/v1/patient/report-consents/{$report->id}/decline")
+            ->assertNotFound();
+    }
+
+    /**
+     * The patient keeps the half that was worth keeping: seeing what was sent
+     * about them, and reading it.
+     */
+    public function test_the_patient_still_sees_reports_drawn_from_their_record(): void
+    {
+        $report = $this->readyToIssue();
+        Sanctum::actingAs($this->admin);
+        $this->postJson("/api/v1/admin/report-requests/{$report->id}/issue")->assertOk();
+
+        Sanctum::actingAs($this->patient);
+        $this->getJson('/api/v1/patient/report-consents')
+            ->assertOk()
+            ->assertJsonPath('data.report_requests.0.title', 'Discharge paperwork')
+            // Nothing is ever waiting on them now.
+            ->assertJsonPath('data.report_requests.0.awaiting_me', false);
+
+        $this->get("/api/v1/patient/report-consents/{$report->id}/document")
+            ->assertOk();
+    }
+
     // ---------------------------------------------------------------
     // Sending a signed report back to the doctor
     // ---------------------------------------------------------------
 
-    public function test_sending_back_clears_the_signature_but_keeps_the_consent(): void
+    public function test_sending_back_clears_the_signature_but_keeps_the_request(): void
     {
         $report = $this->readyToIssue();
 
@@ -183,10 +469,12 @@ class ReportIssueAndRecordProtectionTest extends TestCase
         $report->refresh();
 
         $this->assertNull($report->signed_at, 'The signature survived the return trip.');
-        $this->assertNotNull(
-            $report->consented_at,
-            'Sending back threw away consent the patient had already given.',
-        );
+        // The request itself survives untouched — same sections, same doctor,
+        // same recipient. Only the signature, which was given against content
+        // about to change, is cleared.
+        $this->assertSame(['identity'], $report->sections);
+        $this->assertSame((int) $this->doctor->id, (int) $report->doctor_user_id);
+        $this->assertSame('Kampala Insurers', $report->recipient);
         $this->assertSame(PatientReportRequest::STATUS_PENDING_SIGNATURE, $report->status);
         $this->assertSame('Recipient address is wrong.', $report->return_note);
         $this->assertSame(1, (int) $report->return_count);
@@ -644,9 +932,7 @@ class ReportIssueAndRecordProtectionTest extends TestCase
             'recipient' => 'Kampala Insurers',
             'sections' => ['identity'],
             'status' => PatientReportRequest::STATUS_SIGNED,
-            'consent_required' => true,
-            'consented_at' => now(),
-            'consent_method' => 'code',
+            'consent_required' => false,
             'signature_required' => true,
             'signed_at' => now(),
             'signature_name' => 'Dr. Signer',
