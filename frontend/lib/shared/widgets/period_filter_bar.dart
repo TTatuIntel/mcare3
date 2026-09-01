@@ -407,26 +407,43 @@ class _PeriodPickerBodyState extends State<_PeriodPickerBody> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: AppButton(
-                label: 'Cancel',
-                variant: AppButtonVariant.ghost,
-                expand: true,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: AppButton(
-                label: 'Apply period',
-                icon: AppIcons.checkMark,
-                expand: true,
-                onPressed: () => Navigator.of(context).pop(_selected),
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cancel = AppButton(
+              label: 'Cancel',
+              variant: AppButtonVariant.ghost,
+              expand: true,
+              onPressed: () => Navigator.of(context).pop(),
+            );
+            final apply = AppButton(
+              label: 'Apply period',
+              icon: AppIcons.checkMark,
+              expand: true,
+              onPressed: () => Navigator.of(context).pop(_selected),
+            );
+
+            // A compact phone leaves each half of a side-by-side row too
+            // narrow for an icon plus "Apply period". Stack the actions at
+            // that size so both labels stay complete and easy to tap.
+            if (constraints.maxWidth < 300) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  apply,
+                  const SizedBox(height: AppSpacing.xs),
+                  cancel,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: cancel),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: apply),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -671,11 +688,17 @@ class _PeriodRangeCalendarState extends State<PeriodRangeCalendar> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            DateFormat.yMMMM().format(_month),
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: AppPalette.ink(context),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                DateFormat.yMMMM().format(_month),
+                                maxLines: 1,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: AppPalette.ink(context),
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 2),

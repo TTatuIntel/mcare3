@@ -63,6 +63,13 @@ void main() {
       );
     });
 
+    test('support updates keep their own icon and destination kind', () {
+      expect(
+        PatientDomainMapper.notificationKindFromApi('support'),
+        NotificationKind.support,
+      );
+    });
+
     test('the notice links back to the vital the API named', () {
       final notice = PatientDomainMapper.notificationFromApi({
         'id': 'n1',
