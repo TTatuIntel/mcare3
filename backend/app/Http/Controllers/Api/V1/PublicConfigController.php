@@ -51,9 +51,9 @@ class PublicConfigController extends Controller
                 'enabled' => $appleWeb !== '',
             ],
             // How to receive changes as they happen. `socket` is the fast
-            // path when this deployment runs one; `pulse` is the floor that
-            // works everywhere, and the app uses it whenever the socket is
-            // not currently carrying events.
+            // path when this deployment runs one; `pulse` is the correctness
+            // floor that works everywhere and guards against missed events or
+            // a broadcaster configuration mismatch.
             'realtime' => [
                 'socket' => RealtimeEndpoint::describe($request),
                 'pulse' => [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/admin_api.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/models/patient_report_request.dart';
 import '../../shared/services/document_opener.dart';
 import '../../shared/theme/app_colors.dart';
@@ -54,9 +55,25 @@ class _StatusBody extends StatefulWidget {
   State<_StatusBody> createState() => _StatusBodyState();
 }
 
-class _StatusBodyState extends State<_StatusBody> {
+class _StatusBodyState extends State<_StatusBody>
+    with RealtimeRefreshMixin<_StatusBody> {
   late PatientReportRequestItem _request = widget.initial;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    watchRealtime(const {'reports'}, _reload);
+  }
+
+  Future<void> _reload() async {
+    final data = await AdminApi.instance.reportRequest(_request.id);
+    if (!mounted) return;
+    final request = data?['report_request'];
+    if (request is Map) {
+      _apply(request.cast<String, dynamic>());
+    }
+  }
 
   void _apply(Map<String, dynamic>? data) {
     if (data == null) return;
@@ -320,9 +337,7 @@ class _StatusBodyState extends State<_StatusBody> {
             if (r.returnCount > 0)
               DossierRow(
                 label: 'Sent back',
-                value: r.returnCount == 1
-                    ? 'Once'
-                    : '${r.returnCount} times',
+                value: r.returnCount == 1 ? 'Once' : '${r.returnCount} times',
                 valueColor: AppColors.warning,
               ),
             if (r.awaitingRework) ...[

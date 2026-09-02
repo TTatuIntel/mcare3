@@ -52,6 +52,8 @@ class SessionPoller {
   final Map<Object, BuildContext> _scopeContexts = {};
   int _openAlerts = 0;
   int _activeSos = 0;
+  bool _tickRunning = false;
+  bool _tickPending = false;
   final Set<String> _seenNotificationIds = {};
 
   bool get hasAttachedScopes => _scopeContexts.isNotEmpty;
@@ -96,22 +98,23 @@ class SessionPoller {
     // A gap means the server could no longer enumerate what we missed, so the
     // only honest response is to re-read everything.
     _pulseGaps ??= PulseWatcher.instance.gaps.listen((_) => triggerNow());
-    _syncPulseToSocket();
+    _syncPulseLifecycle();
   }
 
-  /// The pulse runs whenever the socket is not confirmed to be carrying
-  /// events. Exactly one live path is active at a time, and the handover in
-  /// either direction is immediate.
-  void _syncPulseToSocket() {
+  /// Keep the cheap cursor watcher alive beside the socket.
+  ///
+  /// A successful private-channel subscription proves transport access, but
+  /// it cannot prove that the API is publishing model changes to that same
+  /// broadcaster. Keeping the PHI-free cursor active prevents a deployment
+  /// with mismatched Reverb settings from becoming silently stale for five
+  /// minutes. Duplicate notices are coalesced by [_tick] and persisted
+  /// notifications are de-duplicated before presentation.
+  void _syncPulseLifecycle() {
     if (_scopeContexts.isEmpty) {
       PulseWatcher.instance.stop();
       return;
     }
-    if (RealtimeChannel.instance.isSubscribed) {
-      PulseWatcher.instance.stop();
-    } else {
-      PulseWatcher.instance.start();
-    }
+    PulseWatcher.instance.start();
   }
 
   void detach([Object? owner]) {
@@ -135,6 +138,10 @@ class SessionPoller {
   /// Out-of-band background sync (does not reset the interval timer).
   void triggerNow() {
     if (!AppEnv.backendEnabled) return;
+    if (_tickRunning) {
+      _tickPending = true;
+      return;
+    }
     Future.microtask(_tick);
   }
 
@@ -150,9 +157,9 @@ class SessionPoller {
   /// Called by [RealtimeChannel] after subscription or disconnect.
   void onRealtimeStatusChanged({bool refresh = false}) {
     if (_context == null) return;
-    // A socket that just dropped must not leave the app with nothing
-    // listening, and one that just connected makes the poll redundant.
-    _syncPulseToSocket();
+    // A socket transition may have crossed a short delivery gap. The cursor
+    // remains active as a watchdog and the reconciliation timer is reset.
+    _syncPulseLifecycle();
     _scheduleNext();
     if (refresh) triggerNow();
   }
@@ -163,7 +170,8 @@ class SessionPoller {
     // Either live path makes this a backstop rather than the delivery
     // mechanism, so it steps back to the long sweep in both cases.
     final live =
-        RealtimeChannel.instance.isSubscribed || PulseWatcher.instance.isRunning;
+        RealtimeChannel.instance.isSubscribed ||
+        PulseWatcher.instance.isRunning;
     final interval = live
         ? fallbackInterval
         : user?.role == UserRole.patient
@@ -212,6 +220,23 @@ class SessionPoller {
   }
 
   Future<void> _tick() async {
+    if (_tickRunning) {
+      _tickPending = true;
+      return;
+    }
+
+    _tickRunning = true;
+    try {
+      do {
+        _tickPending = false;
+        await _tickOnce();
+      } while (_tickPending && AuthState.instance.user != null);
+    } finally {
+      _tickRunning = false;
+    }
+  }
+
+  Future<void> _tickOnce() async {
     final user = AuthState.instance.user;
     if (user == null) return;
 
@@ -338,8 +363,9 @@ class _SessionPollerScopeState extends State<SessionPollerScope>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         SessionPoller.instance.attach(_owner, context);
-        // Opt-in WebSocket channel (§7.1). No-op unless MCARE_WS_URL +
-        // MCARE_WS_APP_KEY are set — REST polling continues either way.
+        // Opt-in WebSocket channel (§7.1). Runtime API configuration is the
+        // normal source; compile-time URL/key values may pin a deployment.
+        // The cursor watchdog continues either way.
         RealtimeChannel.instance.attach();
       }
     });

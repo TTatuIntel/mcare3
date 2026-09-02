@@ -1,47 +1,38 @@
 part of 'patient_dashboard_view.dart';
 
-/// PDF-approved patient home composition. It deliberately derives every
-/// message and count from the existing stores; the home screen never invents
-/// adherence, risk, or scheduling data.
+/// The patient home is intentionally short: search, quick actions, then one
+/// prioritised stream. Status information is not repeated in separate cards.
 class _PatientHomeLayout extends StatelessWidget {
   const _PatientHomeLayout({
     required this.appointments,
     required this.doses,
     required this.unreadNotifications,
-    this.reserveFabSpace = false,
   });
 
   final List<Appointment> appointments;
   final List<MedicationDose> doses;
   final int unreadNotifications;
 
-  /// Keeps the last card clear of the floating "Log vital" button on handhelds.
-  final bool reserveFabSpace;
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 920;
-        final primary = Column(
+        final wide = constraints.maxWidth >= 840;
+        final quickActions = _PatientQuickActions(
+          appointments: appointments,
+          doses: doses,
+        );
+        final forYou = _PatientForYouSection(
+          appointments: appointments,
+          doses: doses,
+          unreadNotifications: unreadNotifications,
+        );
+
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const StaggeredEntry(index: 0, child: PatientDateHeader()),
             const SizedBox(height: AppSpacing.md),
-            // A request to share the record blocks staff work and expires on a
-            // timer, so it goes above the daily plan rather than waiting to be
-            // found in a notification the patient may already have read.
-            if (ReportConsentsState.instance.hasAwaiting) ...[
-              const StaggeredEntry(
-                // Keyed: this entry comes and goes, and without a key it and
-                // the today hub below are both an unkeyed StaggeredEntry in
-                // adjacent slots for Flutter to match up.
-                key: ValueKey('patient-sharing-request'),
-                index: 1,
-                child: _PatientSharingRequestCard(),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
             StaggeredEntry(
               index: 1,
               child: _PatientTodayHub(
@@ -50,63 +41,686 @@ class _PatientHomeLayout extends StatelessWidget {
                 unreadNotifications: unreadNotifications,
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
-            const StaggeredEntry(index: 2, child: _PatientVitalShortcuts()),
-            const SizedBox(height: AppSpacing.lg),
-            StaggeredEntry(index: 3, child: _PatientNextDoseCard(doses: doses)),
             const SizedBox(height: AppSpacing.md),
-            StaggeredEntry(
-              index: 4,
-              child: _PatientNextVisitCard(appointments: appointments),
-            ),
-          ],
-        );
-
-        final secondary = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _RecentVitalsPanel(),
-            const SizedBox(height: AppSpacing.xl),
-            SectionLabel(
-              title: 'Recent activity',
-              icon: AppIcons.trend,
-              actionLabel: unreadNotifications > 0 ? 'Updates' : null,
-              onAction: unreadNotifications > 0
-                  ? () => Navigator.of(
-                      context,
-                    ).pushNamed(RouteNames.patientNotifications)
-                  : null,
-            ),
-            const _CareActivityFeed(),
-          ],
-        );
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+            const StaggeredEntry(index: 2, child: _PatientFeatureSearch()),
+            if (ReportConsentsState.instance.hasAwaiting) ...[
+              const SizedBox(height: AppSpacing.md),
+              const StaggeredEntry(
+                key: ValueKey('patient-sharing-request'),
+                index: 3,
+                child: _PatientSharingRequestCard(),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.lg),
             if (wide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(flex: 7, child: primary),
+                  Expanded(
+                    flex: 5,
+                    child: StaggeredEntry(index: 3, child: quickActions),
+                  ),
                   const SizedBox(width: AppSpacing.xl),
-                  Expanded(flex: 5, child: secondary),
+                  Expanded(
+                    flex: 7,
+                    child: StaggeredEntry(index: 4, child: forYou),
+                  ),
                 ],
               )
             else ...[
-              primary,
-              const SizedBox(height: AppSpacing.xl),
-              secondary,
+              StaggeredEntry(index: 3, child: quickActions),
+              const SizedBox(height: AppSpacing.lg),
+              StaggeredEntry(index: 4, child: forYou),
             ],
-            // Emergency + help closes every layout (wide and narrow): it is the
-            // last block on the page, inside thumb reach, and the only place
-            // home surfaces SOS.
-            const SizedBox(height: AppSpacing.xl),
-            const StaggeredEntry(index: 6, child: _PatientHelpCard()),
-            SizedBox(height: reserveFabSpace ? 96 : AppSpacing.huge),
+            const SizedBox(height: AppSpacing.xxl),
           ],
         );
       },
+    );
+  }
+}
+
+class _PatientFeatureSearch extends StatelessWidget {
+  const _PatientFeatureSearch();
+
+  Future<void> _open(BuildContext context) async {
+    final result = await showSearch<_PatientSearchEntry?>(
+      context: context,
+      delegate: _PatientSearchDelegate(),
+    );
+    if (result != null && context.mounted) result.open(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Search mCare features',
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        shadow: const [],
+        onTap: () => _open(context),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Row(
+              children: [
+                const Icon(
+                  AppIcons.search,
+                  size: 22,
+                  color: AppColors.brandIndigo,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    'Search vitals, appointments, documents…',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPalette.textMuted(context),
+                    ),
+                  ),
+                ),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 20,
+                  color: AppPalette.textFaint(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PatientSearchEntry {
+  const _PatientSearchEntry({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.keywords,
+    required this.icon,
+    required this.color,
+    this.route,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+  final String keywords;
+  final IconData icon;
+  final Color color;
+  final String? route;
+
+  bool matches(String value) {
+    final q = value.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return '$title $description $keywords'.toLowerCase().contains(q);
+  }
+
+  void open(BuildContext context) {
+    if (id == 'meals') {
+      _openPatientMeals(context);
+      return;
+    }
+    final destination = route;
+    if (destination != null) Navigator.of(context).pushNamed(destination);
+  }
+}
+
+const _patientSearchEntries = <_PatientSearchEntry>[
+  _PatientSearchEntry(
+    id: 'vitals',
+    title: 'Vitals',
+    description: 'Log readings and review trends',
+    keywords: 'blood pressure heart rate glucose temperature oxygen weight',
+    icon: AppIcons.vitals,
+    color: AppColors.brandIndigo,
+    route: RouteNames.patientVitals,
+  ),
+  _PatientSearchEntry(
+    id: 'appointments',
+    title: 'Appointments',
+    description: 'Book or review a visit',
+    keywords: 'visit doctor booking schedule consultation',
+    icon: AppIcons.appointment,
+    color: AppColors.bpPurple,
+    route: RouteNames.patientAppointments,
+  ),
+  _PatientSearchEntry(
+    id: 'medications',
+    title: 'Medications',
+    description: 'View doses and prescriptions',
+    keywords: 'medicine drugs dose pills pharmacy prescription',
+    icon: AppIcons.medication,
+    color: AppColors.glucoseAmber,
+    route: RouteNames.patientMedications,
+  ),
+  _PatientSearchEntry(
+    id: 'documents',
+    title: 'Documents & uploads',
+    description: 'Open results, reports and files',
+    keywords: 'upload lab result imaging record file report',
+    icon: AppIcons.document,
+    color: AppColors.info,
+    route: RouteNames.patientDocuments,
+  ),
+  _PatientSearchEntry(
+    id: 'meals',
+    title: 'Meals',
+    description: 'Review your assigned meal plan',
+    keywords: 'food nutrition diet breakfast lunch dinner',
+    icon: AppIcons.meals,
+    color: AppColors.success,
+  ),
+  _PatientSearchEntry(
+    id: 'emergency',
+    title: 'Emergency SOS',
+    description: 'Get urgent help now',
+    keywords: 'emergency urgent sos danger help',
+    icon: AppIcons.sos,
+    color: AppColors.critical,
+    route: RouteNames.patientSos,
+  ),
+  _PatientSearchEntry(
+    id: 'notifications',
+    title: 'Alerts & activity',
+    description: 'Read care updates and reminders',
+    keywords: 'notifications news activities announcements updates',
+    icon: AppIcons.notifications,
+    color: AppColors.warning,
+    route: RouteNames.patientNotifications,
+  ),
+  _PatientSearchEntry(
+    id: 'messages',
+    title: 'Messages',
+    description: 'Chat with your care team',
+    keywords: 'conversation inbox doctor nurse chat',
+    icon: AppIcons.chat,
+    color: AppColors.info,
+    route: RouteNames.patientMessages,
+  ),
+  _PatientSearchEntry(
+    id: 'care-team',
+    title: 'Care team',
+    description: 'See your doctors and providers',
+    keywords: 'doctor provider nurse clinician team',
+    icon: AppIcons.careTeam,
+    color: AppColors.doctorGreen,
+    route: RouteNames.patientCareTeam,
+  ),
+  _PatientSearchEntry(
+    id: 'support',
+    title: 'Support',
+    description: 'Ask for help with mCare',
+    keywords: 'ticket problem technical help',
+    icon: AppIcons.support,
+    color: AppColors.info,
+    route: RouteNames.patientSupport,
+  ),
+  _PatientSearchEntry(
+    id: 'profile',
+    title: 'Profile',
+    description: 'Update personal and health details',
+    keywords: 'account personal health information contact',
+    icon: AppIcons.profile,
+    color: AppColors.doctorGreen,
+    route: RouteNames.patientProfile,
+  ),
+  _PatientSearchEntry(
+    id: 'settings',
+    title: 'Settings',
+    description: 'Privacy, language and appearance',
+    keywords: 'preferences security theme notifications language privacy',
+    icon: AppIcons.settings,
+    color: AppColors.weightSlate,
+    route: RouteNames.patientSettings,
+  ),
+];
+
+class _PatientSearchDelegate extends SearchDelegate<_PatientSearchEntry?> {
+  @override
+  String get searchFieldLabel => 'What do you need?';
+
+  @override
+  List<Widget>? buildActions(BuildContext context) => [
+    if (query.isNotEmpty)
+      IconButton(
+        tooltip: 'Clear search',
+        onPressed: () => query = '',
+        icon: const Icon(AppIcons.close),
+      ),
+  ];
+
+  @override
+  Widget? buildLeading(BuildContext context) => IconButton(
+    tooltip: 'Back',
+    onPressed: () => close(context, null),
+    icon: const Icon(AppIcons.back),
+  );
+
+  @override
+  Widget buildResults(BuildContext context) => _results(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _results(context);
+
+  Widget _results(BuildContext context) {
+    final matches = _patientSearchEntries.where((item) => item.matches(query));
+    if (matches.isEmpty) {
+      return EmptyStateView(
+        icon: AppIcons.search,
+        title: 'No match found',
+        message: 'Try a word like vitals, appointment, upload or emergency.',
+        compact: true,
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      itemCount: matches.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        final item = matches.elementAt(index);
+        return ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            side: BorderSide(color: AppPalette.border(context)),
+          ),
+          tileColor: AppPalette.surface(context),
+          leading: _PatientIconDisc(icon: item.icon, color: item.color),
+          title: Text(item.title),
+          subtitle: Text(item.description),
+          trailing: const Icon(AppIcons.chevronRight),
+          onTap: () => close(context, item),
+        );
+      },
+    );
+  }
+}
+
+void _openPatientMeals(BuildContext context) {
+  final today = MealPlansState.instance.assignedToday;
+  final meal = today.isNotEmpty ? today.first : MealPlansState.instance.latest;
+  if (meal == null) {
+    AppToast.info(context, 'No meal plan has been assigned yet.');
+    return;
+  }
+  _MealPlanSheet.show(context, meal);
+}
+
+class _PatientQuickActions extends StatelessWidget {
+  const _PatientQuickActions({required this.appointments, required this.doses});
+
+  final List<Appointment> appointments;
+  final List<MedicationDose> doses;
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingDoses = doses.where(
+      (dose) => dose.status == DoseStatus.pending,
+    );
+    final mealsToday = MealPlansState.instance.assignedToday.length;
+    final actions = <_PatientQuickAction>[
+      _PatientQuickAction(
+        label: 'Appointments',
+        detail: appointments.isEmpty
+            ? 'Book a visit'
+            : '${appointments.length} upcoming',
+        icon: AppIcons.appointment,
+        color: AppColors.bpPurple,
+        onTap: () =>
+            Navigator.of(context).pushNamed(RouteNames.patientAppointments),
+      ),
+      _PatientQuickAction(
+        label: 'Medications',
+        detail: pendingDoses.isEmpty
+            ? 'View medicines'
+            : '${pendingDoses.length} due today',
+        icon: AppIcons.medication,
+        color: AppColors.glucoseAmber,
+        onTap: () =>
+            Navigator.of(context).pushNamed(RouteNames.patientMedications),
+      ),
+      _PatientQuickAction(
+        label: 'Log vital',
+        detail: 'Add a reading',
+        icon: AppIcons.vitals,
+        color: AppColors.brandIndigo,
+        onTap: () => SubmitVitalSheet.show(context),
+      ),
+      _PatientQuickAction(
+        label: 'Meals',
+        detail: mealsToday == 0 ? 'Meal plan' : '$mealsToday for today',
+        icon: AppIcons.meals,
+        color: AppColors.success,
+        onTap: () => _openPatientMeals(context),
+      ),
+      _PatientQuickAction(
+        label: 'Documents',
+        detail: 'View & upload',
+        icon: AppIcons.upload,
+        color: AppColors.info,
+        onTap: () =>
+            Navigator.of(context).pushNamed(RouteNames.patientDocuments),
+      ),
+      _PatientQuickAction(
+        label: 'Emergency',
+        detail: 'Get help now',
+        icon: AppIcons.sos,
+        color: AppColors.critical,
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientSos),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel(title: 'Quick actions', icon: AppIcons.add),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 680
+                ? 6
+                : constraints.maxWidth >= 340
+                ? 3
+                : 2;
+            const gap = AppSpacing.sm;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final action in actions)
+                  SizedBox(
+                    width: width,
+                    child: _PatientQuickActionTile(action: action),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _PatientQuickAction {
+  const _PatientQuickAction({
+    required this.label,
+    required this.detail,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final String detail;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+}
+
+class _PatientQuickActionTile extends StatelessWidget {
+  const _PatientQuickActionTile({required this.action});
+
+  final _PatientQuickAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '${action.label}. ${action.detail}',
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.md,
+        ),
+        shadow: const [],
+        onTap: action.onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _PatientIconDisc(icon: action.icon, color: action.color),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              action.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              action.detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PatientForYouSection extends StatefulWidget {
+  const _PatientForYouSection({
+    required this.appointments,
+    required this.doses,
+    required this.unreadNotifications,
+  });
+
+  final List<Appointment> appointments;
+  final List<MedicationDose> doses;
+  final int unreadNotifications;
+
+  @override
+  State<_PatientForYouSection> createState() => _PatientForYouSectionState();
+}
+
+class _PatientForYouSectionState extends State<_PatientForYouSection> {
+  static const _collapsedCount = 5;
+  bool _showAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        MessagesState.instance,
+        AnnouncementsState.instance,
+        MealPlansState.instance,
+        DocumentsState.instance,
+        SupportState.instance,
+        VitalReportState.instance,
+        SosState.instance,
+        ProfileState.instance,
+      ]),
+      builder: (context, _) {
+        final items =
+            _buildHubScenes(
+                  context,
+                  appointments: widget.appointments,
+                  doses: widget.doses,
+                  unreadNotifications: widget.unreadNotifications,
+                )
+                .where((scene) => scene.id != 'plan' && scene.id != 'welcome')
+                .toList();
+        final visible = _showAll ? items : items.take(_collapsedCount).toList();
+        final hidden = items.length - visible.length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionLabel(
+              title: 'For you',
+              icon: AppIcons.activity,
+              trailing: items.isEmpty
+                  ? null
+                  : '${items.length} update${items.length == 1 ? '' : 's'}',
+            ),
+            GlassCard(
+              padding: EdgeInsets.zero,
+              shadow: const [],
+              child: items.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: EmptyStateView(
+                        icon: AppIcons.check,
+                        title: 'You are all caught up',
+                        message:
+                            'New care updates and recommendations will appear here.',
+                        actionLabel: 'Log a vital',
+                        onAction: () => SubmitVitalSheet.show(context),
+                        compact: true,
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < visible.length; i++) ...[
+                          _PatientForYouRow(scene: visible[i]),
+                          if (i != visible.length - 1)
+                            Divider(
+                              height: 1,
+                              color: AppPalette.border(context),
+                            ),
+                        ],
+                        if (hidden > 0 || _showAll) ...[
+                          Divider(height: 1, color: AppPalette.border(context)),
+                          TextButton.icon(
+                            onPressed: () =>
+                                setState(() => _showAll = !_showAll),
+                            icon: Icon(
+                              _showAll
+                                  ? AppIcons.expandLess
+                                  : AppIcons.expandMore,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _showAll ? 'Show less' : 'Show $hidden more',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PatientForYouRow extends StatelessWidget {
+  const _PatientForYouRow({required this.scene});
+
+  final _HubScene scene;
+
+  String get _kind {
+    if (scene.urgent) return 'Alert';
+    if (scene.id.startsWith('ann_')) return 'News';
+    if (scene.id == 'profile' || scene.id == 'progress') return 'Recommended';
+    return 'Activity';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final action = scene.actions.isEmpty ? null : scene.actions.first;
+    final body = Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      child: Row(
+        children: [
+          _PatientIconDisc(icon: scene.icon, color: scene.accent),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        scene.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scene.accent.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusPill,
+                        ),
+                      ),
+                      child: Text(
+                        _kind,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scene.accent,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  scene.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                ),
+                if ((scene.body ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    scene.body!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.ink(context),
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (action != null) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Icon(AppIcons.chevronRight, color: scene.accent, size: 20),
+          ],
+        ],
+      ),
+    );
+
+    if (action == null) return body;
+    return Semantics(
+      button: true,
+      label: '${scene.title}. ${scene.subtitle}',
+      child: InkWell(onTap: action.onTap, child: body),
     );
   }
 }
@@ -1219,7 +1833,6 @@ String _patientVisitTime(DateTime scheduledAt) {
   return '$day · ${DateFormat.jm().format(scheduledAt)}';
 }
 
-
 /// Home prompt for outstanding record-sharing requests.
 ///
 /// Consent used to travel on a single notification; once that was read there
@@ -1263,9 +1876,7 @@ class _PatientSharingRequestCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      more > 0
-                          ? 'Approve sharing of your record'
-                          : first.title,
+                      more > 0 ? 'Approve sharing of your record' : first.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(

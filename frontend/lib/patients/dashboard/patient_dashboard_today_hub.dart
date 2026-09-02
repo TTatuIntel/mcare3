@@ -348,6 +348,41 @@ List<_HubScene> _buildHubScenes(
     );
   }
 
+  // --- Documents and uploads -------------------------------------------------
+  // Home only calls out the newest recent file. The Documents screen remains
+  // the complete record while this scene answers "what just changed?".
+  final documents = DocumentsState.instance.all;
+  if (documents.isNotEmpty) {
+    final document = documents.first;
+    final age = now.difference(document.uploadedAt);
+    if (!age.isNegative && age <= const Duration(days: 14)) {
+      final fromCareTeam = document.source != DocumentSource.patient;
+      scenes.add(
+        _HubScene(
+          id: 'document_${document.id}',
+          title: fromCareTeam ? 'New document' : 'Document uploaded',
+          subtitle:
+              '${document.category.label} · ${_relativeTime(document.uploadedAt)}',
+          icon: document.category.icon,
+          accent: document.category.color,
+          priority: fromCareTeam ? 68 : 52,
+          at: document.uploadedAt,
+          body: document.title,
+          actions: [
+            _SceneAction(
+              icon: AppIcons.document,
+              accent: document.category.color,
+              title: 'Open documents',
+              detail: document.title,
+              onTap: () =>
+                  Navigator.of(context).pushNamed(RouteNames.patientDocuments),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   // --- Assigned meals --------------------------------------------------------
   final mealsToday = MealPlansState.instance.assignedToday;
   final meal = mealsToday.isNotEmpty
@@ -745,6 +780,7 @@ class _PatientTodayHubState extends State<_PatientTodayHub>
         MessagesState.instance,
         AnnouncementsState.instance,
         MealPlansState.instance,
+        DocumentsState.instance,
         SupportState.instance,
         VitalReportState.instance,
         SosState.instance,
@@ -766,13 +802,11 @@ class _PatientTodayHubState extends State<_PatientTodayHub>
 
         final current = scenes[_index.clamp(0, scenes.length - 1)];
 
-        if (_reduceMotion) return _StaticHubCard(scenes: scenes);
-
         // The card takes the scene's colour with it: the whole surface
         // changes, not a row inside it.
         return TweenAnimationBuilder<Color?>(
           tween: ColorTween(end: current.accent),
-          duration: AppMotion.page,
+          duration: _reduceMotion ? Duration.zero : AppMotion.page,
           curve: AppMotion.easeOut,
           builder: (context, accent, _) {
             final tint = accent ?? current.accent;
@@ -785,7 +819,7 @@ class _PatientTodayHubState extends State<_PatientTodayHub>
                     ? 0.16 + 0.30 * _pulse.value
                     : 0.34 * (1 - Curves.easeOut.transform(_flash.value));
                 return GlassCard(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  padding: const EdgeInsets.all(AppSpacing.md),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -816,17 +850,19 @@ class _PatientTodayHubState extends State<_PatientTodayHub>
                   _SceneDeck(
                     scenes: scenes,
                     index: _index.clamp(0, scenes.length - 1),
+                    animate: !_reduceMotion,
                     onSwipe: (forward) {
                       _onUserSwipe();
                       _goTo(_index + (forward ? 1 : -1));
                     },
                   ),
                   if (scenes.length > 1) ...[
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.xs),
                     _HubFooter(
                       count: scenes.length,
                       index: _index.clamp(0, scenes.length - 1),
                       accent: tint,
+                      live: !_reduceMotion,
                       onSelect: (i) {
                         _onUserSwipe();
                         _goTo(i);
@@ -843,29 +879,32 @@ class _PatientTodayHubState extends State<_PatientTodayHub>
   }
 }
 
-/// Every scene, stacked, with one of them showing.
-///
-/// The deck is not a [PageView] on a fixed height. Scenes hold different
-/// amounts — two action rows, or a paragraph and a row of facts — and a fixed
-/// page either clips the tall ones or leaves the short ones hollow; at a large
-/// text size it clipped them all. Stacking instead makes the card as tall as
-/// its tallest scene and no taller, whatever the reader's text size, so the
-/// card cannot overflow and the page below never jumps as scenes swap.
+/// The current scene only. Its height is content-driven, so a short
+/// announcement no longer inherits the empty space required by a taller
+/// two-action scene. [AnimatedSize] keeps the rest of the page from snapping
+/// when the live surface changes.
 class _SceneDeck extends StatelessWidget {
   const _SceneDeck({
     required this.scenes,
     required this.index,
+    required this.animate,
     required this.onSwipe,
   });
 
   final List<_HubScene> scenes;
   final int index;
+  final bool animate;
 
   /// True for the next scene, false for the previous one.
   final ValueChanged<bool> onSwipe;
 
   @override
   Widget build(BuildContext context) {
+    final current = KeyedSubtree(
+      key: ValueKey(scenes[index].id),
+      child: _HubSceneView(scene: scenes[index]),
+    );
+
     return GestureDetector(
       // Horizontal only: the page under this card scrolls vertically, and a
       // tap still reaches the action rows.
@@ -874,43 +913,30 @@ class _SceneDeck extends StatelessWidget {
         if (velocity.abs() < 120 || scenes.length < 2) return;
         onSwipe(velocity < 0);
       },
-      child: Stack(
-        alignment: Alignment.topLeft,
-        children: [
-          for (var i = 0; i < scenes.length; i++)
-            _SceneSlot(
-              active: i == index,
-              child: _HubSceneView(scene: scenes[i]),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One scene in the deck. The inactive ones keep their space — that is what
-/// sizes the card — but are not painted, not tappable and not read aloud.
-class _SceneSlot extends StatelessWidget {
-  const _SceneSlot({required this.active, required this.child});
-
-  final bool active;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedOpacity(
-      opacity: active ? 1 : 0,
-      duration: AppMotion.page,
-      curve: AppMotion.easeOut,
-      child: AnimatedSlide(
-        offset: active ? Offset.zero : const Offset(0.05, 0),
-        duration: AppMotion.page,
-        curve: AppMotion.easeOut,
-        child: IgnorePointer(
-          ignoring: !active,
-          child: ExcludeSemantics(excluding: !active, child: child),
-        ),
-      ),
+      child: animate
+          ? AnimatedSize(
+              duration: AppMotion.page,
+              curve: AppMotion.easeOut,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: AppMotion.page,
+                switchInCurve: AppMotion.easeOut,
+                layoutBuilder: (currentChild, _) =>
+                    currentChild ?? const SizedBox.shrink(),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.04, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: current,
+              ),
+            )
+          : current,
     );
   }
 }
@@ -977,7 +1003,7 @@ class _HubSceneView extends StatelessWidget {
     final children = <Widget>[
       Row(
         children: [
-          _PatientIconDisc(icon: scene.icon, color: scene.accent, size: 52),
+          _PatientIconDisc(icon: scene.icon, color: scene.accent, size: 46),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -1007,7 +1033,7 @@ class _HubSceneView extends StatelessWidget {
         ],
       ),
       if (showBody) ...[
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
         Text(
           scene.body!,
           maxLines: 2,
@@ -1023,7 +1049,7 @@ class _HubSceneView extends StatelessWidget {
         _SceneStatsRow(stats: scene.stats, accent: scene.accent),
       ],
       for (var i = 0; i < scene.actions.length && i < 2; i++) ...[
-        SizedBox(height: i == 0 ? AppSpacing.md : AppSpacing.sm),
+        const SizedBox(height: AppSpacing.sm),
         _SceneActionRow(action: scene.actions[i]),
       ],
       if (showFootnote) ...[
@@ -1083,7 +1109,10 @@ class _SceneActionRow extends StatelessWidget {
     final radius = BorderRadius.circular(AppSpacing.radiusLg);
 
     final body = Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: AppPalette.surface(context),
         borderRadius: radius,
@@ -1196,12 +1225,14 @@ class _HubFooter extends StatelessWidget {
     required this.count,
     required this.index,
     required this.accent,
+    required this.live,
     required this.onSelect,
   });
 
   final int count;
   final int index;
   final Color accent;
+  final bool live;
   final ValueChanged<int> onSelect;
 
   @override
@@ -1241,8 +1272,38 @@ class _HubFooter extends StatelessWidget {
             ],
           ),
         ),
-        _HubLivePill(accent: accent),
+        if (live)
+          _HubLivePill(accent: accent)
+        else
+          _HubPausedPill(accent: accent),
       ],
+    );
+  }
+}
+
+class _HubPausedPill extends StatelessWidget {
+  const _HubPausedPill({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      ),
+      child: Text(
+        'Swipe',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: accent,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }

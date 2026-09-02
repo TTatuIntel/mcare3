@@ -77,6 +77,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by('external-token:'.$token);
         });
 
+        // Payload-free cursor for the one-patient guest portal. It has a
+        // separate allowance so live watching cannot consume write capacity.
+        RateLimiter::for('external-pulse', function (Request $request) {
+            $token = (string) $request->route('token', '');
+
+            return Limit::perMinute(60)->by('external-pulse:'.hash('sha256', $token));
+        });
+
         // General authenticated API — per-user cap, IP fallback for guests.
         RateLimiter::for('api-general', function (Request $request) {
             $key = $request->user()

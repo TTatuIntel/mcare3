@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../auth/auth_state.dart';
 import '../dashboard/admin_workspace_catalog.dart';
 import '../account/account_preferences_list.dart';
@@ -228,17 +229,26 @@ class StaffChatThreadView extends StatefulWidget {
   State<StaffChatThreadView> createState() => _StaffChatThreadViewState();
 }
 
-class _StaffChatThreadViewState extends State<StaffChatThreadView> {
+class _StaffChatThreadViewState extends State<StaffChatThreadView>
+    with RealtimeRefreshMixin<StaffChatThreadView> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'messages'}, _refreshThread);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      MessagesState.instance.markRead(widget.conversationId);
-      MessagesState.instance.loadThread(widget.conversationId);
+      _refreshThread();
     });
+  }
+
+  Future<void> _refreshThread() async {
+    await MessagesState.instance.loadThread(widget.conversationId);
+    final conversation = MessagesState.instance.byId(widget.conversationId);
+    if (conversation != null && conversation.unreadCount > 0) {
+      await MessagesState.instance.markRead(widget.conversationId);
+    }
   }
 
   @override

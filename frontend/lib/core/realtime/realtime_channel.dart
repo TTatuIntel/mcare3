@@ -25,9 +25,9 @@ import 'session_poller.dart';
 /// build launched without the flags ran with no live connection at all and
 /// nobody could tell from the outside.
 ///
-/// When no socket is available, [PulseWatcher] carries the same domain
-/// invalidations over a cheap cursor poll, and both feed [changes]. A screen
-/// therefore cannot be live on one transport and stale on the other.
+/// [PulseWatcher] carries the same domain invalidations over a cheap cursor
+/// poll as a continuous correctness watchdog, and both feed [changes]. A
+/// screen therefore cannot be live on one transport and stale on the other.
 ///
 /// `session.changed` events carry domain names only. They trigger the same
 /// authenticated REST hydration path used by polling, while independently
@@ -40,6 +40,10 @@ class RealtimeChannel {
     // there is no socket to listen to. The channel is a process-lifetime
     // singleton, so this subscription is never torn down.
     PulseWatcher.instance.changes.listen(_changes.add);
+    // A stale cursor means the server can no longer name what was missed.
+    // Broadcast a wildcard invalidation so independently loaded detail pages
+    // refresh too; a role-session refresh alone cannot cover those endpoints.
+    PulseWatcher.instance.gaps.listen((_) => _changes.add(const {'*'}));
   }
   static final RealtimeChannel instance = RealtimeChannel._();
 
@@ -59,7 +63,8 @@ class RealtimeChannel {
       StreamController<Set<String>>.broadcast(sync: true);
 
   /// True only after every required private channel is authorised and Reverb
-  /// confirms the subscriptions. Polling remains the primary path otherwise.
+  /// confirms the subscriptions. The cursor watcher remains a lightweight
+  /// correctness watchdog even while this is true.
   bool get isSubscribed => _attached && _subscribed;
 
   /// Domain-level invalidation stream for screens that own an endpoint outside

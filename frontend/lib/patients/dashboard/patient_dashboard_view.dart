@@ -9,6 +9,7 @@ import '../../core/location/google_maps_service.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/announcement.dart';
 import '../../shared/models/appointment.dart';
+import '../../shared/models/document.dart';
 import '../../shared/models/meal_plan.dart';
 import '../../shared/models/medication.dart';
 import '../../shared/navigation/notification_router.dart';
@@ -19,6 +20,7 @@ import '../../shared/models/sos.dart';
 import '../../shared/models/vital.dart';
 import '../../shared/state/announcements_state.dart';
 import '../../shared/state/appointments_state.dart';
+import '../../shared/state/documents_state.dart';
 import '../../shared/state/meal_plans_state.dart';
 import '../../shared/state/medications_state.dart';
 import '../../shared/state/messages_state.dart';
@@ -38,11 +40,9 @@ import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/app_page_route.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
-import '../../shared/widgets/glass_floating_button.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/patient_sheet.dart';
-import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/risk_badge.dart';
 import '../../shared/widgets/section_label.dart';
 import '../vitals/submit_vital_sheet.dart';
@@ -53,41 +53,14 @@ part 'patient_dashboard_home_sections.dart';
 part 'patient_dashboard_today_hub.dart';
 part 'patient_dashboard_vitals.dart';
 
-/// Tints the home "Log vital" button by the worst tracked reading, so the
-/// action the patient reaches for carries the same urgency the board shows.
-List<Color> _homeFabColors() {
-  var hasCritical = false;
-  var hasWarning = false;
-  for (final key in VitalsState.instance.tracked) {
-    final risk = VitalsState.instance.latestOf(key)?.risk;
-    if (risk == RiskLevel.critical) hasCritical = true;
-    if (risk == RiskLevel.warning) hasWarning = true;
-  }
-  if (hasCritical) return [AppColors.critical, AppColors.warning];
-  if (hasWarning) return [AppColors.warning, AppColors.brandIndigo];
-  return [AppColors.brandIndigo, const Color(0xFF8B5CF6)];
-}
-
 class PatientDashboardView extends StatelessWidget {
   const PatientDashboardView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final tier = ResponsiveBuilder.of(context);
-
     return PatientScaffold(
       currentRoute: RouteNames.patientDashboard,
-      // Logging a vital is the patient's most repeated task, so home carries
-      // the same floating action the Vitals screen does instead of forcing a
-      // scroll down to the board.
-      floatingActionButton: tier.isHandheld
-          ? GlassFloatingButton(
-              icon: AppIcons.add,
-              label: 'Log vital',
-              dynamicColors: _homeFabColors(),
-              onPressed: () => SubmitVitalSheet.show(context),
-            )
-          : null,
+      maxContentWidth: 1120,
       body: AnimatedBuilder(
         animation: Listenable.merge([
           VitalsState.instance,
@@ -105,7 +78,6 @@ class PatientDashboardView extends StatelessWidget {
             appointments: appointments,
             doses: doses,
             unreadNotifications: unread,
-            reserveFabSpace: tier.isHandheld,
           );
         },
       ),

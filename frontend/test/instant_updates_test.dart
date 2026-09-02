@@ -90,23 +90,26 @@ void main() {
     await sub.cancel();
   });
 
-  test('a change after the baseline is reported and advances the cursor', () async {
-    serve([
-      answer(cursor: 40),
-      answer(cursor: 44, domains: const ['alerts', 'notifications']),
-    ]);
+  test(
+    'a change after the baseline is reported and advances the cursor',
+    () async {
+      serve([
+        answer(cursor: 40),
+        answer(cursor: 44, domains: const ['alerts', 'notifications']),
+      ]);
 
-    final seen = <Set<String>>[];
-    final sub = PulseWatcher.instance.changes.listen(seen.add);
+      final seen = <Set<String>>[];
+      final sub = PulseWatcher.instance.changes.listen(seen.add);
 
-    await PulseWatcher.instance.poll(); // baseline
-    await PulseWatcher.instance.poll(); // the alert lands
+      await PulseWatcher.instance.poll(); // baseline
+      await PulseWatcher.instance.poll(); // the alert lands
 
-    expect(seen, hasLength(1));
-    expect(seen.single, containsAll(<String>['alerts', 'notifications']));
-    expect(PulseWatcher.instance.cursor, 44);
-    await sub.cancel();
-  });
+      expect(seen, hasLength(1));
+      expect(seen.single, containsAll(<String>['alerts', 'notifications']));
+      expect(PulseWatcher.instance.cursor, 44);
+      await sub.cancel();
+    },
+  );
 
   test('a live change reaches the same stream the socket feeds', () async {
     serve([
@@ -127,10 +130,7 @@ void main() {
   });
 
   test('a cursor the server can no longer account for raises a gap', () async {
-    serve([
-      answer(cursor: 40),
-      answer(cursor: 90, stale: true),
-    ]);
+    serve([answer(cursor: 40), answer(cursor: 90, stale: true)]);
 
     var gaps = 0;
     final sub = PulseWatcher.instance.gaps.listen((_) => gaps++);
@@ -138,28 +138,49 @@ void main() {
     await PulseWatcher.instance.poll();
     await PulseWatcher.instance.poll();
 
-    expect(gaps, 1, reason: 'the listener has to re-read rather than trust a list');
+    expect(
+      gaps,
+      1,
+      reason: 'the listener has to re-read rather than trust a list',
+    );
     await sub.cancel();
   });
 
-  test('a client that started against an empty buffer misses nothing', () async {
-    // Nothing had happened yet when this client first looked, so the server
-    // had no id to hand it. The changes that follow are still its business.
-    serve([
-      answer(cursor: 0),
-      answer(cursor: 9),
-    ]);
+  test('a cursor gap invalidates independently loaded pages too', () async {
+    serve([answer(cursor: 40), answer(cursor: 90, stale: true)]);
 
-    var gaps = 0;
-    final sub = PulseWatcher.instance.gaps.listen((_) => gaps++);
+    final seen = <Set<String>>[];
+    final sub = RealtimeChannel.instance.changes.listen(seen.add);
 
-    await PulseWatcher.instance.poll(); // baseline against an empty buffer
-    await PulseWatcher.instance.poll(); // rows now exist
+    await PulseWatcher.instance.poll();
+    await PulseWatcher.instance.poll();
 
-    expect(PulseWatcher.instance.cursor, 9);
-    expect(gaps, 1, reason: 'the domains behind those rows were never listed');
+    expect(seen.single, contains('*'));
     await sub.cancel();
   });
+
+  test(
+    'a client that started against an empty buffer misses nothing',
+    () async {
+      // Nothing had happened yet when this client first looked, so the server
+      // had no id to hand it. The changes that follow are still its business.
+      serve([answer(cursor: 0), answer(cursor: 9)]);
+
+      var gaps = 0;
+      final sub = PulseWatcher.instance.gaps.listen((_) => gaps++);
+
+      await PulseWatcher.instance.poll(); // baseline against an empty buffer
+      await PulseWatcher.instance.poll(); // rows now exist
+
+      expect(PulseWatcher.instance.cursor, 9);
+      expect(
+        gaps,
+        1,
+        reason: 'the domains behind those rows were never listed',
+      );
+      await sub.cancel();
+    },
+  );
 
   test('the cursor never moves backwards', () async {
     serve([
@@ -222,6 +243,16 @@ void main() {
 
       expect(RuntimeConfig.instance.socketEnabled, isFalse);
       expect(RuntimeConfig.instance.socketUrl, isEmpty);
+    });
+
+    test('the server can disable a socket pinned into an old build', () {
+      RuntimeConfig.instance.applyForTesting(
+        socketUrl: 'ws://192.168.1.20:8080',
+        socketAppKey: 'abc123',
+        serverSocketEnabled: false,
+      );
+
+      expect(RuntimeConfig.instance.socketEnabled, isFalse);
     });
 
     test('the poll cadence the server names is honoured, within reason', () {

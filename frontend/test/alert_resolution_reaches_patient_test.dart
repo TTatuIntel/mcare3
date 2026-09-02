@@ -20,6 +20,7 @@ import 'package:mcare/shared/state/support_state.dart';
 import 'package:mcare/shared/state/vital_report_state.dart';
 import 'package:mcare/shared/state/vitals_state.dart';
 import 'package:mcare/shared/theme/app_theme.dart';
+import 'package:mcare/shared/widgets/glass_card.dart';
 
 /// The last leg of a resolution: from the clinician who closed it to the
 /// patient's own screen.
@@ -75,7 +76,8 @@ void main() {
         'id': 'n1',
         'kind': 'alert_resolved',
         'title': 'Heart rate alert resolved',
-        'body': 'Dr. Mensah reviewed your heart rate alert · Patient '
+        'body':
+            'Dr. Mensah reviewed your heart rate alert · Patient '
             'contacted. Resting and stable.',
         'created_at': DateTime.now().toIso8601String(),
         'action_route': '/patient/vitals',
@@ -210,7 +212,8 @@ void main() {
           id: 'r1',
           kind: NotificationKind.resolution,
           title: 'Heart rate alert resolved',
-          body: 'Dr. Mensah reviewed your heart rate alert · Patient '
+          body:
+              'Dr. Mensah reviewed your heart rate alert · Patient '
               'contacted. Resting and stable, recheck at 6pm.',
           createdAt: DateTime.now(),
           actionArguments: VitalKey.heartRate,
@@ -255,12 +258,11 @@ Future<void> _pumpDashboard(WidgetTester tester) async {
 }
 
 bool _showing(WidgetTester tester, String text) {
-  final finder = find.ancestor(
-    of: find.text(text),
-    matching: find.byType(AnimatedOpacity),
-  );
-  if (finder.evaluate().isEmpty) return false;
-  return tester.widget<AnimatedOpacity>(finder.first).opacity == 1;
+  final hub = find
+      .ancestor(of: find.text('Live'), matching: find.byType(GlassCard))
+      .first;
+  final finder = find.descendant(of: hub, matching: find.text(text));
+  return finder.evaluate().isNotEmpty;
 }
 
 Future<void> _dispose(WidgetTester tester) async {

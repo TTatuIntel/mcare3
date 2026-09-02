@@ -22,8 +22,10 @@ import '../env/runtime_config.dart';
 /// almost always. Screens then re-hydrate through the same authorised REST
 /// endpoints they already use, so nothing about authorization changes.
 ///
-/// It stops itself the moment the socket is carrying events, and starts again
-/// the moment it is not.
+/// It stays active as a correctness watchdog even while the socket is
+/// connected. A WebSocket subscription can succeed against a Reverb instance
+/// whose API publisher is accidentally pointed elsewhere; the cursor makes
+/// that deployment error degrade to a short delay instead of stale screens.
 class PulseWatcher {
   PulseWatcher._();
   static final PulseWatcher instance = PulseWatcher._();

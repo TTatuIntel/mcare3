@@ -24,10 +24,9 @@ import 'package:mcare/shared/state/vitals_state.dart';
 import 'package:mcare/shared/theme/app_theme.dart';
 import 'package:mcare/shared/widgets/glass_card.dart';
 
-/// The home hub is one card that becomes each thing today holds in turn: the
-/// title, the accent, the body and the actions change together, so the patient
-/// reads "Medicine time" or "Assigned meal", not a fixed panel with a changing
-/// row inside it.
+/// The home hub is one compact live card that becomes each thing today holds
+/// in turn. Its height follows the visible scene, so a short announcement does
+/// not reserve the height of a two-action medication card.
 ///
 /// What these tests hold to: the card renames itself as it turns, the most
 /// urgent thing leads, a scene that only reports something is not a button,
@@ -188,14 +187,15 @@ void main() {
       await _nextScene(tester);
     }
 
-    // The deck sizes to its tallest scene, so the card is the same height on
-    // every turn — the page below never jumps.
+    // The card now follows its content instead of reserving the tallest scene.
+    // This is the whitespace regression covered by the dashboard redesign.
     final heights = <double>{};
     for (var i = 0; i < 4; i++) {
       heights.add(tester.getSize(_hubCard).height);
       await _nextScene(tester);
     }
-    expect(heights, hasLength(1));
+    expect(heights.length, greaterThan(1));
+    expect(heights.every((height) => height < 340), isTrue);
 
     await _dispose(tester);
   });
@@ -227,20 +227,36 @@ void main() {
     await _dispose(tester);
   });
 
-  testWidgets('with animations off the day is listed, not rotated', (
+  testWidgets('with animations off the hub pauses and remains swipeable', (
     tester,
   ) async {
     await _pumpDashboard(tester, reduceMotion: true);
 
-    // Nothing is moving, so nothing claims to be.
+    // Nothing is moving by itself, so nothing claims to be live.
     expect(find.text('Live'), findsNothing);
+    expect(find.text('Swipe'), findsOneWidget);
 
-    // Every scene the rotation would have taken in turn is reachable at once,
-    // each still carrying its own title.
-    expect(find.text('Your plan today'), findsOneWidget);
-    expect(find.text('Announcement'), findsOneWidget);
-    expect(find.text('Assigned meal'), findsOneWidget);
-    expect(find.textContaining('Welcome back'), findsOneWidget);
+    final card = find
+        .ancestor(of: find.text('Swipe'), matching: find.byType(GlassCard))
+        .first;
+    expect(
+      find.descendant(of: card, matching: find.text('Your plan today')),
+      findsOneWidget,
+    );
+
+    // Reduced motion stops the timer, but the patient still controls the live
+    // surface using the position controls.
+    final secondCardControl = find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics &&
+          (widget.properties.label ?? '').startsWith('Card 2 of'),
+    );
+    await tester.tap(secondCardControl);
+    await tester.pump();
+    expect(
+      find.descendant(of: card, matching: find.text('Announcement')),
+      findsOneWidget,
+    );
 
     await _dispose(tester);
   });
@@ -281,18 +297,12 @@ final Finder _hubCard = find
     .ancestor(of: find.text('Live'), matching: find.byType(GlassCard))
     .first;
 
-/// Whether [text] belongs to the scene the deck is currently showing.
-///
-/// Every scene stays in the tree — that is what makes the card as tall as its
-/// tallest scene — so "is it on screen" is a question about the slot's
-/// opacity, not about the finder matching.
+/// Whether [text] belongs to the scene currently visible in the live card.
+/// The same item may also appear in the compact "For you" history below, so
+/// this deliberately scopes the lookup to the card carrying the Live badge.
 bool _showing(WidgetTester tester, String text) {
-  final finder = find.ancestor(
-    of: find.text(text),
-    matching: find.byType(AnimatedOpacity),
-  );
-  if (finder.evaluate().isEmpty) return false;
-  return tester.widget<AnimatedOpacity>(finder.first).opacity == 1;
+  final finder = find.descendant(of: _hubCard, matching: find.text(text));
+  return finder.evaluate().isNotEmpty;
 }
 
 /// Waits out one dwell and the page transition that follows it.

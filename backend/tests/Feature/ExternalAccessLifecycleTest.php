@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Events\RealtimeDataChanged;
 use App\Models\AuditEntry;
 use App\Models\ExternalAccessToken;
+use App\Models\RealtimeEvent;
 use App\Models\User;
 use App\Models\VitalCatalog;
+use App\Services\RealtimeSignalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Event;
@@ -177,5 +179,53 @@ class ExternalAccessLifecycleTest extends TestCase
             'socket_id' => '1234.5678',
             'channel_name' => $channel,
         ])->assertNotFound();
+    }
+
+    public function test_external_portal_has_a_token_scoped_change_cursor_without_reverb(): void
+    {
+        config(['broadcasting.default' => 'null']);
+
+        $patient = User::factory()->role('patient')->create();
+        $access = ExternalAccessToken::create([
+            'patient_user_id' => $patient->id,
+            'created_by_user_id' => $patient->id,
+            'token' => str_repeat('p', 64),
+            'access_code' => 'PULS-LIVE',
+            'label' => 'pulse',
+            'expires_at' => now()->addDay(),
+        ]);
+        $other = ExternalAccessToken::create([
+            'patient_user_id' => $patient->id,
+            'created_by_user_id' => $patient->id,
+            'token' => str_repeat('o', 64),
+            'access_code' => 'OTHR-LIVE',
+            'label' => 'other',
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $baseline = $this->getJson("/api/v1/external/{$access->token}/pulse")
+            ->assertOk()
+            ->assertJsonPath('data.domains', [])
+            ->json('data.cursor');
+
+        RealtimeSignalService::signal(
+            ['external.'.$access->id],
+            ['documents'],
+            'created',
+            'MedicalDocument',
+            91,
+        );
+
+        $this->getJson("/api/v1/external/{$access->token}/pulse?since={$baseline}")
+            ->assertOk()
+            ->assertJsonPath('data.domains.0', 'documents');
+
+        $this->getJson("/api/v1/external/{$other->token}/pulse?since={$baseline}")
+            ->assertOk()
+            ->assertJsonPath('data.domains', []);
+
+        $access->update(['revoked_at' => now()]);
+        $this->getJson("/api/v1/external/{$access->token}/pulse?since=".RealtimeEvent::max('id'))
+            ->assertNotFound();
     }
 }

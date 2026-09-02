@@ -68,6 +68,7 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
   final ExternalRealtimeChannel _realtime = ExternalRealtimeChannel();
   Timer? _refreshTimer;
   bool _refreshing = false;
+  bool _refreshPending = false;
 
   @override
   void initState() {
@@ -90,7 +91,10 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
       });
       return;
     }
-    if (_refreshing) return;
+    if (_refreshing) {
+      _refreshPending = true;
+      return;
+    }
     _refreshing = true;
     try {
       if (!AppEnv.backendEnabled && !AppEnv.demoDataEnabled) {
@@ -125,6 +129,10 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
       _realtime.detach();
     } finally {
       _refreshing = false;
+      if (_refreshPending && mounted) {
+        _refreshPending = false;
+        unawaited(_loadPortal());
+      }
     }
   }
 

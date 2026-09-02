@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\DoctorVitalReportRequestsController;
 use App\Http\Controllers\Api\V1\DocumentsController;
 use App\Http\Controllers\Api\V1\ExternalBroadcastAuthController;
 use App\Http\Controllers\Api\V1\ExternalDoctorController;
+use App\Http\Controllers\Api\V1\ExternalRealtimePulseController;
 use App\Http\Controllers\Api\V1\FcmTokenController;
 use App\Http\Controllers\Api\V1\MedicationsController;
 use App\Http\Controllers\Api\V1\MessagesController;
@@ -120,6 +121,10 @@ Route::prefix('external')->group(function () {
     // README §6.5: 6/min — named limiter `external-resolve`.
     Route::post('resolve-code', [ExternalDoctorController::class, 'resolveCode'])
         ->middleware('throttle:external-resolve');
+    // Same payload-free cursor used by signed-in clients, scoped to this
+    // access token so the guest portal remains live even without WebSockets.
+    Route::get('{token}/pulse', ExternalRealtimePulseController::class)
+        ->middleware('throttle:external-pulse');
     // Writes via a leaked link — scope 30/min per token, not per IP.
     Route::middleware('throttle:external-write')->group(function () {
         Route::post('{token}/broadcasting/auth', ExternalBroadcastAuthController::class);

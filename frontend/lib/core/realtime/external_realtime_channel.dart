@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../env/app_env.dart';
+import '../env/runtime_config.dart';
 
 /// Token-scoped private realtime channel for the one-patient guest portal.
 /// Events contain invalidation metadata only; the portal always re-reads the
@@ -13,10 +14,15 @@ class ExternalRealtimeChannel {
   WebSocketChannel? _socket;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
+  Timer? _pulseTimer;
   String? _token;
   String? _channelName;
   VoidCallback? _onChanged;
   bool _attached = false;
+  bool _pulseInFlight = false;
+  bool _pulseBaselined = false;
+  int _pulseCursor = 0;
+  int _pulseFailures = 0;
   int _backoffSeconds = 2;
 
   Future<void> attach({
@@ -24,20 +30,24 @@ class ExternalRealtimeChannel {
     required String channelName,
     required VoidCallback onChanged,
   }) async {
-    if (!AppEnv.realtimeEnabled) return;
     if (_attached && _token == token && _channelName == channelName) return;
     detach();
     _attached = true;
     _token = token;
     _channelName = channelName;
     _onChanged = onChanged;
-    await _connect();
+    _startPulse();
+    if (RuntimeConfig.instance.socketEnabled) {
+      await _connect();
+    }
   }
 
   void detach() {
     _attached = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _pulseTimer?.cancel();
+    _pulseTimer = null;
     _subscription?.cancel();
     _subscription = null;
     try {
@@ -47,14 +57,86 @@ class ExternalRealtimeChannel {
     _token = null;
     _channelName = null;
     _onChanged = null;
+    _pulseInFlight = false;
+    _pulseBaselined = false;
+    _pulseCursor = 0;
+    _pulseFailures = 0;
     _backoffSeconds = 2;
+  }
+
+  void _startPulse() {
+    unawaited(_pollPulse());
+    _schedulePulse();
+  }
+
+  void _schedulePulse() {
+    _pulseTimer?.cancel();
+    if (!_attached) return;
+    final penalty = _pulseFailures.clamp(0, 4);
+    _pulseTimer = Timer(
+      RuntimeConfig.instance.pulseInterval * (1 << penalty),
+      () async {
+        await _pollPulse();
+        _schedulePulse();
+      },
+    );
+  }
+
+  Future<void> _pollPulse() async {
+    final token = _token;
+    if (!_attached || _pulseInFlight || token == null) return;
+
+    _pulseInFlight = true;
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+              '${AppEnv.apiBaseUrl}/external/${Uri.encodeComponent(token)}'
+              '/pulse?since=$_pulseCursor',
+            ),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 404 || response.statusCode == 410) {
+        _onChanged?.call();
+        return;
+      }
+      if (response.statusCode != 200) throw StateError('pulse unavailable');
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = body['data'] as Map<String, dynamic>?;
+      if (data == null) return;
+
+      _pulseFailures = 0;
+      final cursor = int.tryParse('${data['cursor'] ?? ''}') ?? _pulseCursor;
+      final wasFirst = !_pulseBaselined;
+      final startedFromEmpty = _pulseBaselined && _pulseCursor == 0;
+      _pulseBaselined = true;
+      if (cursor > _pulseCursor) _pulseCursor = cursor;
+      if (wasFirst) return;
+
+      final domains = data['domains'] as List?;
+      if (data['stale'] == true ||
+          (startedFromEmpty && cursor > 0) ||
+          (domains != null && domains.isNotEmpty)) {
+        _onChanged?.call();
+      }
+    } catch (_) {
+      _pulseFailures++;
+    } finally {
+      _pulseInFlight = false;
+    }
   }
 
   Future<void> _connect() async {
     if (!_attached) return;
-    final base = AppEnv.wsUrl.replaceAll(RegExp(r'/+$'), '');
+    final base = RuntimeConfig.instance.socketUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final endpoint =
-        '$base/app/${AppEnv.wsAppKey}'
+        '$base/app/${RuntimeConfig.instance.socketAppKey}'
         '?protocol=7&client=mcare-external&version=1.0.0&flash=false';
     try {
       _socket = WebSocketChannel.connect(Uri.parse(endpoint));

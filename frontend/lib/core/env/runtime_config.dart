@@ -32,6 +32,7 @@ class RuntimeConfig {
   String _appleRedirectUri = '';
   String _socketUrl = '';
   String _socketAppKey = '';
+  bool? _serverSocketEnabled;
   Duration _pulseInterval = const Duration(seconds: 3);
   bool _loaded = false;
 
@@ -89,6 +90,7 @@ class RuntimeConfig {
   /// True when a live socket can be attempted at all.
   bool get socketEnabled =>
       AppEnv.backendEnabled &&
+      _serverSocketEnabled != false &&
       socketUrl.isNotEmpty &&
       socketAppKey.isNotEmpty;
 
@@ -134,6 +136,7 @@ class RuntimeConfig {
     if (realtime == null) return;
 
     final socket = realtime['socket'] as Map<String, dynamic>?;
+    _serverSocketEnabled = socket?['enabled'] == true;
     if (socket != null && socket['enabled'] == true) {
       _socketUrl = (socket['url'] ?? '').toString().trim();
       _socketAppKey = (socket['key'] ?? '').toString().trim();
@@ -158,6 +161,7 @@ class RuntimeConfig {
     String appleRedirectUri = '',
     String socketUrl = '',
     String socketAppKey = '',
+    bool? serverSocketEnabled,
     Duration pulseInterval = const Duration(seconds: 3),
   }) {
     _googleClientId = googleClientId;
@@ -165,6 +169,9 @@ class RuntimeConfig {
     _appleRedirectUri = appleRedirectUri;
     _socketUrl = socketUrl;
     _socketAppKey = socketAppKey;
+    _serverSocketEnabled =
+        serverSocketEnabled ??
+        (socketUrl.isNotEmpty && socketAppKey.isNotEmpty ? true : null);
     _pulseInterval = pulseInterval;
     _loaded = true;
   }
@@ -176,6 +183,7 @@ class RuntimeConfig {
     _appleRedirectUri = '';
     _socketUrl = '';
     _socketAppKey = '';
+    _serverSocketEnabled = null;
     _pulseInterval = const Duration(seconds: 3);
     _loaded = false;
   }

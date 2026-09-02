@@ -15,6 +15,7 @@ class MessagesState extends ChangeNotifier {
 
   final List<Conversation> _conversations = [];
   final Map<String, List<ChatMessage>> _threads = {};
+  final Set<String> _loadedThreadIds = {};
 
   List<Conversation> get conversations => List.unmodifiable(_conversations);
 
@@ -46,9 +47,29 @@ class MessagesState extends ChangeNotifier {
     _conversations
       ..clear()
       ..addAll(conversations);
-    _threads
-      ..clear()
-      ..addAll(threads);
+
+    final activeIds = conversations.map((c) => c.id).toSet();
+    _threads.removeWhere((id, _) => !activeIds.contains(id));
+    _loadedThreadIds.removeWhere((id) => !activeIds.contains(id));
+
+    for (final conversation in conversations) {
+      final incoming = threads[conversation.id] ?? const <ChatMessage>[];
+      if (!_loadedThreadIds.contains(conversation.id)) {
+        _threads[conversation.id] = List<ChatMessage>.from(incoming);
+        continue;
+      }
+
+      // A role-session payload contains only each conversation's newest
+      // message. Preserve a thread the user has already opened and merge that
+      // preview into it; clearing the map here used to make the entire chat
+      // history disappear whenever a live session refresh arrived.
+      final merged = <String, ChatMessage>{
+        for (final message in _threads[conversation.id] ?? const [])
+          message.id: message,
+        for (final message in incoming) message.id: message,
+      }.values.toList()..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+      _threads[conversation.id] = merged;
+    }
     notifyListeners();
   }
 
@@ -240,6 +261,7 @@ class MessagesState extends ChangeNotifier {
         final msgs = await MessagesApi.instance.loadThread(conversationId);
         _threads[conversationId] = msgs;
       }
+      _loadedThreadIds.add(conversationId);
       notifyListeners();
     } catch (_) {
       // Keep optimistic preview thread.
