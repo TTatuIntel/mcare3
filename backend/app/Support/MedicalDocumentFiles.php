@@ -17,7 +17,7 @@ class MedicalDocumentFiles
     {
         return $request->validate([
             'title' => 'required|string|max:200',
-            'category' => 'required|string|in:labResult,prescription,imaging,discharge,consultationNote,other',
+            'category' => 'required|string|in:'.DocumentCategories::rule(),
             'file_type' => 'required|string|in:pdf,image,doc,other',
             'description' => 'nullable|string',
             'shared_with_doctor_id' => 'nullable|exists:users,id',
@@ -29,7 +29,7 @@ class MedicalDocumentFiles
     {
         return $request->validate([
             'title' => 'sometimes|string|max:200',
-            'category' => 'sometimes|string|in:labResult,prescription,imaging,discharge,consultationNote,other',
+            'category' => 'sometimes|string|in:'.DocumentCategories::rule(),
             'file_type' => 'sometimes|string|in:pdf,image,doc,other',
             'description' => 'nullable|string',
             'file' => 'nullable|file|max:10240|mimes:'.self::ALLOWED_MIMES,

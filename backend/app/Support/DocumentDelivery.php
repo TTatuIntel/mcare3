@@ -50,13 +50,6 @@ final class DocumentDelivery
      */
     private static function categoryLabel(?string $category): string
     {
-        return match ($category) {
-            'labResult' => 'lab result',
-            'prescription' => 'prescription',
-            'imaging' => 'imaging',
-            'discharge' => 'discharge summary',
-            'consultationNote' => 'consultation note',
-            default => 'document',
-        };
+        return DocumentCategories::label($category);
     }
 }

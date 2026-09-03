@@ -2,10 +2,12 @@ import '../../shared/models/announcement.dart';
 import '../../shared/models/appointment.dart';
 import '../../shared/models/care_provider.dart';
 import '../../shared/models/document.dart';
+import '../../shared/models/document_request.dart';
 import '../../shared/models/meal_plan.dart';
 import '../../shared/models/medication.dart';
 import '../../shared/models/message.dart';
 import '../../shared/models/notification_item.dart';
+import '../../shared/models/request_activity_event.dart';
 import '../../shared/models/sos.dart';
 import '../../shared/models/support_ticket.dart';
 import '../../shared/models/user_role.dart';
@@ -134,10 +136,21 @@ class PatientDomainMapper {
     );
   }
 
+  /// The server writes `in_progress`; the enum is camelCase, so the two do
+  /// not match by name and never will.
   static VitalReportStatus vitalReportStatusFromApi(String? raw) {
+    if (raw == 'in_progress') return VitalReportStatus.inProgress;
     return VitalReportStatus.values.firstWhere(
       (e) => e.name == raw,
       orElse: () => VitalReportStatus.pending,
+    );
+  }
+
+  static DocumentRequestStatus documentRequestStatusFromApi(String? raw) {
+    if (raw == 'in_progress') return DocumentRequestStatus.inProgress;
+    return DocumentRequestStatus.values.firstWhere(
+      (e) => e.name == raw,
+      orElse: () => DocumentRequestStatus.pending,
     );
   }
 
@@ -324,6 +337,9 @@ class PatientDomainMapper {
   }
 
   static AppNotification notificationFromApi(Map<String, dynamic> json) {
+    final args = json['action_arguments'];
+    final detail = args is Map ? args.cast<String, dynamic>() : null;
+
     return AppNotification(
       id: json['id'] as String,
       kind: notificationKindFromApi(json['kind'] as String?),
@@ -334,8 +350,38 @@ class PatientDomainMapper {
       resolved: json['resolved'] as bool? ?? false,
       resolvedAt: parseDate(json['resolved_at'] as String?),
       actionRoute: json['action_route'] as String?,
-      actionArguments: notificationArgsFromApi(json['action_arguments']),
+      actionArguments: notificationArgsFromApi(args),
+      // `notificationArgsFromApi` collapses the payload to the vital it links
+      // to, which is what navigation needs and all it needs. The outcome the
+      // care team recorded lives in the same map and was being dropped with
+      // it, so it is lifted out here into fields of its own.
+      resolvedBy: detail?['resolved_by'] as String?,
+      resolutionAction: resolutionActionLabel(
+        detail?['resolution_action'] as String?,
+        detail?['resolution_custom_action'] as String?,
+      ),
+      resolutionNote: detail?['resolution_note'] as String?,
+      acknowledgedBy: detail?['acknowledged_by'] as String?,
     );
+  }
+
+  /// The responder's chosen action, in the words the patient reads. Mirrors
+  /// `AlertResolutionNotifier::actionLabel` on the API side.
+  static String? resolutionActionLabel(String? action, String? custom) {
+    if (action == null || action.isEmpty) return null;
+    if (action == 'other') {
+      final trimmed = (custom ?? '').trim();
+      return trimmed.isEmpty ? 'Other action' : trimmed;
+    }
+    return switch (action) {
+      'patient_contacted' => 'Patient contacted',
+      'medication_adjusted' => 'Medication adjusted',
+      'follow_up_scheduled' => 'Follow-up scheduled',
+      'monitored' => 'Monitored / observed',
+      'referred' => 'Referred to care',
+      'reading_error' => 'Reading error / false alarm',
+      _ => 'Reviewed',
+    };
   }
 
   static TicketReply ticketReplyFromApi(Map<String, dynamic> json) {
@@ -384,6 +430,7 @@ class PatientDomainMapper {
   static CareProvider careProviderFromApi(Map<String, dynamic> json) {
     return CareProvider(
       id: json['id'] as String,
+      userId: json['user_id'] as String?,
       name: json['name'] as String,
       specialty: json['specialty'] as String,
       facility: json['facility'] as String,
@@ -423,12 +470,64 @@ class PatientDomainMapper {
       status: vitalReportStatusFromApi(json['status'] as String?),
       currentResponder: userRoleFromApi(json['current_responder'] as String?),
       note: json['note'] as String?,
+      claimedById: json['claimed_by'] as String?,
+      claimedByName: json['claimed_by_name'] as String?,
+      claimedAt: parseDate(json['claimed_at'] as String?),
+      waitingOn: json['waiting_on'] as String?,
       respondedAt: parseDate(json['responded_at'] as String?),
       respondedBy: json['responded_by'] as String?,
       responseNote: json['response_note'] as String?,
+      resolvedAt: parseDate(json['resolved_at'] as String?),
+      documentId: json['document_id'] as String?,
       lastEscalatedAt: parseDate(json['last_escalated_at'] as String?),
+      events: RequestActivityEvent.listFromApi(json['events']),
     );
   }
+
+  static DocumentRequest documentRequestFromApi(Map<String, dynamic> json) {
+    return DocumentRequest(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Document request') as String,
+      category: documentCategoryFromApi(json['category'] as String?),
+      target: json['target'] == 'doctor'
+          ? DocumentRequestTarget.doctor
+          : DocumentRequestTarget.team,
+      status: documentRequestStatusFromApi(json['status'] as String?),
+      createdAt: parseDate(json['created_at'] as String?) ?? DateTime.now(),
+      note: json['note'] as String?,
+      targetDoctorId: json['target_doctor_id'] as String?,
+      targetDoctorName: json['target_doctor_name'] as String?,
+      neededBy: parseDate(json['needed_by'] as String?),
+      overdue: json['overdue'] == true,
+      claimedByName: json['claimed_by_name'] as String?,
+      claimedAt: parseDate(json['claimed_at'] as String?),
+      waitingOn: json['waiting_on'] as String?,
+      resolvedAt: parseDate(json['resolved_at'] as String?),
+      resolvedByName: json['resolved_by_name'] as String?,
+      resolutionNote: json['resolution_note'] as String?,
+      declineReason: json['decline_reason'] as String?,
+      documentId: json['document_id'] as String?,
+      events: RequestActivityEvent.listFromApi(json['events']),
+    );
+  }
+
+  static Map<String, dynamic> documentRequestToApi({
+    required String title,
+    required DocumentCategory category,
+    required DocumentRequestTarget target,
+    String? note,
+    String? targetDoctorId,
+    DateTime? neededBy,
+  }) => {
+    'title': title,
+    'category': category.name,
+    'target': target.name,
+    if (note != null && note.isNotEmpty) 'note': note,
+    if (target == DocumentRequestTarget.doctor && targetDoctorId != null)
+      'target_doctor_id': targetDoctorId,
+    if (neededBy != null)
+      'needed_by': neededBy.toIso8601String().split('T').first,
+  };
 
   static MealType mealTypeFromApi(String? raw) => MealType.values.firstWhere(
     (t) => t.name == raw,
@@ -455,7 +554,47 @@ class PatientDomainMapper {
             parseDate(json['created_at'] as String?) ??
             DateTime.now(),
         assignedBy: (json['assigned_by'] as String?) ?? '',
+        scheduledFor: parseDate(json['scheduled_for'] as String?),
+        serveTime: json['serve_time'] as String?,
+        conditionTag: json['condition_tag'] as String?,
+        items: mealItemsFromApi(json['items']),
+        source: MealPlanSource.fromApi(json['source'] as String?),
+        adherence: MealAdherence.fromApi(json['adherence'] as String?),
+        loggedAt: parseDate(json['logged_at'] as String?),
+        patientNote: json['patient_note'] as String?,
       );
+
+  /// `items` arrives as a JSON array of strings; older rows have null.
+  static List<String> mealItemsFromApi(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  /// The write shape shared by `POST`/`PATCH /patient/meal-plans`. Only the
+  /// fields a patient may set are sent; adherence moves through its own
+  /// endpoint so a plan edit can never silently rewrite the progress log.
+  static Map<String, dynamic> mealPlanToApi(StaffMealPlan plan) => {
+        'title': plan.title,
+        'meal_type': plan.mealType.name,
+        if (plan.description != null) 'description': plan.description,
+        if (plan.items.isNotEmpty) 'items': plan.items,
+        if (plan.calories != null) 'calories': plan.calories,
+        if (plan.protein != null) 'protein': plan.protein,
+        if (plan.carbs != null) 'carbs': plan.carbs,
+        if (plan.fat != null) 'fat': plan.fat,
+        if (plan.notes != null) 'notes': plan.notes,
+        if (plan.conditionTag != null) 'condition_tag': plan.conditionTag,
+        'scheduled_for': _dayString(plan.planDate),
+        if (plan.serveTime != null) 'serve_time': plan.serveTime,
+      };
+
+  static String _dayString(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-'
+      '${day.month.toString().padLeft(2, '0')}-'
+      '${day.day.toString().padLeft(2, '0')}';
 
   static AppAnnouncement announcementFromApi(Map<String, dynamic> json) =>
       AppAnnouncement(

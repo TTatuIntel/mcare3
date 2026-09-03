@@ -9,10 +9,8 @@ import '../../shared/state/staff_state.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/vitals/vital_structure.dart';
 import '../../shared/theme/app_spacing.dart';
-import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_icons.dart';
 import '../../shared/widgets/app_page_route.dart';
-import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
@@ -21,7 +19,7 @@ import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
 import '../../shared/widgets/staff_stat_cards.dart';
 import 'doctor_action_queue.dart';
-import '../../shared/widgets/loading/loading.dart';
+import 'doctor_request_queue_cards.dart';
 
 class DoctorActionInboxView extends StatefulWidget {
   const DoctorActionInboxView({super.key});
@@ -58,22 +56,28 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
         builder: (context, _) {
           final assigned = StaffState.instance.assignedPatientsForDoctor();
           final assignedIds = assigned.map((p) => p.id).toSet();
-          final alertSummary =
-              StaffState.instance.caseloadAlertSummary(patientIds: assignedIds);
+          final alertSummary = StaffState.instance.caseloadAlertSummary(
+            patientIds: assignedIds,
+          );
           final openAlerts = alertSummary.openCount;
           final criticalAlerts = alertSummary.criticalCount;
-          final todayAppts = StaffState.instance.appointments
-              .where((a) =>
-                  a.patientId != null &&
-                  assignedIds.contains(a.patientId) &&
-                  _isToday(a.startAt))
-              .toList()
-            ..sort((a, b) => a.startAt.compareTo(b.startAt));
+          final todayAppts =
+              StaffState.instance.appointments
+                  .where(
+                    (a) =>
+                        a.patientId != null &&
+                        assignedIds.contains(a.patientId) &&
+                        _isToday(a.startAt),
+                  )
+                  .toList()
+                ..sort((a, b) => a.startAt.compareTo(b.startAt));
           final elevated = assigned
-              .where((p) =>
-                  p.risk == RiskLevel.critical ||
-                  p.risk == RiskLevel.warning ||
-                  p.unreadAlerts > 0)
+              .where(
+                (p) =>
+                    p.risk == RiskLevel.critical ||
+                    p.risk == RiskLevel.warning ||
+                    p.unreadAlerts > 0,
+              )
               .length;
           final sosCount = StaffState.instance.patientSos
               .where((e) => assignedIds.contains(e.patientId) && e.isActive)
@@ -82,11 +86,24 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
             assignedIds: assignedIds,
             patientName: StaffState.instance.patientById,
           );
-          final pendingReportRequests = StaffState.instance.patientRequests
-              .where((r) =>
-                  r.isPending &&
-                  r.type == 'Vital report' &&
-                  assignedIds.contains(r.patientId))
+          // Everything still open, unclaimed first. A request a colleague is
+          // already writing up stays on the board — it is not yours to take,
+          // but hiding it is how two people end up chasing the same patient.
+          final pendingReportRequests =
+              StaffState.instance.patientRequests
+                  .where(
+                    (r) =>
+                        r.isOpen &&
+                        r.type == 'Vital report' &&
+                        assignedIds.contains(r.patientId),
+                  )
+                  .toList()
+                ..sort((a, b) {
+                  if (a.isClaimed != b.isClaimed) return a.isClaimed ? 1 : -1;
+                  return a.createdAt.compareTo(b.createdAt);
+                });
+          final openDocumentRequests = StaffState.instance.openDocumentRequests
+              .where((r) => assignedIds.contains(r.patientId))
               .toList();
           final accent = Theme.of(context).colorScheme.primary;
           final nextVisit = todayAppts.isEmpty ? null : todayAppts.first;
@@ -94,8 +111,8 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
           final queueDetail = actions.isEmpty
               ? 'All caught up'
               : (sosCount > 0
-                  ? '$sosCount SOS active'
-                  : '${topAction!.title.split('·').first.trim()} · next up');
+                    ? '$sosCount SOS active'
+                    : '${topAction!.title.split('·').first.trim()} · next up');
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,8 +144,9 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                       accent: todayAppts.isNotEmpty
                           ? AppColors.success
                           : AppPalette.textMuted(context),
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.doctorVisits),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorVisits),
                     ),
                     StaffStatCardData(
                       value: '${assigned.length}',
@@ -138,8 +156,9 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                           : 'Patients assigned to you',
                       icon: AppIcons.patients,
                       accent: accent,
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.doctorPatients),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorPatients),
                     ),
                     StaffStatCardData(
                       value: '${actions.length}',
@@ -149,8 +168,8 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                       accent: actions.isEmpty
                           ? AppPalette.textMuted(context)
                           : (sosCount > 0
-                              ? AppColors.critical
-                              : AppColors.warning),
+                                ? AppColors.critical
+                                : AppColors.warning),
                       pulse: sosCount > 0,
                       onTap: actions.isEmpty ? () {} : _scrollToQueue,
                     ),
@@ -188,8 +207,9 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                             badgeColor: criticalAlerts > 0
                                 ? AppColors.critical
                                 : AppColors.warning,
-                            onTap: () => Navigator.of(context)
-                                .pushNamed(RouteNames.doctorAlerts),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(RouteNames.doctorAlerts),
                           ),
                           PatientQuickAction(
                             icon: AppIcons.sos,
@@ -200,9 +220,11 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                             onTap: () {
                               if (sosCount == 1) {
                                 final e = StaffState.instance.patientSos
-                                    .firstWhere((x) =>
-                                        assignedIds.contains(x.patientId) &&
-                                        x.isActive);
+                                    .firstWhere(
+                                      (x) =>
+                                          assignedIds.contains(x.patientId) &&
+                                          x.isActive,
+                                    );
                                 SosNavigation.openRespond(
                                   context,
                                   patientId: e.patientId,
@@ -221,17 +243,20 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                                 ? '${todayAppts.length}'
                                 : null,
                             badgeColor: AppColors.success,
-                            onTap: () => Navigator.of(context)
-                                .pushNamed(RouteNames.doctorVisits),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(RouteNames.doctorVisits),
                           ),
                           PatientQuickAction(
                             icon: AppIcons.patients,
                             label: 'Caseload',
                             iconColor: accent,
-                            badge:
-                                assigned.isNotEmpty ? '${assigned.length}' : null,
-                            onTap: () => Navigator.of(context)
-                                .pushNamed(RouteNames.doctorPatients),
+                            badge: assigned.isNotEmpty
+                                ? '${assigned.length}'
+                                : null,
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(RouteNames.doctorPatients),
                           ),
                         ],
                       ),
@@ -242,15 +267,17 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                             icon: AppIcons.appointment,
                             label: 'Schedule',
                             iconColor: AppColors.info,
-                            onTap: () => Navigator.of(context)
-                                .pushNamed(RouteNames.doctorAppointments),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(RouteNames.doctorAppointments),
                           ),
                           PatientQuickAction(
                             icon: AppIcons.analytics,
                             label: 'Overview',
                             iconColor: accent,
-                            onTap: () => Navigator.of(context)
-                                .pushNamed(RouteNames.doctorOverview),
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pushNamed(RouteNames.doctorOverview),
                           ),
                         ],
                       ),
@@ -274,8 +301,25 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
                 const SizedBox(height: AppSpacing.xs),
                 StaggeredEntry(
                   index: 6,
-                  child:
-                      _VitalReportRequestsCard(requests: pendingReportRequests),
+                  child: VitalReportRequestsCard(
+                    requests: pendingReportRequests,
+                  ),
+                ),
+              ],
+              if (openDocumentRequests.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                StaggeredEntry(
+                  index: 7,
+                  child: SectionLabel(
+                    title: 'Document requests',
+                    icon: AppIcons.document,
+                    trailing: '${openDocumentRequests.length}',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                StaggeredEntry(
+                  index: 8,
+                  child: DocumentRequestsCard(requests: openDocumentRequests),
                 ),
               ],
               const SizedBox(height: AppSpacing.md),
@@ -334,161 +378,5 @@ class _DoctorActionInboxViewState extends State<DoctorActionInboxView> {
   static bool _isToday(DateTime d) {
     final now = DateTime.now();
     return d.year == now.year && d.month == now.month && d.day == now.day;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Vital report requests card — fulfil or escalate inline
-// ---------------------------------------------------------------------------
-
-class _VitalReportRequestsCard extends StatelessWidget {
-  const _VitalReportRequestsCard({required this.requests});
-
-  final List<StaffPatientRequest> requests;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      frosted: true,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: requests.asMap().entries.map((entry) {
-          final i = entry.key;
-          final req = entry.value;
-          final patientName =
-              StaffState.instance.patientById(req.patientId)?.name ?? 'Patient';
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (i > 0) const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppColors.info.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      ),
-                      child: const Icon(
-                        AppIcons.report,
-                        size: 18,
-                        color: AppColors.info,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            patientName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            req.summary,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(color: AppPalette.textMuted(context)),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    _VitalReportActions(
-                      requestId: req.id,
-                      patientName: patientName,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _VitalReportActions extends StatefulWidget {
-  const _VitalReportActions({
-    required this.requestId,
-    required this.patientName,
-  });
-
-  final String requestId;
-  final String patientName;
-
-  @override
-  State<_VitalReportActions> createState() => _VitalReportActionsState();
-}
-
-class _VitalReportActionsState extends State<_VitalReportActions> {
-  bool _loading = false;
-
-  Future<void> _fulfil() async {
-    setState(() => _loading = true);
-    final ok = await StaffState.instance.fulfillRequest(widget.requestId);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    if (ok) {
-      AppToast.success(
-        context,
-        'Report shared with ${widget.patientName}.',
-      );
-    } else {
-      AppToast.error(context, 'Could not fulfil request. Try again.');
-    }
-  }
-
-  Future<void> _escalate() async {
-    setState(() => _loading = true);
-    final ok = await StaffState.instance.escalateRequest(widget.requestId);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    if (ok) {
-      AppToast.success(context, 'Request escalated to the care team.');
-    } else {
-      AppToast.error(context, 'Could not escalate request. Try again.');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const McarePulse(
-        size: McarePulseSize.micro,
-        semanticLabel: null,
-      );
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppButton(
-          label: 'Fulfil',
-          icon: AppIcons.check,
-          onPressed: _fulfil,
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        AppButton(
-          label: 'Escalate',
-          variant: AppButtonVariant.secondary,
-          onPressed: _escalate,
-        ),
-      ],
-    );
   }
 }

@@ -35,7 +35,9 @@ use App\Http\Controllers\Api\V1\DoctorReportSignaturesController;
 use App\Http\Controllers\Api\V1\DoctorSessionController;
 use App\Http\Controllers\Api\V1\DoctorSosController;
 use App\Http\Controllers\Api\V1\DoctorVitalCatalogController;
+use App\Http\Controllers\Api\V1\DoctorDocumentRequestsController;
 use App\Http\Controllers\Api\V1\DoctorVitalReportRequestsController;
+use App\Http\Controllers\Api\V1\DocumentRequestsController;
 use App\Http\Controllers\Api\V1\DocumentsController;
 use App\Http\Controllers\Api\V1\ExternalBroadcastAuthController;
 use App\Http\Controllers\Api\V1\ExternalDoctorController;
@@ -46,7 +48,9 @@ use App\Http\Controllers\Api\V1\MessagesController;
 use App\Http\Controllers\Api\V1\NotificationsController;
 use App\Http\Controllers\Api\V1\PatientChartController;
 use App\Http\Controllers\Api\V1\PatientExternalAccessController;
+use App\Http\Controllers\Api\V1\PatientMealPlansController;
 use App\Http\Controllers\Api\V1\PatientProfileController;
+use App\Http\Controllers\Api\V1\PatientRecordController;
 use App\Http\Controllers\Api\V1\PatientReportConsentsController;
 use App\Http\Controllers\Api\V1\PatientSessionController;
 use App\Http\Controllers\Api\V1\PatientTrackedVitalsController;
@@ -167,6 +171,11 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
 Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle:api-general', 'role:patient'])->prefix('patient')->group(function () {
     Route::get('session', [PatientSessionController::class, 'show']);
 
+    // The patient's own record in the shape their clinic reads it — the same
+    // dossier an admin or doctor opens, served to its subject.
+    Route::get('record', [PatientRecordController::class, 'show']);
+    Route::post('record/report-requests', [PatientRecordController::class, 'requestReport']);
+
     Route::get('profile', [PatientProfileController::class, 'show']);
     Route::put('profile/account', [PatientProfileController::class, 'updateAccount']);
     Route::put('profile/health', [PatientProfileController::class, 'updateHealth']);
@@ -182,6 +191,14 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::patch('medications/{medication}', [MedicationsController::class, 'update']);
     Route::delete('medications/{medication}', [MedicationsController::class, 'destroy']);
     Route::patch('medication-doses/{dose}', [MedicationsController::class, 'recordDose']);
+
+    // Nutrition the patient plans for themselves, plus the progress log the
+    // care team reads back. Adherence can be recorded against a clinician's
+    // plan; only self-authored meals can be edited or removed here.
+    Route::post('meal-plans', [PatientMealPlansController::class, 'store']);
+    Route::patch('meal-plans/{mealPlan}', [PatientMealPlansController::class, 'update']);
+    Route::delete('meal-plans/{mealPlan}', [PatientMealPlansController::class, 'destroy']);
+    Route::post('meal-plans/{mealPlan}/log', [PatientMealPlansController::class, 'log']);
 
     Route::post('appointments', [AppointmentsController::class, 'store']);
     Route::patch('appointments/{appointment}', [AppointmentsController::class, 'update']);
@@ -218,6 +235,13 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::post('care/requests', [CareController::class, 'requestProvider']);
     Route::patch('care/requests/{careRequest}', [CareController::class, 'cancelRequest']);
 
+    // Documents the patient is asking the care team — or one named doctor —
+    // to produce. The other direction of the upload path.
+    Route::get('document-requests', [DocumentRequestsController::class, 'index']);
+    Route::post('document-requests', [DocumentRequestsController::class, 'store']);
+    Route::delete('document-requests/{documentRequest}', [DocumentRequestsController::class, 'cancel']);
+
+    Route::get('vital-report-requests', [VitalReportRequestsController::class, 'index']);
     Route::post('vital-report-requests', [VitalReportRequestsController::class, 'store']);
     Route::patch('vital-report-requests/{vitalReportRequest}', [VitalReportRequestsController::class, 'cancel']);
 
@@ -278,9 +302,21 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::post('meal-plans', [DoctorMealPlansController::class, 'store']);
     Route::delete('meal-plans/{mealPlan}', [DoctorMealPlansController::class, 'destroy']);
 
+    // The shared care-team queue. Every doctor on the caseload sees every
+    // request; claiming is what makes one of them its owner, and only the
+    // owner can complete it.
     Route::get('vital-report-requests', [DoctorVitalReportRequestsController::class, 'index']);
+    Route::patch('vital-report-requests/{vitalReportRequest}/claim', [DoctorVitalReportRequestsController::class, 'claim']);
+    Route::patch('vital-report-requests/{vitalReportRequest}/release', [DoctorVitalReportRequestsController::class, 'release']);
     Route::patch('vital-report-requests/{vitalReportRequest}/fulfill', [DoctorVitalReportRequestsController::class, 'fulfill']);
     Route::patch('vital-report-requests/{vitalReportRequest}/escalate', [DoctorVitalReportRequestsController::class, 'escalate']);
+
+    Route::get('document-requests', [DoctorDocumentRequestsController::class, 'index']);
+    Route::patch('document-requests/{documentRequest}/claim', [DoctorDocumentRequestsController::class, 'claim']);
+    Route::patch('document-requests/{documentRequest}/release', [DoctorDocumentRequestsController::class, 'release']);
+    // The upload and the close-out are one call; see the controller.
+    Route::post('document-requests/{documentRequest}/fulfill', [DoctorDocumentRequestsController::class, 'fulfill']);
+    Route::patch('document-requests/{documentRequest}/decline', [DoctorDocumentRequestsController::class, 'decline']);
 
     // Sign-off on customised patient reports the doctor was nominated for.
     Route::get('report-requests', [DoctorReportSignaturesController::class, 'index']);

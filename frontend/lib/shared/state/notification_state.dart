@@ -118,6 +118,33 @@ class NotificationState extends ChangeNotifier {
     return latest;
   }
 
+  /// Vital alerts closed inside [from]–[to], newest resolution first.
+  ///
+  /// Windowed on when the alert was *resolved*, not when it was raised: a
+  /// patient looking at last month wants what was answered last month, and an
+  /// alert raised in March and closed in April belongs to April's reading.
+  List<AppNotification> resolvedVitalAlertsBetween(DateTime from, DateTime to) {
+    final list =
+        _items
+            .where(
+              (n) =>
+                  n.resolved &&
+                  n.kind == NotificationKind.vitalAlert &&
+                  n.linkedVital != null,
+            )
+            .where((n) {
+              final at = n.resolvedAt ?? n.createdAt;
+              return !at.isBefore(from) && !at.isAfter(to);
+            })
+            .toList()
+          ..sort((a, b) {
+            final at = a.resolvedAt ?? a.createdAt;
+            final bt = b.resolvedAt ?? b.createdAt;
+            return bt.compareTo(at);
+          });
+    return List.unmodifiable(list);
+  }
+
   int get resolvedVitalAlertCount => _items
       .where(
         (n) =>

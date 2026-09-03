@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/api/patient_chart_api.dart';
 import '../../shared/models/vital.dart';
 import '../../shared/models/vital_report_request.dart';
+import '../../shared/state/documents_state.dart';
 import '../../shared/state/vital_report_state.dart';
 import '../../shared/state/vitals_state.dart';
 import '../../shared/services/vital_report_export.dart';
@@ -18,17 +19,26 @@ import '../../shared/models/document.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/period_filter_bar.dart';
+import '../../shared/widgets/request_activity_trail.dart';
 import '../../shared/widgets/section_label.dart';
+import '../documents/document_viewer_sheet.dart';
 
 class RequestVitalReportSheet {
   RequestVitalReportSheet._();
 
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(
+    BuildContext context, {
+    ChartPeriod initialPeriod = ChartPeriod.threeWeeks,
+    Set<VitalKey>? initialVitals,
+  }) {
     return GlassSheet.show(
       context,
       title: 'Vital reports',
       subtitle: 'Request reports or view completed ones',
-      child: const _ReportsHub(),
+      child: _ReportsHub(
+        initialPeriod: initialPeriod,
+        initialVitals: initialVitals,
+      ),
     );
   }
 }
@@ -38,7 +48,10 @@ class RequestVitalReportSheet {
 // ---------------------------------------------------------------------------
 
 class _ReportsHub extends StatelessWidget {
-  const _ReportsHub();
+  const _ReportsHub({required this.initialPeriod, this.initialVitals});
+
+  final ChartPeriod initialPeriod;
+  final Set<VitalKey>? initialVitals;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +65,23 @@ class _ReportsHub extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // What is already moving comes first. A patient opening this sheet
+            // with a request outstanding came to check on it, not to raise a
+            // second one — and a form at the top is an invitation to do
+            // exactly that.
+            if (pending.isNotEmpty) ...[
+              SectionLabel(
+                title: 'In progress',
+                icon: AppIcons.time,
+                trailing: '${pending.length}',
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              for (final r in pending) ...[
+                _OpenRequestRow(request: r),
+                const SizedBox(height: AppSpacing.xs),
+              ],
+              const SizedBox(height: AppSpacing.md),
+            ],
             if (fulfilled.isNotEmpty) ...[
               SectionLabel(
                 title: 'Completed reports',
@@ -65,12 +95,12 @@ class _ReportsHub extends StatelessWidget {
               ],
               const SizedBox(height: AppSpacing.md),
             ],
-            SectionLabel(
-              title: 'New request',
-              icon: AppIcons.report,
-            ),
+            SectionLabel(title: 'New request', icon: AppIcons.report),
             const SizedBox(height: AppSpacing.xs),
-            _RequestForm(pending: pending),
+            _RequestForm(
+              initialPeriod: initialPeriod,
+              initialVitals: initialVitals,
+            ),
           ],
         );
       },
@@ -106,7 +136,11 @@ class _FulfilledReportRow extends StatelessWidget {
               color: AppPalette.successSoft(context),
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
-            child: const Icon(AppIcons.check, color: AppColors.success, size: 18),
+            child: const Icon(
+              AppIcons.check,
+              color: AppColors.success,
+              size: 18,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -120,7 +154,7 @@ class _FulfilledReportRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'By ${request.respondedBy ?? 'Your doctor'}'
+                  'By ${request.respondedBy ?? 'your care team'}'
                   '${request.respondedAt != null ? ' · ${DateFormat.MMMd().format(request.respondedAt!)}' : ''}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: AppPalette.textMuted(context),
@@ -129,7 +163,11 @@ class _FulfilledReportRow extends StatelessWidget {
               ],
             ),
           ),
-          Icon(AppIcons.chevronRight, size: 16, color: AppPalette.textMuted(context)),
+          Icon(
+            AppIcons.chevronRight,
+            size: 16,
+            color: AppPalette.textMuted(context),
+          ),
         ],
       ),
     );
@@ -177,7 +215,11 @@ class _FulfilledReportDetail extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(AppIcons.check, size: 12, color: AppColors.success),
+                  const Icon(
+                    AppIcons.check,
+                    size: 12,
+                    color: AppColors.success,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Report ready',
@@ -202,14 +244,16 @@ class _FulfilledReportDetail extends StatelessWidget {
             children: [
               _MetaRow(
                 label: 'Period',
-                value: '${dateFmt.format(request.from)} – ${dateFmt.format(request.to)}',
+                value:
+                    '${dateFmt.format(request.from)} – ${dateFmt.format(request.to)}',
               ),
               if (request.respondedBy != null)
                 _MetaRow(label: 'Prepared by', value: request.respondedBy!),
               if (request.respondedAt != null)
                 _MetaRow(
                   label: 'Completed',
-                  value: '${dateFmt.format(request.respondedAt!)} at ${timeFmt.format(request.respondedAt!)}',
+                  value:
+                      '${dateFmt.format(request.respondedAt!)} at ${timeFmt.format(request.respondedAt!)}',
                 ),
               if (request.note != null)
                 _MetaRow(label: 'Your note', value: request.note!),
@@ -221,23 +265,37 @@ class _FulfilledReportDetail extends StatelessWidget {
         // Vitals included
         Text(
           'Vitals included',
-          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(
           spacing: AppSpacing.xs,
           runSpacing: AppSpacing.xs,
-          children: request.vitals
-              .map((v) => _VitalChip(vital: v))
-              .toList(),
+          children: request.vitals.map((v) => _VitalChip(vital: v)).toList(),
         ),
         const SizedBox(height: AppSpacing.md),
 
+        // Who touched it and when. The same trail the care team reads.
+        Text(
+          'What happened',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        RequestActivityTrail(events: request.events),
+        const SizedBox(height: AppSpacing.md),
+
         // Doctor response note
-        if (request.responseNote != null && request.responseNote!.isNotEmpty) ...[
+        if (request.responseNote != null &&
+            request.responseNote!.isNotEmpty) ...[
           Text(
-            'Doctor\'s notes',
-            style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            'Clinical notes',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           GlassCard(
@@ -253,26 +311,63 @@ class _FulfilledReportDetail extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.md),
 
-        Text(
-          'Report preview',
-          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        DocumentPreviewPanel(
-          documentId: 'report-${request.id}',
-          fileType: DocumentFileType.pdf,
-          height: 240,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        AppButton(
-          label: 'Open in new tab',
-          icon: Icons.open_in_new_rounded,
-          variant: AppButtonVariant.ghost,
-          expand: true,
-          onPressed: () => VitalReportExport.openInNewTab(request),
-        ),
+        // The filed report. It is rendered once, on the server, from the
+        // readings inside the window — so what the patient opens next year is
+        // what the clinician signed off today, rather than a fresh derivation
+        // from a record that has moved on.
+        if (_filedDocument(request) != null) ...[
+          Text(
+            'Report preview',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          DocumentPreviewPanel(
+            documentId: request.documentId!,
+            fileType: _filedDocument(request)!.fileType,
+            height: 240,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppButton(
+            label: 'Open in Documents',
+            icon: AppIcons.document,
+            expand: true,
+            onPressed: () {
+              Navigator.of(context).pop();
+              DocumentViewerSheet.show(context, _filedDocument(request)!);
+            },
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Filed under Documents · Vital report.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+            ),
+          ),
+        ] else
+          // Reports issued before the server started filing them, and the rare
+          // case where rendering failed. The locally built printable is the
+          // fallback rather than the main path.
+          AppButton(
+            label: 'Open printable summary',
+            icon: Icons.open_in_new_rounded,
+            variant: AppButtonVariant.ghost,
+            expand: true,
+            onPressed: () => VitalReportExport.openInNewTab(request),
+          ),
       ],
     );
+  }
+
+  /// The filed report, if the documents list has caught up with the request.
+  static MedicalDocument? _filedDocument(VitalReportRequest request) {
+    if (request.documentId == null) return null;
+    for (final d in DocumentsState.instance.all) {
+      if (d.id == request.documentId) return d;
+    }
+    return null;
   }
 }
 
@@ -293,9 +388,9 @@ class _MetaRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
@@ -314,7 +409,10 @@ class _VitalChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
         color: vital.accent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
@@ -328,9 +426,9 @@ class _VitalChip extends StatelessWidget {
           Text(
             vital.shortLabel,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: vital.accent,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: vital.accent,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -343,8 +441,9 @@ class _VitalChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _RequestForm extends StatefulWidget {
-  const _RequestForm({required this.pending});
-  final List<VitalReportRequest> pending;
+  const _RequestForm({required this.initialPeriod, this.initialVitals});
+  final ChartPeriod initialPeriod;
+  final Set<VitalKey>? initialVitals;
 
   @override
   State<_RequestForm> createState() => _RequestFormState();
@@ -354,17 +453,18 @@ class _RequestFormState extends State<_RequestForm> {
   DateTime? _from;
   DateTime? _to;
   final _note = TextEditingController();
-  bool _allTracked = true;
+  late bool _allTracked;
   final _selected = <VitalKey>{};
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _selected.addAll(VitalsState.instance.tracked);
-    final now = DateTime.now();
-    _to = DateTime(now.year, now.month, now.day);
-    _from = _to!.subtract(const Duration(days: 30));
+    _allTracked = widget.initialVitals == null;
+    _selected.addAll(widget.initialVitals ?? VitalsState.instance.tracked);
+    final window = widget.initialPeriod.resolve();
+    _from = window.from;
+    _to = window.to;
   }
 
   @override
@@ -378,7 +478,7 @@ class _RequestFormState extends State<_RequestForm> {
       context,
       current: _from != null && _to != null
           ? ChartPeriod.range(_from!, _to!)
-          : ChartPeriod.month,
+          : ChartPeriod.threeWeeks,
       title: 'Report period',
       subtitle: 'The readings the report is built from.',
     );
@@ -421,7 +521,7 @@ class _RequestFormState extends State<_RequestForm> {
     Navigator.of(context).pop();
     AppToast.success(
       context,
-      'Report request sent to your doctor. We\'ll escalate if they don\'t respond.',
+      'Sent to your care team. You will see who picks it up.',
     );
   }
 
@@ -480,7 +580,9 @@ class _RequestFormState extends State<_RequestForm> {
         const SizedBox(height: AppSpacing.lg),
         Text(
           'Vitals to include',
-          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         SwitchListTile(
@@ -508,6 +610,37 @@ class _RequestFormState extends State<_RequestForm> {
                 ),
             ],
           ),
+        const SizedBox(height: AppSpacing.md),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.brandIndigo.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                AppIcons.trend,
+                color: AppColors.brandIndigo,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Average, lowest, highest, in-range percentage and trend '
+                  'charts are included automatically.',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
           label: 'Note (optional)',
@@ -517,22 +650,13 @@ class _RequestFormState extends State<_RequestForm> {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Your doctor has 48 hours to respond. If they don\'t, your mCare assistant steps in, then care admin.',
+          'Anyone on your care team can pick this up. If nobody does within '
+          '48 hours it goes to your mCare assistant, then to care admin.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppPalette.textMuted(context),
             height: 1.35,
           ),
         ),
-        if (widget.pending.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Pending requests',
-            style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          for (final r in widget.pending.take(3))
-            _PendingRequestRow(request: r),
-        ],
         const SizedBox(height: AppSpacing.xl),
         AppButton(
           label: 'Send request',
@@ -545,38 +669,197 @@ class _RequestFormState extends State<_RequestForm> {
   }
 }
 
-class _PendingRequestRow extends StatelessWidget {
-  const _PendingRequestRow({required this.request});
+/// An open request, with the one fact a status chip never carried: whether
+/// anyone has actually picked it up.
+class _OpenRequestRow extends StatelessWidget {
+  const _OpenRequestRow({required this.request});
 
   final VitalReportRequest request;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final fmt = DateFormat.MMMd();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: AppPalette.warningSoft(context).withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            const Icon(AppIcons.time, size: 16, color: AppColors.warning),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                '${fmt.format(request.from)} – ${fmt.format(request.to)} · waiting on ${request.responderLabel}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
+    final status = request.status;
+
+    return GlassCard(
+      frosted: true,
+      onTap: () => GlassSheet.show<void>(
+        context,
+        title: 'Report request',
+        subtitle: '${fmt.format(request.from)} – ${fmt.format(request.to)}',
+        child: _OpenRequestDetail(request: request),
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 36,
+            width: 36,
+            decoration: BoxDecoration(
+              color: status.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
-          ],
-        ),
+            child: Icon(status.icon, color: status.color, size: 18),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${fmt.format(request.from)} – ${fmt.format(request.to)}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  request.statusLine,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            AppIcons.chevronRight,
+            size: 16,
+            color: AppPalette.textMuted(context),
+          ),
+        ],
       ),
     );
+  }
+}
+
+class _OpenRequestDetail extends StatelessWidget {
+  const _OpenRequestDetail({required this.request});
+
+  final VitalReportRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dateFmt = DateFormat.yMMMd();
+    final status = request.status;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: status.color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(color: status.color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(status.icon, size: 18, color: status.color),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      status.label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: status.color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      request.statusLine,
+                      style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        GlassCard(
+          frosted: true,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MetaRow(
+                label: 'Period',
+                value:
+                    '${dateFmt.format(request.from)} – '
+                    '${dateFmt.format(request.to)}',
+              ),
+              _MetaRow(
+                label: 'Requested',
+                value: dateFmt.format(request.createdAt),
+              ),
+              if (request.note != null && request.note!.isNotEmpty)
+                _MetaRow(label: 'Your note', value: request.note!),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        Text(
+          'Vitals included',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: request.vitals.map((v) => _VitalChip(vital: v)).toList(),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        Text(
+          'What has happened',
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        RequestActivityTrail(
+          events: request.events,
+          emptyMessage: 'Nobody on your care team has opened this yet.',
+        ),
+
+        const SizedBox(height: AppSpacing.xl),
+        AppButton(
+          label: 'Cancel request',
+          icon: AppIcons.close,
+          variant: AppButtonVariant.ghost,
+          expand: true,
+          onPressed: () => _cancel(context),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _cancel(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    try {
+      await VitalReportState.instance.cancelRemote(request.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      AppToast.warn(context, 'Could not cancel: $e');
+      return;
+    }
+    if (!context.mounted) return;
+    navigator.pop();
+    AppToast.success(context, 'Request cancelled.');
   }
 }

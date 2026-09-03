@@ -229,7 +229,7 @@ if ($NoRealtime) {
   $wsKey = ([regex]::Match($envText, '(?m)^REVERB_APP_KEY=(.*)$')).Groups[1].Value.Trim().Trim('"')
 
   if (-not $wsKey) {
-    Write-Host "REVERB_APP_KEY is not set in backend\.env; starting without realtime." -ForegroundColor Yellow
+    Write-Host "REVERB_APP_KEY is not set in backend\.env; starting without the WebSocket fast path." -ForegroundColor Yellow
     Write-Host "Run 'php artisan reverb:install' to generate one, then re-run." -ForegroundColor Yellow
   } else {
     # Bound to loopback: a phone or another machine on the LAN cannot reach
@@ -237,15 +237,14 @@ if ($NoRealtime) {
     # expose it deliberately.
     Write-Host "==> Starting Reverb on ws://127.0.0.1:$ReverbPort" -ForegroundColor Cyan
     Start-Php-Service "reverb" @("artisan", "reverb:start", "--host=127.0.0.1", "--port=$ReverbPort")
-
-    # Broadcasts publish inline now, so real-time no longer depends on this.
-    # It still drains queued mail and any other job.
-    Write-Host "==> Starting queue worker (queued mail and jobs)" -ForegroundColor Cyan
-    Start-Php-Service "queue" @("artisan", "queue:work", "--tries=3", "--sleep=1", "--timeout=120")
-
     $wsUrl = "ws://127.0.0.1:$ReverbPort"
   }
 }
+
+# Broadcast invalidations publish inline, but push alerts, email, and other
+# background work still need a worker even when Reverb is deliberately off.
+Write-Host "==> Starting queue worker (push alerts, queued mail and jobs)" -ForegroundColor Cyan
+Start-Php-Service "queue" @("artisan", "queue:work", "--tries=3", "--sleep=1", "--timeout=120")
 
 # Scheduled escalation and maintenance work must run even when Reverb is
 # intentionally disabled or has not been configured yet.
@@ -255,9 +254,9 @@ Start-Php-Service "scheduler" @("artisan", "schedule:work")
 Write-Host ""
 Write-Host "  API      $ApiUrl/api/v1"
 if ($wsUrl) {
-  Write-Host "  Realtime $wsUrl"
+  Write-Host "  Realtime $wsUrl (3s pulse watchdog also active)"
 } else {
-  Write-Host "  Realtime off; 30s polling"
+  Write-Host "  WebSocket off; automatic 3s pulse active"
 }
 Write-Host "  Admin    admin@mcare.health      / demo-password"
 Write-Host "  Doctor   dr.mensah@mcare.health  / demo-password"
@@ -282,8 +281,9 @@ try {
   }
 
   Write-Host "==> Running Flutter on '$FlutterDevice'" -ForegroundColor Cyan
-  # AppEnv.realtimeEnabled needs BOTH defines; with either missing the client
-  # silently falls back to polling, so they are passed as a pair or not at all.
+  # Keep the defines for compatibility with older builds. Current clients also
+  # discover this public endpoint from /api/v1/config and keep the pulse cursor
+  # active as a watchdog, so a missed socket event never requires a refresh.
   #
   # Google/Apple client IDs, Firebase and Maps keys come from the project
   # config file. Without them the app builds fine and then tells the user

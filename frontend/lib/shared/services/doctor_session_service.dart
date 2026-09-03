@@ -77,6 +77,13 @@ class DoctorSessionService {
           ),
         )
         .toList();
+    final documentRequests = (data['document_requests'] as List? ?? const [])
+        .map(
+          (e) => StaffMapper.documentRequestFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
     final sosEvents = (data['sos_events'] as List? ?? const []).map((e) {
       final m = (e as Map).cast<String, dynamic>();
       return StaffMapper.sosFromApi(
@@ -114,6 +121,7 @@ class DoctorSessionService {
       prescriptions: prescriptions,
       reports: reports,
       vitalRequests: vitalRequests,
+      documentRequests: documentRequests,
       // Triage belongs to admins and mCare assistants; the doctor session
       // deliberately carries no pending care requests.
       careRequests: const [],

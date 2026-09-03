@@ -22,15 +22,15 @@ import 'package:mcare/shared/state/support_state.dart';
 import 'package:mcare/shared/state/vital_report_state.dart';
 import 'package:mcare/shared/state/vitals_state.dart';
 import 'package:mcare/shared/theme/app_theme.dart';
-import 'package:mcare/shared/widgets/glass_card.dart';
 
-/// The home hub is one compact live card that becomes each thing today holds
-/// in turn. Its height follows the visible scene, so a short announcement does
-/// not reserve the height of a two-action medication card.
+/// The head of the patient home is a briefing written on the page background:
+/// what today is asking, the counted facts, and the steps themselves.
 ///
-/// What these tests hold to: the card renames itself as it turns, the most
-/// urgent thing leads, a scene that only reports something is not a button,
-/// and with animations off nothing hides behind a timer.
+/// What these tests hold to: nothing moves on its own, nothing is hidden
+/// behind a timer, the steps are reachable the moment the page is drawn, the
+/// counted facts are tappable, and the page keeps the same height while it is
+/// simply being looked at — the regression that made the old rotating card
+/// unusable to read.
 void main() {
   setUp(() {
     AuthState.instance.signIn(
@@ -90,31 +90,35 @@ void main() {
     AppointmentsState.instance.seed(const []);
   });
 
-  testWidgets('the card renames itself as it turns', (tester) async {
+  testWidgets('the day is stated once, and the steps are already there', (
+    tester,
+  ) async {
     await _pumpDashboard(tester);
 
-    // Opens on the plan — the overview the focused scenes come from.
-    expect(_showing(tester, 'Your plan today'), isTrue);
+    // One headline, counted from the steps themselves.
+    expect(find.text('1 step today'), findsOneWidget);
+    expect(find.text('Nothing is overdue.'), findsOneWidget);
+
+    // The step is on the page, not behind a dwell.
     expect(find.text('Record your vitals'), findsWidgets);
-    expect(find.text('Live'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('Record your vitals').first,
+        matching: find.byType(InkWell),
+      ),
+      findsWidgets,
+    );
 
-    await _nextScene(tester);
-
-    // A different card entirely: new title, new accent line, new body.
-    expect(_showing(tester, 'Your plan today'), isFalse);
-    expect(_showing(tester, 'Announcement'), isTrue);
-    expect(_showing(tester, 'Clinic hours extended'), isTrue);
-
-    await _nextScene(tester);
-
-    expect(_showing(tester, 'Assigned meal'), isTrue);
-    expect(_showing(tester, 'Calories 320'), isTrue);
-    expect(_showing(tester, 'Announcement'), isFalse);
+    // Nothing claims to be moving, because nothing is.
+    expect(find.text('Live'), findsNothing);
+    expect(find.text('Swipe'), findsNothing);
 
     await _dispose(tester);
   });
 
-  testWidgets('a dose that is past due leads, and says so', (tester) async {
+  testWidgets('a page left alone does not move under the reader', (
+    tester,
+  ) async {
     MedicationsState.instance.seed(
       meds: const [],
       doses: [
@@ -131,18 +135,48 @@ void main() {
 
     await _pumpDashboard(tester);
 
-    // Outranks the plan: the card opens as the thing that is late.
-    expect(_showing(tester, 'Medicine time'), isTrue);
-    expect(_showing(tester, 'Metformin · past due'), isTrue);
+    final before = tester.getSize(find.byType(PatientDashboardView)).height;
+    final headlineAt = tester.getTopLeft(find.text('2 steps today'));
+
+    // Two of the old dwells and then some: the surface that used to re-deal
+    // itself every six seconds now holds still.
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pump(const Duration(seconds: 7));
+
+    expect(tester.getSize(find.byType(PatientDashboardView)).height, before);
+    expect(tester.getTopLeft(find.text('2 steps today')), headlineAt);
     expect(find.text('Take Metformin'), findsWidgets);
-    expect(_showing(tester, 'Your plan today'), isFalse);
 
     await _dispose(tester);
   });
 
-  testWidgets('the richest scenes fit the card', (tester) async {
-    // Two doses due, a visit, an unread thread and a report request: every
-    // scene shape the hub can build, including the two-action ones.
+  testWidgets('what is past due is said in the headline', (tester) async {
+    // A critical reading with no answer from the care team: an urgent scene.
+    VitalsState.instance.seed([
+      VitalReading(
+        id: 'v1',
+        vital: VitalKey.bloodPressure,
+        value: 186,
+        secondaryValue: 118,
+        recordedAt: DateTime.now().subtract(const Duration(minutes: 20)),
+        risk: RiskLevel.critical,
+      ),
+    ]);
+
+    await _pumpDashboard(tester);
+
+    expect(
+      find.text('1 thing needs attention now — it is first below.'),
+      findsOneWidget,
+    );
+
+    VitalsState.instance.seed([]);
+    await _dispose(tester);
+  });
+
+  testWidgets('the counted facts are text you can tap, not cards', (
+    tester,
+  ) async {
     final now = DateTime.now();
     MedicationsState.instance.seed(
       meds: const [],
@@ -152,16 +186,7 @@ void main() {
           medicationId: 'med1',
           name: 'Metformin',
           dosage: '500 mg',
-          scheduledAt: now.subtract(const Duration(hours: 1)),
-          status: DoseStatus.pending,
-          instructions: 'Take with food, and drink a full glass of water.',
-        ),
-        MedicationDose(
-          id: 'd2',
-          medicationId: 'med2',
-          name: 'Amlodipine',
-          dosage: '5 mg',
-          scheduledAt: now.add(const Duration(hours: 3)),
+          scheduledAt: now.add(const Duration(hours: 2)),
           status: DoseStatus.pending,
         ),
       ],
@@ -175,48 +200,63 @@ void main() {
         scheduledAt: now.add(const Duration(days: 1)),
         type: AppointmentType.virtual,
         status: AppointmentStatus.confirmed,
-        reason: 'Blood pressure review after the last set of readings',
       ),
     ]);
 
     await _pumpDashboard(tester);
 
-    // Walk every scene; an overflow anywhere fails on the exception check.
-    for (var i = 0; i < 8; i++) {
-      expect(tester.takeException(), isNull);
-      await _nextScene(tester);
+    // Every count the day holds, each one a route into the screen it came
+    // from. The semantics carry the label so a screen reader reads a button.
+    for (final label in const ['Vitals 0/1', 'Doses 0/1']) {
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.button == true &&
+              widget.properties.label == label,
+        ),
+        findsOneWidget,
+        reason: '$label should be a tappable fact',
+      );
     }
 
-    // The card now follows its content instead of reserving the tallest scene.
-    // This is the whitespace regression covered by the dashboard redesign.
-    final heights = <double>{};
-    for (var i = 0; i < 4; i++) {
-      heights.add(tester.getSize(_hubCard).height);
-      await _nextScene(tester);
-    }
-    expect(heights.length, greaterThan(1));
-    expect(heights.every((height) => height < 340), isTrue);
+    await _dispose(tester);
+  });
 
+  testWidgets('a day with nothing outstanding is allowed to say so', (
+    tester,
+  ) async {
+    // The one tracked vital is already logged, so "log a reading" is a
+    // standing offer rather than a step today.
+    VitalsState.instance.seed([
+      VitalReading(
+        id: 'v1',
+        vital: VitalKey.bloodPressure,
+        value: 118,
+        secondaryValue: 76,
+        recordedAt: DateTime.now(),
+        risk: RiskLevel.normal,
+      ),
+    ]);
+
+    await _pumpDashboard(tester);
+
+    expect(find.text('Nothing needs you right now'), findsOneWidget);
+    expect(find.text('Log a reading whenever you are ready.'), findsOneWidget);
+
+    // The offer is still on the page — not counted, not hidden.
+    expect(find.text('Record your vitals'), findsWidgets);
+
+    VitalsState.instance.seed([]);
     await _dispose(tester);
   });
 
   testWidgets('a scene that only reports something is not a button', (
     tester,
   ) async {
-    // Listed rather than rotated, so every scene is on screen at once and the
-    // assertion is about the card, not about timing.
-    await _pumpDashboard(tester, reduceMotion: true);
+    await _pumpDashboard(tester);
 
-    // Actionable: the plan's step carries ink.
-    expect(
-      find.ancestor(
-        of: find.text('Record your vitals'),
-        matching: find.byType(InkWell),
-      ),
-      findsWidgets,
-    );
-
-    // The tally reports; it does not ask.
+    // The tally reports; it does not ask, so it carries no ink.
     final tally = find.text('Today\'s progress');
     expect(tally, findsOneWidget);
     expect(
@@ -226,93 +266,28 @@ void main() {
 
     await _dispose(tester);
   });
-
-  testWidgets('with animations off the hub pauses and remains swipeable', (
-    tester,
-  ) async {
-    await _pumpDashboard(tester, reduceMotion: true);
-
-    // Nothing is moving by itself, so nothing claims to be live.
-    expect(find.text('Live'), findsNothing);
-    expect(find.text('Swipe'), findsOneWidget);
-
-    final card = find
-        .ancestor(of: find.text('Swipe'), matching: find.byType(GlassCard))
-        .first;
-    expect(
-      find.descendant(of: card, matching: find.text('Your plan today')),
-      findsOneWidget,
-    );
-
-    // Reduced motion stops the timer, but the patient still controls the live
-    // surface using the position controls.
-    final secondCardControl = find.byWidgetPredicate(
-      (widget) =>
-          widget is Semantics &&
-          (widget.properties.label ?? '').startsWith('Card 2 of'),
-    );
-    await tester.tap(secondCardControl);
-    await tester.pump();
-    expect(
-      find.descendant(of: card, matching: find.text('Announcement')),
-      findsOneWidget,
-    );
-
-    await _dispose(tester);
-  });
 }
 
-Future<void> _pumpDashboard(
-  WidgetTester tester, {
-  bool reduceMotion = false,
-}) async {
-  tester.view.physicalSize = const Size(390, 1800);
+Future<void> _pumpDashboard(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(390, 2200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(
-      theme: AppTheme.light(),
-      builder: reduceMotion
-          ? (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: child!,
-            )
-          : null,
-      home: const PatientDashboardView(),
-    ),
+    MaterialApp(theme: AppTheme.light(), home: const PatientDashboardView()),
   );
-  // Let the staggered entry animations run out. Never pumpAndSettle: the live
-  // badge pulses forever by design.
+  // Let the staggered entry animations run out. Never pumpAndSettle: the
+  // dashboard's floating button cycles its colours forever by design.
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 1200));
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 600));
+  }
 
   // These tests push fake time past the session poller's first tick, which
-  // would try to reach the network. The hub reads stores, not the wire.
+  // would try to reach the network. The page reads stores, not the wire.
   SessionPoller.instance.detach();
 }
 
-/// The hub card itself — the one carrying the live badge.
-final Finder _hubCard = find
-    .ancestor(of: find.text('Live'), matching: find.byType(GlassCard))
-    .first;
-
-/// Whether [text] belongs to the scene currently visible in the live card.
-/// The same item may also appear in the compact "For you" history below, so
-/// this deliberately scopes the lookup to the card carrying the Live badge.
-bool _showing(WidgetTester tester, String text) {
-  final finder = find.descendant(of: _hubCard, matching: find.text(text));
-  return finder.evaluate().isNotEmpty;
-}
-
-/// Waits out one dwell and the page transition that follows it.
-Future<void> _nextScene(WidgetTester tester) async {
-  await tester.pump(const Duration(seconds: 6));
-  await tester.pump(const Duration(milliseconds: 400));
-  await tester.pump(const Duration(milliseconds: 400));
-}
-
-/// Tears the tree down so the hub's rotation timers are cancelled.
 Future<void> _dispose(WidgetTester tester) async {
   expect(tester.takeException(), isNull);
   await tester.pumpWidget(const SizedBox());

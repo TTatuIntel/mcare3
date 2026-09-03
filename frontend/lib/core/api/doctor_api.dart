@@ -129,15 +129,69 @@ class DoctorApi {
     },
   );
 
-  // Vital report requests
-  Future<void> fulfillVitalReportRequest(String requestId, {String? note}) =>
-      _patch(
-        'vital-report-requests/$requestId/fulfill',
-        body: {if (note != null) 'note': note},
-      );
+  // ---------------------------------------------------------------------------
+  // Vital report requests — a shared queue with a single owner.
+  //
+  // Claiming is a real request rather than a local flag because it is the
+  // thing that stops two clinicians writing the same report: the server
+  // decides who won, and a loser gets a 409 carrying the winner's name.
+  // ---------------------------------------------------------------------------
+  Future<Map<String, dynamic>?> claimVitalReportRequest(String requestId) =>
+      _patchData('vital-report-requests/$requestId/claim');
 
-  Future<void> escalateVitalReportRequest(String requestId) =>
-      _patch('vital-report-requests/$requestId/escalate');
+  Future<Map<String, dynamic>?> releaseVitalReportRequest(
+    String requestId, {
+    String? note,
+  }) => _patchData(
+    'vital-report-requests/$requestId/release',
+    body: {if (note != null && note.isNotEmpty) 'note': note},
+  );
+
+  Future<Map<String, dynamic>?> fulfillVitalReportRequest(
+    String requestId, {
+    String? note,
+  }) => _patchData(
+    'vital-report-requests/$requestId/fulfill',
+    body: {if (note != null) 'note': note},
+  );
+
+  Future<Map<String, dynamic>?> escalateVitalReportRequest(
+    String requestId, {
+    String? note,
+  }) => _patchData(
+    'vital-report-requests/$requestId/escalate',
+    body: {if (note != null && note.isNotEmpty) 'note': note},
+  );
+
+  // ---------------------------------------------------------------------------
+  // Document requests — the patient asking the team for a document.
+  // ---------------------------------------------------------------------------
+  Future<List<Map<String, dynamic>>> documentRequests() async {
+    if (!AppEnv.backendEnabled) return const [];
+    final res = await ApiClient.instance.get('/doctor/document-requests');
+    return ((res['data']?['requests'] as List?) ?? const [])
+        .map((e) => (e as Map).cast<String, dynamic>())
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>?> claimDocumentRequest(String requestId) =>
+      _patchData('document-requests/$requestId/claim');
+
+  Future<Map<String, dynamic>?> releaseDocumentRequest(
+    String requestId, {
+    String? note,
+  }) => _patchData(
+    'document-requests/$requestId/release',
+    body: {if (note != null && note.isNotEmpty) 'note': note},
+  );
+
+  Future<Map<String, dynamic>?> declineDocumentRequest(
+    String requestId, {
+    required String reason,
+  }) => _patchData(
+    'document-requests/$requestId/decline',
+    body: {'reason': reason},
+  );
 
   // Care-request triage is an admin / mCare-assistant responsibility — a
   // doctor sees the care team they were assigned to, never the accept or
@@ -189,10 +243,20 @@ class DoctorApi {
   }
 
   // Meal plans
+  //
+  // One call covers several patients and several days: pass [patientUserIds]
+  // and/or [scheduledFor] with more than one entry and the API writes the plan
+  // once per patient per day. A single assign is the same call with one of
+  // each, so callers that only ever assign one plan need no special case.
   Future<Map<String, dynamic>?> assignMealPlan({
     required String patientUserId,
     required String title,
     required String mealType,
+    List<String>? patientUserIds,
+    List<DateTime>? scheduledFor,
+    String? serveTime,
+    String? conditionTag,
+    List<String>? items,
     String? description,
     int? calories,
     String? protein,
@@ -203,9 +267,17 @@ class DoctorApi {
     final res = await ApiClient.instance.post(
       '/doctor/meal-plans',
       body: {
-        'patient_user_id': int.parse(patientUserId),
+        if (patientUserIds == null || patientUserIds.isEmpty)
+          'patient_user_id': int.parse(patientUserId)
+        else
+          'patient_user_ids': patientUserIds.map(int.parse).toList(),
         'title': title,
         'meal_type': mealType,
+        if (scheduledFor != null && scheduledFor.isNotEmpty)
+          'scheduled_for': scheduledFor.map(_dayString).toList(),
+        if (serveTime != null) 'serve_time': serveTime,
+        if (conditionTag != null) 'condition_tag': conditionTag,
+        if (items != null && items.isNotEmpty) 'items': items,
         if (description != null) 'description': description,
         if (calories != null) 'calories': calories,
         if (protein != null) 'protein': protein,
@@ -216,6 +288,11 @@ class DoctorApi {
     );
     return (res['data'] as Map?)?.cast<String, dynamic>();
   }
+
+  static String _dayString(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-'
+      '${day.month.toString().padLeft(2, '0')}-'
+      '${day.day.toString().padLeft(2, '0')}';
 
   Future<void> removeMealPlan(String mealPlanId) =>
       ApiClient.instance.delete('/doctor/meal-plans/$mealPlanId');
@@ -349,6 +426,17 @@ class DoctorApi {
   // ---------------------------------------------------------------------------
   Future<void> _patch(String path, {Map<String, dynamic>? body}) async {
     await ApiClient.instance.patch('/doctor/$path', body: body);
+  }
+
+  /// [_patch] for the calls whose answer matters — a claim has to come back
+  /// with the row the server actually holds, not just "no exception thrown".
+  Future<Map<String, dynamic>?> _patchData(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.patch('/doctor/$path', body: body);
+    return (res['data']?['request'] as Map?)?.cast<String, dynamic>();
   }
 
   static String _date(DateTime d) =>

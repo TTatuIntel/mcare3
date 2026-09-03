@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Mail\ReportIssuedMail;
 use App\Models\AppNotification;
 use App\Models\MedicalDocument;
 use App\Models\PatientReportRequest;
 use App\Models\User;
 use App\Support\DocumentDelivery;
+use App\Support\MailDispatcher;
 use App\Support\MedicalDocumentFiles;
 use App\Support\PatientReportSections;
 
@@ -388,7 +390,45 @@ class PatientReportService
             'read' => false,
         ]);
 
+        // …and told outside the app as well. An in-app badge only reaches a
+        // patient who happens to open mCare; a disclosure of their record to a
+        // third party is the one event they should not have to go looking for.
+        $this->emailPatient($request);
+
         return $document;
+    }
+
+    /**
+     * Emails the patient that a report went out.
+     *
+     * Notice only — the mail names what was disclosed and to whom, never the
+     * clinical content, which stays behind their login. Never throws: the
+     * disclosure has already happened and been audited, and a bounced
+     * notification must not report the issue itself as having failed.
+     */
+    private function emailPatient(PatientReportRequest $request): void
+    {
+        try {
+            $patient = $request->patient;
+            $email = trim((string) ($patient?->email ?? ''));
+            if ($patient === null || $email === '') {
+                return;
+            }
+
+            MailDispatcher::send($email, new ReportIssuedMail(
+                patientName: (string) $patient->first_name,
+                title: (string) $request->title,
+                reference: 'RPT-'.$request->id,
+                sections: array_values((array) ($request->sections ?? [])),
+                recipient: $request->recipient,
+                purpose: $request->purpose,
+                signedBy: $request->signature_name,
+                issuedAt: now()->format('j M Y, H:i'),
+                frontendUrl: rtrim((string) config('mcare.frontend_url'), '/'),
+            ), ['report_request_id' => $request->id]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**
@@ -517,7 +557,10 @@ class PatientReportService
             $stored = MedicalDocumentFiles::storeGeneratedFile(
                 (int) $request->patient_user_id,
                 $request->title,
-                $this->renderer->toHtml($document),
+                $this->renderer->toHtml($document, null, [
+                    'status' => 'issued',
+                    'reference' => 'RPT-'.$request->id,
+                ]),
             );
 
             $filed = MedicalDocument::create([

@@ -64,11 +64,13 @@ import 'patients/hubs/patient_health_hub_view.dart';
 import 'patients/hubs/patient_more_hub_view.dart';
 import 'patients/medications/medication_detail_view.dart';
 import 'patients/medications/medications_view.dart';
+import 'patients/meals/meals_view.dart';
 import 'patients/onboarding/patient_onboarding_view.dart';
 import 'patients/messages/chat_thread_view.dart';
 import 'patients/messages/messages_view.dart';
 import 'patients/notifications/notifications_view.dart';
 import 'patients/profile/profile_view.dart';
+import 'patients/record/patient_clinical_profile_view.dart';
 import 'patients/settings/settings_view.dart';
 import 'patients/sos/sos_view.dart';
 import 'patients/support/support_view.dart';
@@ -377,7 +379,7 @@ class _McareAppState extends State<McareApp> {
         page = _PatientGuarded(
           child: VitalDetailView(
             vital: args?.vital ?? VitalKey.heartRate,
-            initialRangeDays: args?.rangeDays ?? 7,
+            initialRangeDays: args?.rangeDays ?? 21,
           ),
         );
         break;
@@ -420,6 +422,9 @@ class _McareAppState extends State<McareApp> {
       case RouteNames.patientDocuments:
         page = const _PatientGuarded(child: DocumentsView());
         break;
+      case RouteNames.patientMeals:
+        page = const _PatientGuarded(child: MealsView());
+        break;
       case RouteNames.patientMessages:
         page = const _PatientGuarded(child: MessagesView());
         break;
@@ -432,6 +437,16 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.patientProfile:
         page = const _PatientGuarded(child: ProfileView());
+        break;
+      case RouteNames.patientClinicalProfile:
+        // An int argument opens the record on a specific tab, so a
+        // notification about a reading or a document can land on it directly.
+        final segment = settings.arguments is int
+            ? settings.arguments as int
+            : 0;
+        page = _PatientGuarded(
+          child: PatientClinicalProfileView(initialSegment: segment),
+        );
         break;
       case RouteNames.patientSettings:
         page = const _PatientGuarded(child: SettingsView());

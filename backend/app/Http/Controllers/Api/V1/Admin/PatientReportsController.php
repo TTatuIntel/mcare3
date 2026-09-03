@@ -392,7 +392,14 @@ class PatientReportsController extends Controller
             default => null,
         };
 
-        return response($this->renderer->toHtml($snapshot, $watermark), 200, [
+        return response($this->renderer->toHtml($snapshot, $watermark, [
+            'status' => match (true) {
+                $reportRequest->revoked_at !== null => 'revoked',
+                $isDraft => 'draft',
+                default => 'issued',
+            },
+            'reference' => 'RPT-'.$reportRequest->id,
+        ]), 200, [
             'Content-Type' => 'text/html; charset=UTF-8',
             'Content-Disposition' => 'inline; filename="'
                 .($isDraft ? 'draft-' : '').'report-'.$reportRequest->id.'.html"',

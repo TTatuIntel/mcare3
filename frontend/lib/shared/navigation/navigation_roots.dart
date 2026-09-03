@@ -30,6 +30,7 @@ class NavigationRoots {
     RouteNames.patientAppointments,
     RouteNames.patientMessages,
     RouteNames.patientDocuments,
+    RouteNames.patientMeals,
     RouteNames.patientCareTeam,
     RouteNames.patientNotifications,
     RouteNames.patientProfile,
@@ -260,6 +261,13 @@ class NavigationRoots {
     RouteNames.assistantNotifications: RouteNames.assistantMore,
     RouteNames.assistantProfile: RouteNames.assistantMore,
     RouteNames.assistantSettings: RouteNames.assistantMore,
+
+    // ----- Patient More tab -----
+    // Same shape as the admin and assistant More groups: opened from a tile,
+    // so on a deep link or web refresh back lands on the hub that lists it
+    // rather than dropping the patient on the dashboard.
+    RouteNames.patientClinicalProfile: RouteNames.patientMore,
+    RouteNames.patientReportConsents: RouteNames.patientMore,
 
     // ----- Patient drill-downs -----
     // Reached by pushing from a list, so back normally just pops. These only

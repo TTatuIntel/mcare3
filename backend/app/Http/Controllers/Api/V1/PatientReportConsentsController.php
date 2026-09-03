@@ -75,7 +75,10 @@ class PatientReportConsentsController extends Controller
                 .'. It is retained here for your records only.'
             : null;
 
-        $html = $this->renderer->toHtml($snapshot, $watermark);
+        $html = $this->renderer->toHtml($snapshot, $watermark, [
+            'status' => $reportRequest->revoked_at !== null ? 'revoked' : 'issued',
+            'reference' => 'RPT-'.$reportRequest->id,
+        ]);
 
         // Rendered inline rather than as an attachment: the patient asked to
         // read it, and the browser's own print dialog is the PDF route.

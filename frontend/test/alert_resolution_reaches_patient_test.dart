@@ -20,7 +20,6 @@ import 'package:mcare/shared/state/support_state.dart';
 import 'package:mcare/shared/state/vital_report_state.dart';
 import 'package:mcare/shared/state/vitals_state.dart';
 import 'package:mcare/shared/theme/app_theme.dart';
-import 'package:mcare/shared/widgets/glass_card.dart';
 
 /// The last leg of a resolution: from the clinician who closed it to the
 /// patient's own screen.
@@ -28,8 +27,8 @@ import 'package:mcare/shared/widgets/glass_card.dart';
 /// A doctor resolving a critical reading used to change nothing the patient
 /// could see. The reason went into a staff-only field, the closure notice
 /// arrived typed as a generic system row, it never linked back to the vital it
-/// was about, and the red card on the home screen kept shouting the same
-/// number — because that card read the reading, not the conversation about it.
+/// was about, and the red row on the home screen kept shouting the same
+/// number — because it read the reading, not the conversation about it.
 /// These hold the whole leg: the notice arrives as a resolution, it points at
 /// the right vital, and the home screen stops sounding an alarm once the care
 /// team has answered.
@@ -251,19 +250,18 @@ Future<void> _pumpDashboard(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(theme: AppTheme.light(), home: const PatientDashboardView()),
   );
-  // Let the staggered entry animations run out. Never pumpAndSettle: the live
-  // badge pulses forever by design.
+  // Let the staggered entry animations run out. Never pumpAndSettle: the
+  // floating action button cycles its colours forever by design.
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 1200));
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 600));
+  }
 }
 
-bool _showing(WidgetTester tester, String text) {
-  final hub = find
-      .ancestor(of: find.text('Live'), matching: find.byType(GlassCard))
-      .first;
-  final finder = find.descendant(of: hub, matching: find.text(text));
-  return finder.evaluate().isNotEmpty;
-}
+/// The home page lists every scene at once now, so what the patient is told
+/// about this alert is simply what is on the page.
+bool _showing(WidgetTester tester, String text) =>
+    find.text(text).evaluate().isNotEmpty;
 
 Future<void> _dispose(WidgetTester tester) async {
   expect(tester.takeException(), isNull);

@@ -8,6 +8,7 @@ class _SceneAction {
     required this.title,
     required this.detail,
     required this.onTap,
+    this.standing = false,
   });
 
   final IconData icon;
@@ -15,6 +16,12 @@ class _SceneAction {
   final String title;
   final String detail;
   final VoidCallback onTap;
+
+  /// A standing offer rather than something today is waiting on — "add another
+  /// reading any time". It stays on the page as a row, but it is not counted
+  /// in the headline: a day with nothing outstanding must be allowed to say
+  /// so.
+  final bool standing;
 }
 
 /// A counted fact the scene can show without asking for anything.
@@ -25,15 +32,15 @@ class _SceneStat {
   final String value;
 }
 
-/// One full card of the home hub.
+/// One thing today holds: an alert, a due dose, a visit, a notice, a tally.
 ///
-/// The card *is* the scene: its title, accent, icon, body and actions all
-/// change together, so the surface reads as "Medicine time" or "Next
-/// appointment" rather than as a fixed panel with a changing row inside it.
+/// A scene names itself — "Medicine time", "Next appointment" — and carries
+/// the lines that belong to it. The page lists scenes; it no longer turns
+/// through them.
 ///
 /// A scene with no [actions] is informational — it renders no ink, no chevron
 /// and no button role, so nothing looks tappable that is not. Every line is
-/// derived from a store; the hub never invents adherence, risk or schedule.
+/// derived from a store; the page never invents adherence, risk or schedule.
 class _HubScene {
   const _HubScene({
     required this.id,
@@ -71,21 +78,59 @@ class _HubScene {
   /// Counted facts, shown as chips.
   final List<_SceneStat> stats;
 
-  /// At most two are drawn; the rest live on the screen the action opens.
+  /// The first is the row's destination; the rest live on the screen it opens.
   final List<_SceneAction> actions;
 
   /// A quiet closing line — status, provenance, a caveat.
   final String? footnote;
 
-  /// Keeps the rotation from carrying this past unnoticed.
+  /// Something is wrong now: it leads the stream and the briefing says so.
   final bool urgent;
 
   bool get isActionable => actions.isNotEmpty;
 }
 
-/// Builds every scene the patient home can honestly show right now, from the
-/// stores the session seeds, and ranks them.
-List<_HubScene> _buildHubScenes(
+/// A counted fact about today, written as one tappable phrase on the page
+/// background: "Vitals 2/4". No chip, no tile — the number is the whole
+/// widget, and tapping it opens the screen the number came from.
+class _HubFact {
+  const _HubFact({
+    required this.label,
+    required this.value,
+    required this.accent,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+  final VoidCallback? onTap;
+}
+
+/// Everything the patient home knows about today, in the three shapes the
+/// page uses it in: the ranked [scenes] the "For you" stream lists, the
+/// [steps] that are actually asking the patient for something, and the
+/// counted [facts] that only report.
+class _HubBriefing {
+  const _HubBriefing({
+    required this.scenes,
+    required this.steps,
+    required this.facts,
+  });
+
+  final List<_HubScene> scenes;
+  final List<_SceneAction> steps;
+  final List<_HubFact> facts;
+
+  int get urgentCount => scenes.where((s) => s.urgent).length;
+
+  /// The steps today is actually waiting on — what the headline counts.
+  int get outstandingCount => steps.where((s) => !s.standing).length;
+}
+
+/// Builds everything the patient home can honestly show right now, from the
+/// stores the session seeds, and ranks it.
+_HubBriefing _buildHubBriefing(
   BuildContext context, {
   required List<Appointment> appointments,
   required List<MedicationDose> doses,
@@ -94,8 +139,9 @@ List<_HubScene> _buildHubScenes(
   final now = DateTime.now();
   final scenes = <_HubScene>[];
 
-  // Actions the plan scene draws on. Built first because the focused scenes
-  // and the plan overview are two views of the same work.
+  // The day's steps: the things that are actually asking the patient for
+  // something. Built alongside the scenes because the two are views of the
+  // same work — the briefing lists the steps, the feed lists the scenes.
   final planActions = <_SceneAction>[];
 
   // --- Emergency -------------------------------------------------------------
@@ -423,7 +469,7 @@ List<_HubScene> _buildHubScenes(
                 m.mealType.label,
                 if (m.macroSummary.isNotEmpty) m.macroSummary,
               ].join(' · '),
-              onTap: () => _MealPlanSheet.show(context, m),
+              onTap: () => MealDetailSheet.show(context, m),
             ),
         ],
       ),
@@ -455,6 +501,7 @@ List<_HubScene> _buildHubScenes(
         context,
         initial: tracked.isEmpty ? null : tracked.first,
       ),
+      standing: allLogged,
     ),
   );
 
@@ -606,66 +653,73 @@ List<_HubScene> _buildHubScenes(
     );
   }
 
-  // --- The plan: the overview the focused scenes come from ------------------
-  final planSteps = planActions.length;
-  scenes.add(
-    _HubScene(
-      id: 'plan',
-      title: 'Your plan today',
-      subtitle: '$planSteps priority step${planSteps == 1 ? '' : 's'}',
-      icon: AppIcons.catalog,
-      accent: AppColors.brandIndigo,
-      priority: 74,
-      at: now,
-      actions: planActions.take(2).toList(),
-      footnote: planSteps > 2
-          ? '+${planSteps - 2} more in the cards that follow'
-          : null,
-    ),
-  );
-
-  // --- Welcome: the calm one, and the last turn -----------------------------
-  final firstName = AuthState.instance.user?.firstName ?? '';
-  final urgentCount = scenes.where((s) => s.urgent).length;
-  scenes.add(
-    _HubScene(
-      id: 'welcome',
-      title: firstName.isEmpty ? 'Welcome back' : 'Welcome back, $firstName',
-      subtitle: DateFormat.yMMMMEEEEd().format(now),
-      icon: AppIcons.home,
-      accent: AppColors.brandIndigo,
-      priority: 20,
-      at: now,
-      body: urgentCount > 0
-          ? 'Something needs you today — the cards above show what.'
-          : 'Nothing is overdue right now. Swipe through today, or log a '
-                'reading whenever you are ready.',
-      stats: [
-        if (tracked.isNotEmpty)
-          _SceneStat('Vitals logged', '$loggedToday/${tracked.length}'),
-        if (pending.isNotEmpty) _SceneStat('Doses due', '${pending.length}'),
-        if (appointments.isNotEmpty)
-          _SceneStat(
-            'Next visit',
-            _patientVisitTime(appointments.first.scheduledAt),
-          ),
-      ],
-    ),
-  );
-
   scenes.sort((a, b) {
     final byPriority = b.priority.compareTo(a.priority);
     if (byPriority != 0) return byPriority;
     return b.at.compareTo(a.at);
   });
-  return scenes;
+
+  final nextVisit = appointments.isEmpty ? null : appointments.first;
+
+  return _HubBriefing(
+    scenes: scenes,
+    steps: planActions,
+    facts: [
+      if (tracked.isNotEmpty)
+        _HubFact(
+          label: 'Vitals',
+          value: '$loggedToday/${tracked.length}',
+          accent: allLogged ? AppColors.success : AppColors.brandIndigo,
+          onTap: () =>
+              Navigator.of(context).pushNamed(RouteNames.patientVitals),
+        ),
+      if (doses.isNotEmpty)
+        _HubFact(
+          label: 'Doses',
+          value: '$takenToday/${doses.length}',
+          accent: pending.isEmpty ? AppColors.success : AppColors.warning,
+          onTap: () =>
+              Navigator.of(context).pushNamed(RouteNames.patientMedications),
+        ),
+      if (nextVisit != null)
+        _HubFact(
+          label: 'Next visit',
+          value: _patientVisitTime(nextVisit.scheduledAt),
+          accent: AppColors.bpPurple,
+          onTap: () => Navigator.of(context).pushNamed(
+            RouteNames.patientAppointmentDetail,
+            arguments: nextVisit.id,
+          ),
+        ),
+    ],
+  );
 }
 
-/// The home hub: one card that becomes each thing today holds in turn —
-/// "Your plan today", "Medicine time", "Next appointment", "Assigned meal",
-/// "Announcement", "Welcome back". Title, accent, body and actions change
-/// together, so the whole card is the live surface, not a strip inside it.
-class _PatientTodayHub extends StatefulWidget {
+/// The ranked stream on its own — what the "For you" list is built from.
+List<_HubScene> _buildHubScenes(
+  BuildContext context, {
+  required List<Appointment> appointments,
+  required List<MedicationDose> doses,
+  required int unreadNotifications,
+}) => _buildHubBriefing(
+  context,
+  appointments: appointments,
+  doses: doses,
+  unreadNotifications: unreadNotifications,
+).scenes;
+
+/// The top of the patient home, written straight onto the page background.
+///
+/// This used to be a card that re-dealt itself every six seconds. Its height,
+/// its colour and its whole contents changed under the reader: the page moved
+/// while it was being used, and anything worth reading was gone before it was
+/// read. Nothing here moves on its own and nothing is boxed.
+///
+/// What is left is the day in three parts, all of it on screen at once and all
+/// of it tappable: one headline of what today is asking, the counted facts
+/// underneath it, and the steps themselves as plain rows. The full stream is
+/// the "For you" list further down; this is only its head.
+class _PatientTodayHub extends StatelessWidget {
   const _PatientTodayHub({
     required this.appointments,
     required this.doses,
@@ -676,102 +730,8 @@ class _PatientTodayHub extends StatefulWidget {
   final List<MedicationDose> doses;
   final int unreadNotifications;
 
-  @override
-  State<_PatientTodayHub> createState() => _PatientTodayHubState();
-}
-
-class _PatientTodayHubState extends State<_PatientTodayHub>
-    with TickerProviderStateMixin {
-  /// How long each scene holds the card. Long enough to read a title and two
-  /// lines, short enough that the last of eight is seen inside a minute.
-  static const _dwell = Duration(seconds: 6);
-
-  /// How long the card stays put after the patient swipes it themselves.
-  static const _resumeAfter = Duration(seconds: 15);
-
-  static const _maxScenes = 8;
-
-  late final AnimationController _pulse;
-  late final AnimationController _flash;
-
-  Timer? _rotationTimer;
-  Timer? _resumeTimer;
-  int _index = 0;
-  int _sceneCount = 0;
-  String _signature = '';
-
-  /// Read from [MediaQuery] each build — the same source the staff urgent
-  /// strip uses — so a platform setting and a test override both land.
-  bool _reduceMotion = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulse = AnimationController(vsync: this, duration: AppMotion.pulseCycle);
-    _flash = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-  }
-
-  @override
-  void dispose() {
-    _rotationTimer?.cancel();
-    _resumeTimer?.cancel();
-    _pulse.dispose();
-    _flash.dispose();
-    super.dispose();
-  }
-
-  /// Keeps the timer, the page index and the "new content" flash in step with
-  /// whatever the stores now hold.
-  void _syncRotation(List<_HubScene> scenes) {
-    final signature = scenes.map((s) => s.id).join('|');
-    final changed = signature != _signature;
-    _signature = signature;
-    _sceneCount = scenes.length;
-
-    if (changed) {
-      if (_index >= scenes.length) _index = 0;
-      if (!_reduceMotion && scenes.isNotEmpty) {
-        _flash
-          ..reset()
-          ..forward();
-      }
-      _restartTimer();
-    }
-
-    final urgent = scenes.any((s) => s.urgent);
-    if (urgent && !_reduceMotion) {
-      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
-    } else if (_pulse.isAnimating) {
-      _pulse
-        ..stop()
-        ..value = 0;
-    }
-  }
-
-  void _restartTimer() {
-    _rotationTimer?.cancel();
-    if (_reduceMotion || _sceneCount < 2) return;
-    _rotationTimer = Timer.periodic(_dwell, (_) => _advance());
-  }
-
-  void _advance() => _goTo(_index + 1);
-
-  void _goTo(int index) {
-    if (!mounted || _sceneCount < 1) return;
-    setState(() => _index = (index + _sceneCount) % _sceneCount);
-  }
-
-  /// A swipe means the patient is reading — hold this scene, then resume.
-  void _onUserSwipe() {
-    _rotationTimer?.cancel();
-    _resumeTimer?.cancel();
-    _resumeTimer = Timer(_resumeAfter, () {
-      if (mounted) _restartTimer();
-    });
-  }
+  /// Steps drawn here. The rest are not hidden — they are rows in "For you".
+  static const _maxSteps = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -787,585 +747,216 @@ class _PatientTodayHubState extends State<_PatientTodayHub>
         ProfileState.instance,
       ]),
       builder: (context, _) {
-        _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-
-        final scenes = _buildHubScenes(
+        final briefing = _buildHubBriefing(
           context,
-          appointments: widget.appointments,
-          doses: widget.doses,
-          unreadNotifications: widget.unreadNotifications,
-        ).take(_maxScenes).toList();
+          appointments: appointments,
+          doses: doses,
+          unreadNotifications: unreadNotifications,
+        );
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _syncRotation(scenes);
-        });
+        final theme = Theme.of(context);
+        final steps = briefing.steps;
+        final urgent = briefing.urgentCount;
+        final outstanding = briefing.outstandingCount;
+        final shown = steps.take(_maxSteps).toList();
 
-        final current = scenes[_index.clamp(0, scenes.length - 1)];
+        final headline = outstanding == 0
+            ? 'Nothing needs you right now'
+            : '$outstanding step${outstanding == 1 ? '' : 's'} today';
+        final detail = urgent > 0
+            ? urgent == 1
+                  ? '1 thing needs attention now — it is first below.'
+                  : '$urgent things need attention now — they are first below.'
+            : outstanding == 0
+            ? 'Log a reading whenever you are ready.'
+            : 'Nothing is overdue.';
 
-        // The card takes the scene's colour with it: the whole surface
-        // changes, not a row inside it.
-        return TweenAnimationBuilder<Color?>(
-          tween: ColorTween(end: current.accent),
-          duration: _reduceMotion ? Duration.zero : AppMotion.page,
-          curve: AppMotion.easeOut,
-          builder: (context, accent, _) {
-            final tint = accent ?? current.accent;
-            return AnimatedBuilder(
-              animation: Listenable.merge([_pulse, _flash]),
-              builder: (context, child) {
-                // One ring, two jobs: a slow pulse while something urgent is
-                // in the rotation, and a single flash when new content lands.
-                final glow = current.urgent
-                    ? 0.16 + 0.30 * _pulse.value
-                    : 0.34 * (1 - Curves.easeOut.transform(_flash.value));
-                return GlassCard(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      tint.withValues(alpha: 0.12),
-                      AppPalette.surface(context),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: tint.withValues(alpha: current.urgent ? 0.42 : 0.20),
-                    width: current.urgent ? 1.4 : 1,
-                  ),
-                  shadow: glow <= 0.01
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: tint.withValues(alpha: glow),
-                            blurRadius: 22,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                  child: child!,
-                );
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _SceneDeck(
-                    scenes: scenes,
-                    index: _index.clamp(0, scenes.length - 1),
-                    animate: !_reduceMotion,
-                    onSwipe: (forward) {
-                      _onUserSwipe();
-                      _goTo(_index + (forward ? 1 : -1));
-                    },
-                  ),
-                  if (scenes.length > 1) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    _HubFooter(
-                      count: scenes.length,
-                      index: _index.clamp(0, scenes.length - 1),
-                      accent: tint,
-                      live: !_reduceMotion,
-                      onSelect: (i) {
-                        _onUserSwipe();
-                        _goTo(i);
-                      },
-                    ),
-                  ],
-                ],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              headline,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: urgent > 0
+                    ? AppColors.critical
+                    : AppPalette.ink(context),
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 2),
+            Text(
+              detail,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppPalette.textMuted(context),
+              ),
+            ),
+            if (briefing.facts.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _HubFactsLine(facts: briefing.facts),
+            ],
+            for (final step in shown) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _HubStepRow(action: step),
+            ],
+            if (steps.length > shown.length) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${steps.length - shown.length} more listed under For you.',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textFaint(context),
+                ),
+              ),
+            ],
+          ],
         );
       },
     );
   }
 }
 
-/// The current scene only. Its height is content-driven, so a short
-/// announcement no longer inherits the empty space required by a taller
-/// two-action scene. [AnimatedSize] keeps the rest of the page from snapping
-/// when the live surface changes.
-class _SceneDeck extends StatelessWidget {
-  const _SceneDeck({
-    required this.scenes,
-    required this.index,
-    required this.animate,
-    required this.onSwipe,
-  });
+/// The counted facts, in a row that wraps: label, then the number in its own
+/// colour, with a dot between neighbours. Each is a tap target onto the screen
+/// the count came from; none of them is a box.
+class _HubFactsLine extends StatelessWidget {
+  const _HubFactsLine({required this.facts});
 
-  final List<_HubScene> scenes;
-  final int index;
-  final bool animate;
-
-  /// True for the next scene, false for the previous one.
-  final ValueChanged<bool> onSwipe;
-
-  @override
-  Widget build(BuildContext context) {
-    final current = KeyedSubtree(
-      key: ValueKey(scenes[index].id),
-      child: _HubSceneView(scene: scenes[index]),
-    );
-
-    return GestureDetector(
-      // Horizontal only: the page under this card scrolls vertically, and a
-      // tap still reaches the action rows.
-      onHorizontalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity.abs() < 120 || scenes.length < 2) return;
-        onSwipe(velocity < 0);
-      },
-      child: animate
-          ? AnimatedSize(
-              duration: AppMotion.page,
-              curve: AppMotion.easeOut,
-              alignment: Alignment.topCenter,
-              child: AnimatedSwitcher(
-                duration: AppMotion.page,
-                switchInCurve: AppMotion.easeOut,
-                layoutBuilder: (currentChild, _) =>
-                    currentChild ?? const SizedBox.shrink(),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.04, 0),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                ),
-                child: current,
-              ),
-            )
-          : current,
-    );
-  }
-}
-
-/// With animations off nothing may hide behind a timer: the leading scene is
-/// drawn in full and the rest are listed under it, still reachable.
-class _StaticHubCard extends StatelessWidget {
-  const _StaticHubCard({required this.scenes});
-
-  final List<_HubScene> scenes;
-
-  @override
-  Widget build(BuildContext context) {
-    final lead = scenes.first;
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          lead.accent.withValues(alpha: 0.12),
-          AppPalette.surface(context),
-        ],
-      ),
-      border: Border.all(color: lead.accent.withValues(alpha: 0.20)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _HubSceneView(scene: lead),
-          for (final scene in scenes.skip(1)) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _HubSceneSummaryRow(scene: scene),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// One scene, drawn as the whole card: title, accent line, body, facts and
-/// the actions it is asking for.
-class _HubSceneView extends StatelessWidget {
-  const _HubSceneView({required this.scene});
-
-  final _HubScene scene;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // The deck is as tall as its tallest scene, so a scene that showed
-    // everything it holds would stretch every other one. Two shapes keep the
-    // card comparable turn to turn, and the ask always wins:
-    //   two actions            → header + the two rows;
-    //   one action or none     → header + body + facts + the row.
-    // The footnote is the first thing dropped when the scene is already
-    // carrying both a paragraph and a row of facts.
-    final twoActions = scene.actions.length >= 2;
-    final showBody = scene.body != null && !twoActions;
-    final showStats = scene.stats.isNotEmpty && !twoActions;
-    final showFootnote =
-        scene.footnote != null && !twoActions && !(showBody && showStats);
-
-    final children = <Widget>[
-      Row(
-        children: [
-          _PatientIconDisc(icon: scene.icon, color: scene.accent, size: 46),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  scene.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  scene.subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scene.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      if (showBody) ...[
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          scene.body!,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            height: 1.35,
-          ),
-        ),
-      ],
-      if (showStats) ...[
-        const SizedBox(height: AppSpacing.sm),
-        _SceneStatsRow(stats: scene.stats, accent: scene.accent),
-      ],
-      for (var i = 0; i < scene.actions.length && i < 2; i++) ...[
-        const SizedBox(height: AppSpacing.sm),
-        _SceneActionRow(action: scene.actions[i]),
-      ],
-      if (showFootnote) ...[
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          scene.footnote!,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: AppPalette.textFaint(context),
-          ),
-        ),
-      ],
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: children,
-    );
-  }
-}
-
-/// The scenes below the leading one when the card is not rotating.
-class _HubSceneSummaryRow extends StatelessWidget {
-  const _HubSceneSummaryRow({required this.scene});
-
-  final _HubScene scene;
-
-  @override
-  Widget build(BuildContext context) {
-    final action = scene.actions.isEmpty ? null : scene.actions.first;
-    return _SceneActionRow(
-      action: _SceneAction(
-        icon: scene.icon,
-        accent: scene.accent,
-        title: scene.title,
-        detail: scene.subtitle,
-        onTap: action?.onTap ?? () {},
-      ),
-      informational: action == null,
-    );
-  }
-}
-
-/// A row the scene is asking the patient to act on. With [informational] it
-/// carries no ink, no chevron and no button role.
-class _SceneActionRow extends StatelessWidget {
-  const _SceneActionRow({required this.action, this.informational = false});
-
-  final _SceneAction action;
-  final bool informational;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final radius = BorderRadius.circular(AppSpacing.radiusLg);
-
-    final body = Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppPalette.surface(context),
-        borderRadius: radius,
-        border: Border.all(color: AppPalette.border(context)),
-      ),
-      child: Row(
-        children: [
-          _PatientIconDisc(icon: action.icon, color: action.accent),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  action.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  action.detail,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!informational) ...[
-            const SizedBox(width: AppSpacing.xs),
-            Icon(AppIcons.chevronRight, color: action.accent),
-          ],
-        ],
-      ),
-    );
-
-    final label = '${action.title}. ${action.detail}';
-
-    if (informational) {
-      return Semantics(
-        label: label,
-        readOnly: true,
-        excludeSemantics: true,
-        child: body,
-      );
-    }
-
-    // `onTap` is declared on this node, not only on the ink below it: the
-    // descendants are excluded, so a screen reader's activation has to have
-    // somewhere to land.
-    return Semantics(
-      button: true,
-      label: label,
-      onTap: action.onTap,
-      excludeSemantics: true,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: radius,
-        child: InkWell(onTap: action.onTap, borderRadius: radius, child: body),
-      ),
-    );
-  }
-}
-
-class _SceneStatsRow extends StatelessWidget {
-  const _SceneStatsRow({required this.stats, required this.accent});
-
-  final List<_SceneStat> stats;
-  final Color accent;
+  final List<_HubFact> facts;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final stat in stats.take(3))
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-            ),
-            child: Text(
-              '${stat.label} ${stat.value}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Position dots on the left of the card's foot, with the live badge on the
-/// right — the card says both where you are and that it is moving.
-class _HubFooter extends StatelessWidget {
-  const _HubFooter({
-    required this.count,
-    required this.index,
-    required this.accent,
-    required this.live,
-    required this.onSelect,
-  });
-
-  final int count;
-  final int index;
-  final Color accent;
-  final bool live;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              for (var i = 0; i < count; i++)
-                Semantics(
-                  label: 'Card ${i + 1} of $count',
-                  selected: i == index,
-                  button: true,
-                  child: InkResponse(
-                    onTap: () => onSelect(i),
-                    radius: 14,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 3,
-                        vertical: AppSpacing.xs,
-                      ),
-                      child: AnimatedContainer(
-                        duration: AppMotion.micro,
-                        height: 6,
-                        width: i == index ? 18 : 6,
-                        decoration: BoxDecoration(
-                          color: i == index
-                              ? accent
-                              : AppPalette.borderStrong(context),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
+        for (var i = 0; i < facts.length; i++) ...[
+          if (i > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(
+                '·',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppPalette.textFaint(context),
                 ),
-            ],
-          ),
-        ),
-        if (live)
-          _HubLivePill(accent: accent)
-        else
-          _HubPausedPill(accent: accent),
+              ),
+            ),
+          _HubFactText(fact: facts[i]),
+        ],
       ],
     );
   }
 }
 
-class _HubPausedPill extends StatelessWidget {
-  const _HubPausedPill({required this.accent});
+class _HubFactText extends StatelessWidget {
+  const _HubFactText({required this.fact});
 
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text(
-        'Swipe',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: accent,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-/// Tells the patient the card moves on its own.
-class _HubLivePill extends StatefulWidget {
-  const _HubLivePill({required this.accent});
-
-  final Color accent;
-
-  @override
-  State<_HubLivePill> createState() => _HubLivePillState();
-}
-
-class _HubLivePillState extends State<_HubLivePill>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: AppMotion.pulseCycle,
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final _HubFact fact;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: widget.accent.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+    final theme = Theme.of(context);
+    final text = Text.rich(
+      TextSpan(
         children: [
-          FadeTransition(
-            opacity: Tween<double>(begin: 0.35, end: 1).animate(_ctrl),
-            child: Container(
-              height: 7,
-              width: 7,
-              decoration: BoxDecoration(
-                color: widget.accent,
-                shape: BoxShape.circle,
-              ),
+          TextSpan(
+            text: '${fact.label} ',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppPalette.textMuted(context),
             ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            'Live',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: widget.accent,
+          TextSpan(
+            text: fact.value,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: fact.accent,
               fontWeight: FontWeight.w800,
-              letterSpacing: 0.4,
             ),
           ),
         ],
+      ),
+    );
+
+    if (fact.onTap == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: text,
+      );
+    }
+
+    return Semantics(
+      button: true,
+      label: '${fact.label} ${fact.value}',
+      onTap: fact.onTap,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: fact.onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: text,
+        ),
+      ),
+    );
+  }
+}
+
+/// One step, as a row on the background: icon, what it is, what it says, and
+/// a chevron. No fill, no border, no card — the page shows through it.
+class _HubStepRow extends StatelessWidget {
+  const _HubStepRow({required this.action});
+
+  final _SceneAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(AppSpacing.radiusMd);
+
+    return Semantics(
+      button: true,
+      label: '${action.title}. ${action.detail}',
+      onTap: action.onTap,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: action.onTap,
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Row(
+              children: [
+                _PatientIconDisc(icon: action.icon, color: action.accent),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        action.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        action.detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(AppIcons.chevronRight, color: action.accent, size: 20),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1417,39 +1008,6 @@ class _AnnouncementSheet {
               },
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-/// The assigned meal in full — what it is, the macros the clinician set, and
-/// any note attached to it.
-class _MealPlanSheet {
-  _MealPlanSheet._();
-
-  static Future<void> show(BuildContext context, StaffMealPlan meal) {
-    final theme = Theme.of(context);
-    return PatientSheet.show<void>(
-      context,
-      title: meal.title,
-      subtitle:
-          '${meal.mealType.label} · assigned ${_relativeTime(meal.assignedAt)}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if ((meal.description ?? '').isNotEmpty)
-            Text(
-              meal.description!,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-            ),
-          const SizedBox(height: AppSpacing.md),
-          if (meal.macroSummary.isNotEmpty)
-            PatientCompactInfoRow(label: 'Nutrition', value: meal.macroSummary),
-          if ((meal.notes ?? '').isNotEmpty)
-            PatientCompactInfoRow(label: 'Care team note', value: meal.notes!),
-          if (meal.assignedBy.isNotEmpty)
-            PatientCompactInfoRow(label: 'Assigned by', value: meal.assignedBy),
         ],
       ),
     );

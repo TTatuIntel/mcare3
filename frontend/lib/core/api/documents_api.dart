@@ -228,6 +228,50 @@ class DocumentsApi {
     return PatientDomainMapper.documentFromApi(json);
   }
 
+  /// Answers a patient's document request with the file, closing the request
+  /// in the same call.
+  ///
+  /// Uploading and closing are one act, so they are one request. Splitting
+  /// them left a filed document sitting beside a request still reading
+  /// "waiting" whenever the second call was lost — which is exactly the state
+  /// a patient reads as "nobody has done anything".
+  ///
+  /// Returns the filed document and the closed request together.
+  Future<({MedicalDocument? document, Map<String, dynamic>? request})>
+  fulfilDocumentRequest({
+    required String requestId,
+    required PlatformFile file,
+    required String title,
+    required DocumentCategory category,
+    required DocumentFileType fileType,
+    String? description,
+    String? note,
+  }) async {
+    if (!AppEnv.backendEnabled) return (document: null, request: null);
+
+    final fields = PatientDomainMapper.documentMetaToApi(
+      title: title,
+      category: category,
+      fileType: fileType,
+      description: description,
+    ).map((k, v) => MapEntry(k, v.toString()));
+    if (note != null && note.isNotEmpty) fields['note'] = note;
+
+    final res = await ApiClient.instance.postMultipart(
+      '/doctor/document-requests/$requestId/fulfill',
+      fields: fields,
+      files: [await MultipartFileBuilder.fromPlatformFile(file)],
+    );
+
+    final docJson = res['data']?['document'] as Map<String, dynamic>?;
+    return (
+      document: docJson == null
+          ? null
+          : PatientDomainMapper.documentFromApi(docJson),
+      request: (res['data']?['request'] as Map?)?.cast<String, dynamic>(),
+    );
+  }
+
   Future<MedicalDocument?> doctorUpdate({
     required String patientUserId,
     required String documentId,

@@ -22,6 +22,7 @@ class _PatientHomeLayout extends StatelessWidget {
           appointments: appointments,
           doses: doses,
         );
+        const insights = PatientVitalInsightsLauncher();
         final forYou = _PatientForYouSection(
           appointments: appointments,
           doses: doses,
@@ -58,21 +59,30 @@ class _PatientHomeLayout extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: 5,
-                    child: StaggeredEntry(index: 3, child: quickActions),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        StaggeredEntry(index: 3, child: quickActions),
+                        const SizedBox(height: AppSpacing.lg),
+                        const StaggeredEntry(index: 4, child: insights),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.xl),
                   Expanded(
                     flex: 7,
-                    child: StaggeredEntry(index: 4, child: forYou),
+                    child: StaggeredEntry(index: 5, child: forYou),
                   ),
                 ],
               )
             else ...[
               StaggeredEntry(index: 3, child: quickActions),
               const SizedBox(height: AppSpacing.lg),
-              StaggeredEntry(index: 4, child: forYou),
+              const StaggeredEntry(index: 4, child: insights),
+              const SizedBox(height: AppSpacing.lg),
+              StaggeredEntry(index: 5, child: forYou),
             ],
-            const SizedBox(height: AppSpacing.xxl),
+            const SizedBox(height: 84),
           ],
         );
       },
@@ -163,10 +173,6 @@ class _PatientSearchEntry {
   }
 
   void open(BuildContext context) {
-    if (id == 'meals') {
-      _openPatientMeals(context);
-      return;
-    }
     final destination = route;
     if (destination != null) Navigator.of(context).pushNamed(destination);
   }
@@ -213,9 +219,10 @@ const _patientSearchEntries = <_PatientSearchEntry>[
     id: 'meals',
     title: 'Meals',
     description: 'Review your assigned meal plan',
-    keywords: 'food nutrition diet breakfast lunch dinner',
+    keywords: 'food nutrition diet breakfast lunch dinner meal plan',
     icon: AppIcons.meals,
     color: AppColors.success,
+    route: RouteNames.patientMeals,
   ),
   _PatientSearchEntry(
     id: 'emergency',
@@ -343,16 +350,6 @@ class _PatientSearchDelegate extends SearchDelegate<_PatientSearchEntry?> {
   }
 }
 
-void _openPatientMeals(BuildContext context) {
-  final today = MealPlansState.instance.assignedToday;
-  final meal = today.isNotEmpty ? today.first : MealPlansState.instance.latest;
-  if (meal == null) {
-    AppToast.info(context, 'No meal plan has been assigned yet.');
-    return;
-  }
-  _MealPlanSheet.show(context, meal);
-}
-
 class _PatientQuickActions extends StatelessWidget {
   const _PatientQuickActions({required this.appointments, required this.doses});
 
@@ -387,18 +384,18 @@ class _PatientQuickActions extends StatelessWidget {
             Navigator.of(context).pushNamed(RouteNames.patientMedications),
       ),
       _PatientQuickAction(
-        label: 'Log vital',
-        detail: 'Add a reading',
+        label: 'Vitals',
+        detail: 'Readings & trends',
         icon: AppIcons.vitals,
         color: AppColors.brandIndigo,
-        onTap: () => SubmitVitalSheet.show(context),
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientVitals),
       ),
       _PatientQuickAction(
         label: 'Meals',
         detail: mealsToday == 0 ? 'Meal plan' : '$mealsToday for today',
         icon: AppIcons.meals,
         color: AppColors.success,
-        onTap: () => _openPatientMeals(context),
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientMeals),
       ),
       _PatientQuickAction(
         label: 'Documents',
@@ -423,12 +420,8 @@ class _PatientQuickActions extends StatelessWidget {
         const SectionLabel(title: 'Quick actions', icon: AppIcons.add),
         LayoutBuilder(
           builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 680
-                ? 6
-                : constraints.maxWidth >= 340
-                ? 3
-                : 2;
-            const gap = AppSpacing.sm;
+            final columns = constraints.maxWidth >= 680 ? 6 : 3;
+            const gap = AppSpacing.xs;
             final width =
                 (constraints.maxWidth - gap * (columns - 1)) / columns;
             return Wrap(
@@ -438,7 +431,7 @@ class _PatientQuickActions extends StatelessWidget {
                 for (final action in actions)
                   SizedBox(
                     width: width,
-                    child: _PatientQuickActionTile(action: action),
+                    child: _PatientQuickActionButton(action: action),
                   ),
               ],
             );
@@ -465,8 +458,8 @@ class _PatientQuickAction {
   final VoidCallback onTap;
 }
 
-class _PatientQuickActionTile extends StatelessWidget {
-  const _PatientQuickActionTile({required this.action});
+class _PatientQuickActionButton extends StatelessWidget {
+  const _PatientQuickActionButton({required this.action});
 
   final _PatientQuickAction action;
 
@@ -475,252 +468,45 @@ class _PatientQuickActionTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${action.label}. ${action.detail}',
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.md,
-        ),
-        shadow: const [],
-        onTap: action.onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _PatientIconDisc(icon: action.icon, color: action.color),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              action.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: action.onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xs,
+              vertical: AppSpacing.sm,
             ),
-            const SizedBox(height: 2),
-            Text(
-              action.detail,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppPalette.textMuted(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PatientForYouSection extends StatefulWidget {
-  const _PatientForYouSection({
-    required this.appointments,
-    required this.doses,
-    required this.unreadNotifications,
-  });
-
-  final List<Appointment> appointments;
-  final List<MedicationDose> doses;
-  final int unreadNotifications;
-
-  @override
-  State<_PatientForYouSection> createState() => _PatientForYouSectionState();
-}
-
-class _PatientForYouSectionState extends State<_PatientForYouSection> {
-  static const _collapsedCount = 5;
-  bool _showAll = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([
-        MessagesState.instance,
-        AnnouncementsState.instance,
-        MealPlansState.instance,
-        DocumentsState.instance,
-        SupportState.instance,
-        VitalReportState.instance,
-        SosState.instance,
-        ProfileState.instance,
-      ]),
-      builder: (context, _) {
-        final items =
-            _buildHubScenes(
-                  context,
-                  appointments: widget.appointments,
-                  doses: widget.doses,
-                  unreadNotifications: widget.unreadNotifications,
-                )
-                .where((scene) => scene.id != 'plan' && scene.id != 'welcome')
-                .toList();
-        final visible = _showAll ? items : items.take(_collapsedCount).toList();
-        final hidden = items.length - visible.length;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SectionLabel(
-              title: 'For you',
-              icon: AppIcons.activity,
-              trailing: items.isEmpty
-                  ? null
-                  : '${items.length} update${items.length == 1 ? '' : 's'}',
-            ),
-            GlassCard(
-              padding: EdgeInsets.zero,
-              shadow: const [],
-              child: items.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      child: EmptyStateView(
-                        icon: AppIcons.check,
-                        title: 'You are all caught up',
-                        message:
-                            'New care updates and recommendations will appear here.',
-                        actionLabel: 'Log a vital',
-                        onAction: () => SubmitVitalSheet.show(context),
-                        compact: true,
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        for (var i = 0; i < visible.length; i++) ...[
-                          _PatientForYouRow(scene: visible[i]),
-                          if (i != visible.length - 1)
-                            Divider(
-                              height: 1,
-                              color: AppPalette.border(context),
-                            ),
-                        ],
-                        if (hidden > 0 || _showAll) ...[
-                          Divider(height: 1, color: AppPalette.border(context)),
-                          TextButton.icon(
-                            onPressed: () =>
-                                setState(() => _showAll = !_showAll),
-                            icon: Icon(
-                              _showAll
-                                  ? AppIcons.expandLess
-                                  : AppIcons.expandMore,
-                              size: 18,
-                            ),
-                            label: Text(
-                              _showAll ? 'Show less' : 'Show $hidden more',
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _PatientForYouRow extends StatelessWidget {
-  const _PatientForYouRow({required this.scene});
-
-  final _HubScene scene;
-
-  String get _kind {
-    if (scene.urgent) return 'Alert';
-    if (scene.id.startsWith('ann_')) return 'News';
-    if (scene.id == 'profile' || scene.id == 'progress') return 'Recommended';
-    return 'Activity';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final action = scene.actions.isEmpty ? null : scene.actions.first;
-    final body = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          _PatientIconDisc(icon: scene.icon, color: scene.accent),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        scene.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scene.accent.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusPill,
-                        ),
-                      ),
-                      child: Text(
-                        _kind,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scene.accent,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: action.color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(action.icon, color: action.color, size: 18),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 5),
                 Text(
-                  scene.subtitle,
+                  action.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.textMuted(context),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppPalette.ink(context),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
                   ),
                 ),
-                if ((scene.body ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    scene.body!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPalette.ink(context),
-                      height: 1.25,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
-          if (action != null) ...[
-            const SizedBox(width: AppSpacing.sm),
-            Icon(AppIcons.chevronRight, color: scene.accent, size: 20),
-          ],
-        ],
+        ),
       ),
-    );
-
-    if (action == null) return body;
-    return Semantics(
-      button: true,
-      label: '${scene.title}. ${scene.subtitle}',
-      child: InkWell(onTap: action.onTap, child: body),
     );
   }
 }

@@ -29,12 +29,21 @@ class CareProvider {
     required this.yearsExperience,
     required this.rating,
     required this.totalReviews,
+    this.userId,
     this.bio,
     this.languages = const ['English'],
     this.assigned = false,
   });
 
   final String id;
+
+  /// The directory user behind this provider.
+  ///
+  /// Distinct from [id], which is the care_providers row. Every staff-facing
+  /// endpoint addresses clinicians by user id, so this is what a patient
+  /// naming a specific doctor — asking them for a document, say — has to send.
+  /// Null for a provider row with no linked account.
+  final String? userId;
   final String name;
   final String specialty;
   final String facility;

@@ -48,6 +48,15 @@
 @endforeach
 
 @break
+@case ('document'){{ strtoupper($block['kicker']) }}@if (! empty($block['status'])) [{{ strtoupper($block['status']) }}]@endif
+
+{{ $block['title'] }}
+{{ str_repeat('-', min(60, strlen($block['title']))) }}
+@foreach ($block['rows'] as $label => $value)
+  {{ $label }}: {{ $value }}
+@endforeach
+
+@break
 @case ('bullets')
 @if (! empty($block['title'])){{ strtoupper($block['title']) }}
 @endif

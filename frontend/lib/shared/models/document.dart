@@ -9,6 +9,13 @@ enum DocumentCategory {
   imaging,
   discharge,
   consultationNote,
+
+  /// Issued by the care team from a vital report request. Its own category
+  /// rather than "other" because it is the one document a patient goes looking
+  /// for by name — they asked for it, so they know it exists.
+  vitalReport,
+  referral,
+  insurance,
   other,
 }
 
@@ -19,6 +26,9 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => 'Imaging',
     DocumentCategory.discharge => 'Discharge',
     DocumentCategory.consultationNote => 'Consultation note',
+    DocumentCategory.vitalReport => 'Vital report',
+    DocumentCategory.referral => 'Referral',
+    DocumentCategory.insurance => 'Insurance',
     DocumentCategory.other => 'Other',
   };
 
@@ -28,6 +38,9 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppColors.bpPurple,
     DocumentCategory.discharge => AppColors.doctorGreen,
     DocumentCategory.consultationNote => AppColors.info,
+    DocumentCategory.vitalReport => AppColors.brandIndigo,
+    DocumentCategory.referral => AppColors.tempTeal,
+    DocumentCategory.insurance => AppColors.adminPurple,
     DocumentCategory.other => AppColors.weightSlate,
   };
 
@@ -37,6 +50,9 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppIcons.image,
     DocumentCategory.discharge => AppIcons.nurse,
     DocumentCategory.consultationNote => AppIcons.report,
+    DocumentCategory.vitalReport => AppIcons.vitals,
+    DocumentCategory.referral => AppIcons.send,
+    DocumentCategory.insurance => AppIcons.approval,
     DocumentCategory.other => AppIcons.document,
   };
 }

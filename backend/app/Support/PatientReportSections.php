@@ -84,8 +84,8 @@ class PatientReportSections
             'clinical' => true,
         ],
         'vitals_summary' => [
-            'label' => 'Vitals summary',
-            'description' => 'Latest reading and 30-day trend per assigned vital.',
+            'label' => 'Vitals statistics & trends',
+            'description' => 'Latest, average, low, high, in-range percentage and 3-week trend per vital.',
             'group' => 'Clinical',
             'sensitivity' => self::RESTRICTED,
             'clinical' => true,

@@ -1666,10 +1666,7 @@ class _UploadDocumentForm extends StatelessWidget {
           decoration: const InputDecoration(labelText: 'Category'),
           items: [
             for (final value in DocumentCategory.values)
-              DropdownMenuItem(
-                value: value,
-                child: Text(_categoryLabel(value)),
-              ),
+              DropdownMenuItem(value: value, child: Text(value.label)),
           ],
           onChanged: (value) {
             if (value != null) onCategoryChanged(value);
@@ -1710,13 +1707,4 @@ class _UploadDocumentForm extends StatelessWidget {
       ],
     );
   }
-
-  static String _categoryLabel(DocumentCategory category) => switch (category) {
-    DocumentCategory.labResult => 'Lab result',
-    DocumentCategory.prescription => 'Prescription',
-    DocumentCategory.imaging => 'Imaging',
-    DocumentCategory.discharge => 'Discharge summary',
-    DocumentCategory.consultationNote => 'Consultation note',
-    DocumentCategory.other => 'Other',
-  };
 }

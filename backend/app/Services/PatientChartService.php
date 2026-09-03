@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\VitalReading;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * One patient's clinical record over a chosen period.
@@ -83,9 +84,15 @@ class PatientChartService
             ->limit(120)
             ->get();
 
+        // Windowed on the day the meal is meant to be eaten, not the day it was
+        // written: a plan assigned last week for this week belongs to this
+        // week's chart. Plans predating scheduling fall back to their assign date.
         $meals = MealPlan::where('patient_user_id', $patient->id)
-            ->whereBetween('assigned_at', [$from, $to])
-            ->orderByDesc('assigned_at')
+            ->whereBetween(
+                DB::raw('COALESCE(scheduled_for, DATE(assigned_at))'),
+                [$from->toDateString(), $to->toDateString()],
+            )
+            ->orderByRaw('COALESCE(scheduled_for, DATE(assigned_at)) DESC')
             ->limit(120)
             ->get();
 

@@ -147,6 +147,39 @@
                                         </table>
                                         @break
 
+                                    @case ('document')
+                                        {{-- The report masthead, redrawn with tables so it survives Outlook. --}}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;border:1px solid {{ $border }};border-radius:12px;overflow:hidden;">
+                                            <tr>
+                                                <td bgcolor="{{ $brand }}" style="background-color:{{ $brand }};padding:16px 18px;">
+                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+                                                        <tr>
+                                                            <td style="{{ $font }}font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:#C7D2FE;">{{ $block['kicker'] }}</td>
+                                                            @if (! empty($block['status']))
+                                                                <td align="right" style="{{ $font }}font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#FFFFFF;">{{ $block['status'] }}</td>
+                                                            @endif
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="2" style="{{ $font }}padding-top:8px;font-size:19px;line-height:1.3;font-weight:700;color:#FFFFFF;">{{ $block['title'] }}</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            @foreach ($block['rows'] as $label => $value)
+                                                <tr>
+                                                    <td class="mc-card" style="background-color:{{ $surface }};padding:0 18px;">
+                                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+                                                            <tr>
+                                                                <td class="mc-fact-label mc-muted" width="38%" style="{{ $font }}padding:10px 8px 10px 0;font-size:13px;line-height:1.5;color:{{ $muted }};vertical-align:top;{{ $loop->last ? '' : 'border-bottom:1px solid '.$border.';' }}">{{ $label }}</td>
+                                                                <td class="mc-fact-value mc-ink" style="{{ $font }}padding:10px 0 10px 8px;font-size:13px;line-height:1.5;font-weight:600;color:{{ $ink }};vertical-align:top;word-break:break-word;{{ $loop->last ? '' : 'border-bottom:1px solid '.$border.';' }}">{{ $value }}</td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </table>
+                                        @break
+
                                     @case ('bullets')
                                         @if (! empty($block['title']))
                                             <p class="mc-muted" style="{{ $font }}margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:{{ $muted }};">{{ $block['title'] }}</p>

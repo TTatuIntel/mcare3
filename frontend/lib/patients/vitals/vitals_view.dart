@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/api/patient_chart_api.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/notifications_filter.dart';
 import '../../shared/models/vital.dart';
@@ -19,6 +20,8 @@ import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/vital_tile.dart';
+import 'vitals_period_panel.dart';
+import 'patient_vital_insights.dart';
 import 'request_vital_report_sheet.dart';
 import 'submit_vital_sheet.dart';
 import 'vital_reading_sheet.dart';
@@ -93,8 +96,17 @@ List<VitalReading> _lastProvidedReadings(
       .toList();
 }
 
-class VitalsView extends StatelessWidget {
+class VitalsView extends StatefulWidget {
   const VitalsView({super.key});
+
+  @override
+  State<VitalsView> createState() => _VitalsViewState();
+}
+
+class _VitalsViewState extends State<VitalsView> {
+  /// Three weeks by default — the same window the insights open on, so the
+  /// two surfaces on this page never disagree about what "recent" means.
+  ChartPeriod _period = ChartPeriod.threeWeeks;
 
   @override
   Widget build(BuildContext context) {
@@ -171,12 +183,11 @@ class VitalsView extends StatelessWidget {
                       arguments: const NotificationsFilter(showResolved: true)),
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               StaggeredEntry(
                 index: 2,
-                child: _VitalsQuickActions(
-                  resolvedCount:
-                      NotificationState.instance.resolvedVitalAlertCount,
+                child: const PatientVitalInsightsLauncher(
+                  title: 'Open statistics & charts',
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -187,10 +198,9 @@ class VitalsView extends StatelessWidget {
                   icon: AppIcons.vitals,
                   trailing: tracked.isEmpty
                       ? null
-                      : 'Last 6 · ${tracked.length} tracked',
+                      : '${tracked.length} tracked',
                 ),
               ),
-              const SizedBox(height: AppSpacing.sm),
               if (tracked.isEmpty)
                 StaggeredEntry(
                   index: 4,
@@ -210,7 +220,12 @@ class VitalsView extends StatelessWidget {
               else
                 StaggeredEntry(
                   index: 4,
-                  child: _LastSixReadingsPanel(tracked: tracked),
+                  child: VitalsPeriodSection(
+                    period: _period,
+                    tracked: tracked,
+                    onPeriodChanged: (period) =>
+                        setState(() => _period = period),
+                  ),
                 ),
               SizedBox(height: tier.isHandheld ? 88 : AppSpacing.huge),
             ],
