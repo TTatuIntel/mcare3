@@ -257,6 +257,34 @@ class CareTeamRequestQueueTest extends TestCase
         $this->assertSame(VitalReportRequest::PENDING, $request->status);
     }
 
+    public function test_the_sla_clock_skips_a_request_somebody_has_taken_on(): void
+    {
+        $claimed = $this->openVitalRequest();
+        $ignored = $this->openVitalRequest();
+
+        // Both are two days old; only one has anybody on it.
+        Sanctum::actingAs($this->drA);
+        $this->patchJson("/api/v1/doctor/vital-report-requests/{$claimed->id}/claim")
+            ->assertOk();
+
+        foreach ([$claimed, $ignored] as $r) {
+            $r->forceFill(['created_at' => now()->subHours(60)])->saveQuietly();
+        }
+
+        $this->artisan('vitals:escalate-report-requests')->assertSuccessful();
+
+        // Escalating work a clinician is mid-way through would send an admin
+        // to chase someone who is already doing it.
+        $this->assertSame('doctor', $claimed->fresh()->current_responder);
+        $this->assertSame('mcareAssistant', $ignored->fresh()->current_responder);
+
+        // And the patient's trail says why the untouched one moved.
+        $this->assertSame(
+            ['opened', 'escalated'],
+            $ignored->fresh()->events->pluck('action')->all(),
+        );
+    }
+
     public function test_a_cancelled_request_cannot_then_be_worked_on(): void
     {
         $request = $this->openVitalRequest();

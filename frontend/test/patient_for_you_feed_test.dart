@@ -28,8 +28,10 @@ import 'package:mcare/shared/theme/app_theme.dart';
 ///   * it leads with what is wrong, then with what is due, then with what is
 ///     new, and closes on the quiet tally;
 ///   * the same thing is never listed twice, however many stores mention it;
-///   * the whole stream is on the page — no window, no folded remainder, and
-///     nothing that moves on its own.
+///   * a stream that fits on one page is on the page — no window, no folded
+///     remainder, and nothing that moves on its own. (Past thirteen rows the
+///     tail waits behind a "show more" the patient asks for; these fixtures
+///     stay under that line on purpose.)
 void main() {
   setUp(() {
     AuthState.instance.signIn(
@@ -142,8 +144,9 @@ void main() {
 
     await _pumpDashboard(tester);
 
-    // Every row is laid out, including the last one. Nothing is behind a
-    // "show more" control and nothing is waiting for a timer to bring it round.
+    // Six rows — under the thirteen-row page — so every one is laid out,
+    // including the last. Nothing is behind a "show more" control at this
+    // length, and nothing is waiting for a timer to bring it round.
     _expectOrder(tester, const [
       'Care alert',
       'Medicine time',
@@ -261,10 +264,15 @@ void _seedLongStream() {
 
 // ── Finders ──────────────────────────────────────────────────────────────────
 
-/// A row of the stream. The briefing at the top of the page names the day's
-/// *steps* ("Take Metformin"), never the scenes ("Medicine time"), so a scene
-/// title belongs to the feed and to nothing else on the screen.
-Finder _inFeed(String text) => find.text(text);
+/// The rows of the stream. Scoped deliberately: the briefing at the top of the
+/// page is built from the same scenes, so a title or a detail line can
+/// honestly appear in both places, and only one of them is under test here.
+final Finder _feedRows = find.byWidgetPredicate(
+  (widget) => widget.runtimeType.toString() == '_FeedRow',
+);
+
+Finder _inFeed(String text) =>
+    find.descendant(of: _feedRows, matching: find.text(text));
 
 /// Asserts the rows appear top to bottom in the order given.
 void _expectOrder(WidgetTester tester, List<String> titles) {

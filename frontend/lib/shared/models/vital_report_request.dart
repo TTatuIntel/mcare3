@@ -67,6 +67,9 @@ class VitalReportRequest {
     this.resolvedAt,
     this.documentId,
     this.lastEscalatedAt,
+    this.signedBy,
+    this.signedByRole,
+    this.signedAt,
     this.events = const [],
   });
 
@@ -100,6 +103,27 @@ class VitalReportRequest {
   final String? documentId;
 
   final DateTime? lastEscalatedAt;
+
+  /// Who signed the report off, and when.
+  ///
+  /// Distinct from [respondedBy], which is an author line — it says who typed
+  /// the note. The signature is the clinician attesting to the findings the
+  /// patient is handed, and it is what makes "Ready" mean the report has been
+  /// through a person rather than only through a renderer.
+  final String? signedBy;
+  final String? signedByRole;
+  final DateTime? signedAt;
+
+  bool get isSigned => signedAt != null;
+
+  /// How the signatory is described to the patient.
+  String get signatoryRoleLabel => switch (signedByRole) {
+    'doctor' => 'Attending clinician',
+    'admin' => 'Care administrator',
+    'mcare_assistant' => 'Care team',
+    _ => 'Care team',
+  };
+
   final List<RequestActivityEvent> events;
 
   bool get isOpen => status.isOpen;
@@ -124,7 +148,9 @@ class VitalReportRequest {
     VitalReportStatus.inProgress =>
       '${claimedByName ?? 'Your care team'} is preparing this',
     VitalReportStatus.fulfilled =>
-      'Prepared by ${respondedBy ?? 'your care team'}',
+      signedBy != null
+          ? 'Signed by $signedBy'
+          : 'Prepared by ${respondedBy ?? 'your care team'}',
     VitalReportStatus.cancelled => 'Cancelled',
   };
 
@@ -140,6 +166,9 @@ class VitalReportRequest {
     DateTime? resolvedAt,
     String? documentId,
     DateTime? lastEscalatedAt,
+    String? signedBy,
+    String? signedByRole,
+    DateTime? signedAt,
     List<RequestActivityEvent>? events,
   }) => VitalReportRequest(
     id: id,
@@ -160,6 +189,9 @@ class VitalReportRequest {
     resolvedAt: resolvedAt ?? this.resolvedAt,
     documentId: documentId ?? this.documentId,
     lastEscalatedAt: lastEscalatedAt ?? this.lastEscalatedAt,
+    signedBy: signedBy ?? this.signedBy,
+    signedByRole: signedByRole ?? this.signedByRole,
+    signedAt: signedAt ?? this.signedAt,
     events: events ?? this.events,
   );
 }

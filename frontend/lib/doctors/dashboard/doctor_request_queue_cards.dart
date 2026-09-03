@@ -75,7 +75,10 @@ class _VitalReportActions extends StatefulWidget {
 class _VitalReportActionsState extends State<_VitalReportActions> {
   bool _busy = false;
 
-  Future<void> _run(Future<RequestActionResult> Function() action, String done) async {
+  Future<void> _run(
+    Future<RequestActionResult> Function() action,
+    String done,
+  ) async {
     setState(() => _busy = true);
     final result = await action();
     if (!mounted) return;
@@ -93,7 +96,8 @@ class _VitalReportActionsState extends State<_VitalReportActions> {
     final note = await _NoteSheet.show(
       context,
       title: 'Complete report',
-      subtitle: 'The report is generated and filed in the patient\'s documents.',
+      subtitle:
+          'The report is generated and filed in the patient\'s documents.',
       hint: 'Clinical note for the patient (optional)',
       confirmLabel: 'Issue report',
     );
@@ -203,10 +207,13 @@ class DocumentRequestsCard extends StatelessWidget {
               if (req.addressedToMe) ('Asked of you', AppColors.brandIndigo),
               if (!req.addressedToMe && req.targetDoctorName != null)
                 ('For ${req.targetDoctorName}', AppColors.textMutedAA),
-              if (req.overdue) ('Overdue', AppColors.critical)
+              if (req.overdue)
+                ('Overdue', AppColors.critical)
               else if (req.neededBy != null)
-                ('Needed by ${DateFormat.MMMd().format(req.neededBy!)}',
-                    AppColors.warning),
+                (
+                  'Needed by ${DateFormat.MMMd().format(req.neededBy!)}',
+                  AppColors.warning,
+                ),
             ],
             note: req.note,
             actions: _DocumentRequestActions(request: req),
@@ -229,7 +236,10 @@ class _DocumentRequestActions extends StatefulWidget {
 class _DocumentRequestActionsState extends State<_DocumentRequestActions> {
   bool _busy = false;
 
-  Future<void> _run(Future<RequestActionResult> Function() action, String done) async {
+  Future<void> _run(
+    Future<RequestActionResult> Function() action,
+    String done,
+  ) async {
     setState(() => _busy = true);
     final result = await action();
     if (!mounted) return;
@@ -242,7 +252,10 @@ class _DocumentRequestActionsState extends State<_DocumentRequestActions> {
   }
 
   Future<void> _upload() async {
-    final draft = await FulfilDocumentRequestSheet.show(context, widget.request);
+    final draft = await FulfilDocumentRequestSheet.show(
+      context,
+      widget.request,
+    );
     if (draft == null || !mounted) return;
     await _run(
       () => StaffState.instance.fulfillDocumentRequest(
@@ -512,7 +525,10 @@ class _ClaimBadge extends StatelessWidget {
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 140),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),

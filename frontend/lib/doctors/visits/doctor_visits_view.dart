@@ -36,17 +36,22 @@ class DoctorVisitsView extends StatelessWidget {
               .assignedPatientsForDoctor()
               .map((p) => p.id)
               .toSet();
-          final mine = StaffState.instance.appointments
-              .where((a) =>
-                  a.patientId != null && assignedIds.contains(a.patientId))
-              .toList()
-            ..sort((a, b) => a.startAt.compareTo(b.startAt));
+          final mine =
+              StaffState.instance.appointments
+                  .where(
+                    (a) =>
+                        a.patientId != null &&
+                        assignedIds.contains(a.patientId),
+                  )
+                  .toList()
+                ..sort((a, b) => a.startAt.compareTo(b.startAt));
 
           final now = DateTime.now();
           final today = mine.where((a) => _isSameDay(a.startAt, now)).toList();
           final upcoming = mine
-              .where((a) =>
-                  a.startAt.isAfter(now) && !_isSameDay(a.startAt, now))
+              .where(
+                (a) => a.startAt.isAfter(now) && !_isSameDay(a.startAt, now),
+              )
               .take(8)
               .toList();
 
@@ -109,8 +114,10 @@ class DoctorVisitsView extends StatelessWidget {
                                     '${DateFormat.jm().format(a.startAt)} · ${a.typeLabel}${a.reason != null ? ' · ${a.reason}' : ''}',
                                 pill: a.statusLabel,
                                 pillColor: a.statusColor,
-                                onTap: () =>
-                                    DoctorAppointmentFlows.openDetail(context, a.id),
+                                onTap: () => DoctorAppointmentFlows.openDetail(
+                                  context,
+                                  a.id,
+                                ),
                               ),
                             )
                             .toList(),
@@ -124,8 +131,9 @@ class DoctorVisitsView extends StatelessWidget {
                   icon: AppIcons.calendar,
                   trailing: '${upcoming.length}',
                   actionLabel: 'Full schedule',
-                  onAction: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorAppointments),
+                  onAction: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.doctorAppointments),
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -150,8 +158,10 @@ class DoctorVisitsView extends StatelessWidget {
                                 title: a.patientName,
                                 subtitle:
                                     '${DateFormat.MMMd().add_jm().format(a.startAt)} · ${a.typeLabel}',
-                                onTap: () =>
-                                    DoctorAppointmentFlows.openDetail(context, a.id),
+                                onTap: () => DoctorAppointmentFlows.openDetail(
+                                  context,
+                                  a.id,
+                                ),
                               ),
                             )
                             .toList(),

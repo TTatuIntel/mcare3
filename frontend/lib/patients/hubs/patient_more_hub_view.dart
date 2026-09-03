@@ -71,23 +71,14 @@ class PatientMoreHubView extends StatelessWidget {
                       color: AppColors.brandIndigo,
                     ),
                     AppSectionLink(
-                      title: 'Reports about you',
+                      title: 'Documents & reports',
                       description:
-                          'See every report drawn from your record, who it '
-                          'went to, and read it yourself.',
-                      icon: AppIcons.report,
-                      route: RouteNames.patientReportConsents,
-                      color: AppColors.warning,
-                      badge: PatientNavBadges.sharingRequests,
-                    ),
-                    const AppSectionLink(
-                      title: 'Documents',
-                      description:
-                          'Lab results, prescriptions, imaging and letters — '
-                          'yours and your care team\'s.',
+                          'All files and reports in your record, including '
+                          'documents uploaded by you or your care team.',
                       icon: AppIcons.document,
                       route: RouteNames.patientDocuments,
                       color: AppColors.bpPurple,
+                      badge: PatientNavBadges.sharingRequests,
                     ),
                   ],
                 ),

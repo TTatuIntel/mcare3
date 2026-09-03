@@ -75,13 +75,14 @@ class PatientScaffold extends StatelessWidget {
       ).pushNamedAndRemoveUntil(RouteNames.patientDashboard, (_) => false);
     }
 
-    final pad = padding ??
+    final pad =
+        padding ??
         EdgeInsets.symmetric(
           horizontal: tier.isMobile
               ? AppSpacing.pageInsetMobile
               : tier.isTablet
-                  ? AppSpacing.pageInsetTablet
-                  : AppSpacing.pageInsetDesktop,
+              ? AppSpacing.pageInsetTablet
+              : AppSpacing.pageInsetDesktop,
           vertical: AppSpacing.lg,
         );
 

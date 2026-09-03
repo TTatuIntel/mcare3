@@ -11,28 +11,28 @@ enum MealType {
   general;
 
   String get label => switch (this) {
-        MealType.breakfast => 'Breakfast',
-        MealType.lunch => 'Lunch',
-        MealType.dinner => 'Dinner',
-        MealType.snack => 'Snack',
-        MealType.general => 'General',
-      };
+    MealType.breakfast => 'Breakfast',
+    MealType.lunch => 'Lunch',
+    MealType.dinner => 'Dinner',
+    MealType.snack => 'Snack',
+    MealType.general => 'General',
+  };
 
   IconData get icon => switch (this) {
-        MealType.breakfast => Icons.wb_sunny_rounded,
-        MealType.lunch => AppIcons.meals,
-        MealType.dinner => Icons.dinner_dining_rounded,
-        MealType.snack => Icons.cookie_rounded,
-        MealType.general => Icons.food_bank_rounded,
-      };
+    MealType.breakfast => Icons.wb_sunny_rounded,
+    MealType.lunch => AppIcons.meals,
+    MealType.dinner => Icons.dinner_dining_rounded,
+    MealType.snack => Icons.cookie_rounded,
+    MealType.general => Icons.food_bank_rounded,
+  };
 
   Color get color => switch (this) {
-        MealType.breakfast => const Color(0xFFFF9800),
-        MealType.lunch => AppColors.success,
-        MealType.dinner => AppColors.adminPurple,
-        MealType.snack => AppColors.info,
-        MealType.general => AppColors.textMutedAA,
-      };
+    MealType.breakfast => const Color(0xFFFF9800),
+    MealType.lunch => AppColors.success,
+    MealType.dinner => AppColors.adminPurple,
+    MealType.snack => AppColors.info,
+    MealType.general => AppColors.textMutedAA,
+  };
 }
 
 /// Who put a meal on the plan. A clinician's instruction and a meal the
@@ -43,24 +43,24 @@ enum MealPlanSource {
   patient;
 
   String get label => switch (this) {
-        MealPlanSource.careTeam => 'Care team',
-        MealPlanSource.patient => 'Added by you',
-      };
+    MealPlanSource.careTeam => 'Care team',
+    MealPlanSource.patient => 'Added by you',
+  };
 
   IconData get icon => switch (this) {
-        MealPlanSource.careTeam => AppIcons.careTeam,
-        MealPlanSource.patient => AppIcons.user,
-      };
+    MealPlanSource.careTeam => AppIcons.careTeam,
+    MealPlanSource.patient => AppIcons.user,
+  };
 
   String get apiValue => switch (this) {
-        MealPlanSource.careTeam => 'care_team',
-        MealPlanSource.patient => 'patient',
-      };
+    MealPlanSource.careTeam => 'care_team',
+    MealPlanSource.patient => 'patient',
+  };
 
   static MealPlanSource fromApi(String? raw) => switch (raw) {
-        'patient' => MealPlanSource.patient,
-        _ => MealPlanSource.careTeam,
-      };
+    'patient' => MealPlanSource.patient,
+    _ => MealPlanSource.careTeam,
+  };
 }
 
 /// Whether the patient followed a planned meal. [pending] is the resting
@@ -73,48 +73,48 @@ enum MealAdherence {
   skipped;
 
   String get label => switch (this) {
-        MealAdherence.pending => 'Not logged',
-        MealAdherence.followed => 'Followed',
-        MealAdherence.partial => 'Partly followed',
-        MealAdherence.skipped => 'Skipped',
-      };
+    MealAdherence.pending => 'Not logged',
+    MealAdherence.followed => 'Followed',
+    MealAdherence.partial => 'Partly followed',
+    MealAdherence.skipped => 'Skipped',
+  };
 
   String get shortLabel => switch (this) {
-        MealAdherence.pending => 'Log',
-        MealAdherence.followed => 'Followed',
-        MealAdherence.partial => 'Partly',
-        MealAdherence.skipped => 'Skipped',
-      };
+    MealAdherence.pending => 'Log',
+    MealAdherence.followed => 'Followed',
+    MealAdherence.partial => 'Partly',
+    MealAdherence.skipped => 'Skipped',
+  };
 
   IconData get icon => switch (this) {
-        MealAdherence.pending => AppIcons.time,
-        MealAdherence.followed => AppIcons.check,
-        MealAdherence.partial => Icons.remove_circle_outline_rounded,
-        MealAdherence.skipped => Icons.cancel_rounded,
-      };
+    MealAdherence.pending => AppIcons.time,
+    MealAdherence.followed => AppIcons.check,
+    MealAdherence.partial => Icons.remove_circle_outline_rounded,
+    MealAdherence.skipped => Icons.cancel_rounded,
+  };
 
   Color get color => switch (this) {
-        MealAdherence.pending => AppColors.textMutedAA,
-        MealAdherence.followed => AppColors.success,
-        MealAdherence.partial => AppColors.warning,
-        MealAdherence.skipped => AppColors.critical,
-      };
+    MealAdherence.pending => AppColors.textMutedAA,
+    MealAdherence.followed => AppColors.success,
+    MealAdherence.partial => AppColors.warning,
+    MealAdherence.skipped => AppColors.critical,
+  };
 
   /// Counts toward the adherence rate. A skipped meal counts as answered but
   /// not as followed; a partly followed one counts as half.
   double get credit => switch (this) {
-        MealAdherence.pending => 0,
-        MealAdherence.followed => 1,
-        MealAdherence.partial => 0.5,
-        MealAdherence.skipped => 0,
-      };
+    MealAdherence.pending => 0,
+    MealAdherence.followed => 1,
+    MealAdherence.partial => 0.5,
+    MealAdherence.skipped => 0,
+  };
 
   bool get isLogged => this != MealAdherence.pending;
 
   static MealAdherence fromApi(String? raw) => MealAdherence.values.firstWhere(
-        (a) => a.name == raw,
-        orElse: () => MealAdherence.pending,
-      );
+    (a) => a.name == raw,
+    orElse: () => MealAdherence.pending,
+  );
 }
 
 class StaffMealPlan {

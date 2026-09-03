@@ -33,16 +33,9 @@ import 'package:mcare/shared/theme/app_theme.dart';
 /// unusable to read.
 void main() {
   setUp(() {
-    AuthState.instance.signIn(
-      const AppUser(
-        id: 'p1',
-        uniqueId: 'PT-001',
-        firstName: 'Amara',
-        lastName: 'Doe',
-        email: 'amara@example.com',
-        role: UserRole.patient,
-      ),
-    );
+    // No joining date: an account whose age the server never told us is not
+    // new, so the welcome stays out of the tests that are not about it.
+    AuthState.instance.signIn(_patient());
 
     final now = DateTime.now();
 
@@ -95,12 +88,15 @@ void main() {
   ) async {
     await _pumpDashboard(tester);
 
-    // One headline, counted from the steps themselves.
-    expect(find.text('1 step today'), findsOneWidget);
+    // One headline, counted from the steps themselves: a reading to log, a
+    // notice to read, a meal to look at and a profile to finish.
+    expect(find.text('4 steps today'), findsOneWidget);
     expect(find.text('Nothing is overdue.'), findsOneWidget);
 
-    // The step is on the page, not behind a dwell.
+    // The steps are on the page, not behind a dwell, and they come from
+    // different parts of the app rather than from vitals alone.
     expect(find.text('Record your vitals'), findsWidgets);
+    expect(find.text('Read announcement'), findsWidgets);
     expect(
       find.ancestor(
         of: find.text('Record your vitals').first,
@@ -136,7 +132,7 @@ void main() {
     await _pumpDashboard(tester);
 
     final before = tester.getSize(find.byType(PatientDashboardView)).height;
-    final headlineAt = tester.getTopLeft(find.text('2 steps today'));
+    final headlineAt = tester.getTopLeft(_headline);
 
     // Two of the old dwells and then some: the surface that used to re-deal
     // itself every six seconds now holds still.
@@ -144,7 +140,7 @@ void main() {
     await tester.pump(const Duration(seconds: 7));
 
     expect(tester.getSize(find.byType(PatientDashboardView)).height, before);
-    expect(tester.getTopLeft(find.text('2 steps today')), headlineAt);
+    expect(tester.getTopLeft(_headline), headlineAt);
     expect(find.text('Take Metformin'), findsWidgets);
 
     await _dispose(tester);
@@ -174,7 +170,7 @@ void main() {
     await _dispose(tester);
   });
 
-  testWidgets('the counted facts are text you can tap, not cards', (
+  testWidgets('the counted facts are tappable, and the rows are one size', (
     tester,
   ) async {
     final now = DateTime.now();
@@ -205,29 +201,40 @@ void main() {
 
     await _pumpDashboard(tester);
 
-    // Every count the day holds, each one a route into the screen it came
-    // from. The semantics carry the label so a screen reader reads a button.
+    // Every count the day holds is a route into the screen it came from. The
+    // semantics carry the label, so a screen reader reads a button.
     for (final label in const ['Vitals 0/1', 'Doses 0/1']) {
       expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Semantics &&
-              widget.properties.button == true &&
-              widget.properties.label == label,
-        ),
+        _tappable(label),
         findsOneWidget,
         reason: '$label should be a tappable fact',
       );
     }
 
+    // The steps are rows of one size, so a step clearing swaps a row for a
+    // row and the page keeps its shape — whichever steps the day holds.
+    final rows = _stepRows;
+    expect(rows, findsNWidgets(3));
+    final heights = tester
+        .widgetList(rows)
+        .map((row) => tester.getSize(find.byWidget(row)).height)
+        .toSet();
+    expect(heights, hasLength(1), reason: 'every step row is one height');
+
+    // The most overdue leads, and the patient's own reading is never rotated
+    // out from under them.
+    expect(_startingWith('Take Metformin.'), findsOneWidget);
+    expect(_startingWith('Record your vitals.'), findsOneWidget);
+
     await _dispose(tester);
   });
 
-  testWidgets('a day with nothing outstanding is allowed to say so', (
-    tester,
-  ) async {
-    // The one tracked vital is already logged, so "log a reading" is a
-    // standing offer rather than a step today.
+  testWidgets('a standing offer is not counted as a step', (tester) async {
+    await _pumpDashboard(tester);
+    final before = _headlineCount(tester);
+
+    // The one tracked vital is now logged, so "log a reading" becomes a
+    // standing offer rather than something today is waiting on.
     VitalsState.instance.seed([
       VitalReading(
         id: 'v1',
@@ -238,16 +245,60 @@ void main() {
         risk: RiskLevel.normal,
       ),
     ]);
+    await tester.pump();
 
-    await _pumpDashboard(tester);
-
-    expect(find.text('Nothing needs you right now'), findsOneWidget);
-    expect(find.text('Log a reading whenever you are ready.'), findsOneWidget);
+    expect(
+      _headlineCount(tester),
+      before - 1,
+      reason: 'a logged reading stops being counted',
+    );
 
     // The offer is still on the page — not counted, not hidden.
     expect(find.text('Record your vitals'), findsWidgets);
 
     VitalsState.instance.seed([]);
+    await _dispose(tester);
+  });
+
+  testWidgets('a new account is welcomed, and only for three days', (
+    tester,
+  ) async {
+    AuthState.instance.signIn(_patient(joinedAt: DateTime.now()));
+
+    await _pumpDashboard(tester);
+
+    expect(find.text('See what mCare can do'), findsWidgets);
+    expect(find.text('Welcome to mCare, Amara'), findsWidgets);
+
+    // The welcome opens the app itself: every area named in it is a row that
+    // goes there.
+    await tester.tap(find.text('See what mCare can do').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    for (final area in const ['Vitals', 'Medications', 'Meals', 'Messages']) {
+      expect(
+        find.text(area),
+        findsWidgets,
+        reason: '$area should be reachable from the welcome',
+      );
+    }
+    Navigator.of(tester.element(find.text('Medications').first)).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+
+    await _dispose(tester);
+  });
+
+  testWidgets('a fourth-day account is not welcomed again', (tester) async {
+    AuthState.instance.signIn(
+      _patient(joinedAt: DateTime.now().subtract(const Duration(days: 4))),
+    );
+
+    await _pumpDashboard(tester);
+
+    expect(find.text('See what mCare can do'), findsNothing);
+    expect(find.textContaining('Welcome to mCare'), findsNothing);
+
     await _dispose(tester);
   });
 
@@ -268,6 +319,16 @@ void main() {
   });
 }
 
+AppUser _patient({DateTime? joinedAt}) => AppUser(
+  id: 'p1',
+  uniqueId: 'PT-001',
+  firstName: 'Amara',
+  lastName: 'Doe',
+  email: 'amara@example.com',
+  role: UserRole.patient,
+  joinedAt: joinedAt,
+);
+
 Future<void> _pumpDashboard(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390, 2200);
   tester.view.devicePixelRatio = 1;
@@ -287,6 +348,40 @@ Future<void> _pumpDashboard(WidgetTester tester) async {
   // would try to reach the network. The page reads stores, not the wire.
   SessionPoller.instance.detach();
 }
+
+/// The briefing's headline, whatever number the day put in it.
+final Finder _headline = find.byWidgetPredicate(
+  (widget) =>
+      widget is Text &&
+      RegExp(r'^\d+ steps? today$').hasMatch(widget.data ?? ''),
+);
+
+/// Every step row currently drawn in the briefing.
+final Finder _stepRows = find.byWidgetPredicate(
+  (widget) => widget.runtimeType.toString() == '_HubStepRow',
+);
+
+/// The number the headline is counting.
+int _headlineCount(WidgetTester tester) {
+  final text = tester.widget<Text>(_headline).data!;
+  return int.parse(RegExp(r'^(\d+)').firstMatch(text)!.group(1)!);
+}
+
+/// A step row, matched on the title its screen-reader label opens with.
+Finder _startingWith(String prefix) => find.byWidgetPredicate(
+  (widget) =>
+      widget is Semantics &&
+      widget.properties.button == true &&
+      (widget.properties.label ?? '').startsWith(prefix),
+);
+
+/// A tappable part of the briefing, found the way a screen reader finds it.
+Finder _tappable(String label) => find.byWidgetPredicate(
+  (widget) =>
+      widget is Semantics &&
+      widget.properties.button == true &&
+      widget.properties.label == label,
+);
 
 Future<void> _dispose(WidgetTester tester) async {
   expect(tester.takeException(), isNull);

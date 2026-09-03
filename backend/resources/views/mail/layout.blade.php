@@ -148,35 +148,36 @@
                                         @break
 
                                     @case ('document')
-                                        {{-- The report masthead, redrawn with tables so it survives Outlook. --}}
-                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;border:1px solid {{ $border }};border-radius:12px;overflow:hidden;">
+                                        {{-- The report letterhead, redrawn with tables so it survives Outlook. --}}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="mc-card" style="border-collapse:collapse;background-color:{{ $surface }};border:1px solid {{ $border }};border-radius:10px;">
                                             <tr>
-                                                <td bgcolor="{{ $brand }}" style="background-color:{{ $brand }};padding:16px 18px;">
+                                                <td class="mc-pad" style="padding:16px 18px 10px;border-bottom:2px solid {{ $ink }};">
                                                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
                                                         <tr>
-                                                            <td style="{{ $font }}font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:#C7D2FE;">{{ $block['kicker'] }}</td>
+                                                            <td class="mc-muted" style="{{ $font }}font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:{{ $muted }};">{{ $block['kicker'] }}</td>
                                                             @if (! empty($block['status']))
-                                                                <td align="right" style="{{ $font }}font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#FFFFFF;">{{ $block['status'] }}</td>
+                                                                <td align="right" style="{{ $font }}font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:{{ $tones['success']['text'] }};">{{ $block['status'] }}</td>
                                                             @endif
                                                         </tr>
                                                         <tr>
-                                                            <td colspan="2" style="{{ $font }}padding-top:8px;font-size:19px;line-height:1.3;font-weight:700;color:#FFFFFF;">{{ $block['title'] }}</td>
+                                                            <td colspan="2" class="mc-ink" style="{{ $font }}padding-top:8px;font-size:18px;line-height:1.3;font-weight:700;letter-spacing:-0.3px;color:{{ $ink }};">{{ $block['title'] }}</td>
                                                         </tr>
                                                     </table>
                                                 </td>
                                             </tr>
                                             @foreach ($block['rows'] as $label => $value)
                                                 <tr>
-                                                    <td class="mc-card" style="background-color:{{ $surface }};padding:0 18px;">
+                                                    <td style="padding:0 18px;">
                                                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
                                                             <tr>
-                                                                <td class="mc-fact-label mc-muted" width="38%" style="{{ $font }}padding:10px 8px 10px 0;font-size:13px;line-height:1.5;color:{{ $muted }};vertical-align:top;{{ $loop->last ? '' : 'border-bottom:1px solid '.$border.';' }}">{{ $label }}</td>
-                                                                <td class="mc-fact-value mc-ink" style="{{ $font }}padding:10px 0 10px 8px;font-size:13px;line-height:1.5;font-weight:600;color:{{ $ink }};vertical-align:top;word-break:break-word;{{ $loop->last ? '' : 'border-bottom:1px solid '.$border.';' }}">{{ $value }}</td>
+                                                                <td class="mc-fact-label mc-muted" width="34%" style="{{ $font }}padding:9px 8px 9px 0;font-size:12px;line-height:1.5;color:{{ $muted }};vertical-align:top;{{ $loop->last ? '' : 'border-bottom:1px solid '.$border.';' }}">{{ $label }}</td>
+                                                                <td class="mc-fact-value mc-ink" style="{{ $font }}padding:9px 0 9px 8px;font-size:13px;line-height:1.5;font-weight:600;color:{{ $ink }};vertical-align:top;word-break:break-word;{{ $loop->last ? '' : 'border-bottom:1px solid '.$border.';' }}">{{ $value }}</td>
                                                             </tr>
                                                         </table>
                                                     </td>
                                                 </tr>
                                             @endforeach
+                                            <tr><td style="height:8px;line-height:8px;font-size:0;">&nbsp;</td></tr>
                                         </table>
                                         @break
 

@@ -54,28 +54,34 @@ class _SupportViewState extends State<SupportView> {
           final open = SupportState.instance.open;
           final closed = SupportState.instance.closed;
           final urgent = open
-              .where((t) =>
-                  t.priority == TicketPriority.urgent ||
-                  t.priority == TicketPriority.high)
+              .where(
+                (t) =>
+                    t.priority == TicketPriority.urgent ||
+                    t.priority == TicketPriority.high,
+              )
               .length;
-          final showOpen = _filter == _SupportFilter.all ||
+          final showOpen =
+              _filter == _SupportFilter.all ||
               _filter == _SupportFilter.open ||
               _filter == _SupportFilter.priority;
-          final showClosed = _filter == _SupportFilter.all ||
+          final showClosed =
+              _filter == _SupportFilter.all ||
               _filter == _SupportFilter.resolved;
           final openList = _filter == _SupportFilter.priority
               ? open
-                  .where((t) =>
-                      t.priority == TicketPriority.urgent ||
-                      t.priority == TicketPriority.high)
-                  .toList()
+                    .where(
+                      (t) =>
+                          t.priority == TicketPriority.urgent ||
+                          t.priority == TicketPriority.high,
+                    )
+                    .toList()
               : open;
           final closedList = closed;
           final mostRecent = open.isNotEmpty
               ? open.first.updatedAt ?? open.first.createdAt
               : (closed.isNotEmpty
-                  ? closed.first.updatedAt ?? closed.first.createdAt
-                  : null);
+                    ? closed.first.updatedAt ?? closed.first.createdAt
+                    : null);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -112,7 +118,8 @@ class _SupportViewState extends State<SupportView> {
                         label: 'Open',
                         badge: open.isNotEmpty ? '${open.length}' : null,
                         selected: _filter == _SupportFilter.open,
-                        onTap: () => setState(() => _filter = _SupportFilter.open),
+                        onTap: () =>
+                            setState(() => _filter = _SupportFilter.open),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.check,
@@ -146,7 +153,9 @@ class _SupportViewState extends State<SupportView> {
                         : 'Open tickets',
                     icon: AppIcons.support,
                     trailing: '${openList.length}',
-                    actionLabel: _filter != _SupportFilter.all ? 'Show all' : null,
+                    actionLabel: _filter != _SupportFilter.all
+                        ? 'Show all'
+                        : null,
                     onAction: _filter != _SupportFilter.all
                         ? () => setState(() => _filter = _SupportFilter.all)
                         : null,
@@ -166,7 +175,9 @@ class _SupportViewState extends State<SupportView> {
                     title: 'Resolved / closed',
                     icon: AppIcons.check,
                     trailing: '${closedList.length}',
-                    actionLabel: _filter != _SupportFilter.all ? 'Show all' : null,
+                    actionLabel: _filter != _SupportFilter.all
+                        ? 'Show all'
+                        : null,
                     onAction: _filter != _SupportFilter.all
                         ? () => setState(() => _filter = _SupportFilter.all)
                         : null,
@@ -180,7 +191,8 @@ class _SupportViewState extends State<SupportView> {
               ],
               if (openList.isEmpty &&
                   closedList.isEmpty &&
-                  (_filter != _SupportFilter.all || open.isEmpty && closed.isEmpty))
+                  (_filter != _SupportFilter.all ||
+                      open.isEmpty && closed.isEmpty))
                 StaggeredEntry(
                   index: 3,
                   child: GlassCard(
@@ -190,10 +202,10 @@ class _SupportViewState extends State<SupportView> {
                       title: _filter == _SupportFilter.priority
                           ? 'No priority tickets'
                           : _filter == _SupportFilter.open
-                              ? 'No open tickets'
-                              : _filter == _SupportFilter.resolved
-                                  ? 'No resolved tickets'
-                                  : 'No tickets yet',
+                          ? 'No open tickets'
+                          : _filter == _SupportFilter.resolved
+                          ? 'No resolved tickets'
+                          : 'No tickets yet',
                       message: _filter == _SupportFilter.all
                           ? 'Need help? Open a ticket and our team will assist.'
                           : 'Try another filter or create a new ticket.',
@@ -234,13 +246,15 @@ class _SupportHero extends StatelessWidget {
     final theme = Theme.of(context);
     final isUrgent = urgentCount > 0;
     final accent = isUrgent ? AppColors.warning : AppColors.info;
-    final iconBg = isUrgent ? AppPalette.warningSoft(context) : AppPalette.infoSoft(context);
+    final iconBg = isUrgent
+        ? AppPalette.warningSoft(context)
+        : AppPalette.infoSoft(context);
 
     final headline = isUrgent
         ? '$urgentCount priority ticket${urgentCount == 1 ? '' : 's'}'
         : openCount > 0
-            ? 'We\'re on it'
-            : 'How can we help?';
+        ? 'We\'re on it'
+        : 'How can we help?';
 
     return GlassCard(
       frosted: true,
@@ -354,10 +368,9 @@ class _TicketRow extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.of(context).pushNamed(
-          RouteNames.patientTicketDetail,
-          arguments: ticket.id,
-        ),
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(RouteNames.patientTicketDetail, arguments: ticket.id),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Container(
           padding: const EdgeInsets.symmetric(
@@ -423,7 +436,11 @@ class _TicketRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(AppIcons.chevronRight, size: 14, color: AppPalette.textMuted(context)),
+              Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: AppPalette.textMuted(context),
+              ),
             ],
           ),
         ),
@@ -528,17 +545,17 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                   children: [
                     Text(
                       ticket.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontSize: 14,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(fontSize: 14),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       'Opened ${DateFormat.yMMMd().format(ticket.createdAt)}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                            fontSize: 10,
-                          ),
+                        color: AppPalette.textMuted(context),
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -564,32 +581,29 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                               color: r.isStaff
                                   ? AppPalette.surfaceAlt(context)
                                   : AppColors.brandIndigo.withOpacity(0.12),
-                              borderRadius:
-                                  BorderRadius.circular(AppSpacing.radiusMd),
-                              border: Border.all(color: AppPalette.border(context)),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusMd,
+                              ),
+                              border: Border.all(
+                                color: AppPalette.border(context),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   r.author,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
+                                  style: Theme.of(context).textTheme.labelSmall
                                       ?.copyWith(fontSize: 10),
                                 ),
                                 Text(
                                   r.body,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(fontSize: 14),
                                 ),
                                 Text(
                                   DateFormat.jm().format(r.sentAt),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
+                                  style: Theme.of(context).textTheme.labelSmall
                                       ?.copyWith(
                                         color: AppPalette.textMuted(context),
                                         fontSize: 10,
@@ -613,15 +627,14 @@ class _TicketDetailViewState extends State<TicketDetailView> {
                         style: Theme.of(context).textTheme.bodyMedium,
                         decoration: InputDecoration(
                           hintText: 'Add a reply…',
-                          hintStyle: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
+                          hintStyle: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPalette.textMuted(context)),
                           filled: true,
                           fillColor: AppPalette.surfaceAlt(context),
                           border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusPill),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusPill,
+                            ),
                             borderSide: BorderSide.none,
                           ),
                           contentPadding: const EdgeInsets.symmetric(

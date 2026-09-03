@@ -23,7 +23,11 @@ import '../widgets/glass_sheet.dart';
 class StaffUploadDocumentSheet {
   StaffUploadDocumentSheet._();
 
-  static Future<void> show(BuildContext context, {required String patientId, required String patientName}) {
+  static Future<void> show(
+    BuildContext context, {
+    required String patientId,
+    required String patientName,
+  }) {
     return GlassSheet.show(
       context,
       title: 'Upload document',
@@ -194,7 +198,9 @@ class _FormState extends State<_Form> {
               children: [
                 Icon(
                   hasFile ? AppIcons.check : AppIcons.document,
-                  color: hasFile ? AppColors.success : AppPalette.textMuted(context),
+                  color: hasFile
+                      ? AppColors.success
+                      : AppPalette.textMuted(context),
                   size: 20,
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -206,7 +212,9 @@ class _FormState extends State<_Form> {
                         hasFile ? _selectedFileName! : 'Choose file',
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: hasFile ? AppColors.success : AppPalette.ink(context),
+                          color: hasFile
+                              ? AppColors.success
+                              : AppPalette.ink(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

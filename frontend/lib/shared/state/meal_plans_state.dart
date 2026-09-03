@@ -37,7 +37,8 @@ class MealPlansState extends ChangeNotifier {
   /// Every day that has at least one plan — what the day strip dots read.
   Set<DateTime> get datesWithPlans => _items.map((m) => m.planDate).toSet();
 
-  bool hasPlansOn(DateTime date) => _items.any((m) => m.planDate == dayOf(date));
+  bool hasPlansOn(DateTime date) =>
+      _items.any((m) => m.planDate == dayOf(date));
 
   /// The most recent plan, whenever it was assigned. Used when nothing was
   /// assigned today but the patient still has standing guidance.
@@ -191,7 +192,9 @@ class MealPlansState extends ChangeNotifier {
     final today = dayOf(DateTime.now());
     final cutoff = today.subtract(Duration(days: days - 1));
     return _items
-        .where((m) => !m.planDate.isBefore(cutoff) && !m.planDate.isAfter(today))
+        .where(
+          (m) => !m.planDate.isBefore(cutoff) && !m.planDate.isAfter(today),
+        )
         .toList();
   }
 

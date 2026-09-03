@@ -154,7 +154,7 @@ class _FulfilledReportRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'By ${request.respondedBy ?? 'your care team'}'
+                  '${request.statusLine}'
                   '${request.respondedAt != null ? ' · ${DateFormat.MMMd().format(request.respondedAt!)}' : ''}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: AppPalette.textMuted(context),
@@ -222,7 +222,7 @@ class _FulfilledReportDetail extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Report ready',
+                    request.isSigned ? 'Signed and ready' : 'Report ready',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppColors.success,
                       fontWeight: FontWeight.w700,
@@ -234,6 +234,11 @@ class _FulfilledReportDetail extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
+
+        if (request.isSigned) ...[
+          _SignatureBlock(request: request),
+          const SizedBox(height: AppSpacing.md),
+        ],
 
         // Meta card
         GlassCard(
@@ -368,6 +373,95 @@ class _FulfilledReportDetail extends StatelessWidget {
       if (d.id == request.documentId) return d;
     }
     return null;
+  }
+}
+
+/// Who attested to the report.
+///
+/// The same fact is rendered into the filed document, so a printed copy and
+/// the app agree. Shown here as well because a patient checking their report
+/// in the app should not have to open the file to learn a clinician signed it.
+class _SignatureBlock extends StatelessWidget {
+  const _SignatureBlock({required this.request});
+
+  final VitalReportRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final signedAt = request.signedAt!;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.brandIndigo.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: AppColors.brandIndigo.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                AppIcons.approval,
+                size: 15,
+                color: AppColors.brandIndigo,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'Signed off',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.brandIndigo,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Reviewed and issued as an accurate record of the readings in '
+            'this period.',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.textMuted(context),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.brandIndigo.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  request.signedBy ?? 'Your care team',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '${request.signatoryRoleLabel} · '
+                  '${DateFormat.yMMMd().add_jm().format(signedAt)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -650,8 +744,11 @@ class _RequestFormState extends State<_RequestForm> {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Anyone on your care team can pick this up. If nobody does within '
-          '48 hours it goes to your mCare assistant, then to care admin.',
+          'The report is built from your readings in this period as soon as a '
+          'clinician takes it on. They review and sign it, and the signed copy '
+          'is filed to your Documents the moment they do. Anyone on your care '
+          'team can pick this up; if nobody does within 48 hours it goes to '
+          'your mCare assistant, then to care admin.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppPalette.textMuted(context),
             height: 1.35,

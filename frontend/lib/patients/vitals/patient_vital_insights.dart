@@ -577,37 +577,42 @@ class _InsightFooter extends StatelessWidget {
                 ),
               ),
           const Spacer(),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: const ValueKey('open-vital-insights'),
+          // Bounded, not natural-width: with five dots on a 390px phone the
+          // link's own row had no constraint to ellipsize against and ran off
+          // the card. Flexible hands the inner Text a real limit.
+          Flexible(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: const ValueKey('open-vital-insights'),
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              onTap: onOpen,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: 4,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.brandIndigo,
-                          fontWeight: FontWeight.w800,
+                onTap: onOpen,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.brandIndigo,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    const Icon(
-                      AppIcons.chevronRight,
-                      size: 16,
-                      color: AppColors.brandIndigo,
-                    ),
-                  ],
+                      const Icon(
+                        AppIcons.chevronRight,
+                        size: 16,
+                        color: AppColors.brandIndigo,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

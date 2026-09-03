@@ -85,7 +85,9 @@ class RequestActivityEvent {
         ),
         actorLabel: (json['actor_label'] ?? 'Someone') as String,
         happenedAt:
-            DateTime.tryParse((json['happened_at'] ?? '') as String)?.toLocal() ??
+            DateTime.tryParse(
+              (json['happened_at'] ?? '') as String,
+            )?.toLocal() ??
             DateTime.now(),
         note: json['note'] as String?,
       );

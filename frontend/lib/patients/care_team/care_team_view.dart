@@ -306,9 +306,8 @@ class _CareTeamViewState extends State<CareTeamView> {
                                 assigned: _tab == _CareTeamTab.myTeam,
                                 pendingRequest: CareState.instance
                                     .pendingRequestFor(providers[i].id),
-                                onViewPending: () => setState(
-                                  () => _tab = _CareTeamTab.pending,
-                                ),
+                                onViewPending: () =>
+                                    setState(() => _tab = _CareTeamTab.pending),
                               ),
                             ],
                           ],

@@ -60,7 +60,10 @@ class VitalStatistics {
 
     final half = readings.length ~/ 2;
     final older = readings.take(half).map((reading) => reading.value).toList();
-    final newer = readings.skip(readings.length - half).map((r) => r.value).toList();
+    final newer = readings
+        .skip(readings.length - half)
+        .map((r) => r.value)
+        .toList();
     final olderAverage = older.reduce((a, b) => a + b) / older.length;
     final newerAverage = newer.reduce((a, b) => a + b) / newer.length;
     if (olderAverage == 0) return VitalTrend.steady;

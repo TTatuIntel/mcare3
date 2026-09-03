@@ -63,7 +63,8 @@ class _MealDetailBody extends StatelessWidget {
     final confirmed = await AppDialog.confirm(
       context,
       title: 'Remove this meal?',
-      message: 'It will be taken off your plan for '
+      message:
+          'It will be taken off your plan for '
           '${DateFormat.yMMMEd().format(meal.planDate)}.',
       confirmLabel: 'Remove',
       danger: true,
@@ -380,7 +381,9 @@ class _MealEditorFormState extends State<_MealEditorForm> {
     _notes = TextEditingController(text: existing?.notes ?? '');
     _items = List<String>.from(existing?.items ?? const <String>[]);
     _mealType = existing?.mealType ?? _defaultMealType();
-    _date = existing?.planDate ?? MealPlansState.dayOf(widget.date ?? DateTime.now());
+    _date =
+        existing?.planDate ??
+        MealPlansState.dayOf(widget.date ?? DateTime.now());
     _time = _parseTime(existing?.serveTime);
   }
 
@@ -436,10 +439,16 @@ class _MealEditorFormState extends State<_MealEditorForm> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _date,
-      firstDate: DateTime(now.year, now.month, now.day)
-          .subtract(const Duration(days: kMealHistoryDays)),
-      lastDate: DateTime(now.year, now.month, now.day)
-          .add(const Duration(days: kMealFutureDays)),
+      firstDate: DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: kMealHistoryDays)),
+      lastDate: DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).add(const Duration(days: kMealFutureDays)),
     );
     if (picked != null) setState(() => _date = MealPlansState.dayOf(picked));
   }
@@ -539,11 +548,11 @@ class _MealEditorFormState extends State<_MealEditorForm> {
             Expanded(
               child: _PickerTile(
                 icon: AppIcons.time,
-                label: _time == null
-                    ? 'Any time'
-                    : _time!.format(context),
+                label: _time == null ? 'Any time' : _time!.format(context),
                 onTap: _pickTime,
-                onClear: _time == null ? null : () => setState(() => _time = null),
+                onClear: _time == null
+                    ? null
+                    : () => setState(() => _time = null),
               ),
             ),
           ],

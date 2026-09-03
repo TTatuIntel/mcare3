@@ -25,7 +25,13 @@ extension DocumentRequestTargetX on DocumentRequestTarget {
   };
 }
 
-enum DocumentRequestStatus { pending, inProgress, fulfilled, declined, cancelled }
+enum DocumentRequestStatus {
+  pending,
+  inProgress,
+  fulfilled,
+  declined,
+  cancelled,
+}
 
 extension DocumentRequestStatusX on DocumentRequestStatus {
   String get label => switch (this) {
@@ -127,8 +133,7 @@ class DocumentRequest {
 
   /// The one line under the title in a list row.
   String get statusLine => switch (status) {
-    DocumentRequestStatus.pending =>
-      'Waiting on ${waitingOn ?? target.label}',
+    DocumentRequestStatus.pending => 'Waiting on ${waitingOn ?? target.label}',
     DocumentRequestStatus.inProgress =>
       '${claimedByName ?? 'Your care team'} is preparing this',
     DocumentRequestStatus.fulfilled =>

@@ -12,10 +12,14 @@ namespace App\Services;
  * array back into a document.
  *
  * HTML rather than a generated PDF on purpose: the project has no PDF engine,
- * and the print stylesheet below is written to A4 — masthead in colour,
- * repeating table headers, a running footer, no orphaned section titles — so
- * "Save as PDF" in any browser produces the same paginated document. Unlike a
- * rasterised PDF it also stays selectable, searchable and screen-readable.
+ * and the print stylesheet below is written to A4 — repeating table headers, a
+ * running footer, no orphaned section titles — so "Save as PDF" in any browser
+ * produces the same paginated document. Unlike a rasterised PDF it also stays
+ * selectable, searchable and screen-readable.
+ *
+ * It is set in ink on white. Colour appears only where it carries information —
+ * a risk band, a trend, a status — never as decoration behind a heading, so the
+ * document photocopies, faxes and prints on a mono office printer unchanged.
  *
  * The markup is deliberately dependency-free — one stylesheet, no fonts, no
  * remote assets — so it renders identically saved to disk, mailed on, or
@@ -92,42 +96,52 @@ HTML;
     // ------------------------------------------------------------------
 
     /**
-     * Brand band, document type, status and subject — everything a reader
+     * Letterhead, document type, status and subject — everything a reader
      * needs to know what they are holding before reading a single field.
+     *
+     * Set in ink on white, the way a clinical letter is: a wordmark, a rule,
+     * the title, and the identifying facts on one hairline strip. A printed
+     * medical document is read, filed and photocopied — a block of brand
+     * colour across the top of it is a screen idea, not a document one.
      *
      * @param  array<string, mixed>  $s
      */
     private function masthead(array $s, string $status, string $reference): string
     {
         $title = $this->text($s['title'] ?? 'Medical report');
-        $name = (string) ($s['patient_name'] ?? '');
-        $uid = $this->text($s['patient_unique_id'] ?? '');
-        $generated = $this->moment($s['generated_at'] ?? null) ?? '—';
+        $name = trim((string) ($s['patient_name'] ?? ''));
+        $uid = trim((string) ($s['patient_unique_id'] ?? ''));
 
-        $pill = match ($status) {
+        $stamp = match ($status) {
             self::STATUS_DRAFT => '<span class="stamp stamp-warn">Draft — not issued</span>',
             self::STATUS_REVOKED => '<span class="stamp stamp-bad">Revoked</span>',
             default => '<span class="stamp stamp-ok">Issued</span>',
         };
 
-        $chips = '<span class="chip"><b>Patient ID</b>'.($uid === '' ? '—' : $uid).'</span>'
-            .'<span class="chip"><b>Reference</b>'.$reference.'</span>'
-            .'<span class="chip"><b>Generated</b>'.$this->text($generated).'</span>';
+        $facts = [
+            'Patient' => $name === '' ? 'Unnamed patient' : $name,
+            'Patient ID' => $uid === '' ? '—' : $uid,
+            'Reference' => $reference,
+            'Generated' => $this->moment($s['generated_at'] ?? null) ?? '—',
+        ];
+
+        $strip = '';
+        foreach ($facts as $label => $value) {
+            // The reference is pre-escaped; everything else is raw record data.
+            $shown = $label === 'Reference' ? $value : $this->text($value);
+            $strip .= '<div class="fact"><span class="fact-k">'.$this->text($label).'</span>'
+                .'<span class="fact-v">'.$shown.'</span></div>';
+        }
 
         return '<header class="masthead">'
             .'<div class="brandrow">'
             .'<div class="wordmark"><span class="mark">m</span>Care'
             .'<span class="wordmark-sub">Remote patient monitoring</span></div>'
-            .'<div class="docmeta"><span class="kicker">Medical report</span>'.$pill.'</div>'
+            .'<div class="docmeta"><span class="kicker">Medical report</span>'.$stamp.'</div>'
             .'</div>'
             .'<h1>'.$title.'</h1>'
-            .'</header>'
-            .'<div class="idbar">'
-            .'<div class="avatar" aria-hidden="true">'.$this->initials($name).'</div>'
-            .'<div class="idtext"><p class="idname">'
-            .$this->text($name === '' ? 'Unnamed patient' : $name).'</p>'
-            .'<p class="idchips">'.$chips.'</p></div>'
-            .'</div>';
+            .'<div class="factstrip">'.$strip.'</div>'
+            .'</header>';
     }
 
     /**
@@ -482,17 +496,6 @@ HTML;
         };
     }
 
-    private function initials(string $name): string
-    {
-        $parts = array_values(array_filter(preg_split('/\s+/', trim($name)) ?: []));
-        if ($parts === []) {
-            return '?';
-        }
-        $first = mb_substr($parts[0], 0, 1);
-        $last = count($parts) > 1 ? mb_substr($parts[count($parts) - 1], 0, 1) : '';
-
-        return $this->text(mb_strtoupper($first.$last));
-    }
 
     /**
      * Callers know the state of the request; the fallback reads it off the
@@ -569,292 +572,285 @@ HTML;
     {
         return <<<'CSS'
 :root{
-  --ink:#0F172A; --ink2:#1E293B; --muted:#64748B; --faint:#94A3B8;
-  --line:#E2E8F0; --line2:#EEF2F7; --alt:#F8FAFC; --page:#EEF1F6;
-  --brand:#4F46E5; --brand2:#6366F1; --brand3:#8B5CF6; --brandsoft:#EEF2FF;
-  --ok:#047857; --okbg:#ECFDF5; --okedge:#A7F3D0;
-  --warn:#B45309; --warnbg:#FFFBEB; --warnedge:#FDE68A;
-  --bad:#B91C1C; --badbg:#FEF2F2; --badedge:#FECACA;
-  --slate:#475569; --slatebg:#F1F5F9;
+  --ink:#0F172A; --ink2:#1E293B; --muted:#5A6577; --faint:#8A94A6;
+  --line:#DFE3EA; --line2:#EDEFF3; --rule:#0F172A; --page:#F4F5F7;
+  --brand:#4338CA;
+  --ok:#0E7A4F; --okline:#9FD8BE;
+  --warn:#9A6300; --warnline:#EBCB8B;
+  --bad:#B3261E; --badline:#EFB4B0;
+  --slate:#4B5563;
   color-scheme:light;
 }
 *{box-sizing:border-box}
 body{
-  margin:0; padding:20px 14px 40px; background:var(--page); color:var(--ink);
+  margin:0; padding:22px 14px 44px; background:var(--page); color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
 }
 .sheet{
   position:relative; max-width:940px; margin:0 auto; background:#fff;
-  border:1px solid var(--line); border-radius:14px; overflow:hidden;
-  box-shadow:0 10px 30px rgba(15,23,42,.08);
+  border:1px solid var(--line); border-radius:4px;
+  box-shadow:0 1px 2px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.05);
 }
-.body{padding:18px 26px 24px}
+.body{padding:20px 34px 26px}
 
 /* ---- toolbar (screen only) ------------------------------------------ */
 .toolbar{
-  max-width:940px; margin:0 auto 12px; display:flex; align-items:center;
+  max-width:940px; margin:0 auto 10px; display:flex; align-items:center;
   justify-content:space-between; gap:12px;
 }
-.toolbar-ref{font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--muted)}
+.toolbar-ref{
+  font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint);
+}
 .btn{
-  font:inherit; font-size:13px; font-weight:600; color:#fff; cursor:pointer;
-  background:var(--brand); border:0; border-radius:8px; padding:9px 16px;
-  box-shadow:0 1px 2px rgba(15,23,42,.2);
+  font:inherit; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer;
+  background:#fff; border:1px solid var(--line); border-radius:5px; padding:8px 15px;
 }
-.btn:hover{background:#4338CA}
+.btn:hover{border-color:#AEB6C4; background:#FBFBFC}
 
-/* ---- masthead -------------------------------------------------------- */
-.masthead{
-  background:linear-gradient(120deg,#4338CA 0%,var(--brand2) 52%,var(--brand3) 100%);
-  color:#fff; padding:18px 26px 20px;
+/* ---- letterhead ------------------------------------------------------ */
+.masthead{padding:26px 34px 0}
+.brandrow{
+  display:flex; align-items:flex-end; justify-content:space-between; gap:18px;
+  padding-bottom:9px; border-bottom:2px solid var(--rule);
 }
-.brandrow{display:flex; align-items:flex-start; justify-content:space-between; gap:16px}
-.wordmark{font-size:21px; font-weight:800; letter-spacing:-.4px; line-height:1.1}
-.wordmark .mark{color:#C7D2FE}
+.wordmark{font-size:20px; font-weight:700; letter-spacing:-.5px; line-height:1}
+.wordmark .mark{color:var(--brand)}
 .wordmark-sub{
-  display:block; font-size:10px; font-weight:600; letter-spacing:.14em;
-  text-transform:uppercase; color:rgba(255,255,255,.72); margin-top:3px;
+  display:block; font-size:9px; font-weight:600; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--faint); margin-top:5px;
 }
-.docmeta{display:flex; flex-direction:column; align-items:flex-end; gap:7px; text-align:right}
+.docmeta{display:flex; align-items:center; gap:10px}
 .kicker{
-  font-size:10px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
-  color:rgba(255,255,255,.78);
+  font-size:10px; font-weight:700; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--muted);
 }
 .stamp{
-  display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em;
-  text-transform:uppercase; padding:4px 10px; border-radius:999px; border:1px solid;
+  display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.11em;
+  text-transform:uppercase; padding:3px 9px; border-radius:3px;
+  background:#fff; border:1px solid;
 }
-.stamp-ok{background:#ECFDF5; color:#065F46; border-color:#6EE7B7}
-.stamp-warn{background:#FFFBEB; color:#92400E; border-color:#FCD34D}
-.stamp-bad{background:#FEF2F2; color:#991B1B; border-color:#FCA5A5}
+.stamp-ok{color:var(--ok); border-color:var(--okline)}
+.stamp-warn{color:var(--warn); border-color:var(--warnline)}
+.stamp-bad{color:var(--bad); border-color:var(--badline)}
 .masthead h1{
-  font-size:24px; line-height:1.2; letter-spacing:-.4px; font-weight:700;
-  margin:16px 0 0; max-width:44ch;
+  font-size:25px; line-height:1.22; letter-spacing:-.5px; font-weight:700;
+  margin:16px 0 14px; max-width:46ch;
 }
 
-/* ---- patient identity bar -------------------------------------------- */
-.idbar{
-  display:flex; align-items:center; gap:13px; padding:12px 26px;
-  background:var(--alt); border-bottom:1px solid var(--line);
+/* ---- identifying facts ----------------------------------------------- */
+.factstrip{
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0 22px;
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  padding:9px 0;
 }
-.avatar{
-  flex:0 0 auto; width:40px; height:40px; border-radius:11px; display:grid;
-  place-items:center; font-size:14px; font-weight:700;
-  color:var(--brand); background:var(--brandsoft); border:1px solid #C7D2FE;
+.fact{min-width:0}
+.fact-k{
+  display:block; font-size:9px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:2px;
 }
-.idtext{min-width:0}
-.idname{margin:0; font-size:16px; font-weight:700; letter-spacing:-.2px}
-.idchips{margin:3px 0 0; display:flex; flex-wrap:wrap; gap:4px 14px}
-.chip{font-size:11.5px; color:var(--ink2); white-space:nowrap}
-.chip b{
-  display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--faint); margin-right:5px;
+.fact-v{
+  display:block; font-size:13px; font-weight:600; line-height:1.35;
+  overflow-wrap:anywhere;
 }
 
 /* ---- banner ---------------------------------------------------------- */
 .banner{
-  margin:0 0 16px; padding:11px 13px; border-radius:9px; font-size:13px;
-  font-weight:600; line-height:1.45; border:1px solid;
+  margin:0 0 18px; padding:2px 0 2px 13px; font-size:12.5px; font-weight:600;
+  line-height:1.5; border-left:3px solid;
 }
-.banner-warn{background:var(--warnbg); border-color:var(--warnedge); color:#92400E}
-.banner-bad{background:var(--badbg); border-color:var(--badedge); color:#991B1B}
+.banner-warn{border-color:var(--warnline); color:var(--warn)}
+.banner-bad{border-color:var(--badline); color:var(--bad)}
 
-/* ---- provenance tiles ------------------------------------------------ */
-.pane{margin:0 0 16px}
+/* ---- small-caps section label ---------------------------------------- */
+.pane{margin:0 0 18px}
 .pane-k,.toc-k{
-  margin:0 0 6px; font-size:9.5px; font-weight:700; letter-spacing:.1em;
+  margin:0 0 7px; font-size:9px; font-weight:700; letter-spacing:.14em;
   text-transform:uppercase; color:var(--muted);
 }
+
+/* ---- provenance tiles ------------------------------------------------ */
 .tiles{
   display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px;
-  background:var(--line); border:1px solid var(--line); border-radius:11px;
-  overflow:hidden;
+  background:var(--line); border:1px solid var(--line);
 }
-.tile{background:#fff; padding:9px 12px; min-width:0}
+.tile{background:#fff; padding:9px 13px; min-width:0}
 .tile-k{
-  display:block; font-size:9.5px; font-weight:700; letter-spacing:.1em;
+  display:block; font-size:9px; font-weight:700; letter-spacing:.12em;
   text-transform:uppercase; color:var(--faint); margin-bottom:2px;
 }
-.tile-v{display:block; font-size:13px; font-weight:600; line-height:1.35}
+.tile-v{display:block; font-size:12.5px; font-weight:600; line-height:1.4}
 
 /* ---- contents -------------------------------------------------------- */
 .toc{
-  border:1px solid var(--line); border-radius:11px; padding:10px 13px 11px;
-  background:var(--alt); margin:0 0 18px;
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  padding:10px 0 11px; margin:0 0 20px;
 }
 .toc ol{
   list-style:none; margin:0; padding:0; display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px 16px;
+  grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px 24px;
 }
 .toc li{
-  display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600;
+  display:flex; align-items:baseline; gap:8px; font-size:12px; font-weight:600;
   color:var(--ink2); min-width:0;
 }
 .toc li em{
-  font-style:normal; font-weight:500; font-size:10.5px; color:var(--faint);
+  font-style:normal; font-weight:500; font-size:10px; color:var(--faint);
   margin-left:auto; white-space:nowrap;
 }
 .idx{
-  flex:0 0 auto; width:17px; height:17px; border-radius:5px; display:grid;
-  place-items:center; font-size:9.5px; font-weight:700; color:var(--brand);
-  background:#fff; border:1px solid #C7D2FE;
+  flex:0 0 auto; font-size:10px; font-weight:700; color:var(--brand);
+  font-variant-numeric:tabular-nums;
 }
 
 /* ---- sections -------------------------------------------------------- */
-.block{margin:0 0 18px}
+.block{margin:0 0 20px}
 .block h2{
-  display:flex; align-items:center; gap:9px; margin:0 0 9px; padding-bottom:6px;
-  border-bottom:2px solid var(--brandsoft); font-size:12.5px; font-weight:700;
-  letter-spacing:.09em; text-transform:uppercase; color:var(--ink2);
+  display:flex; align-items:baseline; gap:9px; margin:0 0 9px; padding-bottom:5px;
+  border-bottom:1.5px solid var(--rule); font-size:11.5px; font-weight:700;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--ink);
 }
 .block h2 .num{
-  flex:0 0 auto; width:20px; height:20px; border-radius:6px; display:grid;
-  place-items:center; font-size:10.5px; letter-spacing:0; color:#fff;
-  background:linear-gradient(135deg,var(--brand),var(--brand3));
+  flex:0 0 auto; font-size:10px; letter-spacing:0; color:var(--brand);
+  font-variant-numeric:tabular-nums;
 }
 .block h2 .count{
-  font-style:normal; font-weight:600; font-size:10px; letter-spacing:.06em;
+  font-style:normal; font-weight:500; font-size:9.5px; letter-spacing:.06em;
   color:var(--faint); margin-left:auto; text-transform:none;
 }
 
 /* ---- field pairs ----------------------------------------------------- */
-.pairs{
-  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 26px;
-  border-top:1px solid var(--line2);
-}
+.pairs{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 30px}
 .pair{
   display:flex; align-items:baseline; justify-content:space-between; gap:14px;
-  padding:6px 0; border-bottom:1px solid var(--line2); min-width:0;
+  padding:5px 0; border-bottom:1px solid var(--line2); min-width:0;
 }
 .pair.wide{grid-column:1/-1}
 .pair-k{font-size:12px; color:var(--muted); flex:0 0 auto; max-width:52%}
 .pair-v{
-  font-size:13px; font-weight:600; text-align:right; min-width:0;
+  font-size:12.5px; font-weight:600; text-align:right; min-width:0;
   overflow-wrap:anywhere;
 }
 
 /* ---- tables ---------------------------------------------------------- */
-.tablewrap{
-  border:1px solid var(--line); border-radius:10px; overflow:hidden;
-  overflow-x:auto; -webkit-overflow-scrolling:touch;
-}
-table{width:100%; border-collapse:collapse; font-size:12.5px}
+.tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch}
+table{width:100%; border-collapse:collapse; font-size:12px}
 th{
-  text-align:left; padding:7px 10px; background:var(--alt); color:var(--muted);
-  font-size:9.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
-  border-bottom:1px solid var(--line); white-space:nowrap;
+  text-align:left; padding:0 10px 5px 0; color:var(--muted); font-size:9px;
+  font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+  border-bottom:1px solid var(--ink); white-space:nowrap;
 }
-td{padding:6px 10px; border-bottom:1px solid var(--line2); vertical-align:top}
-tbody tr:nth-child(even) td{background:#FBFCFE}
-tbody tr:last-child td{border-bottom:0}
+td{padding:5px 10px 5px 0; border-bottom:1px solid var(--line2); vertical-align:top}
+th:last-child,td:last-child{padding-right:0}
+tbody tr:last-child td{border-bottom:1px solid var(--line)}
 td.lead{font-weight:600; color:var(--ink)}
 
 /* ---- value shapes ---------------------------------------------------- */
 .pill{
-  display:inline-flex; align-items:center; gap:4px; padding:1px 8px;
-  border-radius:999px; font-size:11px; font-weight:700; line-height:1.6;
-  border:1px solid; white-space:nowrap;
+  display:inline-flex; align-items:baseline; gap:5px; font-size:11.5px;
+  font-weight:600; white-space:nowrap;
 }
-.pill-ok{background:var(--okbg); border-color:var(--okedge); color:var(--ok)}
-.pill-warn{background:var(--warnbg); border-color:var(--warnedge); color:var(--warn)}
-.pill-bad{background:var(--badbg); border-color:var(--badedge); color:var(--bad)}
-.pill-slate{background:var(--slatebg); border-color:var(--line); color:var(--slate)}
-.pill-brand{background:var(--brandsoft); border-color:#C7D2FE; color:var(--brand)}
-.gly{font-size:9px; line-height:1}
+.pill::before{
+  content:""; display:inline-block; width:5px; height:5px; border-radius:50%;
+  background:currentColor; transform:translateY(-1px);
+}
+.pill-ok{color:var(--ok)}
+.pill-warn{color:var(--warn)}
+.pill-bad{color:var(--bad)}
+.pill-slate{color:var(--slate)}
+.pill-brand{color:var(--brand)}
+.gly{font-size:8px; line-height:1}
 .meter{
-  display:inline-block; vertical-align:middle; width:44px; height:6px;
-  border-radius:999px; background:var(--line); overflow:hidden; margin-right:6px;
+  display:inline-block; vertical-align:middle; width:38px; height:3px;
+  background:var(--line2); overflow:hidden; margin-right:7px;
 }
-.meter-bar{display:block; height:100%; border-radius:999px}
-.meter-ok{background:#10B981}
-.meter-warn{background:#F59E0B}
-.meter-bad{background:#EF4444}
+.meter-bar{display:block; height:100%}
+.meter-ok{background:var(--ok)}
+.meter-warn{background:var(--warn)}
+.meter-bad{background:var(--bad)}
 .meter-n{font-variant-numeric:tabular-nums; font-weight:600}
 .na{color:var(--faint)}
 
 /* ---- notes ----------------------------------------------------------- */
-.notes{display:grid; gap:9px}
-.note{
-  border:1px solid var(--line); border-left:3px solid var(--brand2);
-  border-radius:9px; padding:10px 13px; background:var(--alt);
+.notes{display:grid; gap:12px}
+.note{border-left:2px solid var(--line); padding:1px 0 1px 13px}
+.note-t{margin:0; font-size:13px; font-weight:700}
+.note-by{
+  margin:1px 0 5px; font-size:10px; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--faint);
 }
-.note-t{margin:0; font-size:13.5px; font-weight:700}
-.note-by{margin:1px 0 6px; font-size:11px; color:var(--muted)}
-.note-b{font-size:12.5px; line-height:1.55; color:var(--ink2)}
+.note-b{font-size:12.5px; line-height:1.6; color:var(--ink2)}
 
 /* ---- empty ----------------------------------------------------------- */
 .empty{
-  margin:0; padding:11px 13px; border:1px dashed var(--line); border-radius:9px;
-  background:var(--alt); color:var(--faint); font-size:12.5px; font-style:italic;
+  margin:0; padding:8px 0; border-bottom:1px solid var(--line2);
+  color:var(--faint); font-size:12px; font-style:italic;
 }
 
 /* ---- sign-off -------------------------------------------------------- */
 .signoff{
-  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:14px;
-  margin-top:22px; padding-top:14px; border-top:2px solid var(--line);
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.5fr); gap:34px;
+  margin-top:26px; padding-top:15px; border-top:2px solid var(--rule);
 }
-.sig{border:1px solid var(--line); border-radius:10px; padding:11px 13px; background:var(--alt)}
-.sig-k{
-  margin:0 0 4px; font-size:9.5px; font-weight:700; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--faint);
+.sig-k,.conf-k{
+  margin:0 0 5px; font-size:9px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--muted);
 }
 .sig-name{
-  margin:0; font-size:16px; font-weight:700; border-bottom:1px solid var(--line);
-  padding-bottom:6px;
+  margin:0; font-size:15px; font-weight:700; padding-bottom:7px;
+  border-bottom:1px solid var(--ink);
 }
-.sig-unsigned{color:var(--bad)}
-.sig-when{margin:6px 0 0; font-size:11.5px; color:var(--muted)}
-.sig-note{margin:5px 0 0; font-size:11.5px; color:var(--ink2); font-style:italic}
-.conf{font-size:11px; line-height:1.5; color:var(--muted)}
+.sig-unsigned{color:var(--bad); border-bottom-style:dashed}
+.sig-when{margin:6px 0 0; font-size:11px; color:var(--muted)}
+.sig-note{margin:5px 0 0; font-size:11px; color:var(--ink2); font-style:italic}
+.conf{font-size:10.5px; line-height:1.55; color:var(--muted)}
 .conf p{margin:0}
-.conf-k{
-  font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
-  margin-bottom:4px !important;
-}
-.conf-warn{margin-top:6px !important; color:var(--bad); font-weight:600}
+.conf-warn{margin-top:7px !important; color:var(--bad); font-weight:600}
 
 /* ---- status ghost ----------------------------------------------------- */
 .ghost{
   position:absolute; inset:0; display:grid; place-items:center; overflow:hidden;
-  pointer-events:none; z-index:0; font-size:150px; font-weight:800;
-  letter-spacing:.1em; color:rgba(15,23,42,.05); transform:rotate(-24deg);
+  pointer-events:none; z-index:0; font-size:150px; font-weight:700;
+  letter-spacing:.12em; color:rgba(15,23,42,.045); transform:rotate(-24deg);
 }
 .sheet > *:not(.ghost){position:relative; z-index:1}
 
 .print-foot{display:none}
 
 @media (max-width:760px){
-  .tiles,.toc ol{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .factstrip,.tiles,.toc ol{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .factstrip{gap:8px 22px}
   .pairs,.signoff{grid-template-columns:minmax(0,1fr)}
+  .signoff{gap:18px}
   .masthead h1{font-size:20px}
-  .body,.masthead,.idbar{padding-left:16px; padding-right:16px}
+  .masthead,.body{padding-left:18px; padding-right:18px}
 }
 
 /* ---- A4 --------------------------------------------------------------- */
-@page{size:A4; margin:11mm 11mm 15mm}
+@page{size:A4; margin:12mm 12mm 15mm}
 @media print{
   html,body{background:#fff}
-  body{padding:0 0 8mm; font-size:10.5pt}
+  body{padding:0 0 8mm; font-size:10pt}
   *{-webkit-print-color-adjust:exact; print-color-adjust:exact}
   .toolbar{display:none}
-  .sheet{max-width:none; margin:0; border:0; border-radius:0; box-shadow:none; overflow:visible}
-  .masthead{padding:12px 0 14px}
-  .masthead h1{font-size:19pt}
-  .idbar,.body{padding-left:0; padding-right:0}
-  .body{padding-top:12px}
+  .sheet{max-width:none; margin:0; border:0; border-radius:0; box-shadow:none}
+  .masthead,.body{padding-left:0; padding-right:0}
+  .masthead{padding-top:0}
+  .masthead h1{font-size:17pt}
+  .body{padding-top:14px}
   /* A section title must not be the last thing on a page, and a row must
      never be sliced in half across the fold. */
   .block h2{break-after:avoid}
-  tr,.note,.tile,.pair,.sig,.signoff{break-inside:avoid}
+  tr,.note,.tile,.pair,.fact,.signoff{break-inside:avoid}
   thead{display:table-header-group}
   .tablewrap{overflow:visible}
-  .ghost{position:fixed; font-size:120pt}
+  .ghost{position:fixed; font-size:110pt}
   /* Runs at the foot of every printed page, so a loose sheet can still be
      traced back to the report and the patient it belongs to. */
   .print-foot{
     display:block; position:fixed; bottom:-10mm; left:0; right:0; margin:0;
-    font-size:7.5pt; color:#94A3B8; text-align:center;
+    font-size:7pt; letter-spacing:.04em; color:#8A94A6; text-align:center;
   }
 }
 CSS;

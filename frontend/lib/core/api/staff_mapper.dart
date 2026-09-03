@@ -155,28 +155,27 @@ class StaffMapper {
     events: RequestActivityEvent.listFromApi(j['events']),
   );
 
-  static StaffDocumentRequest documentRequestFromApi(
-    Map<String, dynamic> j,
-  ) => StaffDocumentRequest(
-    id: (j['id'] ?? '').toString(),
-    patientId: (j['patient_id'] ?? '').toString(),
-    patientName: j['patient_name'] as String?,
-    title: (j['title'] ?? 'Document request') as String,
-    category: (j['category'] as String?) ?? 'other',
-    status: (j['status'] as String?) ?? 'pending',
-    createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-    note: j['note'] as String?,
-    targetDoctorName: j['target_doctor_name'] as String?,
-    addressedToMe: j['addressed_to_me'] == true,
-    neededBy: _parseDate(j['needed_by']),
-    overdue: j['overdue'] == true,
-    claimedByName: j['claimed_by_name'] as String?,
-    claimedByMe: j['claimed_by_me'] == true,
-    claimable: j['claimable'] as bool? ?? true,
-    declineReason: j['decline_reason'] as String?,
-    documentId: j['document_id'] as String?,
-    events: RequestActivityEvent.listFromApi(j['events']),
-  );
+  static StaffDocumentRequest documentRequestFromApi(Map<String, dynamic> j) =>
+      StaffDocumentRequest(
+        id: (j['id'] ?? '').toString(),
+        patientId: (j['patient_id'] ?? '').toString(),
+        patientName: j['patient_name'] as String?,
+        title: (j['title'] ?? 'Document request') as String,
+        category: (j['category'] as String?) ?? 'other',
+        status: (j['status'] as String?) ?? 'pending',
+        createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
+        note: j['note'] as String?,
+        targetDoctorName: j['target_doctor_name'] as String?,
+        addressedToMe: j['addressed_to_me'] == true,
+        neededBy: _parseDate(j['needed_by']),
+        overdue: j['overdue'] == true,
+        claimedByName: j['claimed_by_name'] as String?,
+        claimedByMe: j['claimed_by_me'] == true,
+        claimable: j['claimable'] as bool? ?? true,
+        declineReason: j['decline_reason'] as String?,
+        documentId: j['document_id'] as String?,
+        events: RequestActivityEvent.listFromApi(j['events']),
+      );
 
   static CareRequestItem careRequestFromApi(
     Map<String, dynamic> j,

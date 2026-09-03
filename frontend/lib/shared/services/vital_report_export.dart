@@ -48,24 +48,25 @@ $statistics
   static String _statisticsSections(VitalReportRequest request) {
     final sections = <String>[];
     for (final vital in request.vitals) {
-      final readings = VitalsState.instance
-          .forVital(vital)
-          .where(
-            (reading) =>
-                !reading.recordedAt.isBefore(request.from) &&
-                !reading.recordedAt.isAfter(
-                  DateTime(
-                    request.to.year,
-                    request.to.month,
-                    request.to.day,
-                    23,
-                    59,
-                    59,
-                  ),
-                ),
-          )
-          .toList()
-        ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
+      final readings =
+          VitalsState.instance
+              .forVital(vital)
+              .where(
+                (reading) =>
+                    !reading.recordedAt.isBefore(request.from) &&
+                    !reading.recordedAt.isAfter(
+                      DateTime(
+                        request.to.year,
+                        request.to.month,
+                        request.to.day,
+                        23,
+                        59,
+                        59,
+                      ),
+                    ),
+              )
+              .toList()
+            ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
       final stats = VitalStatistics.from(readings);
 
       if (readings.isEmpty) {

@@ -78,9 +78,9 @@ class PatientPrivacySettingsSection extends StatelessWidget {
               onChanged: user == null
                   ? (_) {}
                   : (v) => ProfileService.setLocationConsent(
-                        editor: user,
-                        value: v,
-                      ),
+                      editor: user,
+                      value: v,
+                    ),
             ),
           ],
         ),

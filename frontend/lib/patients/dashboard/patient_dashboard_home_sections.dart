@@ -33,7 +33,7 @@ class _PatientHomeLayout extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const StaggeredEntry(index: 0, child: PatientDateHeader()),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.xs),
             StaggeredEntry(
               index: 1,
               child: _PatientTodayHub(
@@ -1643,8 +1643,8 @@ class _PatientSharingRequestCard extends StatelessWidget {
               '${first.requestedByName == null ? '' : ' · asked by ${first.requestedByName}'}';
 
     return GlassCard(
-      onTap: () =>
-          Navigator.of(context).pushNamed(RouteNames.patientReportConsents),
+        onTap: () =>
+          Navigator.of(context).pushNamed(RouteNames.patientDocuments),
       padding: const EdgeInsets.all(AppSpacing.md),
       background: AppPalette.warningSoft(context),
       border: Border.all(color: accent.withValues(alpha: 0.40)),
@@ -1704,7 +1704,7 @@ class _PatientSharingRequestCard extends StatelessWidget {
             expand: true,
             onPressed: () => Navigator.of(
               context,
-            ).pushNamed(RouteNames.patientReportConsents),
+            ).pushNamed(RouteNames.patientDocuments),
           ),
         ],
       ),

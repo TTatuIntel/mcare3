@@ -17,6 +17,7 @@ import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/section_label.dart';
+import '../consents/patient_report_consents_view.dart';
 import 'document_request_card.dart';
 import 'document_viewer_sheet.dart';
 import 'request_document_sheet.dart';
@@ -254,6 +255,8 @@ class _DocumentsViewState extends State<DocumentsView> {
                   ),
                 const SizedBox(height: AppSpacing.md),
               ],
+
+              const PatientReportConsentsView(embedded: true),
 
               // ---------------------------------------------------------
               // Search + sort

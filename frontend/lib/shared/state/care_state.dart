@@ -159,8 +159,7 @@ class DuplicateCareRequest implements Exception {
   final CareRequest existing;
 
   @override
-  String toString() =>
-      'You already have a pending request with $providerName.';
+  String toString() => 'You already have a pending request with $providerName.';
 }
 
 /// Raised when the provider is already on the patient's care team.

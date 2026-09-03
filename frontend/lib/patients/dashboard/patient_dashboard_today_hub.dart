@@ -8,6 +8,7 @@ class _SceneAction {
     required this.title,
     required this.detail,
     required this.onTap,
+    this.priority = 0,
     this.standing = false,
   });
 
@@ -16,6 +17,10 @@ class _SceneAction {
   final String title;
   final String detail;
   final VoidCallback onTap;
+
+  /// Higher sorts first, mirroring the priority of the scene the step came
+  /// from, so the rows read in the same order as the stream below them.
+  final int priority;
 
   /// A standing offer rather than something today is waiting on — "add another
   /// reading any time". It stays on the page as a row, but it is not counted
@@ -90,6 +95,10 @@ class _HubScene {
   bool get isActionable => actions.isNotEmpty;
 }
 
+/// How long a new account is greeted for. Three days: long enough to be seen
+/// across a weekend, short enough that it is gone before it is furniture.
+const int _welcomeDays = 3;
+
 /// A counted fact about today, written as one tappable phrase on the page
 /// background: "Vitals 2/4". No chip, no tile — the number is the whole
 /// widget, and tapping it opens the screen the number came from.
@@ -163,6 +172,7 @@ _HubBriefing _buildHubBriefing(
         urgent: true,
         actions: [
           _SceneAction(
+            priority: 100,
             icon: AppIcons.sos,
             accent: AppColors.critical,
             title: 'Open emergency status',
@@ -203,7 +213,11 @@ _HubBriefing _buildHubBriefing(
     final accent = closed != null
         ? AppColors.success
         : (critical ? AppColors.critical : AppColors.warning);
+    final alertPriority = closed != null
+        ? (now.difference(closed.createdAt) < const Duration(days: 1) ? 76 : 58)
+        : (critical ? 96 : 88);
     final action = _SceneAction(
+      priority: alertPriority,
       icon: key.icon,
       accent: accent,
       title: 'Review ${key.label.toLowerCase()}',
@@ -222,15 +236,11 @@ _HubBriefing _buildHubBriefing(
             : '${key.label} · ${reading?.risk.label ?? 'Needs review'}',
         icon: key.icon,
         accent: accent,
-        // A fresh answer outranks the plan for a day — the patient was just
-        // alarmed by this reading and is owed the reply while they are still
-        // wondering about it. After that it settles below the day's routine
+        // A fresh answer outranks the routine for a day — the patient was
+        // just alarmed by this reading and is owed the reply while they are
+        // still wondering about it. After that it settles below the day's work
         // rather than following them around.
-        priority: closed != null
-            ? (now.difference(closed.createdAt) < const Duration(days: 1)
-                  ? 76
-                  : 58)
-            : (critical ? 96 : 88),
+        priority: alertPriority,
         at: closed?.createdAt ?? reading?.recordedAt ?? now,
         body: closed != null
             ? closed.body
@@ -257,6 +267,7 @@ _HubBriefing _buildHubBriefing(
     final doseActions = [
       for (final dose in pending.take(2))
         _SceneAction(
+          priority: dose.scheduledAt.isBefore(now) ? 92 : 78,
           icon: AppIcons.medication,
           accent: dose.scheduledAt.isBefore(now)
               ? AppColors.warning
@@ -296,6 +307,7 @@ _HubBriefing _buildHubBriefing(
     final appt = appointments.first;
     final today = DateUtils.isSameDay(appt.scheduledAt, now);
     final action = _SceneAction(
+      priority: today ? 84 : 58,
       icon: AppIcons.appointment,
       accent: AppColors.bpPurple,
       title: today ? 'Open today\'s visit' : 'View appointment',
@@ -336,6 +348,19 @@ _HubBriefing _buildHubBriefing(
   if (unreadThreads.isNotEmpty) {
     final convo = unreadThreads.first;
     final total = unreadThreads.fold<int>(0, (sum, c) => sum + c.unreadCount);
+    planActions.add(
+      _SceneAction(
+        priority: 80,
+        icon: AppIcons.chat,
+        accent: AppColors.info,
+        title: 'Reply to ${convo.participant.name}',
+        detail:
+            '${convo.unreadCount} unread · ${_relativeTime(convo.lastMessage.sentAt)}',
+        onTap: () => Navigator.of(
+          context,
+        ).pushNamed(RouteNames.patientChatThread, arguments: convo.id),
+      ),
+    );
     scenes.add(
       _HubScene(
         id: 'msg_${convo.id}',
@@ -351,9 +376,10 @@ _HubBriefing _buildHubBriefing(
         actions: [
           for (final c in unreadThreads.take(2))
             _SceneAction(
+              priority: 80,
               icon: AppIcons.chat,
               accent: AppColors.info,
-              title: c.participant.name,
+              title: 'Reply to ${c.participant.name}',
               detail:
                   '${c.unreadCount} unread · ${_relativeTime(c.lastMessage.sentAt)}',
               onTap: () => Navigator.of(
@@ -366,8 +392,22 @@ _HubBriefing _buildHubBriefing(
   }
 
   // --- Announcements ---------------------------------------------------------
+  var announcementStepTaken = false;
   for (final ann in AnnouncementsState.instance.live.take(2)) {
     final fresh = now.difference(ann.effectiveAt).inHours < 24;
+    if (!announcementStepTaken) {
+      announcementStepTaken = true;
+      planActions.add(
+        _SceneAction(
+          priority: fresh ? 68 : 60,
+          icon: AppIcons.announcements,
+          accent: AppColors.adminPurple,
+          title: 'Read announcement',
+          detail: ann.title,
+          onTap: () => _AnnouncementSheet.show(context, ann),
+        ),
+      );
+    }
     scenes.add(
       _HubScene(
         id: 'ann_${ann.id}',
@@ -383,6 +423,7 @@ _HubBriefing _buildHubBriefing(
         body: ann.title,
         actions: [
           _SceneAction(
+            priority: fresh ? 72 : 64,
             icon: AppIcons.announcements,
             accent: AppColors.adminPurple,
             title: 'Read announcement',
@@ -403,6 +444,17 @@ _HubBriefing _buildHubBriefing(
     final age = now.difference(document.uploadedAt);
     if (!age.isNegative && age <= const Duration(days: 14)) {
       final fromCareTeam = document.source != DocumentSource.patient;
+      planActions.add(
+        _SceneAction(
+          priority: fromCareTeam ? 68 : 52,
+          icon: AppIcons.document,
+          accent: document.category.color,
+          title: fromCareTeam ? 'Open new document' : 'Open documents',
+          detail: document.title,
+          onTap: () =>
+              Navigator.of(context).pushNamed(RouteNames.patientDocuments),
+        ),
+      );
       scenes.add(
         _HubScene(
           id: 'document_${document.id}',
@@ -416,6 +468,7 @@ _HubBriefing _buildHubBriefing(
           body: document.title,
           actions: [
             _SceneAction(
+              priority: fromCareTeam ? 68 : 52,
               icon: AppIcons.document,
               accent: document.category.color,
               title: 'Open documents',
@@ -437,6 +490,23 @@ _HubBriefing _buildHubBriefing(
   final mealIsToday = mealsToday.isNotEmpty;
   if (meal != null &&
       (mealIsToday || now.difference(meal.assignedAt).inDays <= 7)) {
+    planActions.add(
+      _SceneAction(
+        priority: mealIsToday ? 62 : 48,
+        icon: meal.mealType.icon,
+        accent: meal.mealType.color,
+        title: mealsToday.length > 1
+            ? "See today's meals"
+            : 'See your ${meal.mealType.label.toLowerCase()}',
+        detail: [
+          meal.title,
+          if (meal.macroSummary.isNotEmpty) meal.macroSummary,
+        ].join(' · '),
+        onTap: () => mealsToday.length > 1
+            ? Navigator.of(context).pushNamed(RouteNames.patientMeals)
+            : MealDetailSheet.show(context, meal),
+      ),
+    );
     scenes.add(
       _HubScene(
         id: 'meal_${meal.id}',
@@ -462,6 +532,7 @@ _HubBriefing _buildHubBriefing(
         actions: [
           for (final m in (mealIsToday ? mealsToday : [meal]).take(2))
             _SceneAction(
+              priority: mealIsToday ? 62 : 48,
               icon: m.mealType.icon,
               accent: m.mealType.color,
               title: m.title,
@@ -489,6 +560,7 @@ _HubBriefing _buildHubBriefing(
   final allLogged = tracked.isNotEmpty && loggedToday == tracked.length;
   planActions.add(
     _SceneAction(
+      priority: allLogged ? 30 : 70,
       icon: AppIcons.vitals,
       accent: AppColors.brandIndigo,
       title: 'Record your vitals',
@@ -508,6 +580,7 @@ _HubBriefing _buildHubBriefing(
   // --- Notification centre ---------------------------------------------------
   if (unreadNotifications > 0) {
     final action = _SceneAction(
+      priority: 55,
       icon: AppIcons.bell,
       accent: AppColors.brandIndigo,
       title: 'Review care updates',
@@ -537,6 +610,16 @@ _HubBriefing _buildHubBriefing(
   for (final ticket in SupportState.instance.open) {
     final lastReply = ticket.replies.isEmpty ? null : ticket.replies.last;
     if (lastReply == null || !lastReply.isStaff) continue;
+    planActions.add(
+      _SceneAction(
+        priority: 60,
+        icon: AppIcons.ticket,
+        accent: AppColors.info,
+        title: 'Open your ticket',
+        detail: ticket.subject,
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientSupport),
+      ),
+    );
     scenes.add(
       _HubScene(
         id: 'ticket_${ticket.id}',
@@ -550,6 +633,7 @@ _HubBriefing _buildHubBriefing(
         footnote: ticket.subject,
         actions: [
           _SceneAction(
+            priority: 60,
             icon: AppIcons.ticket,
             accent: AppColors.info,
             title: 'Open your ticket',
@@ -595,6 +679,16 @@ _HubBriefing _buildHubBriefing(
     assignedVitals: VitalsState.instance.assigned.toList(),
   );
   if (!completion.isComplete && completion.incompleteItems.isNotEmpty) {
+    planActions.add(
+      _SceneAction(
+        priority: 42,
+        icon: AppIcons.user,
+        accent: AppColors.brandIndigo,
+        title: 'Complete your profile',
+        detail: completion.incompleteItems.first.label,
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientProfile),
+      ),
+    );
     scenes.add(
       _HubScene(
         id: 'profile',
@@ -609,12 +703,62 @@ _HubBriefing _buildHubBriefing(
             'profile means your care team is not guessing.',
         actions: [
           _SceneAction(
+            priority: 42,
             icon: AppIcons.user,
             accent: AppColors.brandIndigo,
             title: 'Complete your profile',
             detail: completion.incompleteItems.first.label,
             onTap: () =>
                 Navigator.of(context).pushNamed(RouteNames.patientProfile),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Welcome: the first three days, and then never again ------------------
+  // Dated from the account the server created, not from a flag this app sets,
+  // so it cannot follow a returning patient around and cannot be reset by a
+  // reinstall. An account whose age is unknown — an older stored session —
+  // counts as not new.
+  final joinedAt = AuthState.instance.user?.joinedAt;
+  final daysHere = AuthState.instance.user?.daysSinceJoining;
+  if (joinedAt != null && daysHere != null && daysHere < _welcomeDays) {
+    final firstName = AuthState.instance.user?.firstName ?? '';
+    planActions.add(
+      _SceneAction(
+        priority: 74,
+        icon: AppIcons.home,
+        accent: AppColors.brandIndigo,
+        title: 'See what mCare can do',
+        detail: 'Vitals, medicines, meals, documents and messages',
+        onTap: () => _WelcomeSheet.show(context),
+      ),
+    );
+    scenes.add(
+      _HubScene(
+        id: 'welcome',
+        title: firstName.isEmpty
+            ? 'Welcome to mCare'
+            : 'Welcome to mCare, $firstName',
+        subtitle: daysHere == 0
+            ? 'Joined today'
+            : 'Day ${daysHere + 1} of $_welcomeDays',
+        icon: AppIcons.home,
+        accent: AppColors.brandIndigo,
+        priority: 74,
+        at: joinedAt,
+        body:
+            'Everything you log here reaches your care team. Take a look at '
+            'what the app holds — you can come back to this for three days.',
+        actions: [
+          _SceneAction(
+            priority: 74,
+            icon: AppIcons.home,
+            accent: AppColors.brandIndigo,
+            title: 'See what mCare can do',
+            detail: 'Vitals, medicines, meals, documents and messages',
+            onTap: () => _WelcomeSheet.show(context),
           ),
         ],
       ),
@@ -658,6 +802,10 @@ _HubBriefing _buildHubBriefing(
     if (byPriority != 0) return byPriority;
     return b.at.compareTo(a.at);
   });
+
+  // The steps read in the same order as the stream: what is wrong, then what
+  // is due, then what is merely there.
+  planActions.sort((a, b) => b.priority.compareTo(a.priority));
 
   final nextVisit = appointments.isEmpty ? null : appointments.first;
 
@@ -713,12 +861,21 @@ List<_HubScene> _buildHubScenes(
 /// This used to be a card that re-dealt itself every six seconds. Its height,
 /// its colour and its whole contents changed under the reader: the page moved
 /// while it was being used, and anything worth reading was gone before it was
-/// read. Nothing here moves on its own and nothing is boxed.
+/// read. Nothing here is boxed and nothing moves on its own — but every line
+/// of it is live, and re-reads its stores the moment they change.
 ///
-/// What is left is the day in three parts, all of it on screen at once and all
-/// of it tappable: one headline of what today is asking, the counted facts
-/// underneath it, and the steps themselves as plain rows. The full stream is
-/// the "For you" list further down; this is only its head.
+/// The shape is what keeps being live from costing the page anything: two
+/// lines of text that never wrap, one line of counted facts, then the steps as
+/// rows of one fixed shape. A dose being taken, an alert closing or a reading
+/// landing swaps a row for a row and rewrites a count in place — it does not
+/// re-lay the page out under a thumb already on its way somewhere.
+///
+/// What the rows hold is the whole app, not one corner of it: an alert, a
+/// dose, a visit, an unread message, a notice from the clinic, a new document,
+/// today's meal, the reading that is still to be logged, an unfinished
+/// profile — and, for a new account's first [_welcomeDays], the welcome. They
+/// are ranked, the top of the list is fixed, and the last row is a slot that
+/// turns with the calendar day so the quieter things get their turn.
 class _PatientTodayHub extends StatelessWidget {
   const _PatientTodayHub({
     required this.appointments,
@@ -730,8 +887,28 @@ class _PatientTodayHub extends StatelessWidget {
   final List<MedicationDose> doses;
   final int unreadNotifications;
 
-  /// Steps drawn here. The rest are not hidden — they are rows in "For you".
+  /// Steps drawn as rows. The rest are not hidden — they are rows in "For you",
+  /// and the line under the last one says how many.
   static const _maxSteps = 3;
+
+  /// Which steps get the rows, when there are more than [_maxSteps].
+  ///
+  /// The top of the list is not negotiable: what is wrong and what is due keep
+  /// their places every single time. The last row is a rotating slot, so the
+  /// quieter things the app knows — an assigned meal, a new document, a notice
+  /// from the clinic — each get their turn on the home page instead of living
+  /// permanently below the fold.
+  ///
+  /// The slot turns with the calendar day, never with a timer: a patient
+  /// looking twice in one afternoon sees the same page both times, and a
+  /// patient looking every morning sees a different one.
+  static List<_SceneAction> _rowsFor(List<_SceneAction> steps, DateTime now) {
+    if (steps.length <= _maxSteps) return steps;
+    final pinned = steps.take(_maxSteps - 1).toList();
+    final rest = steps.skip(_maxSteps - 1).toList();
+    final day = DateUtils.dateOnly(now).difference(DateTime(2020)).inDays;
+    return [...pinned, rest[day % rest.length]];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -758,7 +935,8 @@ class _PatientTodayHub extends StatelessWidget {
         final steps = briefing.steps;
         final urgent = briefing.urgentCount;
         final outstanding = briefing.outstandingCount;
-        final shown = steps.take(_maxSteps).toList();
+        final shown = _rowsFor(steps, DateTime.now());
+        final hidden = steps.length - shown.length;
 
         final headline = outstanding == 0
             ? 'Nothing needs you right now'
@@ -774,18 +952,24 @@ class _PatientTodayHub extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Two lines that never wrap: the head of the block is the same
+            // height whatever the day turns out to hold.
             Text(
               headline,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
+                height: 1.15,
                 color: urgent > 0
                     ? AppColors.critical
                     : AppPalette.ink(context),
               ),
             ),
-            const SizedBox(height: 2),
             Text(
               detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: AppPalette.textMuted(context),
               ),
@@ -794,19 +978,17 @@ class _PatientTodayHub extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               _HubFactsLine(facts: briefing.facts),
             ],
-            for (final step in shown) ...[
-              const SizedBox(height: AppSpacing.xs),
-              _HubStepRow(action: step),
-            ],
-            if (steps.length > shown.length) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                '${steps.length - shown.length} more listed under For you.',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textFaint(context),
+            for (final step in shown) _HubStepRow(action: step),
+            if (hidden > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Text(
+                  '$hidden more listed under For you.',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textFaint(context),
+                  ),
                 ),
               ),
-            ],
           ],
         );
       },
@@ -814,9 +996,9 @@ class _PatientTodayHub extends StatelessWidget {
   }
 }
 
-/// The counted facts, in a row that wraps: label, then the number in its own
-/// colour, with a dot between neighbours. Each is a tap target onto the screen
-/// the count came from; none of them is a box.
+/// The counted facts, on one line that wraps: label, then the number in the
+/// colour the number earned — green once every tracked vital is in, amber
+/// while a dose is still due. Each is a tap onto the screen it came from.
 class _HubFactsLine extends StatelessWidget {
   const _HubFactsLine({required this.facts});
 
@@ -872,11 +1054,13 @@ class _HubFactText extends StatelessWidget {
           ),
         ],
       ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
 
     if (fact.onTap == null) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: text,
       );
     }
@@ -890,7 +1074,7 @@ class _HubFactText extends StatelessWidget {
         onTap: fact.onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           child: text,
         ),
       ),
@@ -898,12 +1082,19 @@ class _HubFactText extends StatelessWidget {
   }
 }
 
-/// One step, as a row on the background: icon, what it is, what it says, and
-/// a chevron. No fill, no border, no card — the page shows through it.
+/// One step, as a row on the background: icon, what it is, what it says, and a
+/// chevron. No fill, no border, no card — the page shows through it, and the
+/// colour is the step's own, so a late dose reads amber without anything
+/// having to say "late" twice.
+///
+/// Every row is [height] tall and clips its two lines, so the strip of steps
+/// keeps its height as the day changes underneath it.
 class _HubStepRow extends StatelessWidget {
   const _HubStepRow({required this.action});
 
   final _SceneAction action;
+
+  static const double height = 52;
 
   @override
   Widget build(BuildContext context) {
@@ -921,14 +1112,15 @@ class _HubStepRow extends StatelessWidget {
         child: InkWell(
           onTap: action.onTap,
           borderRadius: radius,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: SizedBox(
+            height: height,
             child: Row(
               children: [
                 _PatientIconDisc(icon: action.icon, color: action.accent),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -1012,4 +1204,127 @@ class _AnnouncementSheet {
       ),
     );
   }
+}
+
+/// What the app holds, for someone who has just been given it.
+///
+/// Every line opens the real screen rather than describing it — a first look
+/// that leaves the patient somewhere useful instead of back where they were.
+/// It is reachable for [_welcomeDays] from the home page, and after that from
+/// the areas themselves, which is where it was always pointing.
+class _WelcomeSheet {
+  _WelcomeSheet._();
+
+  static Future<void> show(BuildContext context) {
+    final name = AuthState.instance.user?.firstName ?? '';
+
+    return PatientSheet.show<void>(
+      context,
+      title: name.isEmpty ? 'Welcome to mCare' : 'Welcome, $name',
+      subtitle: 'What is here, and where it goes',
+      child: Builder(
+        builder: (sheetContext) {
+          void openAfterClosing(VoidCallback open) {
+            Navigator.of(sheetContext).pop();
+            open();
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Everything you record here reaches your care team, and '
+                'everything they send you arrives in the same place.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(height: 1.45),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              for (final entry in _entries(context))
+                _HubStepRow(
+                  action: _SceneAction(
+                    icon: entry.icon,
+                    accent: entry.accent,
+                    title: entry.title,
+                    detail: entry.detail,
+                    onTap: () => openAfterClosing(entry.open),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  static List<_WelcomeEntry> _entries(BuildContext context) {
+    void go(String route) => Navigator.of(context).pushNamed(route);
+    return [
+      _WelcomeEntry(
+        icon: AppIcons.vitals,
+        accent: AppColors.brandIndigo,
+        title: 'Vitals',
+        detail: 'Log a reading — your care team reads today\'s numbers',
+        open: () => SubmitVitalSheet.show(context),
+      ),
+      _WelcomeEntry(
+        icon: AppIcons.medication,
+        accent: AppColors.success,
+        title: 'Medications',
+        detail: 'What to take, when, and what you have taken',
+        open: () => go(RouteNames.patientMedications),
+      ),
+      _WelcomeEntry(
+        icon: AppIcons.meals,
+        accent: AppColors.warning,
+        title: 'Meals',
+        detail: 'Meal plans your care team assigns you',
+        open: () => go(RouteNames.patientMeals),
+      ),
+      _WelcomeEntry(
+        icon: AppIcons.appointment,
+        accent: AppColors.bpPurple,
+        title: 'Appointments',
+        detail: 'Visits, in person or by video',
+        open: () => go(RouteNames.patientAppointments),
+      ),
+      _WelcomeEntry(
+        icon: AppIcons.document,
+        accent: AppColors.info,
+        title: 'Documents',
+        detail: 'Results and letters, yours and theirs',
+        open: () => go(RouteNames.patientDocuments),
+      ),
+      _WelcomeEntry(
+        icon: AppIcons.chat,
+        accent: AppColors.info,
+        title: 'Messages',
+        detail: 'Talk to your care team',
+        open: () => go(RouteNames.patientMessages),
+      ),
+      _WelcomeEntry(
+        icon: AppIcons.user,
+        accent: AppColors.adminPurple,
+        title: 'Your profile',
+        detail: 'The details a care team should not have to guess',
+        open: () => go(RouteNames.patientProfile),
+      ),
+    ];
+  }
+}
+
+class _WelcomeEntry {
+  const _WelcomeEntry({
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.detail,
+    required this.open,
+  });
+
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String detail;
+  final VoidCallback open;
 }

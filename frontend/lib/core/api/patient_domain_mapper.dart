@@ -480,6 +480,9 @@ class PatientDomainMapper {
       resolvedAt: parseDate(json['resolved_at'] as String?),
       documentId: json['document_id'] as String?,
       lastEscalatedAt: parseDate(json['last_escalated_at'] as String?),
+      signedBy: json['signed_by'] as String?,
+      signedByRole: json['signed_by_role'] as String?,
+      signedAt: parseDate(json['signed_at'] as String?),
       events: RequestActivityEvent.listFromApi(json['events']),
     );
   }
@@ -577,19 +580,19 @@ class PatientDomainMapper {
   /// fields a patient may set are sent; adherence moves through its own
   /// endpoint so a plan edit can never silently rewrite the progress log.
   static Map<String, dynamic> mealPlanToApi(StaffMealPlan plan) => {
-        'title': plan.title,
-        'meal_type': plan.mealType.name,
-        if (plan.description != null) 'description': plan.description,
-        if (plan.items.isNotEmpty) 'items': plan.items,
-        if (plan.calories != null) 'calories': plan.calories,
-        if (plan.protein != null) 'protein': plan.protein,
-        if (plan.carbs != null) 'carbs': plan.carbs,
-        if (plan.fat != null) 'fat': plan.fat,
-        if (plan.notes != null) 'notes': plan.notes,
-        if (plan.conditionTag != null) 'condition_tag': plan.conditionTag,
-        'scheduled_for': _dayString(plan.planDate),
-        if (plan.serveTime != null) 'serve_time': plan.serveTime,
-      };
+    'title': plan.title,
+    'meal_type': plan.mealType.name,
+    if (plan.description != null) 'description': plan.description,
+    if (plan.items.isNotEmpty) 'items': plan.items,
+    if (plan.calories != null) 'calories': plan.calories,
+    if (plan.protein != null) 'protein': plan.protein,
+    if (plan.carbs != null) 'carbs': plan.carbs,
+    if (plan.fat != null) 'fat': plan.fat,
+    if (plan.notes != null) 'notes': plan.notes,
+    if (plan.conditionTag != null) 'condition_tag': plan.conditionTag,
+    'scheduled_for': _dayString(plan.planDate),
+    if (plan.serveTime != null) 'serve_time': plan.serveTime,
+  };
 
   static String _dayString(DateTime day) =>
       '${day.year.toString().padLeft(4, '0')}-'

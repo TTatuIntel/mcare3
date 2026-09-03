@@ -6,6 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class VitalCatalog extends Model
 {
+    public const BUILTIN_KEYS = [
+        'bloodPressure',
+        'heartRate',
+        'bloodOxygen',
+        'temperature',
+        'bloodGlucose',
+        'respiratoryRate',
+        'weight',
+    ];
+
     protected $table = 'vital_catalog';
 
     protected $fillable = [

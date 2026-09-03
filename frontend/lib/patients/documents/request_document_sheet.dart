@@ -335,7 +335,9 @@ class _TargetTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = selected ? AppColors.brandIndigo : AppPalette.border(context);
+    final accent = selected
+        ? AppColors.brandIndigo
+        : AppPalette.border(context);
 
     return Opacity(
       opacity: enabled ? 1 : 0.5,

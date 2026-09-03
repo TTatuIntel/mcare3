@@ -24,34 +24,34 @@ class StaffRouteConfig {
   final String? chatThreadRoute;
 
   factory StaffRouteConfig.admin(String currentRoute) => StaffRouteConfig(
-        role: UserRole.admin,
-        currentRoute: currentRoute,
-        destinations: StaffDestinations.admin(),
-        profileRoute: RouteNames.adminProfile,
-        notificationsRoute: RouteNames.adminNotifications,
-        messagesRoute: RouteNames.adminMessages,
-        chatThreadRoute: RouteNames.adminChatThread,
-      );
+    role: UserRole.admin,
+    currentRoute: currentRoute,
+    destinations: StaffDestinations.admin(),
+    profileRoute: RouteNames.adminProfile,
+    notificationsRoute: RouteNames.adminNotifications,
+    messagesRoute: RouteNames.adminMessages,
+    chatThreadRoute: RouteNames.adminChatThread,
+  );
 
   factory StaffRouteConfig.doctor(String currentRoute) => StaffRouteConfig(
-        role: UserRole.doctor,
-        currentRoute: currentRoute,
-        destinations: StaffDestinations.doctor(),
-        profileRoute: RouteNames.doctorProfile,
-        notificationsRoute: RouteNames.doctorNotifications,
-        messagesRoute: RouteNames.doctorMessages,
-        chatThreadRoute: RouteNames.doctorChatThread,
-      );
+    role: UserRole.doctor,
+    currentRoute: currentRoute,
+    destinations: StaffDestinations.doctor(),
+    profileRoute: RouteNames.doctorProfile,
+    notificationsRoute: RouteNames.doctorNotifications,
+    messagesRoute: RouteNames.doctorMessages,
+    chatThreadRoute: RouteNames.doctorChatThread,
+  );
 
   factory StaffRouteConfig.assistant(String currentRoute) => StaffRouteConfig(
-        role: UserRole.mcareAssistant,
-        currentRoute: currentRoute,
-        destinations: StaffDestinations.assistant(),
-        profileRoute: RouteNames.assistantProfile,
-        notificationsRoute: RouteNames.assistantNotifications,
-        messagesRoute: RouteNames.assistantMessages,
-        chatThreadRoute: RouteNames.assistantChatThread,
-      );
+    role: UserRole.mcareAssistant,
+    currentRoute: currentRoute,
+    destinations: StaffDestinations.assistant(),
+    profileRoute: RouteNames.assistantProfile,
+    notificationsRoute: RouteNames.assistantNotifications,
+    messagesRoute: RouteNames.assistantMessages,
+    chatThreadRoute: RouteNames.assistantChatThread,
+  );
 }
 
 /// Whether the current role may edit the global vital catalog.

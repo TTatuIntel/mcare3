@@ -53,7 +53,7 @@ class NotificationRouter {
     NotificationKind.approval => RouteNames.pendingApproval,
     NotificationKind.assignment => RouteNames.patientCareTeam,
     NotificationKind.profile => RouteNames.patientProfile,
-    NotificationKind.consent => RouteNames.patientReportConsents,
+    NotificationKind.consent => RouteNames.patientDocuments,
     // A closed alert still points at the reading it was about, so the patient
     // can see the number their care team acted on next to the answer.
     NotificationKind.resolution =>

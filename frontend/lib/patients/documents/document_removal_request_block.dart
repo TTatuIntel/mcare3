@@ -113,7 +113,8 @@ class _DocumentRemovalRequestBlockState
         icon: AppIcons.info,
         color: AppColors.critical,
         title: 'Removal declined',
-        message: 'Your care team kept this document. '
+        message:
+            'Your care team kept this document. '
             '“${doc.removalDeclinedReason}”',
         action: doc.canRequestRemoval
             ? AppButton(

@@ -448,9 +448,7 @@ class AdminApi {
   Future<JsonMap?> issueReport(String id) => approveAndShareReport(id);
 
   /// Signed reports waiting for an admin's final approval.
-  Future<List<JsonMap>> listSignedReportsAwaitingApproval({
-    String? patientId,
-  }) {
+  Future<List<JsonMap>> listSignedReportsAwaitingApproval({String? patientId}) {
     return listReportRequests(
       patientId: patientId,
       status: 'signed',

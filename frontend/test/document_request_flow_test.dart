@@ -145,10 +145,7 @@ void main() {
 
     // The whole point of the claim: silence and work in progress must not
     // read the same.
-    expect(
-      find.text('Dr. Kojo Mensah is preparing this'),
-      findsOneWidget,
-    );
+    expect(find.text('Dr. Kojo Mensah is preparing this'), findsOneWidget);
     expect(find.text('Being prepared'), findsWidgets);
   });
 
@@ -167,7 +164,9 @@ void main() {
     await pump(tester);
 
     // Answered requests are folded away, so the reason lives one tap in.
-    await tester.tap(find.textContaining('Show 1 answered request'));
+    final toggle = find.textContaining('Show 1 answered request');
+    await tester.scrollUntilVisible(toggle, 200);
+    await tester.tap(toggle);
     await tester.pumpAndSettle();
 
     expect(
@@ -191,10 +190,7 @@ void main() {
     await pump(tester);
 
     expect(find.text('Overdue'), findsWidgets);
-    expect(
-      find.textContaining('past the date you needed it'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('past the date you needed it'), findsOneWidget);
   });
 
   testWidgets('an issued vital report is filed under its own category', (
@@ -222,7 +218,11 @@ void main() {
   ) async {
     DocumentsState.instance.seed([
       document(id: 'd1', title: 'Lipid panel'),
-      document(id: 'd2', title: 'Chest X-ray', category: DocumentCategory.imaging),
+      document(
+        id: 'd2',
+        title: 'Chest X-ray',
+        category: DocumentCategory.imaging,
+      ),
     ]);
     DocumentRequestsState.instance.seed([
       request(id: 'r1', title: 'Referral letter for physiotherapy'),
@@ -255,7 +255,9 @@ void main() {
   });
 }
 
-List<Map<String, dynamic>> _requestsAsApi() => DocumentRequestsState.instance.all
+List<Map<String, dynamic>> _requestsAsApi() => DocumentRequestsState
+    .instance
+    .all
     .map(
       (r) => {
         'id': r.id,

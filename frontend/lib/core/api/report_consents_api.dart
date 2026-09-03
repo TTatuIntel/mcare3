@@ -32,10 +32,7 @@ class ReportConsentsApi {
     final res = await ApiClient.instance.get('/patient/report-consents');
     final list = res['data']?['report_requests'] as List? ?? const [];
 
-    return list
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
+    return list.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
   }
 
   /// The patient's issued report as authenticated printable bytes.
@@ -66,9 +63,7 @@ class ReportConsentsApi {
       throw ArgumentError.value(id, 'id', 'Report id cannot be empty.');
     }
 
-    await ApiClient.instance.delete(
-      '/patient/report-consents/$safeId',
-    );
+    await ApiClient.instance.delete('/patient/report-consents/$safeId');
   }
 
   /// Backwards-friendly short alias for patient-owned deletion.

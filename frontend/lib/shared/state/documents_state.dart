@@ -169,8 +169,7 @@ class DocumentsState extends ChangeNotifier {
     return updated;
   }
 
-  MedicalDocument _byId(String id) =>
-      _items.firstWhere((d) => d.id == id);
+  MedicalDocument _byId(String id) => _items.firstWhere((d) => d.id == id);
 
   Future<void> deleteDocument(String id) async {
     final i = _items.indexWhere((d) => d.id == id);

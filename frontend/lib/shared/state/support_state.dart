@@ -16,19 +16,25 @@ class SupportState extends ChangeNotifier {
 
   List<SupportTicket> get all => List.unmodifiable(_tickets);
 
-  List<SupportTicket> get open => _tickets
-      .where((t) =>
-          t.status == TicketStatus.open ||
-          t.status == TicketStatus.inProgress)
-      .toList()
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  List<SupportTicket> get open =>
+      _tickets
+          .where(
+            (t) =>
+                t.status == TicketStatus.open ||
+                t.status == TicketStatus.inProgress,
+          )
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-  List<SupportTicket> get closed => _tickets
-      .where((t) =>
-          t.status == TicketStatus.resolved ||
-          t.status == TicketStatus.closed)
-      .toList()
-    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  List<SupportTicket> get closed =>
+      _tickets
+          .where(
+            (t) =>
+                t.status == TicketStatus.resolved ||
+                t.status == TicketStatus.closed,
+          )
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
   void seed(List<SupportTicket> items) {
     _tickets
@@ -125,7 +131,11 @@ class SupportState extends ChangeNotifier {
 
   /// Persisting variant of [addReply]. Routes to admin or patient endpoint
   /// based on the signed-in user's role.
-  Future<void> addReplyRemote(String ticketId, String body, {bool isStaff = false}) async {
+  Future<void> addReplyRemote(
+    String ticketId,
+    String body, {
+    bool isStaff = false,
+  }) async {
     if (!AppEnv.backendEnabled) {
       addReply(ticketId, body, isStaff: isStaff);
       return;

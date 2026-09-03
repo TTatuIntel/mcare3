@@ -193,7 +193,9 @@ class MockData {
     ];
   }
 
-  static AppUser samplePatient() => const AppUser(
+  /// Joined yesterday, so the demo shows the home page a genuinely new
+  /// patient sees — welcome included — rather than only the steady state.
+  static AppUser samplePatient() => AppUser(
     id: 'u_001',
     uniqueId: 'MCR-001284',
     firstName: 'Amara',
@@ -201,6 +203,7 @@ class MockData {
     email: 'amara.okonkwo@example.com',
     phone: '+254 712 000 000',
     role: UserRole.patient,
+    joinedAt: DateTime.now().subtract(const Duration(days: 1)),
   );
 
   static AppUser sampleDoctor() => const AppUser(

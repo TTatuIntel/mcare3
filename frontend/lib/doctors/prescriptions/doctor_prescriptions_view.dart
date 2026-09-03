@@ -45,9 +45,11 @@ class DoctorPrescriptionsView extends StatelessWidget {
               .map((p) => p.id)
               .toSet();
           final rx = StaffState.instance.prescriptions
-              .where((p) =>
-                  assignedIds.contains(p.patientId) ||
-                  p.patientId == 'pending')
+              .where(
+                (p) =>
+                    assignedIds.contains(p.patientId) ||
+                    p.patientId == 'pending',
+              )
               .toList();
           if (rx.isEmpty) {
             return Column(
@@ -86,15 +88,17 @@ class DoctorPrescriptionsView extends StatelessWidget {
                 index: 1,
                 child: StaffListCard(
                   children: rx
-                      .map((p) => StaffListRow(
-                            icon: AppIcons.prescription,
-                            iconColor: AppColors.brandIndigo,
-                            title: '${p.drug} ${p.dosage}',
-                            subtitle:
-                                '${p.patientName} · ${p.frequency} · ${DateFormat.MMMd().format(p.issuedAt)}',
-                            pill: p.status,
-                            pillColor: AppColors.success,
-                          ))
+                      .map(
+                        (p) => StaffListRow(
+                          icon: AppIcons.prescription,
+                          iconColor: AppColors.brandIndigo,
+                          title: '${p.drug} ${p.dosage}',
+                          subtitle:
+                              '${p.patientName} · ${p.frequency} · ${DateFormat.MMMd().format(p.issuedAt)}',
+                          pill: p.status,
+                          pillColor: AppColors.success,
+                        ),
+                      )
                       .toList(),
                 ),
               ),

@@ -13,8 +13,7 @@ void localStorageRemove(String key) => _memory.remove(key);
 
 String? sessionStorageGet(String key) => _sessionMemory[key];
 
-void sessionStorageSet(String key, String value) =>
-    _sessionMemory[key] = value;
+void sessionStorageSet(String key, String value) => _sessionMemory[key] = value;
 
 void sessionStorageRemove(String key) => _sessionMemory.remove(key);
 

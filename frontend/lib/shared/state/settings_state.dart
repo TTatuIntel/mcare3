@@ -266,9 +266,7 @@ class SettingsState extends ChangeNotifier {
   void _persist() {
     _cacheLocal();
     unawaited(
-      PushNotificationService.instance.setEnabled(
-        _notifications.pushEnabled,
-      ),
+      PushNotificationService.instance.setEnabled(_notifications.pushEnabled),
     );
     if (AppEnv.backendEnabled) {
       unawaited(SettingsApi.instance.save(_remotePayload()));

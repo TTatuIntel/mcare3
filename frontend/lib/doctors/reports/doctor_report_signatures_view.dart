@@ -450,7 +450,9 @@ class _SignBodyState extends State<_SignBody> {
           ),
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: r.awaitingRework ? 'Sign the corrected report' : 'Sign report',
+            label: r.awaitingRework
+                ? 'Sign the corrected report'
+                : 'Sign report',
             icon: AppIcons.approval,
             expand: true,
             loading: _busy,

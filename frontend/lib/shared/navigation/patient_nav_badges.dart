@@ -33,8 +33,7 @@ abstract final class PatientNavBadges {
         .dosesForToday()
         .where(
           (d) =>
-              (d.status == DoseStatus.pending &&
-                  !d.scheduledAt.isAfter(now)) ||
+              (d.status == DoseStatus.pending && !d.scheduledAt.isAfter(now)) ||
               d.status == DoseStatus.missed,
         )
         .length;

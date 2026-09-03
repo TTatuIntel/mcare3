@@ -27,7 +27,10 @@ import '../../shared/widgets/loading/loading.dart';
 /// why. Declining is as prominent as approving, and nothing is shared unless
 /// they say yes.
 class PatientReportConsentsView extends StatefulWidget {
-  const PatientReportConsentsView({super.key});
+  const PatientReportConsentsView({super.key, this.embedded = false});
+
+  /// Renders the same request workflow inside Documents & reports.
+  final bool embedded;
 
   @override
   State<PatientReportConsentsView> createState() =>
@@ -80,6 +83,52 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView>
     final awaiting = _items.where((r) => r.awaitingMe).toList();
     final history = _items.where((r) => !r.awaitingMe).toList();
 
+    final body = _loading
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
+            child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
+          )
+        : _items.isEmpty
+        ? (widget.embedded
+              ? const SizedBox.shrink()
+              : GlassCard(
+                  child: EmptyStateView(
+                    icon: AppIcons.lock,
+                    title: 'No sharing requests',
+                    message:
+                        _error ??
+                        'When mCare staff need to share part of your record, '
+                            'the request appears here for your approval.',
+                    compact: true,
+                  ),
+                ))
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (awaiting.isNotEmpty) ...[
+                SectionLabel(
+                  title: 'Needs your approval',
+                  icon: AppIcons.lock,
+                  trailing: '${awaiting.length}',
+                ),
+                for (final r in awaiting)
+                  _ConsentCard(request: r, onChanged: _load, urgent: true),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              if (history.isNotEmpty) ...[
+                SectionLabel(
+                  title: 'Past requests',
+                  icon: AppIcons.audit,
+                  trailing: '${history.length}',
+                ),
+                for (final r in history)
+                  _ConsentCard(request: r, onChanged: _load),
+              ],
+            ],
+          );
+
+    if (widget.embedded) return body;
+
     return PatientScaffold(
       currentRoute: RouteNames.patientReportConsents,
       title: 'Sharing requests',
@@ -91,47 +140,7 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView>
           icon: const Icon(AppIcons.refresh),
         ),
       ],
-      body: _loading
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-              child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
-            )
-          : _items.isEmpty
-          ? GlassCard(
-              child: EmptyStateView(
-                icon: AppIcons.lock,
-                title: 'No sharing requests',
-                message:
-                    _error ??
-                    'When mCare staff need to share part of your record, '
-                        'the request appears here for your approval.',
-                compact: true,
-              ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (awaiting.isNotEmpty) ...[
-                  SectionLabel(
-                    title: 'Needs your approval',
-                    icon: AppIcons.lock,
-                    trailing: '${awaiting.length}',
-                  ),
-                  for (final r in awaiting)
-                    _ConsentCard(request: r, onChanged: _load, urgent: true),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-                if (history.isNotEmpty) ...[
-                  SectionLabel(
-                    title: 'Past requests',
-                    icon: AppIcons.audit,
-                    trailing: '${history.length}',
-                  ),
-                  for (final r in history)
-                    _ConsentCard(request: r, onChanged: _load),
-                ],
-              ],
-            ),
+      body: body,
     );
   }
 }
@@ -419,5 +428,6 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
         ],
       ],
     );
+
   }
 }

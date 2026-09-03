@@ -135,7 +135,7 @@ class DoctorPatientController extends Controller
             'assigned_vitals.*' => 'string',
         ]);
 
-        $allowed = VitalCatalog::where('enabled', true)
+        $allowed = VitalCatalog::whereIn('vital_key', VitalCatalog::BUILTIN_KEYS)
             ->pluck('vital_key')
             ->all();
 

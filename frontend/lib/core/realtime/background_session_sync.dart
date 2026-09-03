@@ -17,10 +17,7 @@ abstract final class BackgroundSessionSync {
   static bool _requestedUrgent = false;
 
   /// Returns true when fresh data was applied.
-  static Future<bool> refresh({
-    required UserRole role,
-    bool urgent = false,
-  }) {
+  static Future<bool> refresh({required UserRole role, bool urgent = false}) {
     if (!AppEnv.backendEnabled) return Future<bool>.value(false);
 
     // Socket, pulse, push and the safety sweep can all notice the same burst.

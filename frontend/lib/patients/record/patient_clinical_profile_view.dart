@@ -149,10 +149,7 @@ class _PatientClinicalProfileViewState extends State<PatientClinicalProfileView>
       children: [
         StaggeredEntry(index: 0, child: DossierHero(dossier: dossier)),
         const SizedBox(height: AppSpacing.md),
-        StaggeredEntry(
-          index: 1,
-          child: DossierStatStrip(stats: dossier.stats),
-        ),
+        StaggeredEntry(index: 1, child: DossierStatStrip(stats: dossier.stats)),
         const SizedBox(height: AppSpacing.md),
         StaggeredEntry(
           index: 2,
@@ -181,10 +178,7 @@ class _PatientClinicalProfileViewState extends State<PatientClinicalProfileView>
           _StaleNotice(onRetry: _load),
         ],
         const SizedBox(height: AppSpacing.xl),
-        RequestFullReportCard(
-          access: _reportAccess,
-          onSubmitted: _load,
-        ),
+        RequestFullReportCard(access: _reportAccess, onSubmitted: _load),
         const SizedBox(height: AppSpacing.lg),
       ],
     );
@@ -251,11 +245,7 @@ class _EditHint extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-              AppIcons.info,
-              size: 16,
-              color: AppPalette.textMuted(context),
-            ),
+            Icon(AppIcons.info, size: 16, color: AppPalette.textMuted(context)),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
@@ -456,9 +446,7 @@ class _RequestFullReportCardState extends State<RequestFullReportCard> {
                     ),
                     const SizedBox(width: AppSpacing.xs),
                     Icon(
-                      _showSections
-                          ? AppIcons.expandLess
-                          : AppIcons.expandMore,
+                      _showSections ? AppIcons.expandLess : AppIcons.expandMore,
                       size: 18,
                       color: theme.colorScheme.primary,
                     ),
@@ -486,11 +474,7 @@ class _RequestFullReportCardState extends State<RequestFullReportCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    AppIcons.info,
-                    size: 16,
-                    color: AppColors.warning,
-                  ),
+                  const Icon(AppIcons.info, size: 16, color: AppColors.warning),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(

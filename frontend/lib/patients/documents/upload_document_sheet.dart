@@ -167,7 +167,9 @@ class _FormState extends State<_Form> {
               children: [
                 Icon(
                   hasFile ? AppIcons.check : AppIcons.document,
-                  color: hasFile ? AppColors.success : AppPalette.textMuted(context),
+                  color: hasFile
+                      ? AppColors.success
+                      : AppPalette.textMuted(context),
                   size: 20,
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -179,7 +181,9 @@ class _FormState extends State<_Form> {
                         hasFile ? _selectedFileName! : 'Choose file',
                         style: theme.textTheme.labelMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: hasFile ? AppColors.success : AppPalette.ink(context),
+                          color: hasFile
+                              ? AppColors.success
+                              : AppPalette.ink(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

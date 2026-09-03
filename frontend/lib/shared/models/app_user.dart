@@ -17,6 +17,7 @@ class AppUser {
     this.approvalStatus = ApprovalStatus.active,
     this.emailVerified = true,
     this.mustChangePassword = false,
+    this.joinedAt,
   });
 
   final String id;
@@ -32,6 +33,19 @@ class AppUser {
   final ApprovalStatus approvalStatus;
   final bool emailVerified;
   final bool mustChangePassword;
+
+  /// When the account was created, as the server recorded it. Null for a
+  /// session restored from an older stored payload, which is why every reader
+  /// has to treat "unknown" as "not new".
+  final DateTime? joinedAt;
+
+  /// Whole days since the account was created, or null when unknown.
+  int? get daysSinceJoining {
+    final joined = joinedAt;
+    if (joined == null) return null;
+    final days = DateTime.now().difference(joined).inDays;
+    return days < 0 ? 0 : days;
+  }
 
   String get fullName => '$firstName $lastName';
   String get initials =>
@@ -56,6 +70,7 @@ class AppUser {
     ApprovalStatus? approvalStatus,
     bool? emailVerified,
     bool? mustChangePassword,
+    DateTime? joinedAt,
   }) => AppUser(
     id: id,
     uniqueId: uniqueId,
@@ -70,6 +85,7 @@ class AppUser {
     approvalStatus: approvalStatus ?? this.approvalStatus,
     emailVerified: emailVerified ?? this.emailVerified,
     mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+    joinedAt: joinedAt ?? this.joinedAt,
   );
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -97,6 +113,7 @@ class AppUser {
       approvalStatus: approvalStatus,
       emailVerified: json['email_verified'] as bool? ?? true,
       mustChangePassword: json['must_change_password'] as bool? ?? false,
+      joinedAt: DateTime.tryParse(json['created_at'] as String? ?? '')?.toLocal(),
     );
   }
 

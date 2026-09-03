@@ -21,32 +21,26 @@ class DoctorAppointmentsView extends StatefulWidget {
   const DoctorAppointmentsView({super.key});
 
   @override
-  State<DoctorAppointmentsView> createState() =>
-      _DoctorAppointmentsViewState();
+  State<DoctorAppointmentsView> createState() => _DoctorAppointmentsViewState();
 }
 
 class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
-  DateTime _displayMonth = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-  );
+  DateTime _displayMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDay;
 
   void _prevMonth() => setState(() {
-        _displayMonth =
-            DateTime(_displayMonth.year, _displayMonth.month - 1);
-        _selectedDay = null;
-      });
+    _displayMonth = DateTime(_displayMonth.year, _displayMonth.month - 1);
+    _selectedDay = null;
+  });
 
   void _nextMonth() => setState(() {
-        _displayMonth =
-            DateTime(_displayMonth.year, _displayMonth.month + 1);
-        _selectedDay = null;
-      });
+    _displayMonth = DateTime(_displayMonth.year, _displayMonth.month + 1);
+    _selectedDay = null;
+  });
 
   void _selectDay(DateTime day) => setState(() {
-        _selectedDay = _isSameDay(_selectedDay, day) ? null : day;
-      });
+    _selectedDay = _isSameDay(_selectedDay, day) ? null : day;
+  });
 
   void _clearFilter() => setState(() => _selectedDay = null);
 
@@ -69,8 +63,7 @@ class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
               .where((a) => _isSameDay(a.startAt, now) && a.isUpcoming)
               .toList();
           final upcoming = all
-              .where(
-                  (a) => a.isUpcoming && !_isSameDay(a.startAt, now))
+              .where((a) => a.isUpcoming && !_isSameDay(a.startAt, now))
               .toList();
           final accent = Theme.of(context).colorScheme.primary;
 
@@ -87,9 +80,7 @@ class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
           // Appointments filtered by selected day (if any).
           final filtered = _selectedDay == null
               ? all
-              : all
-                  .where((a) => _isSameDay(a.startAt, _selectedDay!))
-                  .toList();
+              : all.where((a) => _isSameDay(a.startAt, _selectedDay!)).toList();
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -162,7 +153,8 @@ class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
                         style: TextButton.styleFrom(
                           foregroundColor: AppPalette.textMuted(context),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm),
+                            horizontal: AppSpacing.sm,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -184,14 +176,15 @@ class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
                       Expanded(
                         child: Text(
                           'Schedule appointment with a patient',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelMedium
+                          style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      Icon(AppIcons.chevronRight,
-                          size: 16, color: AppPalette.textMuted(context)),
+                      Icon(
+                        AppIcons.chevronRight,
+                        size: 16,
+                        color: AppPalette.textMuted(context),
+                      ),
                     ],
                   ),
                 ),
@@ -213,7 +206,9 @@ class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
                           ? 'Book a visit with an assigned patient to get started.'
                           : 'No appointments on this day.',
                       compact: true,
-                      actionLabel: _selectedDay == null ? 'Schedule visit' : null,
+                      actionLabel: _selectedDay == null
+                          ? 'Schedule visit'
+                          : null,
                       onAction: _selectedDay == null
                           ? () => DoctorAppointmentFlows.openSchedule(context)
                           : null,
@@ -256,8 +251,7 @@ class _DoctorAppointmentsViewState extends State<DoctorAppointmentsView> {
         StaggeredEntry(
           index: startIndex + i * 2 + 1,
           child: StaffListCard(
-            children: dayEntries[i]
-                .value
+            children: dayEntries[i].value
                 .map((a) => _appointmentRow(context, a))
                 .toList(),
           ),
@@ -320,8 +314,10 @@ class _MonthCalendar extends StatelessWidget {
     // First day of displayed month and its weekday offset (0=Sun).
     final firstOfMonth = DateTime(displayMonth.year, displayMonth.month, 1);
     final startOffset = firstOfMonth.weekday % 7; // Mon=1 → offset=1, Sun=0
-    final daysInMonth =
-        DateUtils.getDaysInMonth(displayMonth.year, displayMonth.month);
+    final daysInMonth = DateUtils.getDaysInMonth(
+      displayMonth.year,
+      displayMonth.month,
+    );
     final totalCells = startOffset + daysInMonth;
     final rows = (totalCells / 7).ceil();
 
@@ -343,8 +339,10 @@ class _MonthCalendar extends StatelessWidget {
                 onPressed: onPrevMonth,
                 tooltip: 'Previous month',
                 padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints.tightFor(width: 32, height: 32),
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
               ),
               Expanded(
                 child: Text(
@@ -360,8 +358,10 @@ class _MonthCalendar extends StatelessWidget {
                 onPressed: onNextMonth,
                 tooltip: 'Next month',
                 padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints.tightFor(width: 32, height: 32),
+                constraints: const BoxConstraints.tightFor(
+                  width: 32,
+                  height: 32,
+                ),
               ),
             ],
           ),
@@ -397,9 +397,13 @@ class _MonthCalendar extends StatelessWidget {
                   return const Expanded(child: SizedBox());
                 }
                 final cellDate = DateTime(
-                    displayMonth.year, displayMonth.month, dayNum);
+                  displayMonth.year,
+                  displayMonth.month,
+                  dayNum,
+                );
                 final isToday = cellDate == today;
-                final isSelected = selectedDay != null &&
+                final isSelected =
+                    selectedDay != null &&
                     cellDate.year == selectedDay!.year &&
                     cellDate.month == selectedDay!.month &&
                     cellDate.day == selectedDay!.day;
@@ -422,8 +426,8 @@ class _MonthCalendar extends StatelessWidget {
                               color: isSelected
                                   ? primary
                                   : isToday
-                                      ? primary.withOpacity(0.12)
-                                      : Colors.transparent,
+                                  ? primary.withOpacity(0.12)
+                                  : Colors.transparent,
                               border: isToday && !isSelected
                                   ? Border.all(
                                       color: primary.withOpacity(0.4),
@@ -440,8 +444,8 @@ class _MonthCalendar extends StatelessWidget {
                                 color: isSelected
                                     ? Colors.white
                                     : isToday
-                                        ? primary
-                                        : theme.textTheme.bodyMedium?.color,
+                                    ? primary
+                                    : theme.textTheme.bodyMedium?.color,
                               ),
                             ),
                           ),

@@ -43,8 +43,7 @@ class _ViewerState extends State<_Viewer> {
   Future<void> _edit() async {
     final updated = await EditDocumentSheet.show(context, doc: _doc);
     if (updated != true || !mounted) return;
-    final matches =
-        DocumentsState.instance.all.where((d) => d.id == _doc.id);
+    final matches = DocumentsState.instance.all.where((d) => d.id == _doc.id);
     if (matches.isNotEmpty) {
       setState(() {
         _doc = matches.first;

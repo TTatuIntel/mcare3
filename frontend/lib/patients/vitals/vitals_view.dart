@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -19,10 +17,8 @@ import '../../shared/widgets/glass_floating_button.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/section_label.dart';
-import '../../shared/widgets/vital_tile.dart';
 import 'vitals_period_panel.dart';
 import 'patient_vital_insights.dart';
-import 'request_vital_report_sheet.dart';
 import 'submit_vital_sheet.dart';
 import 'vital_reading_sheet.dart';
 import 'vital_preferences_sheet.dart';
@@ -159,10 +155,10 @@ class _VitalsViewState extends State<VitalsView> {
                 child: Text(
                   today,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -176,11 +172,13 @@ class _VitalsViewState extends State<VitalsView> {
                   watchCount: watchCount,
                   latestReading: latest,
                   onManage: () => VitalPreferencesSheet.show(context),
-                  onViewAlerts: () => Navigator.of(context).pushNamed(
-                      RouteNames.patientNotifications),
+                  onViewAlerts: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.patientNotifications),
                   onViewResolved: () => Navigator.of(context).pushNamed(
-                      RouteNames.patientNotifications,
-                      arguments: const NotificationsFilter(showResolved: true)),
+                    RouteNames.patientNotifications,
+                    arguments: const NotificationsFilter(showResolved: true),
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -236,111 +234,6 @@ class _VitalsViewState extends State<VitalsView> {
   }
 }
 
-class _LastSixReadingsPanel extends StatefulWidget {
-  const _LastSixReadingsPanel({required this.tracked});
-
-  final List<VitalKey> tracked;
-
-  @override
-  State<_LastSixReadingsPanel> createState() => _LastSixReadingsPanelState();
-}
-
-class _LastSixReadingsPanelState extends State<_LastSixReadingsPanel> {
-  Timer? _refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) {
-        if (mounted) setState(() {});
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final readings = _lastProvidedReadings(widget.tracked, limit: 6);
-    final newest = readings.isNotEmpty ? readings.first : null;
-
-    if (readings.isEmpty) {
-      return GlassCard(
-        frosted: true,
-        child: EmptyStateView(
-          icon: AppIcons.vitals,
-          title: 'No readings yet',
-          message: 'Log a vital and your last 6 readings appear here automatically.',
-          actionLabel: 'Log vital',
-          onAction: () => SubmitVitalSheet.show(context),
-          compact: true,
-        ),
-      );
-    }
-
-    return GlassCard(
-      frosted: true,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSpacing.md,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                height: 8,
-                width: 8,
-                decoration: const BoxDecoration(
-                  color: AppColors.success,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  newest == null
-                      ? 'Waiting for readings'
-                      : 'Updated ${_relativeTime(newest.recordedAt)} · showing ${readings.length} of last 6',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textMuted(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          for (var i = 0; i < readings.length; i++) ...[
-            if (i > 0) const SizedBox(height: AppSpacing.xs),
-            VitalTile(
-              vital: readings[i].vital,
-              reading: readings[i],
-              alert: NotificationState.instance
-                  .vitalAlertFor(readings[i].vital),
-              resolvedAlert: NotificationState.instance
-                  .resolvedVitalAlertFor(readings[i].vital),
-              assigned: VitalsState.instance.isAssigned(readings[i].vital),
-              variant: VitalTileVariant.compact,
-              onTap: () =>
-                  VitalReadingSheet.show(context, reading: readings[i]),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 class _VitalsHero extends StatelessWidget {
   const _VitalsHero({
@@ -374,21 +267,21 @@ class _VitalsHero extends StatelessWidget {
     final accent = isCritical
         ? AppColors.critical
         : isWatch
-            ? AppColors.warning
-            : AppColors.brandIndigo;
+        ? AppColors.warning
+        : AppColors.brandIndigo;
     final iconBg = isCritical
         ? AppPalette.criticalSoft(context)
         : isWatch
-            ? AppPalette.warningSoft(context)
-            : AppPalette.infoSoft(context);
+        ? AppPalette.warningSoft(context)
+        : AppPalette.infoSoft(context);
 
     final headline = trackedCount == 0
         ? 'Start tracking today'
         : isCritical
-            ? '$alertCount active alert${alertCount == 1 ? '' : 's'}'
-            : isWatch
-                ? '$watchCount reading${watchCount == 1 ? '' : 's'} to watch'
-                : 'Everything looks stable';
+        ? '$alertCount active alert${alertCount == 1 ? '' : 's'}'
+        : isWatch
+        ? '$watchCount reading${watchCount == 1 ? '' : 's'} to watch'
+        : 'Everything looks stable';
 
     return GlassCard(
       frosted: true,
@@ -470,129 +363,6 @@ class _VitalsHero extends StatelessWidget {
   }
 }
 
-class _VitalsQuickActions extends StatelessWidget {
-  const _VitalsQuickActions({required this.resolvedCount});
-
-  final int resolvedCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      frosted: true,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: AppSpacing.xs,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _QuickAction(
-              icon: AppIcons.time,
-              label: 'Past 7 days',
-              onTap: () =>
-                  Navigator.of(context).pushNamed(RouteNames.patientVital7Day),
-            ),
-          ),
-          Container(height: 28, width: 1, color: AppPalette.border(context)),
-          Expanded(
-            child: _QuickAction(
-              icon: AppIcons.report,
-              label: 'Request report',
-              onTap: () => RequestVitalReportSheet.show(context),
-            ),
-          ),
-          Container(height: 28, width: 1, color: AppPalette.border(context)),
-          Expanded(
-            child: _QuickAction(
-              icon: AppIcons.check,
-              label: 'Resolved',
-              badge: resolvedCount > 0 ? '$resolvedCount' : null,
-              onTap: () => Navigator.of(context).pushNamed(
-                RouteNames.patientNotifications,
-                arguments: const NotificationsFilter(showResolved: true),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.badge,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final String? badge;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icon, size: 18, color: AppColors.brandIndigo),
-                  if (badge != null)
-                    Positioned(
-                      right: -8,
-                      top: -6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.success,
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusPill),
-                        ),
-                        child: Text(
-                          badge!,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppPalette.ink(context),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  height: 1.1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _LastUpdatedStrip extends StatelessWidget {
   const _LastUpdatedStrip({required this.reading});
@@ -654,7 +424,8 @@ class _LastUpdatedStrip extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: 'Last updated ${_relativeTime(reading!.recordedAt)} · ',
+                        text:
+                            'Last updated ${_relativeTime(reading!.recordedAt)} · ',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: AppPalette.textMuted(context),
                           fontWeight: FontWeight.w600,
@@ -736,7 +507,11 @@ class _HeroStatAction extends StatelessWidget {
           Text(
             hint,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: accent ?? (onTap != null ? AppColors.brandIndigo : AppPalette.textFaint(context)),
+              color:
+                  accent ??
+                  (onTap != null
+                      ? AppColors.brandIndigo
+                      : AppPalette.textFaint(context)),
               fontWeight: FontWeight.w700,
               fontSize: 9,
             ),

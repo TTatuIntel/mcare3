@@ -13,9 +13,12 @@ part of 'patient_dashboard_view.dart';
 //                   updates newest-first, then the quiet tallies.
 //   2. De-duplication  the same underlying thing is never listed twice, no
 //                   matter how many stores mention it.
+//   3. Depth        the first page of rows is on screen; the tail is one tap
+//                   below it, never a scroll the patient did not ask for.
 //
-// Nothing here moves on its own. The whole stream is on the page at once —
-// there is no window, no timer and nothing folded away behind a control.
+// Nothing here moves on its own. The stream has no scroller of its own and no
+// timer — it rides the page's scroll, and the only control on it is the one
+// that reveals the next page of rows.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// What a row is asking of the patient. The order of the constants is the
@@ -210,14 +213,28 @@ List<_FeedItem> _buildFeed(
   return unique;
 }
 
+/// How many rows the stream puts on the page before it starts asking.
+///
+/// Thirteen is the point where the feed stops being a list the patient reads
+/// and becomes a page they have to work through: it covers a phone screen
+/// several times over, and everything past it is, by the ranking above,
+/// already the least urgent thing the app knows. Anything beyond is still
+/// here — it is just one tap away instead of one long scroll away.
+const int _forYouPageSize = 13;
+
 /// The stream itself, listed straight onto the page background.
 ///
 /// It used to be a fixed window inside a card that scrolled itself a row at a
-/// time and hid the remainder behind a "show more" control. Two things moved
-/// under the reader at once — this and the hub above it — and the page could
-/// not be used while they did. Now every row is on the page, in rank order,
-/// and the only thing that moves it is the patient's own thumb.
-class _PatientForYouSection extends StatelessWidget {
+/// time. Two things moved under the reader at once — this and the hub above
+/// it — and the page could not be used while they did. So the stream still
+/// has no scroller of its own: it rides the page's, and the only thing that
+/// moves it is the patient's own thumb.
+///
+/// What it does own is a limit. The first [_forYouPageSize] rows are on the
+/// page; the rest are revealed a page at a time, and can be folded back in
+/// one tap — which returns the reader to the top of the section rather than
+/// leaving them stranded wherever the collapse happened to end.
+class _PatientForYouSection extends StatefulWidget {
   const _PatientForYouSection({
     required this.appointments,
     required this.doses,
@@ -227,6 +244,31 @@ class _PatientForYouSection extends StatelessWidget {
   final List<Appointment> appointments;
   final List<MedicationDose> doses;
   final int unreadNotifications;
+
+  @override
+  State<_PatientForYouSection> createState() => _PatientForYouSectionState();
+}
+
+class _PatientForYouSectionState extends State<_PatientForYouSection> {
+  /// How many rows the patient has asked to see. Never read directly against
+  /// the feed — it can exceed a feed that shrank while it was expanded.
+  int _visible = _forYouPageSize;
+
+  void _showMore() => setState(() => _visible += _forYouPageSize);
+
+  void _showLess() {
+    setState(() => _visible = _forYouPageSize);
+    // Collapsing removes rows the reader may be standing on, so take them
+    // back to the section header instead of dropping them mid-page.
+    if (Scrollable.maybeOf(context) != null) {
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -244,11 +286,20 @@ class _PatientForYouSection extends StatelessWidget {
       builder: (context, _) {
         final items = _buildFeed(
           context,
-          appointments: appointments,
-          doses: doses,
-          unreadNotifications: unreadNotifications,
+          appointments: widget.appointments,
+          doses: widget.doses,
+          unreadNotifications: widget.unreadNotifications,
         );
         final now = DateTime.now();
+
+        final total = items.length;
+        final shown = _visible < total ? _visible : total;
+        final remaining = total - shown;
+        final nextBatch = remaining < _forYouPageSize
+            ? remaining
+            : _forYouPageSize;
+        final canCollapse = remaining == 0 && total > _forYouPageSize;
+        final hasFooter = remaining > 0 || canCollapse;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -258,9 +309,11 @@ class _PatientForYouSection extends StatelessWidget {
               icon: AppIcons.activity,
               trailing: items.isEmpty
                   ? null
-                  : '${items.length} update${items.length == 1 ? '' : 's'}',
-              actionLabel: unreadNotifications > 0 ? 'Inbox' : null,
-              onAction: unreadNotifications > 0
+                  : remaining > 0
+                  ? '$shown of $total'
+                  : '$total update${total == 1 ? '' : 's'}',
+              actionLabel: widget.unreadNotifications > 0 ? 'Inbox' : null,
+              onAction: widget.unreadNotifications > 0
                   ? () => Navigator.of(
                       context,
                     ).pushNamed(RouteNames.patientNotifications)
@@ -276,16 +329,94 @@ class _PatientForYouSection extends StatelessWidget {
                 onAction: () => SubmitVitalSheet.show(context),
                 compact: true,
               )
-            else
-              for (var i = 0; i < items.length; i++)
+            else ...[
+              for (var i = 0; i < shown; i++)
                 _FeedRow(
                   item: items[i],
                   now: now,
-                  showDivider: i != items.length - 1,
+                  showDivider: hasFooter || i != shown - 1,
                 ),
+              if (remaining > 0)
+                _FeedMoreButton(
+                  label: 'Show $nextBatch more',
+                  // Only worth saying when the batch is not the whole tail.
+                  detail: remaining > nextBatch ? '$remaining left' : null,
+                  icon: AppIcons.expandMore,
+                  onTap: _showMore,
+                )
+              else if (canCollapse)
+                _FeedMoreButton(
+                  label: 'Show less',
+                  detail: 'showing all $total',
+                  icon: AppIcons.expandLess,
+                  onTap: _showLess,
+                ),
+            ],
           ],
         );
       },
+    );
+  }
+}
+
+/// The one control the stream owns: what is left, and the tap that reveals it.
+///
+/// It is a row like any other row so the list does not appear to end before
+/// it — the count sits next to the label rather than under it, because the
+/// question it answers ("is it worth going on?") is asked in the same glance.
+class _FeedMoreButton extends StatelessWidget {
+  const _FeedMoreButton({
+    required this.label,
+    required this.detail,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final String? detail;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (detail != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    detail!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 4),
+                Icon(icon, size: 18, color: accent),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

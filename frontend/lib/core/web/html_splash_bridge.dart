@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import 'html_splash_bridge_stub.dart'
-    if (dart.library.html) 'html_splash_bridge_web.dart' as impl;
+    if (dart.library.html) 'html_splash_bridge_web.dart'
+    as impl;
 
 /// Hands off from the HTML pre-Flutter splash to the Flutter splash UI,
 /// and exposes session-guard helpers to AppBootstrap.
