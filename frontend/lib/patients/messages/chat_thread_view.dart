@@ -39,6 +39,14 @@ class _ChatThreadViewState extends State<ChatThreadView>
     if (conversation != null && conversation.unreadCount > 0) {
       await MessagesState.instance.markRead(widget.conversationId);
     }
+    _scrollToLatest();
+  }
+
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
+    });
   }
 
   @override

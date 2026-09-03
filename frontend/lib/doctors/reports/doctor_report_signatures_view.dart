@@ -14,7 +14,6 @@ import '../../shared/widgets/app_icons.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/dossier/dossier_blocks.dart';
-import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/section_label.dart';
@@ -38,7 +37,6 @@ class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
     with RealtimeRefreshMixin<DoctorReportSignaturesList> {
   List<PatientReportRequestItem> _items = const [];
   bool _loading = true;
-  String? _error;
 
   @override
   void initState() {
@@ -62,13 +60,11 @@ class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
       setState(() {
         _items = rows.map(PatientReportRequestItem.fromJson).toList();
         _loading = false;
-        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '$e';
       });
     }
   }
@@ -83,17 +79,7 @@ class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
     }
 
     if (_items.isEmpty) {
-      return GlassCard(
-        child: EmptyStateView(
-          icon: AppIcons.approval,
-          title: 'No reports awaiting signature',
-          message:
-              _error ??
-              'Reports nominated to you appear here once the patient has '
-                  'approved the disclosure.',
-          compact: true,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     // Returned reports come first inside the pending group: they carry a

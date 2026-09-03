@@ -196,6 +196,12 @@ class MessagesState extends ChangeNotifier {
       } else {
         final sent = await MessagesApi.instance.send(conversationId, body);
         if (sent == null) throw StateError('send failed');
+        final thread = List<ChatMessage>.from(_threads[conversationId] ?? []);
+        final i = thread.indexWhere((m) => m.id == id);
+        if (i != -1) thread[i] = sent;
+        _threads[conversationId] = thread;
+        _bumpPreview(conversationId, sent);
+        notifyListeners();
         return sent.id;
       }
     } catch (_) {
