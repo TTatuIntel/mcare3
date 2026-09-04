@@ -341,10 +341,10 @@ class _TeamHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final headline = assignedCount == 0
         ? 'Build your care team'
         : '$assignedCount provider${assignedCount == 1 ? '' : 's'} on your team';
+    final accent = AppColors.doctorGreen;
 
     return GlassCard(
       frosted: true,
@@ -352,36 +352,75 @@ class _TeamHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: desktop
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: desktop ? 46 : 40,
-                width: desktop ? 46 : 40,
-                decoration: BoxDecoration(
-                  color: AppColors.doctorGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  AppIcons.careTeam,
-                  color: AppColors.doctorGreen,
-                  size: desktop ? 23 : 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  headline,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: desktop ? 18 : null,
-                    height: 1.25,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: const Icon(
+                      AppIcons.careTeam,
+                      color: AppColors.doctorGreen,
+                      size: 21,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+
+              final rightSide = _HeroTeamStrip(
+                pendingCount: pendingCount,
+                availableCount: availableCount,
+                accent: accent,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
@@ -391,24 +430,121 @@ class _TeamHero extends StatelessWidget {
               PatientHeroStat(
                 label: 'My team',
                 value: '$assignedCount',
-                horizontal: desktop,
+                horizontal: true,
               ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Browse',
                 value: '$availableCount',
-                horizontal: desktop,
+                horizontal: true,
               ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Pending',
                 value: '$pendingCount',
                 accent: pendingCount > 0 ? AppColors.warning : null,
-                horizontal: desktop,
+                horizontal: true,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroTeamStrip extends StatelessWidget {
+  const _HeroTeamStrip({
+    required this.pendingCount,
+    required this.availableCount,
+    required this.accent,
+  });
+
+  final int pendingCount;
+  final int availableCount;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasPending = pendingCount > 0;
+    final tone = hasPending ? AppColors.warning : accent;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => ExternalAccessSheet.show(context),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: tone.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    hasPending ? AppIcons.time : AppIcons.link,
+                    size: 16,
+                    color: tone,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        hasPending
+                            ? 'PENDING REQUESTS ($pendingCount)'
+                            : 'EMERGENCY ACCESS',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hasPending
+                            ? 'Awaiting doctor response'
+                            : 'Manage external provider access',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: tone,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

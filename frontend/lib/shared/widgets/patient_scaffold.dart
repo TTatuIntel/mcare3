@@ -143,10 +143,36 @@ class PatientScaffold extends StatelessWidget {
                               currentRoute: currentRoute,
                             ),
                             Expanded(
-                              child: BubbleBackground(
-                                bubbleCount: 5,
-                                surfaceColor: surface,
-                                child: scrollBody,
+                              child: Padding(
+                                padding: const EdgeInsets.all(10.0),
+                                child: Container(
+                                  clipBehavior: Clip.antiAlias,
+                                  decoration: BoxDecoration(
+                                    color: AppPalette.surface(context),
+                                    borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusLg,
+                                    ),
+                                    border: Border.all(
+                                      color: AppPalette.border(
+                                        context,
+                                      ).withValues(alpha: 0.6),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: BubbleBackground(
+                                    bubbleCount: 5,
+                                    surfaceColor: AppPalette.surface(context),
+                                    child: scrollBody,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -178,10 +204,30 @@ class PatientScaffold extends StatelessWidget {
                 actions: headerActions,
                 currentRoute: currentRoute,
               ),
-              body: BubbleBackground(
-                bubbleCount: 5,
-                surfaceColor: surface,
-                child: scrollBody,
+              body: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface(context),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                    border: Border.all(
+                      color: AppPalette.border(context).withValues(alpha: 0.6),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: BubbleBackground(
+                    bubbleCount: 5,
+                    surfaceColor: AppPalette.surface(context),
+                    child: scrollBody,
+                  ),
+                ),
               ),
               bottomNavigationBar: detachedNav
                   ? const PatientBottomNav.detached()

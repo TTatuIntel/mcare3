@@ -246,78 +246,191 @@ class _DocumentsHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                height: 46,
-                width: 46,
-                decoration: BoxDecoration(
-                  color: AppPalette.infoSoft(context),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: const Icon(
-                  AppIcons.document,
-                  color: AppColors.info,
-                  size: 23,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      headline,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppPalette.ink(context),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        height: 1.25,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: AppPalette.infoSoft(context),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: const Icon(
+                      AppIcons.document,
+                      color: AppColors.info,
+                      size: 21,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (mostRecent != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Last upload · ${DateFormat.yMMMd().format(mostRecent!)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
-                      ),
-                    ],
+                  ),
+                ],
+              );
+
+              final rightSide = _HeroRecentDocStrip(
+                mostRecent: mostRecent,
+                totalCount: totalCount,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
                   ],
-                ),
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Divider(height: 1, color: AppPalette.border(context)),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              PatientHeroStat(
+                label: 'Labs',
+                value: '$labCount',
+                accent: DocumentCategory.labResult.color,
+                horizontal: true,
+              ),
+              PatientHeroStatDivider(),
+              PatientHeroStat(
+                label: 'Rx',
+                value: '$rxCount',
+                accent: DocumentCategory.prescription.color,
+                horizontal: true,
+              ),
+              PatientHeroStatDivider(),
+              PatientHeroStat(
+                label: 'Imaging',
+                value: '$imagingCount',
+                accent: DocumentCategory.imaging.color,
+                horizontal: true,
               ),
             ],
           ),
-          if (totalCount > 0) ...[
-            const SizedBox(height: AppSpacing.md),
-            Row(
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroRecentDocStrip extends StatelessWidget {
+  const _HeroRecentDocStrip({
+    required this.mostRecent,
+    required this.totalCount,
+  });
+
+  final DateTime? mostRecent;
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = AppColors.brandIndigo;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => UploadDocumentSheet.show(context),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
               children: [
-                PatientHeroStat(
-                  label: 'Labs',
-                  value: '$labCount',
-                  accent: DocumentCategory.labResult.color,
-                  horizontal: true,
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(AppIcons.add, size: 16, color: accent),
                 ),
-                PatientHeroStatDivider(),
-                PatientHeroStat(
-                  label: 'Rx',
-                  value: '$rxCount',
-                  accent: DocumentCategory.prescription.color,
-                  horizontal: true,
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mostRecent != null
+                            ? 'LAST UPLOAD (${DateFormat.yMMMd().format(mostRecent!)})'
+                            : 'ADD RECORDS',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Upload new document',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                PatientHeroStatDivider(),
-                PatientHeroStat(
-                  label: 'Imaging',
-                  value: '$imagingCount',
-                  accent: DocumentCategory.imaging.color,
-                  horizontal: true,
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
                 ),
               ],
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }

@@ -166,91 +166,114 @@ class _SosViewState extends State<SosView> {
               const SizedBox(height: AppSpacing.md),
               StaggeredEntry(
                 index: 3,
-                child: SectionLabel(
-                  title: 'Emergency contacts',
-                  icon: AppIcons.phone,
-                  trailing: contacts.isEmpty ? null : '${contacts.length}',
-                  actionLabel: contacts.isEmpty ? 'Add' : 'Manage',
-                  onAction: () => ManageContactsSheet.show(context),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              StaggeredEntry(
-                index: 4,
-                child: contacts.isEmpty
-                    ? GlassCard(
-                        frosted: true,
-                        child: EmptyStateView(
+                child: Builder(
+                  builder: (context) {
+                    final contactsSection = Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SectionLabel(
+                          title: 'Emergency contacts',
                           icon: AppIcons.phone,
-                          title: 'No contacts yet',
-                          message:
-                              'Add at least one trusted contact for emergencies.',
-                          actionLabel: 'Add contact',
+                          trailing: contacts.isEmpty ? null : '${contacts.length}',
+                          actionLabel: contacts.isEmpty ? 'Add' : 'Manage',
                           onAction: () => ManageContactsSheet.show(context),
-                          compact: true,
                         ),
-                      )
-                    : GlassCard(
-                        frosted: true,
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.md,
-                          AppSpacing.sm,
-                          AppSpacing.md,
-                          AppSpacing.md,
-                        ),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < contacts.length; i++) ...[
-                              if (i > 0) const SizedBox(height: AppSpacing.xs),
-                              _ContactRow(contact: contacts[i]),
-                            ],
-                          ],
-                        ),
-                      ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              StaggeredEntry(
-                index: 5,
-                child: KeyedSubtree(
-                  key: _historyKey,
-                  child: SectionLabel(
-                    title: 'SOS history',
-                    icon: AppIcons.time,
-                    trailing: history.isEmpty ? null : '${history.length}',
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              StaggeredEntry(
-                index: 6,
-                child: history.isEmpty
-                    ? GlassCard(
-                        frosted: true,
-                        child: EmptyStateView(
+                        const SizedBox(height: AppSpacing.sm),
+                        contacts.isEmpty
+                            ? GlassCard(
+                                frosted: true,
+                                child: EmptyStateView(
+                                  icon: AppIcons.phone,
+                                  title: 'No contacts yet',
+                                  message:
+                                      'Add at least one trusted contact for emergencies.',
+                                  actionLabel: 'Add contact',
+                                  onAction: () => ManageContactsSheet.show(context),
+                                  compact: true,
+                                ),
+                              )
+                            : GlassCard(
+                                frosted: true,
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.md,
+                                  AppSpacing.sm,
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                ),
+                                child: Column(
+                                  children: [
+                                    for (var i = 0; i < contacts.length; i++) ...[
+                                      if (i > 0) const SizedBox(height: AppSpacing.xs),
+                                      _ContactRow(contact: contacts[i]),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                      ],
+                    );
+
+                    final historySection = Column(
+                      key: _historyKey,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SectionLabel(
+                          title: 'SOS history',
                           icon: AppIcons.time,
-                          title: 'No past SOS events',
-                          message:
-                              'Every triggered SOS appears here with timeline.',
-                          compact: true,
+                          trailing: history.isEmpty ? null : '${history.length}',
                         ),
-                      )
-                    : GlassCard(
-                        frosted: true,
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.md,
-                          AppSpacing.sm,
-                          AppSpacing.md,
-                          AppSpacing.md,
-                        ),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < history.length; i++) ...[
-                              if (i > 0) const SizedBox(height: AppSpacing.xs),
-                              _HistoryRow(event: history[i]),
-                            ],
-                          ],
-                        ),
-                      ),
+                        const SizedBox(height: AppSpacing.sm),
+                        history.isEmpty
+                            ? GlassCard(
+                                frosted: true,
+                                child: EmptyStateView(
+                                  icon: AppIcons.time,
+                                  title: 'No past SOS events',
+                                  message:
+                                      'Every triggered SOS appears here with timeline.',
+                                  compact: true,
+                                ),
+                              )
+                            : GlassCard(
+                                frosted: true,
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.md,
+                                  AppSpacing.sm,
+                                  AppSpacing.md,
+                                  AppSpacing.md,
+                                ),
+                                child: Column(
+                                  children: [
+                                    for (var i = 0; i < history.length; i++) ...[
+                                      if (i > 0) const SizedBox(height: AppSpacing.xs),
+                                      _HistoryRow(event: history[i]),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                      ],
+                    );
+
+                    if (tier.isDesktop) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: contactsSection),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(child: historySection),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        contactsSection,
+                        const SizedBox(height: AppSpacing.md),
+                        historySection,
+                      ],
+                    );
+                  },
+                ),
               ),
               SizedBox(height: tier.isHandheld ? 24 : AppSpacing.huge),
             ],
@@ -285,28 +308,14 @@ class _SosHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final desktop = ResponsiveBuilder.of(context).isDesktop;
-    final accent = active ? AppColors.critical : AppColors.critical;
-    final iconBg = active
-        ? AppPalette.criticalSoft(context)
-        : AppPalette.criticalSoft(context);
+    final accent = AppColors.critical;
+    final iconBg = AppPalette.criticalSoft(context);
 
     final headline = !active
         ? 'Need help now?'
         : activeEvent?.status == SosStatus.acknowledged
         ? 'Help is on the way'
         : 'SOS active';
-    final subline = !active
-        ? (contactCount == 0
-              ? 'Add a contact before triggering SOS.'
-              : lastEventAt == null
-              ? 'Alerts $contactCount contact${contactCount == 1 ? '' : 's'} + care team.'
-              : 'Last event ${DateFormat.MMMd().add_jm().format(lastEventAt!)}')
-        : activeEvent?.status == SosStatus.acknowledged
-        ? (activeEvent?.respondedBy != null
-              ? '${activeEvent!.respondedBy} acknowledged your SOS.'
-              : 'Your care team acknowledged — stay calm, help is coming.')
-        : 'Contacts and care team have been notified.';
 
     return GlassCard(
       frosted: true,
@@ -314,56 +323,79 @@ class _SosHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: desktop
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: desktop ? 46 : 40,
-                width: desktop ? 46 : 40,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  active ? Icons.emergency : AppIcons.sos,
-                  color: accent,
-                  size: desktop ? 23 : 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  headline,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppPalette.ink(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: desktop ? 18 : null,
-                    height: 1.25,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Icon(
+                      active ? Icons.emergency : AppIcons.sos,
+                      color: accent,
+                      size: 21,
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs + 2,
-            ),
-            decoration: BoxDecoration(
-              color: accent.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              border: Border.all(color: accent.withOpacity(0.2)),
-            ),
-            child: Text(
-              subline,
-              style: theme.textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 10,
-              ),
-            ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+
+              final rightSide = _HeroSosStrip(
+                active: active,
+                activeEvent: activeEvent,
+                contactCount: contactCount,
+                lastEventAt: lastEventAt,
+                accent: accent,
+                onTrigger: onTrigger,
+                onResolve: onResolve,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
@@ -373,42 +405,153 @@ class _SosHero extends StatelessWidget {
               PatientHeroStat(
                 label: 'Contacts',
                 value: '$contactCount',
-                horizontal: desktop,
+                horizontal: true,
               ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Events',
                 value: '$totalEvents',
-                horizontal: desktop,
+                horizontal: true,
               ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Resolved',
                 value: '$resolvedCount',
                 accent: resolvedCount > 0 ? AppColors.success : null,
-                horizontal: desktop,
+                horizontal: true,
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          if (active)
-            AppButton(
-              label: 'Mark as resolved',
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.sm,
-              expand: true,
-              onPressed: onResolve,
-            )
-          else
-            AppButton(
-              label: 'Trigger SOS',
-              icon: AppIcons.sos,
-              variant: AppButtonVariant.danger,
-              size: AppButtonSize.sm,
-              expand: true,
-              onPressed: onTrigger,
-            ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroSosStrip extends StatelessWidget {
+  const _HeroSosStrip({
+    required this.active,
+    required this.activeEvent,
+    required this.contactCount,
+    required this.lastEventAt,
+    required this.accent,
+    required this.onTrigger,
+    required this.onResolve,
+  });
+
+  final bool active;
+  final SosEvent? activeEvent;
+  final int contactCount;
+  final DateTime? lastEventAt;
+  final Color accent;
+  final VoidCallback onTrigger;
+  final VoidCallback onResolve;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final caption = active
+        ? (activeEvent?.status == SosStatus.acknowledged ? 'STATUS · ACKNOWLEDGED' : 'STATUS · EMERGENCY ACTIVE')
+        : (contactCount == 0
+            ? 'NO CONTACTS SET'
+            : lastEventAt == null
+                ? 'EMERGENCY DISPATCH'
+                : 'LAST SOS EVENT');
+
+    final subtext = !active
+        ? (contactCount == 0
+            ? 'Add emergency contacts now'
+            : lastEventAt == null
+                ? 'Alerts $contactCount contact${contactCount == 1 ? '' : 's'} + care team'
+                : DateFormat.MMMd().add_jm().format(lastEventAt!))
+        : (activeEvent?.status == SosStatus.acknowledged
+            ? (activeEvent?.respondedBy != null
+                ? '${activeEvent!.respondedBy} acknowledged'
+                : 'Care team acknowledged — help is coming')
+            : 'Contacts & team notified');
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: active ? onResolve : onTrigger,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    active ? Icons.check_circle_outline : AppIcons.sos,
+                    size: 16,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        caption,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        active ? 'Mark SOS resolved' : 'Tap to Trigger SOS',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        subtext,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

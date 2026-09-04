@@ -192,12 +192,11 @@ class _ChatHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final isUnread = unread > 0;
     final accent = isUnread ? AppColors.warning : AppColors.doctorGreen;
     final iconBg = isUnread
         ? AppPalette.warningSoft(context)
-        : AppColors.doctorGreen.withOpacity(0.15);
+        : AppColors.doctorGreen.withValues(alpha: 0.15);
 
     final headline = unread == 0
         ? totalConversations == 0
@@ -211,73 +210,76 @@ class _ChatHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: desktop
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: desktop ? 46 : 40,
-                width: desktop ? 46 : 40,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  isUnread ? AppIcons.alert : AppIcons.chat,
-                  color: accent,
-                  size: desktop ? 23 : 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  headline,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppPalette.ink(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: desktop ? 18 : null,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (lastActivity != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs + 2,
-              ),
-              decoration: BoxDecoration(
-                color: accent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                border: Border.all(color: accent.withOpacity(0.2)),
-              ),
-              child: Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
                 children: [
-                  Icon(
-                    AppIcons.time,
-                    size: 14,
-                    color: AppPalette.textMuted(context),
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Icon(
+                      isUnread ? AppIcons.alert : AppIcons.chat,
+                      color: accent,
+                      size: 21,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text(
-                      'Last activity ${_relativeTime(lastActivity!)}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppPalette.ink(context),
-                        fontWeight: FontWeight.w600,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
+              );
+
+              final rightSide = _HeroChatStrip(
+                lastActivity: lastActivity,
+                accent: accent,
+                isUnread: isUnread,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
           const SizedBox(height: AppSpacing.sm),
@@ -299,6 +301,113 @@ class _ChatHero extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroChatStrip extends StatelessWidget {
+  const _HeroChatStrip({
+    required this.lastActivity,
+    required this.accent,
+    required this.isUnread,
+  });
+
+  final DateTime? lastActivity;
+  final Color accent;
+  final bool isUnread;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          final s = MessagesState.instance;
+          final unreadConvo = s.conversations.where((c) => c.unreadCount > 0).firstOrNull;
+          if (unreadConvo != null) {
+            Navigator.of(context).pushNamed(
+              RouteNames.patientChatThread,
+              arguments: unreadConvo.id,
+            );
+          } else if (s.conversations.isNotEmpty) {
+            Navigator.of(context).pushNamed(
+              RouteNames.patientChatThread,
+              arguments: s.conversations.first.id,
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isUnread ? AppIcons.chat : AppIcons.time,
+                    size: 16,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        lastActivity != null
+                            ? 'LAST ACTIVITY (${_relativeTime(lastActivity!)})'
+                            : 'CARE MESSAGES',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isUnread ? 'Tap to view new message' : 'Message your care team',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

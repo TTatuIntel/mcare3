@@ -38,12 +38,6 @@ int _alertUrgency(MedicationAlertKind kind) => switch (kind) {
   MedicationAlertKind.expiringSoon => 1,
 };
 
-String _alertActionLabel(MedicationAlertKind kind) => switch (kind) {
-  MedicationAlertKind.expired => 'Review now',
-  MedicationAlertKind.refillLow => 'Request refill',
-  MedicationAlertKind.expiringSoon => 'Review',
-};
-
 class MedicationsView extends StatelessWidget {
   const MedicationsView({super.key});
 
@@ -211,92 +205,101 @@ class _MedsHero extends StatelessWidget {
 
     return GlassCard(
       frosted: true,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm + 2,
-        AppSpacing.md,
-        AppSpacing.sm + 2,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                height: 42,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  isAlert ? AppIcons.alert : AppIcons.medication,
-                  color: accent,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      headline,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: AppPalette.ink(context),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        height: 1.2,
-                      ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
-                    if (nextDose != null && primaryAlert != null)
-                      Text(
-                        'Next ${DateFormat.jm().format(nextDose!.scheduledAt)} · ${nextDose!.name}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 10,
+                    child: Icon(
+                      isAlert ? AppIcons.alert : AppIcons.medication,
+                      color: accent,
+                      size: 21,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
                         ),
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                  ),
+                ],
+              );
+
+              final rightSide = primaryAlert != null
+                  ? _HeroAlertBanner(
+                      alert: primaryAlert,
+                      extraCount: alerts.length - 1,
+                      onTap: () => onAlertTap(primaryAlert),
+                    )
+                  : nextDose != null
+                  ? _HeroInsight(
+                      icon: AppIcons.time,
+                      color: AppColors.glucoseAmber,
+                      label:
+                          'Next ${DateFormat.jm().format(nextDose!.scheduledAt)}',
+                      detail: '${nextDose!.name} ${nextDose!.dosage}',
+                      onTap: () => DoseDetailSheet.show(context, nextDose!),
+                    )
+                  : Text(
+                      dateLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
                   ],
-                ),
-              ),
-              Text(
-                dateLabel,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppPalette.textMuted(context),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
           ),
-          if (primaryAlert != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: _HeroAlertBanner(
-                alert: primaryAlert,
-                extraCount: alerts.length - 1,
-                onTap: () => onAlertTap(primaryAlert),
-              ),
-            )
-          else if (nextDose != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xs),
-              child: _HeroInsight(
-                icon: AppIcons.time,
-                color: AppColors.glucoseAmber,
-                label: 'Next ${DateFormat.jm().format(nextDose!.scheduledAt)}',
-                detail: '${nextDose!.name} ${nextDose!.dosage}',
-                onTap: () => DoseDetailSheet.show(context, nextDose!),
-              ),
-            ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               _HeroStat(
@@ -351,38 +354,66 @@ class _HeroInsight extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: 5,
-          ),
+        child: Ink(
+          width: double.infinity,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
-          child: Row(
-            children: [
-              Icon(icon, size: 13, color: color),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  '$label · $detail',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppPalette.ink(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: Icon(icon, size: 16, color: color),
                 ),
-              ),
-              Icon(
-                AppIcons.chevronRight,
-                size: 12,
-                color: AppPalette.textMuted(context),
-              ),
-            ],
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label.toUpperCase(),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        detail,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: color,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -390,11 +421,6 @@ class _HeroInsight extends StatelessWidget {
   }
 }
 
-/// Prominent, high-visibility medication alert banner shown in the meds hero.
-///
-/// Unlike the compact [_HeroInsight] strip, this presents the alert on its own
-/// two lines with the correct urgency colour (red for expired) and an explicit
-/// call-to-action, so a patient cannot miss an expired or refill-due medicine.
 class _HeroAlertBanner extends StatelessWidget {
   const _HeroAlertBanner({
     required this.alert,
@@ -410,106 +436,74 @@ class _HeroAlertBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = alert.tint;
-    final isCritical = alert.kind == MedicationAlertKind.expired;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: isCritical ? 0.14 : 0.10),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: color.withValues(alpha: isCritical ? 0.55 : 0.35),
-              width: isCritical ? 1.4 : 1,
-            ),
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 34,
-                width: 34,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(AppIcons.alert, size: 16, color: color),
                 ),
-                child: Icon(AppIcons.alert, size: 18, color: color),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            alert.title,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: color,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        alert.title.toUpperCase(),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
                         ),
-                        if (extraCount > 0) ...[
-                          const SizedBox(width: AppSpacing.xs),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.radiusPill,
-                              ),
-                            ),
-                            child: Text(
-                              '+$extraCount more',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: color,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      alert.body,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppPalette.ink(context),
-                        fontWeight: FontWeight.w500,
-                        height: 1.2,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _alertActionLabel(alert.kind),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: color,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      const SizedBox(height: 2),
+                      Text(
+                        alert.body,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          height: 1.15,
                         ),
-                        Icon(AppIcons.chevronRight, size: 14, color: color),
-                      ],
-                    ),
-                  ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: color,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -829,19 +823,57 @@ class _ActivityFeedState extends State<_ActivityFeed> {
     return GlassCard(
       frosted: true,
       padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
         AppSpacing.sm,
-        AppSpacing.xs,
-        AppSpacing.sm,
-        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < widget.activity.length; i++) ...[
-            if (i > 0) const SizedBox(height: 2),
-            _ActivityRow(dose: widget.activity[i]),
-          ],
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isTwoColumn = constraints.maxWidth >= 340;
+          if (!isTwoColumn) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < widget.activity.length; i++) ...[
+                  if (i > 0) const SizedBox(height: AppSpacing.xs),
+                  _ActivityRow(dose: widget.activity[i]),
+                ],
+              ],
+            );
+          }
+
+          final rows = <Widget>[];
+          for (var i = 0; i < widget.activity.length; i += 2) {
+            if (rows.isNotEmpty) {
+              rows.add(const SizedBox(height: AppSpacing.xs));
+            }
+            final first = widget.activity[i];
+            final second = (i + 1 < widget.activity.length)
+                ? widget.activity[i + 1]
+                : null;
+
+            rows.add(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _ActivityRow(dose: first)),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: second != null
+                        ? _ActivityRow(dose: second)
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: rows,
+          );
+        },
       ),
     );
   }
@@ -855,28 +887,93 @@ class _ActivityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final when = dose.takenAt ?? dose.scheduledAt;
+    final statusColor = dose.status.color;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => DoseDetailSheet.show(context, dose),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm + 2,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            border: Border.all(
+              color: statusColor.withValues(alpha: 0.18),
+            ),
+          ),
           child: Row(
             children: [
-              Icon(dose.status.icon, size: 12, color: dose.status.color),
+              Container(
+                height: 38,
+                width: 38,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: Icon(dose.status.icon, size: 18, color: statusColor),
+              ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: Text(
-                  '${dose.name} · ${dose.status.label} · ${_relativeTime(when)}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dose.name,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppPalette.ink(context),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        height: 1.15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${dose.dosage} · ${_relativeTime(when)}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppPalette.textMuted(context),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 10.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Text(
+                  dose.status.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 9.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(
+                AppIcons.chevronRight,
+                size: 14,
+                color: statusColor.withValues(alpha: 0.6),
               ),
             ],
           ),

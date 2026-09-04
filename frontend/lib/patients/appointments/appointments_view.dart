@@ -146,7 +146,6 @@ class _VisitsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final isSoon =
         nextVisit != null &&
         nextVisit!.scheduledAt.difference(DateTime.now()).inHours < 48;
@@ -173,69 +172,76 @@ class _VisitsHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: desktop
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: desktop ? 46 : 40,
-                width: desktop ? 46 : 40,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  AppIcons.appointment,
-                  color: accent,
-                  size: desktop ? 23 : 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  headline,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppPalette.ink(context),
-                    fontWeight: FontWeight.w700,
-                    fontSize: desktop ? 18 : null,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (nextVisit != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs + 2,
-              ),
-              decoration: BoxDecoration(
-                color: accent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                border: Border.all(color: accent.withOpacity(0.2)),
-              ),
-              child: Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
                 children: [
-                  Icon(nextVisit!.type.icon, size: 14, color: accent),
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Icon(
+                      AppIcons.appointment,
+                      color: accent,
+                      size: 21,
+                    ),
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text(
-                      '${nextVisit!.doctorName} · ${DateFormat.jm().format(nextVisit!.scheduledAt)} · ${nextVisit!.type.label}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppPalette.ink(context),
-                        fontWeight: FontWeight.w700,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
+              );
+
+              final rightSide = _HeroVisitStrip(
+                nextVisit: nextVisit,
+                accent: accent,
+                onBook: onBook,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
           const SizedBox(height: AppSpacing.sm),
@@ -269,6 +275,107 @@ class _VisitsHero extends StatelessWidget {
   bool _isToday(DateTime d) {
     final n = DateTime.now();
     return d.year == n.year && d.month == n.month && d.day == n.day;
+  }
+}
+
+class _HeroVisitStrip extends StatelessWidget {
+  const _HeroVisitStrip({
+    required this.nextVisit,
+    required this.accent,
+    required this.onBook,
+  });
+
+  final Appointment? nextVisit;
+  final Color accent;
+  final VoidCallback onBook;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isNext = nextVisit != null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isNext
+            ? () => Navigator.of(context).pushNamed(
+                RouteNames.patientAppointmentDetail,
+                arguments: nextVisit!.id,
+              )
+            : onBook,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isNext ? nextVisit!.type.icon : AppIcons.add,
+                    size: 16,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isNext
+                            ? 'UPCOMING · ${DateFormat.jm().format(nextVisit!.scheduledAt)}'
+                            : 'SCHEDULE VISIT',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isNext
+                            ? '${nextVisit!.doctorName} (${nextVisit!.type.label})'
+                            : 'Book appointment now',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

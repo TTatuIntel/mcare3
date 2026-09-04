@@ -147,82 +147,122 @@ class _SupportViewState extends State<SupportView> {
                   ),
                 ),
               ),
-              if (showOpen && openList.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.md),
-                StaggeredEntry(
-                  index: 3,
-                  child: SectionLabel(
-                    title: _filter == _SupportFilter.priority
-                        ? 'Priority tickets'
-                        : 'Open tickets',
-                    icon: AppIcons.support,
-                    trailing: '${openList.length}',
-                    actionLabel: _filter != _SupportFilter.all
-                        ? 'Show all'
-                        : null,
-                    onAction: _filter != _SupportFilter.all
-                        ? () => setState(() => _filter = _SupportFilter.all)
-                        : null,
-                  ),
+              const SizedBox(height: AppSpacing.md),
+              StaggeredEntry(
+                index: 3,
+                child: Builder(
+                  builder: (context) {
+                    if (openList.isEmpty && closedList.isEmpty) {
+                      return GlassCard(
+                        frosted: true,
+                        child: EmptyStateView(
+                          icon: AppIcons.support,
+                          title: _filter == _SupportFilter.priority
+                              ? 'No priority tickets'
+                              : _filter == _SupportFilter.open
+                              ? 'No open tickets'
+                              : _filter == _SupportFilter.resolved
+                              ? 'No resolved tickets'
+                              : 'No tickets yet',
+                          message: _filter == _SupportFilter.all
+                              ? 'Need help? Open a ticket and our team will assist.'
+                              : 'Try another filter or create a new ticket.',
+                          actionLabel: _filter != _SupportFilter.all
+                              ? 'Show all'
+                              : 'Create ticket',
+                          onAction: _filter != _SupportFilter.all
+                              ? () => setState(() => _filter = _SupportFilter.all)
+                              : () => CreateTicketSheet.show(context),
+                          compact: true,
+                        ),
+                      );
+                    }
+
+                    final openSection = Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SectionLabel(
+                          title: _filter == _SupportFilter.priority
+                              ? 'Priority tickets'
+                              : 'Open tickets',
+                          icon: AppIcons.support,
+                          trailing: '${openList.length}',
+                          actionLabel: _filter != _SupportFilter.all ? 'Show all' : null,
+                          onAction: _filter != _SupportFilter.all
+                              ? () => setState(() => _filter = _SupportFilter.all)
+                              : null,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        openList.isNotEmpty
+                            ? _TicketListCard(tickets: openList)
+                            : GlassCard(
+                                frosted: true,
+                                child: EmptyStateView(
+                                  icon: AppIcons.support,
+                                  title: 'No open tickets',
+                                  message: 'All your tickets have been resolved.',
+                                  compact: true,
+                                ),
+                              ),
+                      ],
+                    );
+
+                    final closedSection = Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SectionLabel(
+                          title: 'Resolved / closed',
+                          icon: AppIcons.check,
+                          trailing: '${closedList.length}',
+                          actionLabel: _filter != _SupportFilter.all ? 'Show all' : null,
+                          onAction: _filter != _SupportFilter.all
+                              ? () => setState(() => _filter = _SupportFilter.all)
+                              : null,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        closedList.isNotEmpty
+                            ? _TicketListCard(tickets: closedList)
+                            : GlassCard(
+                                frosted: true,
+                                child: EmptyStateView(
+                                  icon: AppIcons.check,
+                                  title: 'No resolved tickets',
+                                  message: 'Resolved tickets will appear here.',
+                                  compact: true,
+                                ),
+                              ),
+                      ],
+                    );
+
+                    if (_filter == _SupportFilter.open || _filter == _SupportFilter.priority) {
+                      return openSection;
+                    }
+                    if (_filter == _SupportFilter.resolved) {
+                      return closedSection;
+                    }
+
+                    if (tier.isDesktop) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: openSection),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(child: closedSection),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        openSection,
+                        const SizedBox(height: AppSpacing.md),
+                        closedSection,
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                StaggeredEntry(
-                  index: 4,
-                  child: _TicketListCard(tickets: openList),
-                ),
-              ],
-              if (showClosed && closedList.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.md),
-                StaggeredEntry(
-                  index: 5,
-                  child: SectionLabel(
-                    title: 'Resolved / closed',
-                    icon: AppIcons.check,
-                    trailing: '${closedList.length}',
-                    actionLabel: _filter != _SupportFilter.all
-                        ? 'Show all'
-                        : null,
-                    onAction: _filter != _SupportFilter.all
-                        ? () => setState(() => _filter = _SupportFilter.all)
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                StaggeredEntry(
-                  index: 6,
-                  child: _TicketListCard(tickets: closedList),
-                ),
-              ],
-              if (openList.isEmpty &&
-                  closedList.isEmpty &&
-                  (_filter != _SupportFilter.all ||
-                      open.isEmpty && closed.isEmpty))
-                StaggeredEntry(
-                  index: 3,
-                  child: GlassCard(
-                    frosted: true,
-                    child: EmptyStateView(
-                      icon: AppIcons.support,
-                      title: _filter == _SupportFilter.priority
-                          ? 'No priority tickets'
-                          : _filter == _SupportFilter.open
-                          ? 'No open tickets'
-                          : _filter == _SupportFilter.resolved
-                          ? 'No resolved tickets'
-                          : 'No tickets yet',
-                      message: _filter == _SupportFilter.all
-                          ? 'Need help? Open a ticket and our team will assist.'
-                          : 'Try another filter or create a new ticket.',
-                      actionLabel: _filter != _SupportFilter.all
-                          ? 'Show all'
-                          : 'Create ticket',
-                      onAction: _filter != _SupportFilter.all
-                          ? () => setState(() => _filter = _SupportFilter.all)
-                          : () => CreateTicketSheet.show(context),
-                      compact: true,
-                    ),
-                  ),
-                ),
+              ),
               SizedBox(height: tier.isHandheld ? 88 : AppSpacing.huge),
             ],
           );
@@ -248,7 +288,6 @@ class _SupportHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final isUrgent = urgentCount > 0;
     final accent = isUrgent ? AppColors.warning : AppColors.info;
     final iconBg = isUrgent
@@ -267,57 +306,76 @@ class _SupportHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: desktop
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: desktop ? 46 : 40,
-                width: desktop ? 46 : 40,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  isUrgent ? AppIcons.alert : AppIcons.support,
-                  color: accent,
-                  size: desktop ? 23 : 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  headline,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: desktop ? 18 : null,
-                    height: 1.25,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Icon(
+                      isUrgent ? AppIcons.alert : AppIcons.support,
+                      color: accent,
+                      size: 21,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+
+              final rightSide = _HeroSupportStrip(
+                lastActivity: lastActivity,
+                accent: accent,
+                openCount: openCount,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
           ),
-          if (lastActivity != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs + 2,
-              ),
-              decoration: BoxDecoration(
-                color: accent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              ),
-              child: Text(
-                'Last updated ${patientRelativeTime(lastActivity!)}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
           const SizedBox(height: AppSpacing.sm),
@@ -326,24 +384,117 @@ class _SupportHero extends StatelessWidget {
               PatientHeroStat(
                 label: 'Open',
                 value: '$openCount',
-                horizontal: desktop,
+                horizontal: true,
               ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Resolved',
                 value: '$closedCount',
-                horizontal: desktop,
+                horizontal: true,
               ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Priority',
                 value: '$urgentCount',
                 accent: urgentCount > 0 ? AppColors.warning : null,
-                horizontal: desktop,
+                horizontal: true,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroSupportStrip extends StatelessWidget {
+  const _HeroSupportStrip({
+    required this.lastActivity,
+    required this.accent,
+    required this.openCount,
+  });
+
+  final DateTime? lastActivity;
+  final Color accent;
+  final int openCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => CreateTicketSheet.show(context),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    AppIcons.add,
+                    size: 16,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        lastActivity != null
+                            ? 'UPDATED ${patientRelativeTime(lastActivity!).toUpperCase()}'
+                            : 'HELP DESK',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Open a support ticket',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
