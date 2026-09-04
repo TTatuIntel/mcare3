@@ -123,10 +123,7 @@ class _PatientOnboardingViewState extends State<PatientOnboardingView> {
       case 4:
         if (_contactName.text.trim().isEmpty ||
             _contactPhone.text.trim().length < 7) {
-          AppToast.warn(
-            context,
-            'Add an emergency contact with a valid phone.',
-          );
+          AppToast.warn(context, 'Add an emergency contact with a valid phone.');
           return false;
         }
         return true;
@@ -157,7 +154,8 @@ class _PatientOnboardingViewState extends State<PatientOnboardingView> {
     final weightKg = double.parse(_weight.text.trim());
     final allergies = _splitList(_allergies.text);
     final meds = _splitList(_medications.text);
-    final conditionLabels = ChronicConditionCatalog.labelsForIds(_conditions);
+    final conditionLabels =
+        ChronicConditionCatalog.labelsForIds(_conditions);
 
     final health = PatientHealthProfile(
       bloodType: _bloodType,
@@ -199,9 +197,10 @@ class _PatientOnboardingViewState extends State<PatientOnboardingView> {
     setState(() => _saving = false);
 
     final user = AuthState.instance.user;
-    Navigator.of(
-      context,
-    ).pushNamedAndRemoveUntil(RouteNames.patientDashboard, (_) => false);
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      RouteNames.patientDashboard,
+      (_) => false,
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final root = rootNavigatorKey.currentContext;
@@ -264,8 +263,8 @@ class _PatientOnboardingViewState extends State<PatientOnboardingView> {
                   label: _step == _totalSteps - 1
                       ? 'Go to dashboard'
                       : _step == 0
-                      ? 'Get started'
-                      : 'Continue',
+                          ? 'Get started'
+                          : 'Continue',
                   loading: _saving,
                   expand: true,
                   onPressed: _saving ? null : _next,
@@ -437,22 +436,10 @@ class _WelcomeStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Bullet(
-                icon: AppIcons.vitals,
-                text: 'Track vitals that match your conditions',
-              ),
-              _Bullet(
-                icon: AppIcons.alert,
-                text: 'Get alerts when readings need attention',
-              ),
-              _Bullet(
-                icon: AppIcons.sos,
-                text: 'Add emergency contacts for SOS',
-              ),
-              _Bullet(
-                icon: AppIcons.careTeam,
-                text: 'Connect with your care team',
-              ),
+              _Bullet(icon: AppIcons.vitals, text: 'Track vitals that match your conditions'),
+              _Bullet(icon: AppIcons.alert, text: 'Get alerts when readings need attention'),
+              _Bullet(icon: AppIcons.sos, text: 'Add emergency contacts for SOS'),
+              _Bullet(icon: AppIcons.careTeam, text: 'Connect with your care team'),
             ],
           ),
         ),
@@ -478,9 +465,9 @@ class _Bullet extends StatelessWidget {
             child: Text(
               text,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ),
         ],
@@ -520,17 +507,17 @@ class _PersonalStep extends StatelessWidget {
       children: [
         Text(
           'Tell us about you',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Basic details for your health profile and BMI.',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontSize: 11,
-          ),
+                color: AppPalette.textMuted(context),
+                fontSize: 11,
+              ),
         ),
         const SizedBox(height: AppSpacing.lg),
         OutlinedButton.icon(
@@ -584,9 +571,7 @@ class _PersonalStep extends StatelessWidget {
               child: AppTextField(
                 label: 'Weight (kg)',
                 controller: weight,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                 ],
@@ -622,17 +607,17 @@ class _ConditionsStep extends StatelessWidget {
       children: [
         Text(
           'Your health conditions',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Select all that apply. We\'ll recommend vitals to track.',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontSize: 11,
-          ),
+                color: AppPalette.textMuted(context),
+                fontSize: 11,
+              ),
         ),
         const SizedBox(height: AppSpacing.lg),
         ...ChronicConditionCatalog.all.map((opt) {
@@ -663,7 +648,9 @@ class _ConditionsStep extends StatelessWidget {
                           children: [
                             Text(
                               opt.label,
-                              style: Theme.of(context).textTheme.labelLarge
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
                                   ?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 13,
@@ -671,7 +658,9 @@ class _ConditionsStep extends StatelessWidget {
                             ),
                             Text(
                               opt.description,
-                              style: Theme.of(context).textTheme.labelSmall
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
                                   ?.copyWith(
                                     color: AppPalette.textMuted(context),
                                     fontSize: 10,
@@ -709,17 +698,17 @@ class _AllergiesStep extends StatelessWidget {
       children: [
         Text(
           'Allergies & medications',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Separate items with commas. Leave blank if none.',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontSize: 11,
-          ),
+                color: AppPalette.textMuted(context),
+                fontSize: 11,
+              ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
@@ -761,17 +750,17 @@ class _EmergencyStep extends StatelessWidget {
       children: [
         Text(
           'Emergency contact',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Someone we can reach if you trigger SOS.',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontSize: 11,
-          ),
+                color: AppPalette.textMuted(context),
+                fontSize: 11,
+              ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
@@ -780,7 +769,10 @@ class _EmergencyStep extends StatelessWidget {
           prefixIcon: AppIcons.user,
         ),
         const SizedBox(height: AppSpacing.lg),
-        AppTextField(label: 'Relationship', controller: relationship),
+        AppTextField(
+          label: 'Relationship',
+          controller: relationship,
+        ),
         const SizedBox(height: AppSpacing.lg),
         AppTextField(
           label: 'Phone',
@@ -821,17 +813,17 @@ class _MonitoringStep extends StatelessWidget {
       children: [
         Text(
           'Your monitoring plan',
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Based on your conditions. You can change these later.',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppPalette.textMuted(context),
-            fontSize: 11,
-          ),
+                color: AppPalette.textMuted(context),
+                fontSize: 11,
+              ),
         ),
         const SizedBox(height: AppSpacing.lg),
         GlassCard(
@@ -855,9 +847,9 @@ class _MonitoringStep extends StatelessWidget {
                       child: Text(
                         v.label,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
                     ),
                     Switch(

@@ -7,7 +7,7 @@ import '../models/vital_detail_args.dart';
 void openVitalDetail(
   BuildContext context,
   VitalKey vital, {
-  int rangeDays = 21,
+  int rangeDays = 7,
 }) {
   Navigator.of(context).pushNamed(
     RouteNames.patientVitalDetail,

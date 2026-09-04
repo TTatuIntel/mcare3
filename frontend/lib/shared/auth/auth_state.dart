@@ -10,8 +10,6 @@ import '../../core/mock/mock_bootstrap.dart';
 import '../../core/mock/mock_otp_service.dart';
 import '../services/auth_storage.dart';
 import '../../core/push/push_notification_service.dart';
-import '../../core/realtime/pulse_watcher.dart';
-import '../../core/realtime/realtime_channel.dart';
 import '../services/sos_ring_service.dart';
 import '../alerts/alert_center.dart';
 import '../widgets/sos_alert_popup.dart';
@@ -179,11 +177,6 @@ class AuthState extends ChangeNotifier {
     // Drop escalation history too, or the next user inherits this one's
     // snoozes and "already shown" state.
     AlertCenter.instance.reset();
-    // Close the live paths with the session. Left running, the next user
-    // would resume from this one's change cursor and be handed a socket
-    // authorised for a token that no longer exists.
-    RealtimeChannel.instance.detach();
-    PulseWatcher.instance.reset();
     SosRingService.instance.stop();
     MockBootstrap.clearPatientSession();
     notifyListeners();

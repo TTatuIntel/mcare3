@@ -42,17 +42,9 @@ class UserDossierService
     private const ACTIVITY_LIMIT = 60;
 
     /**
-     * [$selfView] is set when the person reading the dossier is its subject.
-     *
-     * The shape is identical either way — the client renders one layout — but
-     * a patient reading their own record must not be shown a clinician's
-     * unpublished working notes. A note is published when its author decides
-     * it is ready to be read; until then it exists for the care team only, and
-     * staff dossiers still show it because that is the point of their view.
-     *
      * @return array<string, mixed>
      */
-    public function build(User $user, bool $selfView = false): array
+    public function build(User $user): array
     {
         $user->loadMissing(['healthProfile', 'emergencyContacts', 'assignedVitals']);
 
@@ -66,7 +58,7 @@ class UserDossierService
         ];
 
         if ($user->role === 'patient') {
-            $dossier['clinical'] = $this->clinical($user, $selfView);
+            $dossier['clinical'] = $this->clinical($user);
             $dossier['progress'] = $this->progress($user);
             $dossier['stats'] = $this->patientStats($user, $dossier);
         } else {
@@ -292,7 +284,7 @@ class UserDossierService
      *
      * @return array<string, mixed>
      */
-    private function clinical(User $user, bool $selfView = false): array
+    private function clinical(User $user): array
     {
         $readings = VitalReading::where('user_id', $user->id)
             ->orderByDesc('recorded_at')
@@ -343,7 +335,6 @@ class UserDossierService
                 ->map->toApiArray()
                 ->all(),
             'reports' => ClinicalReport::where('patient_user_id', $user->id)
-                ->when($selfView, fn ($q) => $q->where('published', true))
                 ->orderByDesc('created_at')
                 ->limit(40)
                 ->get()
@@ -399,7 +390,7 @@ class UserDossierService
     }
 
     /**
-     * Per-vital statistics and direction of travel over the default 3 weeks.
+     * Per-vital latest value, 30-day count, and direction of travel.
      *
      * @param  \Illuminate\Support\Collection<int, VitalReading>  $readings
      * @return list<array<string, mixed>>
@@ -412,7 +403,7 @@ class UserDossierService
             $readings->pluck('vital_key')->unique()->all(),
         )));
 
-        $cutoff = now()->subDays(21);
+        $cutoff = now()->subDays(30);
         $out = [];
 
         foreach ($keys as $key) {
@@ -422,7 +413,7 @@ class UserDossierService
                 fn (VitalReading $r) => $r->recorded_at !== null && $r->recorded_at->gte($cutoff),
             )->values();
 
-            // Trend = newest half vs oldest half of the 3-week window.
+            // Trend = newest half vs oldest half of the 30-day window.
             $trend = 'flat';
             if ($recent->count() >= 4) {
                 $half = (int) floor($recent->count() / 2);
@@ -442,14 +433,7 @@ class UserDossierService
                 'latest_value' => $latest?->displayValue(),
                 'latest_risk' => $latest?->risk,
                 'latest_at' => $latest?->recorded_at?->toIso8601String(),
-                'period_days' => 21,
-                'readings_period' => $recent->count(),
-                'average' => $recent->isEmpty() ? null : round((float) $recent->avg('value'), 1),
-                'lowest' => $recent->isEmpty() ? null : round((float) $recent->min('value'), 1),
-                'highest' => $recent->isEmpty() ? null : round((float) $recent->max('value'), 1),
-                'in_range_pct' => $recent->isEmpty()
-                    ? null
-                    : (int) round($recent->where('risk', 'normal')->count() / $recent->count() * 100),
+                'readings_30d' => $recent->count(),
                 'readings_total' => $forVital->count(),
                 'trend' => $trend,
             ];

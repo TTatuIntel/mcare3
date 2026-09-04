@@ -7,7 +7,6 @@ use App\Models\SupportTicket;
 use App\Models\SupportTicketReply;
 use App\Models\User;
 use App\Services\AuditService;
-use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -54,7 +53,6 @@ class SupportTicketsController extends Controller
             'updated_at_app' => now(),
             'assigned_to' => $ticket->assigned_to ?? $actor->id,
         ]);
-        WorkflowNotificationService::staffRepliedToSupport($ticket, $actor);
 
         $this->audit->record(
             $actor,
@@ -122,7 +120,6 @@ class SupportTicketsController extends Controller
             'updated_at_app' => now(),
             'assigned_to' => $ticket->assigned_to ?? $request->user()->id,
         ]);
-        WorkflowNotificationService::supportStatusChanged($ticket, 'resolved');
 
         $this->audit->record(
             $request->user(),
@@ -144,7 +141,6 @@ class SupportTicketsController extends Controller
             'status' => 'closed',
             'updated_at_app' => now(),
         ]);
-        WorkflowNotificationService::supportStatusChanged($ticket, 'closed');
 
         $this->audit->record(
             $request->user(),
@@ -166,7 +162,6 @@ class SupportTicketsController extends Controller
             'status' => 'open',
             'updated_at_app' => now(),
         ]);
-        WorkflowNotificationService::supportStatusChanged($ticket, 'open');
 
         $this->audit->record(
             $request->user(),

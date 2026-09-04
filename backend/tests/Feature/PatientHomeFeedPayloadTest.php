@@ -87,14 +87,16 @@ class PatientHomeFeedPayloadTest extends TestCase
             'title' => 'Medical report',
             'purpose' => 'Insurance',
             'sections' => ['identity', 'health_profile'],
-            'consent_required' => false,
-            'signature_required' => true,
-            'status' => PatientReportRequest::STATUS_PENDING_SIGNATURE,
+            'consent_required' => true,
+            'signature_required' => false,
+            'status' => PatientReportRequest::STATUS_PENDING_CONSENT,
+            'consent_sent_at' => now(),
+            'consent_expires_at' => now()->addMinutes(30),
             ...$attributes,
         ]);
     }
 
-    public function test_session_carries_this_patients_own_reports_only(): void
+    public function test_session_carries_this_patients_pending_consent_request(): void
     {
         $mine = $this->reportRequest($this->patient);
         $this->reportRequest($this->other);
@@ -106,11 +108,8 @@ class PatientHomeFeedPayloadTest extends TestCase
         $this->assertCount(1, $consents, 'Only this patient\'s requests belong in the payload.');
         $this->assertSame((string) $mine->id, $consents[0]['id']);
 
-        // Nothing here is ever the patient's move now: a doctor's signature
-        // authorises a report, so the flag the home prompt and the More badge
-        // read is always false. It stays in the payload so those two and the
-        // screen keep reading one source rather than each deciding alone.
-        $this->assertFalse($consents[0]['awaiting_me']);
+        // The flag the home prompt and the More badge both count on.
+        $this->assertTrue($consents[0]['awaiting_me']);
 
         // Plain-language descriptions, so the patient reads what is disclosed.
         $this->assertCount(2, $consents[0]['section_details']);

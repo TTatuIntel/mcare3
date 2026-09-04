@@ -7,7 +7,6 @@ import '../../core/api/admin_api.dart';
 import '../../core/api/staff_mapper.dart';
 import '../../core/env/app_env.dart';
 import '../../core/api/patient_domain_mapper.dart';
-import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/account/account_preferences_list.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/models/support_ticket.dart';
@@ -46,8 +45,7 @@ class SupportQueueScreen extends StatefulWidget {
   State<SupportQueueScreen> createState() => _SupportQueueScreenState();
 }
 
-class _SupportQueueScreenState extends State<SupportQueueScreen>
-    with RealtimeRefreshMixin<SupportQueueScreen> {
+class _SupportQueueScreenState extends State<SupportQueueScreen> {
   // 'all' | 'open' | 'in_progress' | 'resolved' | 'closed'
   String _filter = 'open';
   Timer? _pollTimer;
@@ -55,7 +53,6 @@ class _SupportQueueScreenState extends State<SupportQueueScreen>
   @override
   void initState() {
     super.initState();
-    watchRealtime(const {'support'}, _refresh);
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
   }
@@ -282,8 +279,7 @@ class _TicketDetailSheet extends StatefulWidget {
   State<_TicketDetailSheet> createState() => _TicketDetailSheetState();
 }
 
-class _TicketDetailSheetState extends State<_TicketDetailSheet>
-    with RealtimeRefreshMixin<_TicketDetailSheet> {
+class _TicketDetailSheetState extends State<_TicketDetailSheet> {
   final _ctrl = TextEditingController();
   bool _sending = false;
   bool _closing = false;
@@ -293,7 +289,6 @@ class _TicketDetailSheetState extends State<_TicketDetailSheet>
   @override
   void initState() {
     super.initState();
-    watchRealtime(const {'support'}, _pollTicket);
     _pollTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => _pollTicket(),

@@ -146,6 +146,7 @@ class _VisitsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final isSoon =
         nextVisit != null &&
         nextVisit!.scheduledAt.difference(DateTime.now()).inHours < 48;
@@ -173,16 +174,22 @@ class _VisitsHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: desktop
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Container(
-                height: 40,
-                width: 40,
+                height: desktop ? 46 : 40,
+                width: desktop ? 46 : 40,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
-                child: Icon(AppIcons.appointment, color: accent, size: 20),
+                child: Icon(
+                  AppIcons.appointment,
+                  color: accent,
+                  size: desktop ? 23 : 20,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -191,6 +198,7 @@ class _VisitsHero extends StatelessWidget {
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: AppPalette.ink(context),
                     fontWeight: FontWeight.w700,
+                    fontSize: desktop ? 18 : null,
                     height: 1.25,
                   ),
                 ),
@@ -280,24 +288,37 @@ class _HeroStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final child = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Flex(
+        direction: desktop ? Axis.horizontal : Axis.vertical,
+        mainAxisAlignment: desktop
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
+        crossAxisAlignment: desktop
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
           Text(
             value,
             style: theme.textTheme.titleSmall?.copyWith(
               color: accent ?? AppPalette.ink(context),
               fontWeight: FontWeight.w800,
+              fontSize: desktop ? 21 : null,
             ),
           ),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.textMuted(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
+          SizedBox(width: desktop ? AppSpacing.sm : 0),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
+                fontSize: desktop ? 11.5 : 10,
+              ),
             ),
           ),
         ],
@@ -418,6 +439,7 @@ class _QuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final color = selected ? AppColors.brandIndigo : AppColors.brandIndigo;
 
     return Material(
@@ -429,7 +451,10 @@ class _QuickAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-          child: Column(
+          child: Flex(
+            direction: desktop ? Axis.horizontal : Axis.vertical,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
@@ -437,7 +462,7 @@ class _QuickAction extends StatelessWidget {
                 children: [
                   Icon(
                     icon,
-                    size: 17,
+                    size: desktop ? 23 : 17,
                     color: selected ? AppColors.brandIndigo : color,
                   ),
                   if (badge != null)
@@ -467,18 +492,23 @@ class _QuickAction extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: selected
-                      ? AppColors.brandIndigo
-                      : AppPalette.ink(context),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 9,
+              SizedBox(
+                width: desktop ? AppSpacing.sm : 0,
+                height: desktop ? 0 : 3,
+              ),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: selected
+                        ? AppColors.brandIndigo
+                        : AppPalette.ink(context),
+                    fontWeight: FontWeight.w700,
+                    fontSize: desktop ? 12 : 9,
+                  ),
                 ),
               ),
             ],

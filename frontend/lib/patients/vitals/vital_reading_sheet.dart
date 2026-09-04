@@ -10,6 +10,7 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_icons.dart';
+import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/risk_badge.dart';
 import 'submit_vital_sheet.dart';
@@ -191,20 +192,18 @@ class _Body extends StatelessWidget {
               ),
             ],
             const SizedBox(height: AppSpacing.xl),
-            // An open alert is closed by the care team, never by the patient
-            // it is about: clearing it records a clinical decision about the
-            // reading, so the patient is told who is handling it instead of
-            // being handed a button that hides it from them.
-            if (alert != null) ...[
-              _StatusBanner(
-                icon: AppIcons.lock,
-                color: AppColors.brandIndigo,
-                message:
-                    'Your care team clears this alert once they have reviewed '
-                    'it. You will be notified when they do.',
+            if (alert != null)
+              AppButton(
+                label: 'Resolve alert',
+                icon: AppIcons.check,
+                variant: AppButtonVariant.secondary,
+                expand: true,
+                onPressed: () {
+                  NotificationState.instance.resolve(alert.id);
+                  AppToast.success(context, 'Alert resolved.');
+                },
               ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
+            if (alert != null) const SizedBox(height: AppSpacing.sm),
             AppButton(
               label: 'View trends & history',
               icon: AppIcons.trend,

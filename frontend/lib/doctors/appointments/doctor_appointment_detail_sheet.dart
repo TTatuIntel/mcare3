@@ -54,9 +54,8 @@ class _DetailBodyState extends State<_DetailBody> {
 
   Future<void> _confirm() async {
     setState(() => _busy = true);
-    final ok = await StaffState.instance.confirmAppointment(
-      widget.appointmentId,
-    );
+    final ok =
+        await StaffState.instance.confirmAppointment(widget.appointmentId);
     if (!mounted) return;
     setState(() => _busy = false);
     if (ok) {
@@ -77,9 +76,8 @@ class _DetailBodyState extends State<_DetailBody> {
     if (ok != true || !mounted) return;
 
     setState(() => _busy = true);
-    final done = await StaffState.instance.completeAppointment(
-      widget.appointmentId,
-    );
+    final done =
+        await StaffState.instance.completeAppointment(widget.appointmentId);
     if (!mounted) return;
     setState(() => _busy = false);
     if (done) {
@@ -132,7 +130,8 @@ class _DetailBodyState extends State<_DetailBody> {
     final confirmed = await AppDialog.confirm(
       context,
       title: 'Cancel appointment?',
-      message: 'This will notify ${a.patientName} that the visit is cancelled.',
+      message:
+          'This will notify ${a.patientName} that the visit is cancelled.',
       confirmLabel: 'Cancel visit',
       danger: true,
       icon: AppIcons.appointment,
@@ -237,158 +236,159 @@ class _DetailBodyState extends State<_DetailBody> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              GlassCard(
-                frosted: true,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppColors.doctorGreen.withOpacity(0.15),
-                      child: Text(
-                        _initials(a.patientName),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.doctorGreen,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            a.patientName,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
+              children: [
+                GlassCard(
+                  frosted: true,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.doctorGreen.withOpacity(0.15),
+                        child: Text(
+                          _initials(a.patientName),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.doctorGreen,
                           ),
-                          if (patient != null)
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              patient.demographicsLine,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: AppPalette.textMuted(context),
-                                  ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              a.patientName,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
                             ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: a.status.softBg(context),
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusPill,
+                            if (patient != null)
+                              Text(
+                                patient.demographicsLine,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(color: AppPalette.textMuted(context)),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
                         ),
                       ),
-                      child: Text(
-                        a.status.label,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: a.status.color,
-                          fontWeight: FontWeight.w700,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: a.status.softBg(context),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusPill),
+                        ),
+                        child: Text(
+                          a.status.label,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: a.status.color,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const SectionLabel(
-                title: 'Visit information',
-                icon: AppIcons.info,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              GlassCard(
-                frosted: true,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  children: [
-                    _InfoRow(
-                      icon: AppIcons.calendar,
-                      label: DateFormat.yMMMEd().format(a.startAt),
-                    ),
-                    _InfoRow(
-                      icon: AppIcons.time,
-                      label:
-                          '${DateFormat.jm().format(a.startAt)} · ${a.durationMinutes} min',
-                    ),
-                    _InfoRow(icon: a.type.icon, label: a.type.label),
-                    if (a.reason != null)
-                      _InfoRow(icon: AppIcons.report, label: a.reason!),
-                    if (a.locationOrLink != null)
-                      _InfoRow(
-                        icon: AppIcons.location,
-                        label: a.locationOrLink!,
-                      ),
-                    if (a.cancellationReason != null)
-                      _InfoRow(
-                        icon: AppIcons.alert,
-                        label: 'Cancelled: ${a.cancellationReason}',
-                        valueColor: AppColors.critical,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppButton(
-                label: 'Open patient chart',
-                icon: AppIcons.chart,
-                variant: AppButtonVariant.secondary,
-                expand: true,
-                onPressed: _busy ? null : () => _openPatientChart(a),
-              ),
-              if (canModify) ...[
-                const SizedBox(height: AppSpacing.md),
-                const SectionLabel(title: 'Actions', icon: AppIcons.edit),
-                const SizedBox(height: AppSpacing.xs),
-                if (a.status == AppointmentStatus.scheduled)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: AppButton(
-                      label: 'Confirm appointment',
-                      icon: AppIcons.check,
-                      expand: true,
-                      onPressed: _busy ? null : _confirm,
-                    ),
+                    ],
                   ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        label: 'Reschedule',
-                        variant: AppButtonVariant.secondary,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const SectionLabel(
+                  title: 'Visit information',
+                  icon: AppIcons.info,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                GlassCard(
+                  frosted: true,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    children: [
+                      _InfoRow(
                         icon: AppIcons.calendar,
-                        onPressed: _busy ? null : () => _reschedule(a),
+                        label: DateFormat.yMMMEd().format(a.startAt),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: AppButton(
-                        label: 'Cancel',
-                        variant: AppButtonVariant.danger,
-                        onPressed: _busy ? null : () => _cancel(a),
+                      _InfoRow(
+                        icon: AppIcons.time,
+                        label:
+                            '${DateFormat.jm().format(a.startAt)} · ${a.durationMinutes} min',
                       ),
-                    ),
-                  ],
+                      _InfoRow(icon: a.type.icon, label: a.type.label),
+                      if (a.reason != null)
+                        _InfoRow(icon: AppIcons.report, label: a.reason!),
+                      if (a.locationOrLink != null)
+                        _InfoRow(
+                          icon: AppIcons.location,
+                          label: a.locationOrLink!,
+                        ),
+                      if (a.cancellationReason != null)
+                        _InfoRow(
+                          icon: AppIcons.alert,
+                          label: 'Cancelled: ${a.cancellationReason}',
+                          valueColor: AppColors.critical,
+                        ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
                 AppButton(
-                  label: 'Mark complete',
-                  icon: AppIcons.check,
-                  variant: AppButtonVariant.ghost,
+                  label: 'Open patient chart',
+                  icon: AppIcons.chart,
+                  variant: AppButtonVariant.secondary,
                   expand: true,
-                  onPressed: _busy ? null : _complete,
+                  onPressed: _busy ? null : () => _openPatientChart(a),
                 ),
+                if (canModify) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  const SectionLabel(title: 'Actions', icon: AppIcons.edit),
+                  const SizedBox(height: AppSpacing.xs),
+                  if (a.status == AppointmentStatus.scheduled)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: AppButton(
+                        label: 'Confirm appointment',
+                        icon: AppIcons.check,
+                        expand: true,
+                        onPressed: _busy ? null : _confirm,
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          label: 'Reschedule',
+                          variant: AppButtonVariant.secondary,
+                          icon: AppIcons.calendar,
+                          onPressed: _busy ? null : () => _reschedule(a),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: AppButton(
+                          label: 'Cancel',
+                          variant: AppButtonVariant.danger,
+                          onPressed: _busy ? null : () => _cancel(a),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: 'Mark complete',
+                    icon: AppIcons.check,
+                    variant: AppButtonVariant.ghost,
+                    expand: true,
+                    onPressed: _busy ? null : _complete,
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
         );
       },
     );
@@ -403,7 +403,11 @@ class _DetailBodyState extends State<_DetailBody> {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, this.valueColor});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    this.valueColor,
+  });
 
   final IconData icon;
   final String label;
@@ -421,9 +425,9 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: valueColor),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: valueColor,
+                  ),
             ),
           ),
         ],

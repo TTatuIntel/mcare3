@@ -5,7 +5,6 @@ import '../../core/location/google_maps_service.dart';
 import '../models/appointment.dart';
 import '../models/document.dart';
 import '../models/patient_profile.dart';
-import '../models/request_activity_event.dart';
 import '../models/sos.dart';
 import '../models/user_role.dart';
 import '../models/vital.dart';
@@ -103,9 +102,6 @@ class StaffPatientDocument {
     this.fileType = DocumentFileType.pdf,
     this.description,
     this.hasFile = true,
-    this.source = DocumentSource.patient,
-    this.removalRequested = false,
-    this.removalReason,
   });
 
   final String id;
@@ -117,22 +113,6 @@ class StaffPatientDocument {
   final DocumentFileType fileType;
   final String? description;
   final bool hasFile;
-
-  /// Where the document came from, which is what decides whether staff may
-  /// ever delete it. Legacy rows carry no source and read as patient uploads.
-  final DocumentSource source;
-
-  /// The patient has asked for this to be taken out and nobody has answered.
-  final bool removalRequested;
-
-  /// Why they want it gone — staff read this before deciding.
-  final String? removalReason;
-
-  /// The one case in which staff may delete: a clinician-filed document the
-  /// patient has asked to have removed. The authority is the request, not the
-  /// role, so this mirrors the server check rather than the caller's identity.
-  bool get isRemovableByStaff =>
-      source == DocumentSource.clinician && removalRequested;
 }
 
 /// One recorded step in how an emergency was worked, as it rides along with
@@ -253,12 +233,6 @@ class StaffPatientSos {
   }
 }
 
-/// A patient request sitting in the care team's shared queue.
-///
-/// The whole caseload can see it; exactly one clinician can hold it. Which of
-/// those two facts a given row is in is the first thing the inbox has to say,
-/// because a request nobody has started and one a colleague is mid-way through
-/// need opposite actions from the person looking at it.
 class StaffPatientRequest {
   StaffPatientRequest({
     required this.id,
@@ -267,189 +241,16 @@ class StaffPatientRequest {
     required this.summary,
     required this.status,
     required this.createdAt,
-    this.patientName,
-    this.claimedByName,
-    this.claimedAt,
-    this.claimedByMe = false,
-    this.claimable = true,
-    this.documentId,
-    this.events = const [],
   });
 
   final String id;
   final String patientId;
   final String type;
   final String summary;
-
-  /// pending | in_progress | fulfilled | cancelled
   final String status;
   final DateTime createdAt;
-  final String? patientName;
-
-  /// Who on the team is working on it. Null while it is unclaimed.
-  final String? claimedByName;
-  final DateTime? claimedAt;
-
-  /// Server-decided rather than derived from [claimedByName], so the app never
-  /// has to guess which of several similarly-named clinicians "me" is.
-  final bool claimedByMe;
-  final bool claimable;
-
-  /// The report this request produced, once it has been completed.
-  final String? documentId;
-
-  final List<RequestActivityEvent> events;
 
   bool get isPending => status == 'pending';
-  bool get isOpen => status == 'pending' || status == 'in_progress';
-  bool get isClaimed => claimedByName != null;
-
-  /// Claimed by a colleague — visible, but not this clinician's to finish.
-  bool get heldByColleague => isClaimed && !claimedByMe;
-
-  StaffPatientRequest copyWith({
-    String? status,
-    String? claimedByName,
-    DateTime? claimedAt,
-    bool? claimedByMe,
-    bool? claimable,
-    String? documentId,
-    List<RequestActivityEvent>? events,
-  }) => StaffPatientRequest(
-    id: id,
-    patientId: patientId,
-    type: type,
-    summary: summary,
-    status: status ?? this.status,
-    createdAt: createdAt,
-    patientName: patientName,
-    claimedByName: claimedByName ?? this.claimedByName,
-    claimedAt: claimedAt ?? this.claimedAt,
-    claimedByMe: claimedByMe ?? this.claimedByMe,
-    claimable: claimable ?? this.claimable,
-    documentId: documentId ?? this.documentId,
-    events: events ?? this.events,
-  );
-
-  /// Clears the claim. [copyWith] cannot express this — passing null there
-  /// means "leave it alone", which is the whole point of it everywhere else.
-  StaffPatientRequest released() => StaffPatientRequest(
-    id: id,
-    patientId: patientId,
-    type: type,
-    summary: summary,
-    status: 'pending',
-    createdAt: createdAt,
-    patientName: patientName,
-    claimable: true,
-    events: events,
-  );
-}
-
-/// A document the patient has asked the care team to produce.
-///
-/// Same shape and same rules as [StaffPatientRequest]; kept separate because
-/// answering it means uploading a file, and declining it — with a reason the
-/// patient reads — is a first-class outcome that a vital report has no
-/// equivalent of.
-class StaffDocumentRequest {
-  StaffDocumentRequest({
-    required this.id,
-    required this.patientId,
-    required this.title,
-    required this.category,
-    required this.status,
-    required this.createdAt,
-    this.patientName,
-    this.note,
-    this.targetDoctorName,
-    this.addressedToMe = false,
-    this.neededBy,
-    this.overdue = false,
-    this.claimedByName,
-    this.claimedByMe = false,
-    this.claimable = true,
-    this.declineReason,
-    this.documentId,
-    this.events = const [],
-  });
-
-  final String id;
-  final String patientId;
-  final String title;
-
-  /// The camelCase document category key, shared with the patient app.
-  final String category;
-  final String status;
-  final DateTime createdAt;
-  final String? patientName;
-  final String? note;
-
-  /// Set when the patient named a doctor. That names who it is waiting on, not
-  /// who may answer — the whole team still sees it.
-  final String? targetDoctorName;
-  final bool addressedToMe;
-
-  final DateTime? neededBy;
-  final bool overdue;
-
-  final String? claimedByName;
-  final bool claimedByMe;
-  final bool claimable;
-
-  final String? declineReason;
-  final String? documentId;
-  final List<RequestActivityEvent> events;
-
-  bool get isOpen => status == 'pending' || status == 'in_progress';
-  bool get isClaimed => claimedByName != null;
-  bool get heldByColleague => isClaimed && !claimedByMe;
-
-  StaffDocumentRequest copyWith({
-    String? status,
-    String? claimedByName,
-    bool? claimedByMe,
-    bool? claimable,
-    String? declineReason,
-    String? documentId,
-    List<RequestActivityEvent>? events,
-  }) => StaffDocumentRequest(
-    id: id,
-    patientId: patientId,
-    title: title,
-    category: category,
-    status: status ?? this.status,
-    createdAt: createdAt,
-    patientName: patientName,
-    note: note,
-    targetDoctorName: targetDoctorName,
-    addressedToMe: addressedToMe,
-    neededBy: neededBy,
-    overdue: overdue,
-    claimedByName: claimedByName ?? this.claimedByName,
-    claimedByMe: claimedByMe ?? this.claimedByMe,
-    claimable: claimable ?? this.claimable,
-    declineReason: declineReason ?? this.declineReason,
-    documentId: documentId ?? this.documentId,
-    events: events ?? this.events,
-  );
-
-  StaffDocumentRequest released() => StaffDocumentRequest(
-    id: id,
-    patientId: patientId,
-    title: title,
-    category: category,
-    status: 'pending',
-    createdAt: createdAt,
-    patientName: patientName,
-    note: note,
-    targetDoctorName: targetDoctorName,
-    addressedToMe: addressedToMe,
-    neededBy: neededBy,
-    overdue: overdue,
-    claimable: true,
-    events: events,
-  );
 }
 
 class StaffPatientVitalReading {

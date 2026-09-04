@@ -149,18 +149,13 @@ class PatientReportAssembler
             'vitals_summary' => $this->table(
                 $key,
                 $title,
-                ['Vital', 'Latest', 'Average', 'Low–high', 'In range', 'Readings (3w)', 'Trend'],
+                ['Vital', 'Latest', 'Risk', 'Recorded', 'Readings (30d)', 'Trend'],
                 array_map(fn (array $v) => [
                     $v['label'] ?? $v['vital_key'],
                     $v['latest_value'] ?? '—',
-                    $this->vitalMeasurement($v['average'] ?? null, $v['unit'] ?? ''),
-                    $this->vitalRange(
-                        $v['lowest'] ?? null,
-                        $v['highest'] ?? null,
-                        $v['unit'] ?? '',
-                    ),
-                    isset($v['in_range_pct']) ? $v['in_range_pct'].'%' : '—',
-                    (string) ($v['readings_period'] ?? 0),
+                    $this->titleCase($v['latest_risk'] ?? ''),
+                    $this->dateTime($v['latest_at'] ?? null),
+                    (string) ($v['readings_30d'] ?? 0),
                     $this->titleCase($v['trend'] ?? ''),
                 ], $clinical['vitals_summary'] ?? []),
             ),
@@ -204,25 +199,16 @@ class PatientReportAssembler
             'meal_plans' => $this->table(
                 $key,
                 $title,
-                ['Meal', 'Type', 'Planned for', 'Calories', 'Protein', 'Carbs', 'Fat', 'Assigned by', 'Followed'],
+                ['Meal', 'Type', 'Calories', 'Protein', 'Carbs', 'Fat', 'Assigned by', 'Date'],
                 array_map(fn (array $m) => [
                     $m['title'] ?? '',
                     $this->titleCase($m['meal_type'] ?? ''),
-                    // The day it was meant to be eaten — for a nutrition
-                    // timetable that is the date a clinician reads, not the
-                    // day the plan happened to be written.
-                    $this->date($m['scheduled_for'] ?? $m['assigned_at'] ?? null),
                     (string) ($m['calories'] ?? ''),
                     (string) ($m['protein'] ?? ''),
                     (string) ($m['carbs'] ?? ''),
                     (string) ($m['fat'] ?? ''),
                     $m['assigned_by'] ?? '',
-                    match ($m['adherence'] ?? 'pending') {
-                        'followed' => 'Yes',
-                        'partial' => 'Partly',
-                        'skipped' => 'No',
-                        default => 'Not logged',
-                    },
+                    $this->date($m['assigned_at'] ?? null),
                 ], $clinical['meal_plans'] ?? []),
             ),
 
@@ -425,23 +411,5 @@ class PatientReportAssembler
     private function titleCase(string $value): string
     {
         return $value === '' ? '' : ucfirst(str_replace('_', ' ', $value));
-    }
-
-    private function vitalMeasurement(mixed $value, string $unit): string
-    {
-        if ($value === null || $value === '') {
-            return '—';
-        }
-
-        return rtrim(rtrim(number_format((float) $value, 1, '.', ''), '0'), '.').' '.$unit;
-    }
-
-    private function vitalRange(mixed $low, mixed $high, string $unit): string
-    {
-        if ($low === null || $high === null) {
-            return '—';
-        }
-
-        return $this->vitalMeasurement($low, '').'–'.$this->vitalMeasurement($high, $unit);
     }
 }

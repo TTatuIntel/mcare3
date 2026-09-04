@@ -7,7 +7,7 @@ use App\Http\Resources\VitalReadingResource;
 use App\Models\VitalCatalog;
 use App\Services\VitalAlertNotifier;
 use App\Support\ApiResponse;
-use App\Support\VitalRecorder;
+use App\Support\VitalRisk;
 use Illuminate\Http\Request;
 
 class VitalsController extends Controller
@@ -35,11 +35,31 @@ class VitalsController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate(VitalRecorder::rules());
+        $data = $request->validate([
+            'vital_key' => 'required|string',
+            'value' => 'required|numeric',
+            'secondary_value' => 'nullable|numeric',
+            'recorded_at' => 'nullable|date',
+            'note' => 'nullable|string',
+        ]);
 
-        // Grading and alerting live in VitalRecorder so a reading logged by
-        // staff on the patient's behalf goes through exactly this path.
-        $reading = VitalRecorder::record($request->user(), $data);
+        $range = $request->user()->vitalRangeOverrides()
+            ->where('vital_key', $data['vital_key'])
+            ->first()
+            ?? VitalCatalog::where('vital_key', $data['vital_key'])->first();
+
+        $risk = $range ? VitalRisk::assess((float) $data['value'], $range) : 'unknown';
+
+        $reading = $request->user()->vitalReadings()->create([
+            'vital_key' => $data['vital_key'],
+            'value' => $data['value'],
+            'secondary_value' => $data['secondary_value'] ?? null,
+            'recorded_at' => $data['recorded_at'] ?? now(),
+            'note' => $data['note'] ?? null,
+            'risk' => $risk,
+        ]);
+
+        VitalAlertNotifier::notify($request->user(), $reading);
 
         return $this->success(['vital' => new VitalReadingResource($reading)], 'Reading recorded.', 201);
     }

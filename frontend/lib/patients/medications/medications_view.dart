@@ -198,9 +198,9 @@ class _MedsHero extends StatelessWidget {
         ? AppColors.glucoseAmber
         : AppColors.brandIndigo;
     final iconBg = isAlert
-        ? primaryAlert.tint.withOpacity(0.15)
+        ? primaryAlert.tint.withValues(alpha: 0.15)
         : isPending
-        ? AppColors.glucoseAmber.withOpacity(0.15)
+        ? AppColors.glucoseAmber.withValues(alpha: 0.15)
         : AppPalette.infoSoft(context);
 
     final headline = total == 0
@@ -221,11 +221,11 @@ class _MedsHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                height: 36,
-                width: 36,
+                height: 42,
+                width: 42,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -233,7 +233,7 @@ class _MedsHero extends StatelessWidget {
                 child: Icon(
                   isAlert ? AppIcons.alert : AppIcons.medication,
                   color: accent,
-                  size: 18,
+                  size: 21,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -246,6 +246,7 @@ class _MedsHero extends StatelessWidget {
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: AppPalette.ink(context),
                         fontWeight: FontWeight.w800,
+                        fontSize: 16,
                         height: 1.2,
                       ),
                     ),
@@ -356,9 +357,9 @@ class _HeroInsight extends StatelessWidget {
             vertical: 5,
           ),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            border: Border.all(color: color.withOpacity(0.2)),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
@@ -419,10 +420,10 @@ class _HeroAlertBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.sm),
           decoration: BoxDecoration(
-            color: color.withOpacity(isCritical ? 0.14 : 0.10),
+            color: color.withValues(alpha: isCritical ? 0.14 : 0.10),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             border: Border.all(
-              color: color.withOpacity(isCritical ? 0.55 : 0.35),
+              color: color.withValues(alpha: isCritical ? 0.55 : 0.35),
               width: isCritical ? 1.4 : 1,
             ),
           ),
@@ -433,7 +434,7 @@ class _HeroAlertBanner extends StatelessWidget {
                 height: 34,
                 width: 34,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.18),
+                  color: color.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Icon(AppIcons.alert, size: 18, color: color),
@@ -465,7 +466,7 @@ class _HeroAlertBanner extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.18),
+                              color: color.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(
                                 AppSpacing.radiusPill,
                               ),
@@ -534,22 +535,32 @@ class _HeroStat extends StatelessWidget {
     final theme = Theme.of(context);
     final child = Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: accent ?? AppPalette.ink(context),
-              fontWeight: FontWeight.w800,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: accent ?? AppPalette.ink(context),
+                fontWeight: FontWeight.w800,
+                fontSize: 21,
+              ),
             ),
           ),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.textMuted(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppPalette.textMuted(context),
+                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+              ),
             ),
           ),
         ],
@@ -606,11 +617,13 @@ class _MedsQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.add,
             label: 'Add med',
+            horizontal: true,
             onTap: onAdd,
           ),
           PatientQuickAction(
             icon: AppIcons.medication,
             label: 'Log dose',
+            horizontal: true,
             onTap: () {
               final pending = MedicationsState.instance
                   .dosesForToday()
@@ -626,6 +639,7 @@ class _MedsQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.alert,
             label: 'Alerts',
+            horizontal: true,
             badge: alertCount > 0 ? '$alertCount' : null,
             onTap: () {
               final alerts = MedicationsState.instance.medicationAlerts();
@@ -644,6 +658,7 @@ class _MedsQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.records,
             label: 'All meds',
+            horizontal: true,
             badge: medCount > 0 ? '$medCount' : null,
             badgeColor: AppColors.brandIndigo,
             onTap: () => AllMedicationsSheet.show(context),
@@ -700,9 +715,9 @@ class _DoseRow extends StatelessWidget {
             vertical: 4,
           ),
           decoration: BoxDecoration(
-            color: dose.status.color.withOpacity(0.08),
+            color: dose.status.color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            border: Border.all(color: dose.status.color.withOpacity(0.2)),
+            border: Border.all(color: dose.status.color.withValues(alpha: 0.2)),
           ),
           child: Row(
             children: [
@@ -710,7 +725,7 @@ class _DoseRow extends StatelessWidget {
                 height: 28,
                 width: 28,
                 decoration: BoxDecoration(
-                  color: AppColors.glucoseAmber.withOpacity(0.14),
+                  color: AppColors.glucoseAmber.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: const Icon(
@@ -746,7 +761,7 @@ class _DoseRow extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: dose.status.color.withOpacity(0.12),
+                  color: dose.status.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                 ),
                 child: Text(

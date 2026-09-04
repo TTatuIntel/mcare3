@@ -102,18 +102,16 @@ class _VitalCatalogFormState extends State<VitalCatalogForm> {
   }
 
   VitalAlertConfig _buildAlertConfig() => VitalAlertConfig(
-    enableWarningAlerts: _enableWarning,
-    enableCriticalAlerts: _enableCritical,
-    autoResolveOnNormal: _autoResolve,
-    escalationEnabled: _escalationEnabled,
-    escalationDelayMinutes: _escalationMinutes,
-    criticalAlertTitle: _critTitle.text.trim().isEmpty
-        ? null
-        : _critTitle.text.trim(),
-    warningAlertTitle: _warnTitle.text.trim().isEmpty
-        ? null
-        : _warnTitle.text.trim(),
-  );
+        enableWarningAlerts: _enableWarning,
+        enableCriticalAlerts: _enableCritical,
+        autoResolveOnNormal: _autoResolve,
+        escalationEnabled: _escalationEnabled,
+        escalationDelayMinutes: _escalationMinutes,
+        criticalAlertTitle:
+            _critTitle.text.trim().isEmpty ? null : _critTitle.text.trim(),
+        warningAlertTitle:
+            _warnTitle.text.trim().isEmpty ? null : _warnTitle.text.trim(),
+      );
 
   void _submit() {
     final label = _label.text.trim();
@@ -132,46 +130,41 @@ class _VitalCatalogFormState extends State<VitalCatalogForm> {
     if (thresholds == null) return;
 
     setState(() => _error = null);
-    Navigator.of(context).pop(
-      VitalCatalogFormResult(
-        label: label,
-        unit: unit,
-        description: _description.text.trim().isEmpty
-            ? null
-            : _description.text.trim(),
-        thresholds: thresholds,
-        alertConfig: _buildAlertConfig(),
-      ),
-    );
+    Navigator.of(context).pop(VitalCatalogFormResult(
+      label: label,
+      unit: unit,
+      description: _description.text.trim().isEmpty
+          ? null
+          : _description.text.trim(),
+      thresholds: thresholds,
+      alertConfig: _buildAlertConfig(),
+    ));
   }
 
   void _delete() {
-    Navigator.of(context).pop(
-      const VitalCatalogFormResult(
-        label: '',
-        unit: '',
-        description: null,
-        thresholds: VitalThresholdFormResult(
-          normalMin: 0,
-          normalMax: 0,
-          warningLow: 0,
-          warningHigh: 0,
-          criticalLow: 0,
-          criticalHigh: 0,
-          clear: true,
-        ),
-        alertConfig: VitalAlertConfig(),
-        delete: true,
+    Navigator.of(context).pop(const VitalCatalogFormResult(
+      label: '',
+      unit: '',
+      description: null,
+      thresholds: VitalThresholdFormResult(
+        normalMin: 0,
+        normalMax: 0,
+        warningLow: 0,
+        warningHigh: 0,
+        criticalLow: 0,
+        criticalHigh: 0,
+        clear: true,
       ),
-    );
+      alertConfig: VitalAlertConfig(),
+      delete: true,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final entry = widget.entry;
-    final initialRange =
-        entry?.toRange() ??
+    final initialRange = entry?.toRange() ??
         const VitalRiskRange(
           normalMin: 0,
           normalMax: 100,
@@ -194,13 +187,19 @@ class _VitalCatalogFormState extends State<VitalCatalogForm> {
         children: [
           // ---- Identity -------------------------------------------------------
           if (!_isBuiltin) ...[
-            SectionLabel(title: 'Vital identity', icon: AppIcons.vitals),
+            SectionLabel(
+              title: 'Vital identity',
+              icon: AppIcons.vitals,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Expanded(
                   flex: 3,
-                  child: AppTextField(label: 'Vital name', controller: _label),
+                  child: AppTextField(
+                    label: 'Vital name',
+                    controller: _label,
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -222,7 +221,10 @@ class _VitalCatalogFormState extends State<VitalCatalogForm> {
           ],
 
           // ---- Thresholds -----------------------------------------------------
-          SectionLabel(title: 'Thresholds', icon: AppIcons.alert),
+          SectionLabel(
+            title: 'Thresholds',
+            icon: AppIcons.alert,
+          ),
           const SizedBox(height: AppSpacing.sm),
           GlassCard(
             frosted: true,
@@ -231,8 +233,7 @@ class _VitalCatalogFormState extends State<VitalCatalogForm> {
               key: _thresholdKey,
               vital: entry?.vital,
               unit: entry?.displayUnit,
-              useDecimals:
-                  entry?.vital == VitalKey.temperature ||
+              useDecimals: entry?.vital == VitalKey.temperature ||
                   entry?.vital == VitalKey.weight,
               initial: initialRange,
               existingOverride: _isEdit,

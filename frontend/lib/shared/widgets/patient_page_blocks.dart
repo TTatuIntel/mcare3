@@ -31,38 +31,71 @@ class PatientHeroStat extends StatelessWidget {
     required this.value,
     this.accent,
     this.onTap,
+    this.horizontal = false,
   });
 
   final String label;
   final String value;
   final Color? accent;
   final VoidCallback? onTap;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final child = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: accent ?? AppPalette.ink(context),
-              fontWeight: FontWeight.w800,
+      child: horizontal
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: accent ?? AppPalette.ink(context),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 21,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppPalette.textMuted(context),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: accent ?? AppPalette.ink(context),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
-          ),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.textMuted(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
     );
 
     if (onTap == null) return Expanded(child: child);
@@ -103,6 +136,7 @@ class PatientQuickAction extends StatelessWidget {
     this.badgeColor,
     this.selected = false,
     this.iconColor,
+    this.horizontal = false,
   });
 
   final IconData icon;
@@ -112,6 +146,7 @@ class PatientQuickAction extends StatelessWidget {
   final Color? badgeColor;
   final bool selected;
   final Color? iconColor;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
@@ -148,14 +183,16 @@ class PatientQuickAction extends StatelessWidget {
             button: true,
             selected: selected,
             label: '$label patient section',
-            child: Column(
+            child: Flex(
+              direction: horizontal ? Axis.horizontal : Axis.vertical,
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Icon(icon, size: 20, color: accent),
+                    Icon(icon, size: horizontal ? 23 : 20, color: accent),
                     if (badge != null)
                       Positioned(
                         right: -9,
@@ -183,17 +220,22 @@ class PatientQuickAction extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: selected ? accent : ink,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-                    fontSize: 10.5,
-                    height: 1.1,
+                SizedBox(
+                  width: horizontal ? AppSpacing.sm : 0,
+                  height: horizontal ? 0 : 3,
+                ),
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: selected ? accent : ink,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                      fontSize: horizontal ? 12 : 10.5,
+                      height: 1.1,
+                    ),
                   ),
                 ),
               ],

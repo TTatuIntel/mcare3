@@ -68,7 +68,6 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
   final ExternalRealtimeChannel _realtime = ExternalRealtimeChannel();
   Timer? _refreshTimer;
   bool _refreshing = false;
-  bool _refreshPending = false;
 
   @override
   void initState() {
@@ -91,10 +90,7 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
       });
       return;
     }
-    if (_refreshing) {
-      _refreshPending = true;
-      return;
-    }
+    if (_refreshing) return;
     _refreshing = true;
     try {
       if (!AppEnv.backendEnabled && !AppEnv.demoDataEnabled) {
@@ -129,10 +125,6 @@ class _ExternalDoctorViewState extends State<ExternalDoctorView> {
       _realtime.detach();
     } finally {
       _refreshing = false;
-      if (_refreshPending && mounted) {
-        _refreshPending = false;
-        unawaited(_loadPortal());
-      }
     }
   }
 
@@ -1666,7 +1658,10 @@ class _UploadDocumentForm extends StatelessWidget {
           decoration: const InputDecoration(labelText: 'Category'),
           items: [
             for (final value in DocumentCategory.values)
-              DropdownMenuItem(value: value, child: Text(value.label)),
+              DropdownMenuItem(
+                value: value,
+                child: Text(_categoryLabel(value)),
+              ),
           ],
           onChanged: (value) {
             if (value != null) onCategoryChanged(value);
@@ -1707,4 +1702,13 @@ class _UploadDocumentForm extends StatelessWidget {
       ],
     );
   }
+
+  static String _categoryLabel(DocumentCategory category) => switch (category) {
+    DocumentCategory.labResult => 'Lab result',
+    DocumentCategory.prescription => 'Prescription',
+    DocumentCategory.imaging => 'Imaging',
+    DocumentCategory.discharge => 'Discharge summary',
+    DocumentCategory.consultationNote => 'Consultation note',
+    DocumentCategory.other => 'Other',
+  };
 }

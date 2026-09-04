@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/report_consents_api.dart';
-import '../../shared/services/document_opener.dart';
 import '../../core/env/app_env.dart';
 import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
@@ -18,6 +17,7 @@ import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/section_label.dart';
+import '../../admin/reports/report_reason_prompt.dart';
 import '../../shared/widgets/loading/loading.dart';
 
 /// Where a patient sees, and decides on, every request to share their record.
@@ -27,10 +27,7 @@ import '../../shared/widgets/loading/loading.dart';
 /// why. Declining is as prominent as approving, and nothing is shared unless
 /// they say yes.
 class PatientReportConsentsView extends StatefulWidget {
-  const PatientReportConsentsView({super.key, this.embedded = false});
-
-  /// Renders the same request workflow inside Documents & reports.
-  final bool embedded;
+  const PatientReportConsentsView({super.key});
 
   @override
   State<PatientReportConsentsView> createState() =>
@@ -83,52 +80,6 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView>
     final awaiting = _items.where((r) => r.awaitingMe).toList();
     final history = _items.where((r) => !r.awaitingMe).toList();
 
-    final body = _loading
-        ? const Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
-            child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
-          )
-        : _items.isEmpty
-        ? (widget.embedded
-              ? const SizedBox.shrink()
-              : GlassCard(
-                  child: EmptyStateView(
-                    icon: AppIcons.lock,
-                    title: 'No sharing requests',
-                    message:
-                        _error ??
-                        'When mCare staff need to share part of your record, '
-                            'the request appears here for your approval.',
-                    compact: true,
-                  ),
-                ))
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (awaiting.isNotEmpty) ...[
-                SectionLabel(
-                  title: 'Needs your approval',
-                  icon: AppIcons.lock,
-                  trailing: '${awaiting.length}',
-                ),
-                for (final r in awaiting)
-                  _ConsentCard(request: r, onChanged: _load, urgent: true),
-                const SizedBox(height: AppSpacing.md),
-              ],
-              if (history.isNotEmpty) ...[
-                SectionLabel(
-                  title: 'Past requests',
-                  icon: AppIcons.audit,
-                  trailing: '${history.length}',
-                ),
-                for (final r in history)
-                  _ConsentCard(request: r, onChanged: _load),
-              ],
-            ],
-          );
-
-    if (widget.embedded) return body;
-
     return PatientScaffold(
       currentRoute: RouteNames.patientReportConsents,
       title: 'Sharing requests',
@@ -140,7 +91,47 @@ class _PatientReportConsentsViewState extends State<PatientReportConsentsView>
           icon: const Icon(AppIcons.refresh),
         ),
       ],
-      body: body,
+      body: _loading
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
+              child: Center(child: McareLoadingMark(size: McareMarkSize.small)),
+            )
+          : _items.isEmpty
+          ? GlassCard(
+              child: EmptyStateView(
+                icon: AppIcons.lock,
+                title: 'No sharing requests',
+                message:
+                    _error ??
+                    'When mCare staff need to share part of your record, '
+                        'the request appears here for your approval.',
+                compact: true,
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (awaiting.isNotEmpty) ...[
+                  SectionLabel(
+                    title: 'Needs your approval',
+                    icon: AppIcons.lock,
+                    trailing: '${awaiting.length}',
+                  ),
+                  for (final r in awaiting)
+                    _ConsentCard(request: r, onChanged: _load, urgent: true),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                if (history.isNotEmpty) ...[
+                  SectionLabel(
+                    title: 'Past requests',
+                    icon: AppIcons.audit,
+                    trailing: '${history.length}',
+                  ),
+                  for (final r in history)
+                    _ConsentCard(request: r, onChanged: _load),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -253,36 +244,48 @@ class _ConsentDetailBody extends StatefulWidget {
 }
 
 class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
-  bool _opening = false;
+  bool _busy = false;
 
-  /// Opens the finished report.
-  ///
-  /// Issuing froze the assembled report and told the patient it had gone out,
-  /// but there was no way to read it — the person the report describes was the
-  /// only party who could not see what had been disclosed about them. The page
-  /// arrives as HTML so the platform's own viewer can print it or save it as
-  /// PDF without this app carrying a PDF renderer.
-  Future<void> _openReport() async {
-    setState(() => _opening = true);
+  Future<void> _approve() async {
+    setState(() => _busy = true);
     try {
-      final bytes = await ReportConsentsApi.instance.documentBytes(
-        widget.request.id,
-      );
+      await ReportConsentsApi.instance.approve(widget.request.id);
       if (!mounted) return;
-      final opened = await DocumentOpener.openBytes(
-        bytes: bytes,
-        mimeType: 'text/html',
-        filename: DocumentOpener.filenameWith(widget.request.title, 'html'),
-      );
-      if (!mounted) return;
-      setState(() => _opening = false);
-      if (!opened) {
-        AppToast.warn(context, 'Could not open the report.');
-      }
+      widget.onChanged?.call();
+      Navigator.of(context, rootNavigator: true).pop();
+      AppToast.success(context, 'Approved — thank you.');
     } catch (e) {
       if (!mounted) return;
-      setState(() => _opening = false);
-      AppToast.error(context, 'Could not open the report: $e');
+      setState(() => _busy = false);
+      AppToast.error(context, 'Could not approve: $e');
+    }
+  }
+
+  Future<void> _decline() async {
+    final reason = await promptReason(
+      context,
+      title: 'Decline this request',
+      message: 'You can say why, or leave it blank. Nothing will be shared.',
+      label: 'Reason (optional)',
+      confirmLabel: 'Decline',
+    );
+    // A blank reason is fine here, but promptReason returns null on cancel.
+    if (reason == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await ReportConsentsApi.instance.decline(
+        widget.request.id,
+        reason: reason,
+      );
+      if (!mounted) return;
+      widget.onChanged?.call();
+      Navigator.of(context, rootNavigator: true).pop();
+      AppToast.info(context, 'Declined — nothing was shared.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      AppToast.error(context, 'Could not decline: $e');
     }
   }
 
@@ -290,6 +293,8 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final r = widget.request;
+    final decidable = r.awaitingMe;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -402,22 +407,27 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
               DossierRow(label: 'Reason', value: r.declineReason),
             ],
           ),
-        // A report the patient can read. Offered whenever there is a finished
-        // copy — including a revoked one, which stays readable because it was
-        // disclosed and they are entitled to see what went out.
-        if (r.canOpenDocument) ...[
+        if (decidable) ...[
           const SizedBox(height: AppSpacing.sm),
           AppButton(
-            label: 'Open the report',
-            icon: AppIcons.document,
+            label: 'Approve sharing',
+            icon: AppIcons.check,
             expand: true,
-            loading: _opening,
-            onPressed: _opening ? null : _openReport,
+            loading: _busy,
+            onPressed: _approve,
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: 'Decline',
+            icon: AppIcons.close,
+            variant: AppButtonVariant.danger,
+            expand: true,
+            onPressed: _busy ? null : _decline,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Text(
-            'Opens the copy that was issued. Use your browser or share sheet '
-            'to print it or save it as a PDF.',
+            'You can also approve by entering the one-time code from your '
+            'email, or by reading it back to mCare staff on a call.',
             textAlign: TextAlign.center,
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppPalette.textMuted(context),
@@ -428,6 +438,5 @@ class _ConsentDetailBodyState extends State<_ConsentDetailBody> {
         ],
       ],
     );
-
   }
 }

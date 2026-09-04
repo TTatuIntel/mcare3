@@ -40,33 +40,6 @@ class ApiClient {
 
   String? get token => _token;
 
-  /// Called once when the API rejects the caller's bearer token (a 401 while a
-  /// token is set), so a revoked or expired session is ended in one place
-  /// instead of surfacing as a different error on every screen. Wired in
-  /// `main()` to `SessionRecovery.forceSignOut`.
-  void Function()? onSessionRejected;
-
-  /// Endpoints where a 401 is the answer to the question, not a dead session:
-  /// these present credentials rather than a live token. Signing in with the
-  /// wrong password must not be read as "your session expired".
-  ///
-  /// [_noteRejection] also requires a signed-in user, which covers session
-  /// restore (`/auth/me` before anyone is signed in) and the logout call that
-  /// [AuthState.signOut] fires with the token being discarded.
-  static const _credentialPaths = <String>{
-    '/auth/login',
-    '/auth/register',
-    '/auth/google',
-    '/auth/apple',
-    '/auth/logout',
-    '/auth/forgot-password',
-    '/auth/reset-password',
-    '/auth/verify-reset-otp',
-    '/auth/verify-otp',
-    '/auth/resend-otp',
-    '/auth/accept-invite',
-  };
-
   Map<String, String> get _headers => {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -99,7 +72,6 @@ class ApiClient {
       _transport
           .get(Uri.parse(_url(path)), headers: _headers)
           .timeout(AppEnv.apiTimeout),
-      path: path,
     );
 
     if (cacheFor == null) return request();
@@ -131,7 +103,6 @@ class ApiClient {
             body: body == null ? null : jsonEncode(body),
           )
           .timeout(AppEnv.apiTimeout),
-      path: path,
       mutation: true,
     );
   }
@@ -157,7 +128,7 @@ class ApiClient {
     try {
       final streamed = await _transport.send(req).timeout(AppEnv.apiTimeout);
       final response = await http.Response.fromStream(streamed);
-      return _decode(response, path);
+      return _decode(response);
     } finally {
       AppBusy.instance.end(mutation: true);
     }
@@ -183,7 +154,7 @@ class ApiClient {
     try {
       final streamed = await _transport.send(req).timeout(AppEnv.apiTimeout);
       final response = await http.Response.fromStream(streamed);
-      return _decode(response, path);
+      return _decode(response);
     } finally {
       AppBusy.instance.end(mutation: true);
     }
@@ -213,7 +184,6 @@ class ApiClient {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic>) json = decoded;
       } catch (_) {}
-      _noteRejection(response.statusCode, path);
       final message = ApiErrorMessages.sanitize(
         json?['message'] as String? ??
             'Request failed (${response.statusCode}).',
@@ -243,7 +213,6 @@ class ApiClient {
             body: body == null ? null : jsonEncode(body),
           )
           .timeout(AppEnv.apiTimeout),
-      path: path,
       mutation: true,
     );
   }
@@ -263,7 +232,6 @@ class ApiClient {
             body: body == null ? null : jsonEncode(body),
           )
           .timeout(AppEnv.apiTimeout),
-      path: path,
       mutation: true,
     );
   }
@@ -283,7 +251,6 @@ class ApiClient {
             body: body == null ? null : jsonEncode(body),
           )
           .timeout(AppEnv.apiTimeout),
-      path: path,
       mutation: true,
     );
   }
@@ -292,13 +259,12 @@ class ApiClient {
   /// on-screen indicator. Reads only feed the slim top bar.
   Future<Map<String, dynamic>> _send(
     Future<http.Response> request, {
-    required String path,
     bool mutation = false,
   }) async {
     AppBusy.instance.begin(mutation: mutation);
     try {
       final response = await request;
-      return _decode(response, path);
+      return _decode(response);
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -308,7 +274,7 @@ class ApiClient {
     }
   }
 
-  Map<String, dynamic> _decode(http.Response response, String path) {
+  Map<String, dynamic> _decode(http.Response response) {
     Map<String, dynamic>? json;
     try {
       final decoded = jsonDecode(response.body);
@@ -330,24 +296,10 @@ class ApiClient {
       return json;
     }
 
-    _noteRejection(response.statusCode, path);
     final message = ApiErrorMessages.sanitize(
       json?['message'] as String? ?? 'Request failed (${response.statusCode}).',
     );
     throw ApiException(message, response.statusCode);
-  }
-
-  /// Reports a rejected bearer token to [onSessionRejected].
-  ///
-  /// 401 only. A 403 means the account is real but not allowed to do this one
-  /// thing — an assistant reaching an admin-only endpoint — and signing that
-  /// user out would be wrong. The caller still gets its [ApiException]; this
-  /// only adds the session-level consequence.
-  void _noteRejection(int statusCode, String path) {
-    if (statusCode != 401) return;
-    if (_token == null) return;
-    if (_credentialPaths.contains(path)) return;
-    onSessionRejected?.call();
   }
 }
 

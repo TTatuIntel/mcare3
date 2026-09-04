@@ -17,7 +17,7 @@ class MedicalDocumentFiles
     {
         return $request->validate([
             'title' => 'required|string|max:200',
-            'category' => 'required|string|in:'.DocumentCategories::rule(),
+            'category' => 'required|string|in:labResult,prescription,imaging,discharge,consultationNote,other',
             'file_type' => 'required|string|in:pdf,image,doc,other',
             'description' => 'nullable|string',
             'shared_with_doctor_id' => 'nullable|exists:users,id',
@@ -29,7 +29,7 @@ class MedicalDocumentFiles
     {
         return $request->validate([
             'title' => 'sometimes|string|max:200',
-            'category' => 'sometimes|string|in:'.DocumentCategories::rule(),
+            'category' => 'sometimes|string|in:labResult,prescription,imaging,discharge,consultationNote,other',
             'file_type' => 'sometimes|string|in:pdf,image,doc,other',
             'description' => 'nullable|string',
             'file' => 'nullable|file|max:10240|mimes:'.self::ALLOWED_MIMES,
@@ -148,28 +148,6 @@ class MedicalDocumentFiles
                 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
             ));
         }
-
-        return ['path' => $relative, 'size' => $disk->size($relative)];
-    }
-
-    /**
-     * Writes content the server generated — as opposed to a file someone
-     * uploaded — into the same private store, and returns the same shape the
-     * upload path returns so callers can treat both alike.
-     *
-     * @return array{path: string, size: int}
-     */
-    public static function storeGeneratedFile(
-        int $ownerUserId,
-        string $title,
-        string $contents,
-        string $extension = 'html',
-    ): array {
-        $slug = Str::slug(Str::limit($title, 40, '')) ?: 'document';
-        $relative = 'documents/'.$ownerUserId.'/'.$slug.'-'.Str::random(8).'.'.$extension;
-
-        $disk = Storage::disk(self::privateDiskName());
-        $disk->put($relative, $contents);
 
         return ['path' => $relative, 'size' => $disk->size($relative)];
     }

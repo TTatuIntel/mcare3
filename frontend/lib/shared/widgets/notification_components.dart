@@ -203,9 +203,6 @@ class NotificationListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final time = DateFormat.MMMd().add_jm().format(item.createdAt);
-    // One row serves every role, so the clear action follows the role: closing
-    // an alert is the care team's call, and a patient only ever marks it read.
-    final canResolve = NotificationState.instance.canResolve(item);
     return StaffListRow(
       icon: item.kind.icon,
       iconColor: item.kind.tint,
@@ -214,18 +211,16 @@ class NotificationListRow extends StatelessWidget {
       pill: item.resolved ? 'Resolved' : (item.read ? null : 'New'),
       pillColor: item.resolved ? AppColors.success : AppColors.info,
       onTap: () => NotificationRouter.handleTap(context, item),
-      trailing: item.resolved || (item.read && !canResolve)
+      trailing: item.resolved
           ? null
           : _NotificationRowMenu(
               onMarkRead: item.read
                   ? null
                   : () => NotificationState.instance.markReadRemote(item.id),
-              onResolve: !canResolve
-                  ? null
-                  : () {
-                      NotificationState.instance.resolveRemote(item.id);
-                      AppToast.show(context, message: 'Notification resolved.');
-                    },
+              onResolve: () {
+                NotificationState.instance.resolveRemote(item.id);
+                AppToast.show(context, message: 'Notification resolved.');
+              },
             ),
     );
   }
@@ -238,7 +233,7 @@ class _NotificationRowMenu extends StatelessWidget {
   });
 
   final VoidCallback? onMarkRead;
-  final VoidCallback? onResolve;
+  final VoidCallback onResolve;
 
   @override
   Widget build(BuildContext context) {
@@ -251,15 +246,14 @@ class _NotificationRowMenu extends StatelessWidget {
             onMarkRead?.call();
             break;
           case 'resolve':
-            onResolve?.call();
+            onResolve();
             break;
         }
       },
       itemBuilder: (_) => [
         if (onMarkRead != null)
           const PopupMenuItem(value: 'read', child: Text('Mark as read')),
-        if (onResolve != null)
-          const PopupMenuItem(value: 'resolve', child: Text('Resolve')),
+        const PopupMenuItem(value: 'resolve', child: Text('Resolve')),
       ],
     );
   }

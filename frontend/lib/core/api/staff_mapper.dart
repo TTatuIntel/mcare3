@@ -2,8 +2,6 @@ import '../../shared/models/meal_plan.dart';
 import '../../shared/models/user_role.dart';
 import '../../shared/models/vital.dart';
 import '../../shared/models/appointment.dart';
-import '../../shared/models/document.dart';
-import '../../shared/models/request_activity_event.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/vitals/vital_alert_parse.dart';
 import 'patient_domain_mapper.dart';
@@ -138,44 +136,13 @@ class StaffMapper {
   ) => StaffPatientRequest(
     id: (j['id'] ?? '').toString(),
     patientId: (j['patient_id'] ?? '').toString(),
-    patientName: j['patient_name'] as String?,
     type: 'Vital report',
     summary: (j['note'] as String?)?.isNotEmpty == true
         ? j['note'] as String
         : 'Vital summary report',
     status: (j['status'] as String?) ?? 'pending',
     createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-    claimedByName: j['claimed_by_name'] as String?,
-    claimedAt: _parseDate(j['claimed_at']),
-    // Server-decided. Comparing names client-side would break the moment two
-    // clinicians on a caseload share a surname.
-    claimedByMe: j['claimed_by_me'] == true,
-    claimable: j['claimable'] as bool? ?? true,
-    documentId: j['document_id'] as String?,
-    events: RequestActivityEvent.listFromApi(j['events']),
   );
-
-  static StaffDocumentRequest documentRequestFromApi(Map<String, dynamic> j) =>
-      StaffDocumentRequest(
-        id: (j['id'] ?? '').toString(),
-        patientId: (j['patient_id'] ?? '').toString(),
-        patientName: j['patient_name'] as String?,
-        title: (j['title'] ?? 'Document request') as String,
-        category: (j['category'] as String?) ?? 'other',
-        status: (j['status'] as String?) ?? 'pending',
-        createdAt: _parseDate(j['created_at']) ?? DateTime.now(),
-        note: j['note'] as String?,
-        targetDoctorName: j['target_doctor_name'] as String?,
-        addressedToMe: j['addressed_to_me'] == true,
-        neededBy: _parseDate(j['needed_by']),
-        overdue: j['overdue'] == true,
-        claimedByName: j['claimed_by_name'] as String?,
-        claimedByMe: j['claimed_by_me'] == true,
-        claimable: j['claimable'] as bool? ?? true,
-        declineReason: j['decline_reason'] as String?,
-        documentId: j['document_id'] as String?,
-        events: RequestActivityEvent.listFromApi(j['events']),
-      );
 
   static CareRequestItem careRequestFromApi(
     Map<String, dynamic> j,
@@ -334,13 +301,6 @@ class StaffMapper {
     ),
     description: j['description'] as String?,
     hasFile: j['has_file'] as bool? ?? true,
-    source: switch (j['source'] as String?) {
-      'clinician' => DocumentSource.clinician,
-      'report' => DocumentSource.report,
-      _ => DocumentSource.patient,
-    },
-    removalRequested: j['removal_requested'] == true,
-    removalReason: j['removal_reason'] as String?,
   );
 
   static StaffPatientSos sosFromApi(
@@ -440,14 +400,6 @@ class StaffMapper {
     assignedAt:
         _parseDate(j['assigned_at'] ?? j['created_at']) ?? DateTime.now(),
     assignedBy: (j['assigned_by'] as String?) ?? '',
-    scheduledFor: _parseDate(j['scheduled_for']),
-    serveTime: j['serve_time'] as String?,
-    conditionTag: j['condition_tag'] as String?,
-    items: PatientDomainMapper.mealItemsFromApi(j['items']),
-    source: MealPlanSource.fromApi(j['source'] as String?),
-    adherence: MealAdherence.fromApi(j['adherence'] as String?),
-    loggedAt: _parseDate(j['logged_at']),
-    patientNote: j['patient_note'] as String?,
   );
 
   static MealType _mealTypeFromApi(String? raw) => MealType.values.firstWhere(

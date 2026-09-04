@@ -46,13 +46,10 @@ class VitalThresholdForm extends StatefulWidget {
   final VitalRiskRange initial;
   final bool existingOverride;
   final bool allowClear;
-
   /// When true, hides padding and action buttons — parent handles submit.
   final bool embedded;
-
   /// Overrides the unit label shown in field hints. Falls back to vital.unit.
   final String? unit;
-
   /// When true, input fields are formatted / validated to one decimal place.
   final bool useDecimals;
 
@@ -124,15 +121,10 @@ class VitalThresholdFormState extends State<VitalThresholdForm> {
       setState(() => _error = 'All fields are required and must be numbers.');
       return null;
     }
-    if (!(clow! <= wlow! &&
-        wlow <= nmin! &&
-        nmin <= nmax! &&
-        nmax <= whigh! &&
-        whigh <= chigh!)) {
-      setState(
-        () => _error =
-            'Order must be: critical-low ≤ warning-low ≤ normal-min ≤ normal-max ≤ warning-high ≤ critical-high.',
-      );
+    if (!(clow! <= wlow! && wlow <= nmin! && nmin <= nmax! &&
+        nmax <= whigh! && whigh <= chigh!)) {
+      setState(() => _error =
+          'Order must be: critical-low ≤ warning-low ≤ normal-min ≤ normal-max ≤ warning-high ≤ critical-high.');
       return null;
     }
     setState(() => _error = null);
@@ -190,11 +182,17 @@ class VitalThresholdFormState extends State<VitalThresholdForm> {
         Row(
           children: [
             Expanded(
-              child: _NumField(label: 'Warning low', controller: _warnLow),
+              child: _NumField(
+                label: 'Warning low',
+                controller: _warnLow,
+              ),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: _NumField(label: 'Warning high', controller: _warnHigh),
+              child: _NumField(
+                label: 'Warning high',
+                controller: _warnHigh,
+              ),
             ),
           ],
         ),
@@ -202,11 +200,17 @@ class VitalThresholdFormState extends State<VitalThresholdForm> {
         Row(
           children: [
             Expanded(
-              child: _NumField(label: 'Critical low', controller: _critLow),
+              child: _NumField(
+                label: 'Critical low',
+                controller: _critLow,
+              ),
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: _NumField(label: 'Critical high', controller: _critHigh),
+              child: _NumField(
+                label: 'Critical high',
+                controller: _critHigh,
+              ),
             ),
           ],
         ),
@@ -222,7 +226,10 @@ class VitalThresholdFormState extends State<VitalThresholdForm> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             _error!,
-            style: const TextStyle(color: AppColors.critical, fontSize: 12),
+            style: const TextStyle(
+              color: AppColors.critical,
+              fontSize: 12,
+            ),
           ),
         ],
       ],
@@ -290,7 +297,9 @@ class _NumField extends StatelessWidget {
       label: label,
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]'))],
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9.\-]')),
+      ],
     );
   }
 }

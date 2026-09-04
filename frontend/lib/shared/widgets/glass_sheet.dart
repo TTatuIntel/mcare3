@@ -61,10 +61,9 @@ class GlassSheet {
       },
     );
 
-    final result = await Navigator.of(
-      context,
-      rootNavigator: true,
-    ).push<T>(route);
+    final result = await Navigator.of(context, rootNavigator: true).push<T>(
+      route,
+    );
 
     // `push` resolves the moment the sheet is popped — the panel is still on
     // screen, still building, for the length of its exit transition. Callers
@@ -236,9 +235,8 @@ class _SheetPanel extends StatelessWidget {
                       height: 4,
                       decoration: BoxDecoration(
                         color: AppPalette.borderStrong(context),
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusPill,
-                        ),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
                       ),
                     ),
                   ),
@@ -278,7 +276,9 @@ class _SheetPanel extends StatelessWidget {
                             children: [
                               Text(
                                 title,
-                                style: Theme.of(context).textTheme.titleLarge
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
                                     ?.copyWith(
                                       fontWeight: FontWeight.w700,
                                       color: AppPalette.ink(context),
@@ -288,7 +288,9 @@ class _SheetPanel extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   subtitle!,
-                                  style: Theme.of(context).textTheme.bodySmall
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
                                       ?.copyWith(
                                         color: AppPalette.textMuted(context),
                                       ),
@@ -314,9 +316,12 @@ class _SheetPanel extends StatelessWidget {
                             ),
                             child: Text(
                               statusLabel!,
-                              style: Theme.of(context).textTheme.labelSmall
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
                                   ?.copyWith(
-                                    color: statusColor ?? AppColors.brandIndigo,
+                                    color:
+                                        statusColor ?? AppColors.brandIndigo,
                                     fontWeight: FontWeight.w800,
                                     fontSize: 10,
                                   ),
@@ -374,7 +379,9 @@ class _FrostedSheetSurface extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final radius = BorderRadius.circular(AppSpacing.radiusXl);
     final borderColor = AppPalette.borderStrong(context);
-    final fill = isDark ? AppColors.darkSurface : AppPalette.surface(context);
+    final fill = isDark
+        ? AppColors.darkSurface
+        : AppPalette.surface(context);
 
     final decoration = BoxDecoration(
       color: fill,
@@ -382,9 +389,7 @@ class _FrostedSheetSurface extends StatelessWidget {
       border: Border.all(color: borderColor),
       boxShadow: [
         BoxShadow(
-          color: AppPalette.ink(
-            context,
-          ).withValues(alpha: isDark ? 0.45 : 0.14),
+          color: AppPalette.ink(context).withValues(alpha: isDark ? 0.45 : 0.14),
           blurRadius: 32,
           offset: const Offset(0, -10),
         ),

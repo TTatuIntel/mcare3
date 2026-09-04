@@ -450,13 +450,6 @@ class PushNotificationService {
       UserRole.mcareAssistant => RouteNames.assistantMessages,
       _ => null,
     },
-    'support' => switch (role) {
-      UserRole.patient => RouteNames.patientSupport,
-      UserRole.doctor => RouteNames.doctorNotifications,
-      UserRole.admin => RouteNames.adminSupport,
-      UserRole.mcareAssistant => RouteNames.assistantSupport,
-      _ => null,
-    },
     'medication' || 'medication_reminder' => switch (role) {
       UserRole.patient => RouteNames.patientMedications,
       UserRole.doctor => RouteNames.doctorPrescriptions,
@@ -478,7 +471,7 @@ class PushNotificationService {
       UserRole.mcareAssistant => RouteNames.assistantNotifications,
       _ => null,
     },
-    'care_request' || 'careRequest' || 'assignment' => switch (role) {
+    'care_request' || 'assignment' => switch (role) {
       UserRole.patient => RouteNames.patientCareTeam,
       UserRole.doctor => RouteNames.doctorPatients,
       UserRole.admin => RouteNames.adminCareRequests,

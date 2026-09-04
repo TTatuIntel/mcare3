@@ -8,7 +8,7 @@ use App\Models\VitalReading;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -20,12 +20,8 @@ use Illuminate\Queue\SerializesModels;
  * Current clients also receive the generic `session.changed` signal. Keeping
  * this event name allows older clients to trigger their REST refresh without
  * sending the clinical reading itself over the socket.
- *
- * An alert is the one signal that must never wait for a queue worker to be
- * running, so it broadcasts inline. [VitalAlertNotifier] absorbs a failure:
- * the alert row is already written and the change buffer already carries it.
  */
-class VitalAlertBroadcast implements ShouldBroadcastNow
+class VitalAlertBroadcast implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

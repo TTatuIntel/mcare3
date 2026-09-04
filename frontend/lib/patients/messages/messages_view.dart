@@ -192,6 +192,7 @@ class _ChatHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final isUnread = unread > 0;
     final accent = isUnread ? AppColors.warning : AppColors.doctorGreen;
     final iconBg = isUnread
@@ -211,11 +212,13 @@ class _ChatHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: desktop
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Container(
-                height: 40,
-                width: 40,
+                height: desktop ? 46 : 40,
+                width: desktop ? 46 : 40,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -223,7 +226,7 @@ class _ChatHero extends StatelessWidget {
                 child: Icon(
                   isUnread ? AppIcons.alert : AppIcons.chat,
                   color: accent,
-                  size: 20,
+                  size: desktop ? 23 : 20,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -233,6 +236,7 @@ class _ChatHero extends StatelessWidget {
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: AppPalette.ink(context),
                     fontWeight: FontWeight.w700,
+                    fontSize: desktop ? 18 : null,
                     height: 1.25,
                   ),
                 ),
@@ -310,25 +314,38 @@ class _HeroStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Flex(
+          direction: desktop ? Axis.horizontal : Axis.vertical,
+          mainAxisAlignment: desktop
+              ? MainAxisAlignment.center
+              : MainAxisAlignment.start,
+          crossAxisAlignment: desktop
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
           children: [
             Text(
               value,
               style: theme.textTheme.titleSmall?.copyWith(
                 color: accent ?? AppPalette.ink(context),
                 fontWeight: FontWeight.w800,
+                fontSize: desktop ? 21 : null,
               ),
             ),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppPalette.textMuted(context),
-                fontWeight: FontWeight.w600,
-                fontSize: 10,
+            SizedBox(width: desktop ? AppSpacing.sm : 0),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppPalette.textMuted(context),
+                  fontWeight: FontWeight.w600,
+                  fontSize: desktop ? 11.5 : 10,
+                ),
               ),
             ),
           ],
@@ -378,6 +395,7 @@ class _ChatQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.chat,
             label: 'Unread',
+            horizontal: ResponsiveBuilder.of(context).isDesktop,
             badge: unread > 0 ? '$unread' : null,
             badgeColor: AppColors.warning,
             selected: filter == _ChatFilter.unread,
@@ -395,12 +413,14 @@ class _ChatQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.careTeam,
             label: 'Care team',
+            horizontal: ResponsiveBuilder.of(context).isDesktop,
             onTap: () =>
                 Navigator.of(context).pushNamed(RouteNames.patientCareTeam),
           ),
           PatientQuickAction(
             icon: AppIcons.bell,
             label: 'Alerts',
+            horizontal: ResponsiveBuilder.of(context).isDesktop,
             onTap: () => Navigator.of(
               context,
             ).pushNamed(RouteNames.patientNotifications),
@@ -408,6 +428,7 @@ class _ChatQuickActions extends StatelessWidget {
           PatientQuickAction(
             icon: AppIcons.user,
             label: 'Online',
+            horizontal: ResponsiveBuilder.of(context).isDesktop,
             badge: online > 0 ? '$online' : null,
             badgeColor: AppColors.success,
             selected: filter == _ChatFilter.online,

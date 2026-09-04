@@ -9,8 +9,6 @@ import '../../shared/auth/auth_state.dart';
 import '../../shared/models/user_role.dart';
 import '../api/api_client.dart';
 import '../env/app_env.dart';
-import '../env/runtime_config.dart';
-import 'pulse_watcher.dart';
 import 'session_poller.dart';
 
 /// README §7.1 primary real-time channel.
@@ -19,32 +17,17 @@ import 'session_poller.dart';
 /// pure-Dart WebSocket client — no native deps, works on web + mobile +
 /// desktop from one implementation.
 ///
-/// The endpoint comes from [RuntimeConfig] — the API tells the app where its
-/// own broadcaster listens — with a `--dart-define` still winning where a
-/// build pinned one. It used to come from the define alone, which meant any
-/// build launched without the flags ran with no live connection at all and
-/// nobody could tell from the outside.
-///
-/// [PulseWatcher] carries the same domain invalidations over a cheap cursor
-/// poll as a continuous correctness watchdog, and both feed [changes]. A
-/// screen therefore cannot be live on one transport and stale on the other.
+/// Behaviour is opt-in: unless [AppEnv.realtimeEnabled] is true (both
+/// [AppEnv.wsUrl] and [AppEnv.wsAppKey] set), [attach] is a no-op and the
+/// app runs REST/polling only. This keeps local dev unaffected until the
+/// Reverb server is actually up.
 ///
 /// `session.changed` events carry domain names only. They trigger the same
 /// authenticated REST hydration path used by polling, while independently
 /// loaded screens can listen to [changes]. Legacy `vital.alert` frames remain
 /// supported during deployment upgrades.
 class RealtimeChannel {
-  RealtimeChannel._() {
-    // The fallback publishes into the same stream as the socket, so every
-    // screen already listening for live changes keeps working unchanged when
-    // there is no socket to listen to. The channel is a process-lifetime
-    // singleton, so this subscription is never torn down.
-    PulseWatcher.instance.changes.listen(_changes.add);
-    // A stale cursor means the server can no longer name what was missed.
-    // Broadcast a wildcard invalidation so independently loaded detail pages
-    // refresh too; a role-session refresh alone cannot cover those endpoints.
-    PulseWatcher.instance.gaps.listen((_) => _changes.add(const {'*'}));
-  }
+  RealtimeChannel._();
   static final RealtimeChannel instance = RealtimeChannel._();
 
   WebSocketChannel? _socket;
@@ -63,8 +46,7 @@ class RealtimeChannel {
       StreamController<Set<String>>.broadcast(sync: true);
 
   /// True only after every required private channel is authorised and Reverb
-  /// confirms the subscriptions. The cursor watcher remains a lightweight
-  /// correctness watchdog even while this is true.
+  /// confirms the subscriptions. Polling remains the primary path otherwise.
   bool get isSubscribed => _attached && _subscribed;
 
   /// Domain-level invalidation stream for screens that own an endpoint outside
@@ -74,7 +56,7 @@ class RealtimeChannel {
   /// Connect if realtime is enabled and a user is signed in. Idempotent —
   /// calling repeatedly with the same session is a no-op.
   Future<void> attach() async {
-    if (!RuntimeConfig.instance.socketEnabled) return;
+    if (!AppEnv.realtimeEnabled) return;
     if (_attached) return;
     final userId = AuthState.instance.user?.id;
     if (userId == null) return;
@@ -116,12 +98,9 @@ class RealtimeChannel {
     _subscribed = false;
     _requiredChannels.clear();
     _confirmedChannels.clear();
-    final base = RuntimeConfig.instance.socketUrl.replaceAll(
-      RegExp(r'/+$'),
-      '',
-    );
+    final base = AppEnv.wsUrl.replaceAll(RegExp(r'/+$'), '');
     final endpoint =
-        '$base/app/${RuntimeConfig.instance.socketAppKey}'
+        '$base/app/${AppEnv.wsAppKey}'
         '?protocol=7&client=mcare&version=1.0.0&flash=false';
     try {
       _socket = WebSocketChannel.connect(Uri.parse(endpoint));

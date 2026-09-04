@@ -127,6 +127,7 @@ class _SosViewState extends State<SosView> {
                       PatientQuickAction(
                         icon: AppIcons.sos,
                         label: 'Trigger',
+                        horizontal: tier.isDesktop,
                         onTap: active
                             ? () => AppToast.info(
                                 context,
@@ -137,6 +138,7 @@ class _SosViewState extends State<SosView> {
                       PatientQuickAction(
                         icon: AppIcons.phone,
                         label: 'Contacts',
+                        horizontal: tier.isDesktop,
                         badge: contacts.isNotEmpty
                             ? '${contacts.length}'
                             : null,
@@ -145,12 +147,14 @@ class _SosViewState extends State<SosView> {
                       PatientQuickAction(
                         icon: AppIcons.time,
                         label: 'History',
+                        horizontal: tier.isDesktop,
                         badge: history.isNotEmpty ? '${history.length}' : null,
                         onTap: () => patientScrollToKey(_historyKey),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.user,
                         label: 'Profile',
+                        horizontal: tier.isDesktop,
                         onTap: () => Navigator.of(
                           context,
                         ).pushNamed(RouteNames.patientProfile),
@@ -281,6 +285,7 @@ class _SosHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final accent = active ? AppColors.critical : AppColors.critical;
     final iconBg = active
         ? AppPalette.criticalSoft(context)
@@ -310,11 +315,13 @@ class _SosHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: desktop
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Container(
-                height: 40,
-                width: 40,
+                height: desktop ? 46 : 40,
+                width: desktop ? 46 : 40,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -322,7 +329,7 @@ class _SosHero extends StatelessWidget {
                 child: Icon(
                   active ? Icons.emergency : AppIcons.sos,
                   color: accent,
-                  size: 20,
+                  size: desktop ? 23 : 20,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -332,6 +339,7 @@ class _SosHero extends StatelessWidget {
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: AppPalette.ink(context),
                     fontWeight: FontWeight.w700,
+                    fontSize: desktop ? 18 : null,
                     height: 1.25,
                   ),
                 ),
@@ -362,14 +370,23 @@ class _SosHero extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              PatientHeroStat(label: 'Contacts', value: '$contactCount'),
+              PatientHeroStat(
+                label: 'Contacts',
+                value: '$contactCount',
+                horizontal: desktop,
+              ),
               const PatientHeroStatDivider(),
-              PatientHeroStat(label: 'Events', value: '$totalEvents'),
+              PatientHeroStat(
+                label: 'Events',
+                value: '$totalEvents',
+                horizontal: desktop,
+              ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Resolved',
                 value: '$resolvedCount',
                 accent: resolvedCount > 0 ? AppColors.success : null,
+                horizontal: desktop,
               ),
             ],
           ),

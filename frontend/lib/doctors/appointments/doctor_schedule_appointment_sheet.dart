@@ -51,7 +51,10 @@ class DoctorScheduleAppointmentSheet {
 }
 
 class _ScheduleBody extends StatefulWidget {
-  const _ScheduleBody({this.initialPatientId, this.initialPatientName});
+  const _ScheduleBody({
+    this.initialPatientId,
+    this.initialPatientName,
+  });
 
   final String? initialPatientId;
   final String? initialPatientName;
@@ -145,8 +148,8 @@ class _ScheduleBodyState extends State<_ScheduleBody> {
       locationOrLink: location.isEmpty
           ? null
           : (_type == AppointmentType.virtual && !location.startsWith('http')
-                ? 'https://meet.mcare.app/$location'
-                : location),
+              ? 'https://meet.mcare.app/$location'
+              : location),
     );
 
     if (!mounted) return;
@@ -154,7 +157,10 @@ class _ScheduleBodyState extends State<_ScheduleBody> {
 
     if (ok) {
       Navigator.of(context).pop();
-      AppToast.success(context, 'Appointment scheduled with ${_patientName!}.');
+      AppToast.success(
+        context,
+        'Appointment scheduled with ${_patientName!}.',
+      );
     } else {
       AppToast.error(context, 'Could not schedule appointment.');
     }
@@ -177,150 +183,152 @@ class _ScheduleBodyState extends State<_ScheduleBody> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SectionLabel(title: 'Patient', icon: AppIcons.patients),
-          const SizedBox(height: AppSpacing.xs),
-          if (canChoosePatient)
-            DropdownButtonFormField<String>(
-              value: _patientId,
-              isExpanded: true,
+          children: [
+            const SectionLabel(title: 'Patient', icon: AppIcons.patients),
+            const SizedBox(height: AppSpacing.xs),
+            if (canChoosePatient)
+              DropdownButtonFormField<String>(
+                value: _patientId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Select patient',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: _patients
+                    .map(
+                      (p) => DropdownMenuItem(
+                        value: p.id,
+                        child: Text(p.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _saving ? null : _onPatientChanged,
+              )
+            else
+              GlassCard(
+                frosted: true,
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Icon(AppIcons.patients,
+                        size: 18, color: AppColors.brandIndigo),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _patientName ?? 'No patient',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          if (patient != null)
+                            Text(
+                              patient.demographicsLine,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: AppPalette.textMuted(context)),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: AppSpacing.md),
+            const SectionLabel(title: 'Visit details', icon: AppIcons.appointment),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Visit type',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Wrap(
+              spacing: AppSpacing.sm,
+              children: AppointmentType.values.map((t) {
+                final selected = _type == t;
+                return ChoiceChip(
+                  avatar: Icon(t.icon, size: 16),
+                  label: Text(t.label),
+                  selected: selected,
+                  onSelected: _saving ? null : (_) => setState(() => _type = t),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _saving ? null : _pickDate,
+                    icon: const Icon(AppIcons.calendar, size: 18),
+                    label: Text(DateFormat.yMMMd().format(_date)),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _saving ? null : _pickTime,
+                    icon: const Icon(AppIcons.time, size: 18),
+                    label: Text(_time.format(context)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<int>(
+              value: _duration,
               decoration: const InputDecoration(
-                labelText: 'Select patient',
+                labelText: 'Duration',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              items: _patients
+              items: const [15, 30, 45, 60]
                   .map(
-                    (p) => DropdownMenuItem(value: p.id, child: Text(p.name)),
+                    (m) => DropdownMenuItem(
+                      value: m,
+                      child: Text('$m minutes'),
+                    ),
                   )
                   .toList(),
-              onChanged: _saving ? null : _onPatientChanged,
-            )
-          else
-            GlassCard(
-              frosted: true,
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Row(
-                children: [
-                  Icon(
-                    AppIcons.patients,
-                    size: 18,
-                    color: AppColors.brandIndigo,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _patientName ?? 'No patient',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (patient != null)
-                          Text(
-                            patient.demographicsLine,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: AppPalette.textMuted(context),
-                                ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              onChanged: _saving ? null : (v) => setState(() => _duration = v!),
             ),
-          const SizedBox(height: AppSpacing.md),
-          const SectionLabel(
-            title: 'Visit details',
-            icon: AppIcons.appointment,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Visit type',
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Wrap(
-            spacing: AppSpacing.sm,
-            children: AppointmentType.values.map((t) {
-              final selected = _type == t;
-              return ChoiceChip(
-                avatar: Icon(t.icon, size: 16),
-                label: Text(t.label),
-                selected: selected,
-                onSelected: _saving ? null : (_) => setState(() => _type = t),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _saving ? null : _pickDate,
-                  icon: const Icon(AppIcons.calendar, size: 18),
-                  label: Text(DateFormat.yMMMd().format(_date)),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _saving ? null : _pickTime,
-                  icon: const Icon(AppIcons.time, size: 18),
-                  label: Text(_time.format(context)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          DropdownButtonFormField<int>(
-            value: _duration,
-            decoration: const InputDecoration(
-              labelText: 'Duration',
-              border: OutlineInputBorder(),
-              isDense: true,
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
+              label: 'Reason for visit',
+              hint: 'e.g. Quarterly diabetes review',
+              controller: _reason,
+              maxLines: 2,
             ),
-            items: const [15, 30, 45, 60]
-                .map(
-                  (m) => DropdownMenuItem(value: m, child: Text('$m minutes')),
-                )
-                .toList(),
-            onChanged: _saving ? null : (v) => setState(() => _duration = v!),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            label: 'Reason for visit',
-            hint: 'e.g. Quarterly diabetes review',
-            controller: _reason,
-            maxLines: 2,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            label: _type == AppointmentType.virtual
-                ? 'Meeting link (optional)'
-                : _type == AppointmentType.inPerson
-                ? 'Location (optional)'
-                : 'Phone notes (optional)',
-            hint: _type == AppointmentType.virtual
-                ? 'Auto-generated if left blank'
-                : 'Clinic room or address',
-            controller: _location,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppButton(
-            label: _saving ? 'Scheduling…' : 'Schedule appointment',
-            icon: AppIcons.appointment,
-            expand: true,
-            onPressed: _saving || !_hasPatient ? null : _schedule,
-          ),
-        ],
-      ),
+            const SizedBox(height: AppSpacing.sm),
+            AppTextField(
+              label: _type == AppointmentType.virtual
+                  ? 'Meeting link (optional)'
+                  : _type == AppointmentType.inPerson
+                      ? 'Location (optional)'
+                      : 'Phone notes (optional)',
+              hint: _type == AppointmentType.virtual
+                  ? 'Auto-generated if left blank'
+                  : 'Clinic room or address',
+              controller: _location,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppButton(
+              label: _saving ? 'Scheduling…' : 'Schedule appointment',
+              icon: AppIcons.appointment,
+              expand: true,
+              onPressed: _saving || !_hasPatient ? null : _schedule,
+            ),
+          ],
+        ),
     );
   }
 }

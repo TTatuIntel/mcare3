@@ -21,18 +21,16 @@ import '../../shared/widgets/trend_chart.dart';
 import 'submit_vital_sheet.dart';
 import 'vital_reading_sheet.dart';
 
-enum _Range { d7, d21, d30, d90 }
+enum _Range { d7, d30, d90 }
 
 extension on _Range {
   int get days => switch (this) {
     _Range.d7 => 7,
-    _Range.d21 => 21,
     _Range.d30 => 30,
     _Range.d90 => 90,
   };
   String get label => switch (this) {
     _Range.d7 => '7 days',
-    _Range.d21 => '3 weeks',
     _Range.d30 => '30 days',
     _Range.d90 => '90 days',
   };
@@ -50,7 +48,7 @@ class VitalDetailView extends StatefulWidget {
   const VitalDetailView({
     super.key,
     required this.vital,
-    this.initialRangeDays = 21,
+    this.initialRangeDays = 7,
   });
   final VitalKey vital;
   final int initialRangeDays;
@@ -70,10 +68,9 @@ class _VitalDetailViewState extends State<VitalDetailView> {
 
   _Range _rangeFromDays(int days) => switch (days) {
     7 => _Range.d7,
-    21 => _Range.d21,
     30 => _Range.d30,
     90 => _Range.d90,
-    _ => _Range.d21,
+    _ => _Range.d7,
   };
 
   @override

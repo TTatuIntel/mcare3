@@ -111,11 +111,13 @@ class _SupportViewState extends State<SupportView> {
                       PatientQuickAction(
                         icon: AppIcons.add,
                         label: 'New ticket',
+                        horizontal: tier.isDesktop,
                         onTap: () => CreateTicketSheet.show(context),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.support,
                         label: 'Open',
+                        horizontal: tier.isDesktop,
                         badge: open.isNotEmpty ? '${open.length}' : null,
                         selected: _filter == _SupportFilter.open,
                         onTap: () =>
@@ -124,6 +126,7 @@ class _SupportViewState extends State<SupportView> {
                       PatientQuickAction(
                         icon: AppIcons.check,
                         label: 'Resolved',
+                        horizontal: tier.isDesktop,
                         badge: closed.isNotEmpty ? '${closed.length}' : null,
                         badgeColor: AppColors.success,
                         selected: _filter == _SupportFilter.resolved,
@@ -133,6 +136,7 @@ class _SupportViewState extends State<SupportView> {
                       PatientQuickAction(
                         icon: AppIcons.alert,
                         label: 'Priority',
+                        horizontal: tier.isDesktop,
                         badge: urgent > 0 ? '$urgent' : null,
                         badgeColor: AppColors.warning,
                         selected: _filter == _SupportFilter.priority,
@@ -244,6 +248,7 @@ class _SupportHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final isUrgent = urgentCount > 0;
     final accent = isUrgent ? AppColors.warning : AppColors.info;
     final iconBg = isUrgent
@@ -263,11 +268,13 @@ class _SupportHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: desktop
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Container(
-                height: 40,
-                width: 40,
+                height: desktop ? 46 : 40,
+                width: desktop ? 46 : 40,
                 decoration: BoxDecoration(
                   color: iconBg,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -275,7 +282,7 @@ class _SupportHero extends StatelessWidget {
                 child: Icon(
                   isUrgent ? AppIcons.alert : AppIcons.support,
                   color: accent,
-                  size: 20,
+                  size: desktop ? 23 : 20,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -284,6 +291,7 @@ class _SupportHero extends StatelessWidget {
                   headline,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
+                    fontSize: desktop ? 18 : null,
                     height: 1.25,
                   ),
                 ),
@@ -315,14 +323,23 @@ class _SupportHero extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              PatientHeroStat(label: 'Open', value: '$openCount'),
+              PatientHeroStat(
+                label: 'Open',
+                value: '$openCount',
+                horizontal: desktop,
+              ),
               const PatientHeroStatDivider(),
-              PatientHeroStat(label: 'Resolved', value: '$closedCount'),
+              PatientHeroStat(
+                label: 'Resolved',
+                value: '$closedCount',
+                horizontal: desktop,
+              ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Priority',
                 value: '$urgentCount',
                 accent: urgentCount > 0 ? AppColors.warning : null,
+                horizontal: desktop,
               ),
             ],
           ),

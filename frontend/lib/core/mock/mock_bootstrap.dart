@@ -4,7 +4,6 @@ import '../../shared/models/vital.dart';
 import '../../shared/state/announcements_state.dart';
 import '../../shared/state/appointments_state.dart';
 import '../../shared/state/care_state.dart';
-import '../../shared/state/document_requests_state.dart';
 import '../../shared/state/documents_state.dart';
 import '../../shared/state/meal_plans_state.dart';
 import '../../shared/state/medications_state.dart';
@@ -52,7 +51,6 @@ class MockBootstrap {
     VitalsState.instance.seed(MockData.seedVitals());
     NotificationState.instance.seed(MockData.seedNotifications());
     VitalReportState.instance.seed(MockData.seedVitalReportRequests());
-    DocumentRequestsState.instance.seed(MockData.seedDocumentRequests());
     MedicationsState.instance.seed(
       meds: MockData.seedMedications(),
       doses: MockData.seedAllDoses(),
@@ -89,7 +87,6 @@ class MockBootstrap {
     ]);
     NotificationState.instance.seed(MockData.seedNotifications());
     VitalReportState.instance.seed(MockData.seedVitalReportRequests());
-    DocumentRequestsState.instance.seed(MockData.seedDocumentRequests());
     MedicationsState.instance.seed(
       meds: MockData.seedMedications(),
       doses: MockData.seedAllDoses(),

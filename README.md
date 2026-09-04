@@ -246,10 +246,7 @@ API base: `http://127.0.0.1:8000/api/v1`
 
 ### 3.3 Run the queue worker — Terminal 2
 
-The default local queue is database-backed. Real-time no longer depends on it:
-invalidation signals publish inline and are buffered for the `/me/pulse`
-fallback. Run the worker when testing queued mail and other jobs. A process
-supervisor is required in production:
+The default local queue is database-backed. Run the worker when testing queued mail, Reverb broadcasts, and other jobs. A process supervisor is required in production:
 
 ```powershell
 Set-Location backend
@@ -258,22 +255,20 @@ php artisan queue:work --tries=3
 
 ### 3.4 Run Reverb — optional Terminal 3
 
-Reverb is opt-in and is the fastest path, not the only one. When configured it
-carries small, PHI-free invalidation signals across all live application
-domains; authorised clients then re-read canonical data from REST. Without it,
-the same signals reach clients within seconds through the `/me/pulse` change
-cursor, so updates still arrive without a manual refresh.
+Reverb is opt-in. When configured it carries small, PHI-free invalidation
+signals across all live application domains. Authorised clients then re-read
+canonical data from REST. REST polling remains active as reconciliation and
+automatically becomes the primary path if channel authorization or the socket
+connection fails.
 
 ```powershell
 Set-Location backend
 php artisan reverb:start --host=127.0.0.1 --port=8080
 ```
 
-Fill `REVERB_*` in `backend/.env` and set `BROADCAST_CONNECTION=reverb`. The
-app then discovers the endpoint from `GET /api/v1/config` — no Flutter build
-flag is required, and the API and client cannot disagree about the app key.
-`REVERB_HOST` may stay a bind address: clients are answered with the host they
-reached the API on.
+Fill `REVERB_*` in `backend/.env`, set `BROADCAST_CONNECTION=reverb`, run the
+queue worker, and pass the matching app key to Flutter. The API and WebSocket
+application key must refer to the same Reverb application.
 
 ### 3.5 Run Flutter web against Laravel — Terminal 4
 
@@ -287,9 +282,7 @@ flutter.bat run -d chrome --web-hostname localhost --web-port 8090 `
   --dart-define=MCARE_API_URL=http://127.0.0.1:8000/api/v1
 ```
 
-REST plus a pinned Reverb endpoint. Only needed to override what `/config`
-reports — a plain REST launch already connects to this deployment's socket if
-it has one:
+REST plus opt-in Reverb:
 
 ```powershell
 Set-Location frontend
@@ -387,14 +380,12 @@ Flutter application
         |
         | HTTPS REST + Sanctum bearer authentication
         | optional WSS/Reverb private invalidation signals
-        | GET /me/pulse change cursor when no socket is carrying events
         v
 Laravel 12 API
   Controllers · middleware · services · role/object authorization
         |
         +-- Eloquent observers -> RealtimeSignalService
-        |      -> inline, after-commit, PHI-free `session.changed`
-        |      -> the same signal appended to `realtime_events`
+        |      -> queued, after-commit, PHI-free `session.changed`
         |
         +-- MySQL: essential durable application and clinical data
         +-- Queue/cache/session: database locally; Redis recommended at scale
@@ -413,29 +404,6 @@ patient chart or a complete notification. It only says which domain changed,
 after the surrounding transaction commits. This avoids duplicate mapping
 logic, protects PHI, and makes a missed socket event recoverable by the next
 REST reconciliation.
-
-### Live delivery has a floor, not just a fast path
-
-A socket only delivers where a socket server is running and reachable. Every
-signal is therefore also appended to `realtime_events`, a buffer pruned after
-minutes, and `GET /me/pulse?since={id}` answers "what changed for me since?"
-in one indexed read. Clients poll it every few seconds whenever the socket is
-not confirmed to be carrying events, and both paths publish into the same
-domain-invalidation stream — so a screen cannot be live on one transport and
-stale on the other. Consequences worth knowing:
-
-- **No queue worker is needed for real-time.** Broadcasts publish inline
-  (`ShouldBroadcastNow`). Queued, they only left the building if a worker
-  happened to be running, and a deployment without one was indistinguishable
-  from one with no real-time at all.
-- **A failed or slow publish never fails the write that caused it.** The
-  publish is wrapped and time-limited; the buffer has already recorded it.
-- **No build flag is needed to turn real-time on.** The app asks `/config`
-  where this deployment's socket listens; `--dart-define` still wins when a
-  build pins one. A bind address of `localhost` is answered as the host the
-  client actually reached, so a phone on the LAN connects to the right place.
-- **The periodic session sweep is now a backstop.** It stretches to five
-  minutes whenever either live path is active.
 
 ### Frontend boundaries
 

@@ -17,12 +17,14 @@ import 'settings_quick_actions.dart';
 int personalSettingsEnabledCount(
   SettingsNotificationRole role,
   SettingsState s,
-) => switch (role) {
-  SettingsNotificationRole.patient => s.patientEnabledNotificationCount,
-  SettingsNotificationRole.doctor ||
-  SettingsNotificationRole.assistant => s.doctorEnabledNotificationCount,
-  SettingsNotificationRole.admin => s.adminEnabledNotificationCount,
-};
+) =>
+    switch (role) {
+      SettingsNotificationRole.patient => s.patientEnabledNotificationCount,
+      SettingsNotificationRole.doctor ||
+      SettingsNotificationRole.assistant =>
+        s.doctorEnabledNotificationCount,
+      SettingsNotificationRole.admin => s.adminEnabledNotificationCount,
+    };
 
 /// Shared settings column — appearance, notifications, optional privacy.
 /// Used by staff shells and patient settings.
@@ -69,7 +71,6 @@ class PersonalSettingsBody extends StatelessWidget {
   final String alertsQuickLabel;
   final String privacyQuickLabel;
   final String profileQuickLabel;
-
   /// Ops shortcuts shown before Theme / Alerts (e.g. Ticket inbox).
   final List<SettingsQuickActionDef> leadingQuickActions;
 
@@ -147,7 +148,10 @@ class PersonalSettingsBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        _wrap(4, AppearanceSettingsSection(sectionKey: appearanceKey)),
+        _wrap(
+          4,
+          AppearanceSettingsSection(sectionKey: appearanceKey),
+        ),
         const SizedBox(height: AppSpacing.md),
         _wrap(
           5,
@@ -183,7 +187,10 @@ class PersonalSettingsBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         _wrap(
           9,
-          const SectionLabel(title: 'Account security', icon: AppIcons.lock),
+          const SectionLabel(
+            title: 'Account security',
+            icon: AppIcons.lock,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         _wrap(10, const AccountSecuritySettingsSection()),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../auth/session_recovery.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -11,9 +10,7 @@ import '../theme/app_spacing.dart';
 /// statement and a way forward instead.
 ///
 /// Deliberately self-contained: an error can surface above `MaterialApp`, so
-/// this must not read `Theme`, `Directionality`, or any localisation — which
-/// is also why the way out navigates through `rootNavigatorKey` rather than
-/// this widget's own context.
+/// this must not read `Theme`, `Directionality`, or any localisation.
 class AppErrorFallback extends StatelessWidget {
   const AppErrorFallback({super.key, this.details});
 
@@ -52,47 +49,8 @@ class AppErrorFallback extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: AppColors.textMutedAA),
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                // The screen behind this is broken, so the only reliable exit
-                // is a route change. Signed in, that is the dashboard; signed
-                // out, landing.
-                const _BackToSafety(),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Plain [GestureDetector] rather than the usual `AppButton`/[InkWell]: this
-/// button only ever renders inside a screen that has already failed, so it
-/// takes on no ancestor it cannot prove is there. A crash inside the crash
-/// screen has nowhere left to fall back to.
-class _BackToSafety extends StatelessWidget {
-  const _BackToSafety();
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: SessionRecovery.goHome,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl,
-          vertical: AppSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.brandIndigo,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        ),
-        child: const Text(
-          'Back to safety',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFFFFFFFF),
           ),
         ),
       ),

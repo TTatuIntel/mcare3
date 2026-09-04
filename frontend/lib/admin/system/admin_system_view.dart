@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/admin_api.dart';
 import '../../core/api/staff_mapper.dart';
-import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/navigation/staff_destinations.dart';
 import '../../shared/state/staff_state.dart';
@@ -22,14 +21,12 @@ class AdminSystemView extends StatefulWidget {
   State<AdminSystemView> createState() => _AdminSystemViewState();
 }
 
-class _AdminSystemViewState extends State<AdminSystemView>
-    with RealtimeRefreshMixin<AdminSystemView> {
+class _AdminSystemViewState extends State<AdminSystemView> {
   final Set<String> _saving = {};
 
   @override
   void initState() {
     super.initState();
-    watchRealtime(const {'settings'}, _loadSettings);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettings());
   }
 

@@ -191,9 +191,7 @@ class OtpCodeFieldState extends State<OtpCodeField> {
                         borderRadius: BorderRadius.circular(
                           AppSpacing.radiusMd,
                         ),
-                        borderSide: BorderSide(
-                          color: AppPalette.border(context),
-                        ),
+                        borderSide: BorderSide(color: AppPalette.border(context)),
                       ),
                     ),
                     onChanged: (v) => _onChanged(i, v),

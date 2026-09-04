@@ -10,7 +10,6 @@ import 'admin/alerts/admin_alerts_view.dart';
 import 'admin/analytics/admin_analytics_view.dart';
 import 'admin/announcements/admin_announcements_view.dart';
 import 'admin/approvals/admin_approvals_view.dart';
-import 'admin/reports/admin_reports_view.dart';
 import 'admin/assignments/admin_assignments_view.dart';
 import 'admin/audit/admin_audit_view.dart';
 import 'admin/care_requests/admin_care_requests_view.dart';
@@ -56,6 +55,7 @@ import 'mcare_assistant/guided_hub/assistant_guided_operations_view.dart';
 import 'patients/appointments/appointment_detail_view.dart';
 import 'patients/appointments/appointments_view.dart';
 import 'patients/care_team/care_team_view.dart';
+import 'patients/consents/patient_report_consents_view.dart';
 import 'patients/dashboard/patient_dashboard_view.dart';
 import 'patients/documents/documents_view.dart';
 import 'patients/hubs/patient_care_hub_view.dart';
@@ -63,13 +63,11 @@ import 'patients/hubs/patient_health_hub_view.dart';
 import 'patients/hubs/patient_more_hub_view.dart';
 import 'patients/medications/medication_detail_view.dart';
 import 'patients/medications/medications_view.dart';
-import 'patients/meals/meals_view.dart';
 import 'patients/onboarding/patient_onboarding_view.dart';
 import 'patients/messages/chat_thread_view.dart';
 import 'patients/messages/messages_view.dart';
 import 'patients/notifications/notifications_view.dart';
 import 'patients/profile/profile_view.dart';
-import 'patients/record/patient_clinical_profile_view.dart';
 import 'patients/settings/settings_view.dart';
 import 'patients/sos/sos_view.dart';
 import 'patients/support/support_view.dart';
@@ -90,7 +88,6 @@ import 'shared/auth/staff_profile_gate.dart';
 import 'shared/profile/complete_staff_profile_view.dart';
 import 'shared/profile/force_change_password_view.dart';
 import 'shared/auth/role_guard.dart';
-import 'shared/auth/session_recovery.dart';
 import 'shared/constants/route_names.dart';
 import 'shared/models/notifications_filter.dart';
 import 'shared/models/user_role.dart';
@@ -105,7 +102,6 @@ import 'l10n/app_localizations.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_icons.dart';
-import 'core/api/api_client.dart';
 import 'core/async/request_cache.dart';
 import 'shared/widgets/app_error_fallback.dart';
 import 'shared/widgets/app_page_route.dart';
@@ -135,11 +131,6 @@ Future<void> main() async {
   // Role modules register logout cleanup here so shared/auth stays decoupled.
   AuthState.addLogoutCleanup(CriticalAlertPopup.reset);
   AuthState.addLogoutCleanup(RequestCache.instance.clear);
-  // A token the API refuses is a session that no longer exists — revoked,
-  // expired, or an account disabled while the app was open. Ending it here,
-  // once, is what stops the app looking signed in while every screen quietly
-  // fails its own request.
-  ApiClient.instance.onSessionRejected = SessionRecovery.forceSignOut;
   runApp(const McareApp());
 }
 
@@ -153,9 +144,8 @@ class McareApp extends StatefulWidget {
 class _McareAppState extends State<McareApp> {
   /// Hard ceiling on startup work. Session restore and the Google redirect
   /// probe both touch the network; if either hangs we still want the app on
-  /// screen. Whatever the outcome, [SessionRecovery.settleLaunch] has the last
-  /// word on where the app lands, so a timeout can no longer leave a restored
-  /// session staring at the public landing page.
+  /// screen. Landing is safe to show — an unrestored session just means the
+  /// user signs in again.
   static const Duration _bootstrapWatchdog = Duration(seconds: 8);
 
   /// Absolute last resort: the HTML splash comes down after this no matter
@@ -179,15 +169,11 @@ class _McareAppState extends State<McareApp> {
 
   Future<void> _runBootstrap() async {
     // Every exit below — success, early return, throw, or timeout — falls
-    // through to the `finally`, which is the only place that settles the route
-    // and takes the splash down. Previously a null context, a throw out of
-    // session restore, or the watchdog skipped the navigation entirely and
-    // left a signed-in user on the marketing landing page.
-    String? bootstrapRoute;
-    var navigated = false;
+    // through to the `finally`, which is the only place that takes the splash
+    // down. Previously a null context or a throw out of session restore left
+    // the splash up and the app stranded on an empty frame.
     try {
       final result = await AppBootstrap.run().timeout(_bootstrapWatchdog);
-      bootstrapRoute = result.initialRoute;
       if (!mounted) return;
       final ctx = rootNavigatorKey.currentContext;
       if (ctx == null || !ctx.mounted) return;
@@ -196,26 +182,25 @@ class _McareAppState extends State<McareApp> {
         final gr = result.googleAuthResult;
         if (gr != null) {
           if (gr.isSuccess) {
-            // Owns the whole journey, verification sheet included.
             AuthService.instance.completeNavigation(ctx, gr);
-            navigated = true;
             return;
           } else if (!gr.cancelled) {
             AppToast.error(ctx, gr.errorMessage ?? 'Google sign-in failed.');
           }
         }
       }
+
+      final target = result.initialRoute;
+      // Already on LandingView; only navigate if a saved session was restored.
+      if (target != RouteNames.home) {
+        Navigator.of(ctx).pushReplacementNamed(target);
+      }
     } catch (error, stack) {
-      // Startup must never be fatal, and it must never be a dead end either.
-      // Session restore signs the user in before it returns a route, so the
-      // recovery below still finds a dashboard to land on when the failure
-      // happened after that point.
-      debugPrint('mCare bootstrap failed, recovering to a safe route: $error');
+      // Startup must never be fatal. Landing is always reachable, so log and
+      // let the user in rather than holding an empty screen.
+      debugPrint('mCare bootstrap failed, continuing to landing: $error');
       debugPrintStack(stackTrace: stack);
     } finally {
-      if (!navigated) {
-        SessionRecovery.settleLaunch(bootstrapRoute: bootstrapRoute);
-      }
       LaunchReadiness.instance.markBootstrapComplete();
       _dismissSplashAfterPaint();
     }
@@ -391,7 +376,7 @@ class _McareAppState extends State<McareApp> {
         page = _PatientGuarded(
           child: VitalDetailView(
             vital: args?.vital ?? VitalKey.heartRate,
-            initialRangeDays: args?.rangeDays ?? 21,
+            initialRangeDays: args?.rangeDays ?? 7,
           ),
         );
         break;
@@ -434,9 +419,6 @@ class _McareAppState extends State<McareApp> {
       case RouteNames.patientDocuments:
         page = const _PatientGuarded(child: DocumentsView());
         break;
-      case RouteNames.patientMeals:
-        page = const _PatientGuarded(child: MealsView());
-        break;
       case RouteNames.patientMessages:
         page = const _PatientGuarded(child: MessagesView());
         break;
@@ -449,16 +431,6 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.patientProfile:
         page = const _PatientGuarded(child: ProfileView());
-        break;
-      case RouteNames.patientClinicalProfile:
-        // An int argument opens the record on a specific tab, so a
-        // notification about a reading or a document can land on it directly.
-        final segment = settings.arguments is int
-            ? settings.arguments as int
-            : 0;
-        page = _PatientGuarded(
-          child: PatientClinicalProfileView(initialSegment: segment),
-        );
         break;
       case RouteNames.patientSettings:
         page = const _PatientGuarded(child: SettingsView());
@@ -474,9 +446,7 @@ class _McareAppState extends State<McareApp> {
         page = const _PatientGuarded(child: SosView());
         break;
       case RouteNames.patientReportConsents:
-        // Keep old notifications and bookmarks working, but send patients to
-        // the single Documents & reports workspace.
-        page = const _PatientGuarded(child: DocumentsView());
+        page = const _PatientGuarded(child: PatientReportConsentsView());
         break;
 
       // ----- Doctor ----------------------------------------------------
@@ -655,9 +625,6 @@ class _McareAppState extends State<McareApp> {
         break;
       case RouteNames.adminApprovals:
         page = const _AdminGuarded(child: AdminApprovalsView());
-        break;
-      case RouteNames.adminReports:
-        page = const _AdminGuarded(child: AdminReportsView());
         break;
       case RouteNames.adminCareRequests:
         page = const _AdminGuarded(child: AdminCareRequestsView());

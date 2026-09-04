@@ -30,9 +30,10 @@ class StaffAttentionBuilder {
   }) {
     final routes = _routes(roleRoutes);
 
-    final activeSos =
-        StaffState.instance.patientSos.where((e) => e.isActive).toList()
-          ..sort((a, b) => b.triggeredAt.compareTo(a.triggeredAt));
+    final activeSos = StaffState.instance.patientSos
+        .where((e) => e.isActive)
+        .toList()
+      ..sort((a, b) => b.triggeredAt.compareTo(a.triggeredAt));
 
     final openAlerts = StaffState.instance.alerts
         .where((a) => !a.acknowledged && !a.resolved)
@@ -47,11 +48,9 @@ class StaffAttentionBuilder {
         .toList();
 
     final openTickets = SupportState.instance.all
-        .where(
-          (t) =>
-              t.status == TicketStatus.open ||
-              t.status == TicketStatus.inProgress,
-        )
+        .where((t) =>
+            t.status == TicketStatus.open ||
+            t.status == TicketStatus.inProgress)
         .toList();
 
     return [
@@ -59,14 +58,11 @@ class StaffAttentionBuilder {
       // permission because SOS reveals live GPS.
       if (roleRoutes == AttentionRoleRoutes.admin ||
           hasPermission(AssistantPermissions.canAccessEmergencyLocation))
-        for (final e in activeSos.take(
-          roleRoutes == AttentionRoleRoutes.admin ? 2 : 3,
-        ))
+        for (final e in activeSos.take(roleRoutes == AttentionRoleRoutes.admin ? 2 : 3))
           StaffAttentionItem(
             icon: AppIcons.sos,
             color: AppColors.critical,
-            title:
-                e.patientName ??
+            title: e.patientName ??
                 StaffState.instance.patientById(e.patientId)?.name ??
                 'Patient',
             subtitle:
@@ -79,9 +75,7 @@ class StaffAttentionBuilder {
             ),
           ),
       // Alerts — always visible to both roles.
-      for (final a in openAlerts.take(
-        roleRoutes == AttentionRoleRoutes.admin ? 3 : 4,
-      ))
+      for (final a in openAlerts.take(roleRoutes == AttentionRoleRoutes.admin ? 3 : 4))
         StaffAttentionItem(
           icon: AppIcons.alert,
           color: a.severity == RiskLevel.critical
@@ -133,18 +127,18 @@ class StaffAttentionBuilder {
 
   static _AttentionRoutes _routes(AttentionRoleRoutes r) =>
       r == AttentionRoleRoutes.admin
-      ? const _AttentionRoutes(
-          alerts: RouteNames.adminAlerts,
-          approvals: RouteNames.adminApprovals,
-          careRequests: RouteNames.adminCareRequests,
-          support: RouteNames.adminSupport,
-        )
-      : const _AttentionRoutes(
-          alerts: RouteNames.assistantAlerts,
-          approvals: RouteNames.assistantApprovals,
-          careRequests: RouteNames.assistantCareRequests,
-          support: RouteNames.assistantSupport,
-        );
+          ? const _AttentionRoutes(
+              alerts: RouteNames.adminAlerts,
+              approvals: RouteNames.adminApprovals,
+              careRequests: RouteNames.adminCareRequests,
+              support: RouteNames.adminSupport,
+            )
+          : const _AttentionRoutes(
+              alerts: RouteNames.assistantAlerts,
+              approvals: RouteNames.assistantApprovals,
+              careRequests: RouteNames.assistantCareRequests,
+              support: RouteNames.assistantSupport,
+            );
 }
 
 class _AttentionRoutes {

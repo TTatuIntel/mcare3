@@ -65,9 +65,8 @@ class BrandLogo extends StatelessWidget {
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil(RouteNames.landing, (_) => false),
+              onTap: () => Navigator.of(context)
+                  .pushNamedAndRemoveUntil(RouteNames.landing, (_) => false),
               child: mark,
             ),
           ),
@@ -183,10 +182,7 @@ class _HeartbeatWordmarkState extends State<_HeartbeatWordmark>
     super.initState();
     _rollBeatColors();
     final disable = WidgetsBinding
-        .instance
-        .platformDispatcher
-        .accessibilityFeatures
-        .disableAnimations;
+        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
     _beatCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: _HeartbeatRhythm.cycleMs),
@@ -295,14 +291,8 @@ class _McareWordmark extends StatelessWidget {
               height: 1.0,
             ),
             children: [
-              TextSpan(
-                text: 'm',
-                style: TextStyle(color: mColor),
-              ),
-              TextSpan(
-                text: 'Care',
-                style: TextStyle(color: inkColor),
-              ),
+              TextSpan(text: 'm', style: TextStyle(color: mColor)),
+              TextSpan(text: 'Care', style: TextStyle(color: inkColor)),
             ],
           ),
         ),
@@ -382,7 +372,9 @@ class _EcgRevealPainter extends CustomPainter {
     if (t <= 0.11) return 0;
     if (t >= 0.83) return 1;
     final x = (t - 0.11) / 0.72;
-    return x < 0.5 ? 4 * x * x * x : 1 - math.pow(-2 * x + 2, 3).toDouble() / 2;
+    return x < 0.5
+        ? 4 * x * x * x
+        : 1 - math.pow(-2 * x + 2, 3).toDouble() / 2;
   }
 
   // Pulse travel sweep 0→1 over 8→88%  (mcare-pulse-travel)
@@ -425,7 +417,8 @@ class _EcgRevealPainter extends CustomPainter {
     final bedScale = 0.78 + 0.11 * (1 - math.cos(2 * math.pi * t));
     final bedW = size.width * 0.75 * bedScale;
     final bedH = size.height * 0.18;
-    final bedAlpha = (0.10 + 0.08 * (1 - math.cos(2 * math.pi * t))) * alpha;
+    final bedAlpha =
+        (0.10 + 0.08 * (1 - math.cos(2 * math.pi * t))) * alpha;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH((size.width - bedW) / 2, midY - bedH / 2, bedW, bedH),

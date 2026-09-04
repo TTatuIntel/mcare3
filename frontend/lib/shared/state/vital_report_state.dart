@@ -6,15 +6,7 @@ import '../models/user_role.dart';
 import '../models/vital.dart';
 import '../models/vital_report_request.dart';
 
-/// Patient vital report requests: the shared care-team queue as the patient
-/// sees it.
-///
-/// Two mechanisms live here and they answer different questions. Escalation
-/// moves who is *answerable* when nobody has picked a request up — doctor →
-/// assistant → admin as SLA windows expire. A claim records who is actually
-/// *doing it*, and a claimed request is never escalated: escalating work
-/// somebody has already started is how a patient ends up with two reports and
-/// an admin chasing a doctor who is mid-way through writing one.
+/// Patient vital report requests with doctor → assistant → admin escalation.
 class VitalReportState extends ChangeNotifier {
   VitalReportState._();
   static final VitalReportState instance = VitalReportState._();
@@ -25,38 +17,16 @@ class VitalReportState extends ChangeNotifier {
   final List<VitalReportRequest> _requests = [];
 
   List<VitalReportRequest> get requests => List.unmodifiable(_requests);
-
-  /// Everything still being worked on — waiting *or* claimed. The screens that
-  /// used this to mean "nobody has answered yet" still want both.
   List<VitalReportRequest> get pending =>
-      _requests.where((r) => r.isOpen).toList(growable: false);
-
-  /// Raised and not yet picked up by anyone.
-  List<VitalReportRequest> get unclaimed => _requests
-      .where((r) => r.status == VitalReportStatus.pending)
-      .toList(growable: false);
-
-  /// Somebody on the care team is writing it right now.
-  List<VitalReportRequest> get inProgress => _requests
-      .where((r) => r.status == VitalReportStatus.inProgress)
-      .toList(growable: false);
-
-  List<VitalReportRequest> get fulfilled => _requests
-      .where((r) => r.status == VitalReportStatus.fulfilled)
-      .toList(growable: false);
+      _requests.where((r) => r.isPending).toList(growable: false);
+  List<VitalReportRequest> get fulfilled =>
+      _requests.where((r) => r.status == VitalReportStatus.fulfilled).toList(growable: false);
 
   void seed(List<VitalReportRequest> initial) {
     _requests
       ..clear()
       ..addAll(initial);
     notifyListeners();
-  }
-
-  /// Re-pulls the list, so a claim or a completion made on the care team's
-  /// side shows up without waiting for the next full session sync.
-  Future<void> refresh() async {
-    if (!AppEnv.backendEnabled) return;
-    seed(await VitalReportsApi.instance.listMine());
   }
 
   VitalReportRequest requestReport({
@@ -81,21 +51,20 @@ class VitalReportState extends ChangeNotifier {
     return req;
   }
 
-  /// Advances requests nobody has taken on when SLA windows expire.
+  /// Advances pending requests when SLA windows expire without a response.
   void checkEscalations() {
     final now = DateTime.now();
     var changed = false;
 
     for (var i = 0; i < _requests.length; i++) {
       final r = _requests[i];
-      // A claimed request is being worked on. The clock is for silence, not
-      // for work in progress.
-      if (!r.isOpen || r.isClaimed) continue;
+      if (!r.isPending) continue;
 
       final anchor = r.lastEscalatedAt ?? r.createdAt;
       final elapsed = now.difference(anchor);
 
-      if (r.currentResponder == UserRole.doctor && elapsed >= _doctorSla) {
+      if (r.currentResponder == UserRole.doctor &&
+          elapsed >= _doctorSla) {
         _requests[i] = r.copyWith(
           currentResponder: UserRole.mcareAssistant,
           lastEscalatedAt: now,
@@ -126,14 +95,13 @@ class VitalReportState extends ChangeNotifier {
     final i = _requests.indexWhere((r) => r.id == id);
     if (i == -1) return false;
     final r = _requests[i];
-    if (!r.isOpen || r.currentResponder != role) return false;
+    if (!r.isPending || r.currentResponder != role) return false;
 
     _requests[i] = r.copyWith(
       status: VitalReportStatus.fulfilled,
       respondedAt: DateTime.now(),
       respondedBy: responderName,
       responseNote: note,
-      resolvedAt: DateTime.now(),
     );
     notifyListeners();
     return true;
@@ -141,7 +109,7 @@ class VitalReportState extends ChangeNotifier {
 
   void cancel(String id) {
     final i = _requests.indexWhere((r) => r.id == id);
-    if (i == -1 || !_requests[i].isOpen) return;
+    if (i == -1 || !_requests[i].isPending) return;
     _requests[i] = _requests[i].copyWith(status: VitalReportStatus.cancelled);
     notifyListeners();
   }
@@ -173,7 +141,7 @@ class VitalReportState extends ChangeNotifier {
   /// Persisting variant of [cancel].
   Future<void> cancelRemote(String id) async {
     final i = _requests.indexWhere((r) => r.id == id);
-    if (i == -1 || !_requests[i].isOpen) return;
+    if (i == -1 || !_requests[i].isPending) return;
     final original = _requests[i];
     cancel(id);
     if (!AppEnv.backendEnabled) return;

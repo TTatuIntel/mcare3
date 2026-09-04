@@ -24,7 +24,6 @@ use App\Models\PatientAssignedVital;
 use App\Models\PatientHealthProfile;
 use App\Models\PatientReportRequest;
 use App\Models\PatientTrackedVital;
-use App\Models\RealtimeEvent;
 use App\Models\SosEvent;
 use App\Models\SosResponseAction;
 use App\Models\SupportTicket;
@@ -39,8 +38,6 @@ use App\Models\VitalReading;
 use App\Models\VitalReportRequest;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 /**
  * Resolves model changes to private channels and client data domains.
@@ -92,15 +89,6 @@ class RealtimeSignalService
             VitalReading::class,
             VitalReportRequest::class,
         ];
-    }
-
-    /**
-     * True while a snapshot install has asked for silence. Nothing at all is
-     * signalled — neither the socket nor the buffer clients read from.
-     */
-    public static function muted(): bool
-    {
-        return self::$muteDepth > 0;
     }
 
     public static function enabled(): bool
@@ -158,130 +146,23 @@ class RealtimeSignalService
         string $resourceType,
         string|int|null $resourceId = null,
     ): void {
-        if (self::muted() || $channels === [] || $domains === []) {
+        if (! self::enabled() || $channels === [] || $domains === []) {
             return;
         }
 
-        $channels = array_values(array_unique($channels));
-        $domains = array_values(array_unique($domains));
-
-        // The buffer is written first and unconditionally. It is what makes a
-        // change reach a client that has no socket — no Reverb server, no
-        // queue worker, a phone that just came back from the lock screen — in
-        // seconds rather than at the next full poll. When the socket is up it
-        // arrives there first and this row is simply never read.
-        self::record($channels, $domains, $action, $resourceType, $resourceId);
-
-        if (! self::enabled()) {
-            return;
-        }
-
-        // A broadcast now goes out inline (see [RealtimeDataChanged]), so a
-        // socket server that is down or slow must not be able to fail the
-        // write that triggered it. The buffer above already guarantees
-        // delivery; the socket is the fast path, not the only one.
-        try {
-            RealtimeDataChanged::dispatch(
-                $channels,
-                $domains,
-                $action,
-                $resourceType,
-                $resourceId,
-            );
-        } catch (Throwable $e) {
-            Log::warning('Realtime broadcast failed; clients fall back to the change buffer.', [
-                'resource_type' => $resourceType,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Appends one row per channel to the short-lived change buffer.
-     *
-     * @param  list<string>  $channels
-     * @param  list<string>  $domains
-     */
-    private static function record(
-        array $channels,
-        array $domains,
-        string $action,
-        string $resourceType,
-        string|int|null $resourceId,
-    ): void {
-        $now = now();
-        $domainList = implode(',', $domains);
-
-        try {
-            RealtimeEvent::insert(array_map(static fn (string $channel) => [
-                'channel' => $channel,
-                'domains' => $domainList,
-                'action' => $action,
-                'resource_type' => $resourceType,
-                'resource_id' => $resourceId === null ? null : (string) $resourceId,
-                'created_at' => $now,
-            ], $channels));
-        } catch (Throwable $e) {
-            // A missing table (mid-deploy) or a locked database must never
-            // turn a successful clinical write into a failed request.
-            Log::warning('Realtime change buffer write failed.', [
-                'resource_type' => $resourceType,
-                'error' => $e->getMessage(),
-            ]);
-
-            return;
-        }
-
-        self::pruneOccasionally();
-    }
-
-    /**
-     * Keeps the buffer to its retention window without a scheduler.
-     *
-     * The sweep is cheap and rare — roughly one write in fifty — so the table
-     * stays a few minutes deep whether or not anything else runs on the box.
-     */
-    private static function pruneOccasionally(): void
-    {
-        if (random_int(1, 50) !== 1) {
-            return;
-        }
-
-        try {
-            RealtimeEvent::where(
-                'created_at',
-                '<',
-                now()->subMinutes(RealtimeEvent::RETENTION_MINUTES),
-            )->delete();
-        } catch (Throwable) {
-            // Retention is housekeeping; never surface it to a caller.
-        }
-    }
-
-    /**
-     * The channels one signed-in user listens on.
-     *
-     * The socket client subscribes to exactly these, and the fallback cursor
-     * endpoint reads exactly these, so a change cannot arrive over one path
-     * and be invisible on the other. Note what is *not* here: a doctor has no
-     * per-patient channel to subscribe to, because [patientChannels] already
-     * addresses every assigned doctor's own user channel.
-     *
-     * @return list<string>
-     */
-    public static function channelsForUser(User $user): array
-    {
-        return array_values(array_filter([
-            'user.'.$user->id,
-            'app',
-            in_array($user->role, ['admin', 'mcare_assistant'], true) ? 'staff' : null,
-        ]));
+        RealtimeDataChanged::dispatch(
+            array_values(array_unique($channels)),
+            array_values(array_unique($domains)),
+            $action,
+            $resourceType,
+            $resourceId,
+        );
     }
 
     /** @param  list<string>|null  $domains */
     public static function forModel(Model $model, string $action, ?array $domains = null): void
     {
-        if (self::muted()) {
+        if (! self::enabled()) {
             return;
         }
 

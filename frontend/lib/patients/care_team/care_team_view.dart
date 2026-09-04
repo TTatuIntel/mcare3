@@ -185,6 +185,7 @@ class _CareTeamViewState extends State<CareTeamView> {
                       PatientQuickAction(
                         icon: AppIcons.careTeam,
                         label: 'My team',
+                        horizontal: tier.isDesktop,
                         badge: assigned.isNotEmpty
                             ? '${assigned.length}'
                             : null,
@@ -194,6 +195,7 @@ class _CareTeamViewState extends State<CareTeamView> {
                       PatientQuickAction(
                         icon: AppIcons.add,
                         label: 'Browse',
+                        horizontal: tier.isDesktop,
                         badge: available.isNotEmpty
                             ? '${available.length}'
                             : null,
@@ -203,11 +205,13 @@ class _CareTeamViewState extends State<CareTeamView> {
                       PatientQuickAction(
                         icon: AppIcons.link,
                         label: 'Emergency access',
+                        horizontal: tier.isDesktop,
                         onTap: () => ExternalAccessSheet.show(context),
                       ),
                       PatientQuickAction(
                         icon: AppIcons.time,
                         label: 'Pending',
+                        horizontal: tier.isDesktop,
                         badge: pending.isNotEmpty ? '${pending.length}' : null,
                         badgeColor: AppColors.warning,
                         selected: _tab == _CareTeamTab.pending,
@@ -337,6 +341,7 @@ class _TeamHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final desktop = ResponsiveBuilder.of(context).isDesktop;
     final headline = assignedCount == 0
         ? 'Build your care team'
         : '$assignedCount provider${assignedCount == 1 ? '' : 's'} on your team';
@@ -348,19 +353,21 @@ class _TeamHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: desktop
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
               Container(
-                height: 40,
-                width: 40,
+                height: desktop ? 46 : 40,
+                width: desktop ? 46 : 40,
                 decoration: BoxDecoration(
                   color: AppColors.doctorGreen.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
-                child: const Icon(
+                child: Icon(
                   AppIcons.careTeam,
                   color: AppColors.doctorGreen,
-                  size: 20,
+                  size: desktop ? 23 : 20,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -369,6 +376,7 @@ class _TeamHero extends StatelessWidget {
                   headline,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
+                    fontSize: desktop ? 18 : null,
                     height: 1.25,
                   ),
                 ),
@@ -380,14 +388,23 @@ class _TeamHero extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              PatientHeroStat(label: 'My team', value: '$assignedCount'),
+              PatientHeroStat(
+                label: 'My team',
+                value: '$assignedCount',
+                horizontal: desktop,
+              ),
               const PatientHeroStatDivider(),
-              PatientHeroStat(label: 'Browse', value: '$availableCount'),
+              PatientHeroStat(
+                label: 'Browse',
+                value: '$availableCount',
+                horizontal: desktop,
+              ),
               const PatientHeroStatDivider(),
               PatientHeroStat(
                 label: 'Pending',
                 value: '$pendingCount',
                 accent: pendingCount > 0 ? AppColors.warning : null,
+                horizontal: desktop,
               ),
             ],
           ),

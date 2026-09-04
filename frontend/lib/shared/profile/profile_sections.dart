@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../auth/auth_state.dart';
-import '../constants/route_names.dart';
+import '../auth/sign_out_action.dart';
 import '../models/app_user.dart';
 import '../models/user_role.dart';
-import '../navigation/root_navigator.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/app_button.dart';
-import '../widgets/app_dialog.dart';
 import '../widgets/app_icons.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/patient_page_blocks.dart';
@@ -120,31 +117,13 @@ class ProfileSecuritySection extends StatelessWidget {
                   label: 'Sign out',
                   variant: AppButtonVariant.danger,
                   icon: AppIcons.logout,
-                  onPressed: () => _signOut(context),
+                  onPressed: () => confirmAndSignOut(context),
                 ),
               ],
             ],
           ),
         ),
       ],
-    );
-  }
-
-  static Future<void> _signOut(BuildContext context) async {
-    final ok = await AppDialog.confirm(
-      context,
-      title: 'Sign out?',
-      message:
-          'You\'ll be returned to the home screen and will need to sign in again.',
-      danger: true,
-      icon: AppIcons.logout,
-      iconActionOnly: true,
-    );
-    if (ok != true) return;
-    AuthState.instance.signOut();
-    rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
-      RouteNames.landing,
-      (_) => false,
     );
   }
 }

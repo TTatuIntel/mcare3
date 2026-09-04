@@ -16,7 +16,7 @@ mixin RealtimeRefreshMixin<T extends StatefulWidget> on State<T> {
     _realtimeRefreshSubscription = RealtimeChannel.instance.changes.listen((
       changed,
     ) {
-      if (!changed.contains('*') && !changed.any(domains.contains)) return;
+      if (!changed.any(domains.contains)) return;
       unawaited(_runRealtimeRefresh(refresh));
     });
   }
@@ -32,12 +32,7 @@ mixin RealtimeRefreshMixin<T extends StatefulWidget> on State<T> {
     try {
       do {
         _realtimeRefreshPending = false;
-        try {
-          await refresh();
-        } catch (_) {
-          // A live refresh is background reconciliation. The page keeps its
-          // last successful data and the next event/pulse/resume retries.
-        }
+        await refresh();
       } while (mounted && _realtimeRefreshPending);
     } finally {
       _realtimeRefreshRunning = false;

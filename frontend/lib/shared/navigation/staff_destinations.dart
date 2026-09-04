@@ -81,7 +81,6 @@ class StaffDestinations {
           RouteNames.adminWork,
           RouteNames.adminSos,
           RouteNames.adminApprovals,
-          RouteNames.adminReports,
           RouteNames.adminCareRequests,
           RouteNames.adminAssignments,
           RouteNames.adminSupport,

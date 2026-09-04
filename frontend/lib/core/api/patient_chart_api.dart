@@ -96,13 +96,12 @@ class ChartPeriod {
   static const int maxDays = 366;
 
   static const week = ChartPeriod.days(7, 'Last 7 days', '7d');
-  static const threeWeeks = ChartPeriod.days(21, 'Last 3 weeks', '3w');
   static const month = ChartPeriod.days(30, 'Last 30 days', '30d');
   static const quarter = ChartPeriod.days(90, 'Last 90 days', '90d');
   static const halfYear = ChartPeriod.days(180, 'Last 6 months', '6m');
   static const year = ChartPeriod.days(365, 'Last 12 months', '12m');
 
-  static const presets = [week, threeWeeks, month, quarter, halfYear, year];
+  static const presets = [week, month, quarter, halfYear, year];
 
   /// Calendar spans resolved against [now], so "this month" is this month.
   static List<ChartPeriod> calendarPresets([DateTime? now]) {

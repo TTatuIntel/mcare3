@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketReply;
-use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -30,7 +29,6 @@ class SupportController extends Controller
             'status' => 'open',
             'updated_at_app' => now(),
         ]);
-        WorkflowNotificationService::supportTicketOpened($ticket, $request->user());
 
         return $this->success(['ticket' => $ticket->toApiArray()], 'Ticket opened.', 201);
     }
@@ -48,8 +46,6 @@ class SupportController extends Controller
             'sent_at' => now(),
         ]);
         $ticket->update(['updated_at_app' => now()]);
-        WorkflowNotificationService::patientRepliedToSupport($ticket, $request->user());
-
         return $this->success(['reply' => $reply->toApiArray()], 'Reply sent.', 201);
     }
 

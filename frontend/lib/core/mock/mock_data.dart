@@ -6,10 +6,8 @@ import '../../shared/models/app_user.dart';
 import '../../shared/models/appointment.dart';
 import '../../shared/models/care_provider.dart';
 import '../../shared/models/document.dart';
-import '../../shared/models/document_request.dart';
 import '../../shared/models/meal_plan.dart';
 import '../../shared/models/medication.dart';
-import '../../shared/models/request_activity_event.dart';
 import '../../shared/models/message.dart';
 import '../../shared/models/notification_item.dart';
 import '../../shared/models/patient_profile.dart';
@@ -22,144 +20,41 @@ import '../../shared/models/vital_report_request.dart';
 class MockData {
   MockData._();
 
-  /// The demo nutrition timetable — a clinician's plans across yesterday,
-  /// today and tomorrow plus one meal the patient added themselves, with
-  /// yesterday already logged so progress and streak have something to read.
+  /// Nutrition assigned by the demo care team — two plans stamped today so the
+  /// home feed has a "meal assigned" card to rotate through.
   static List<StaffMealPlan> seedMealPlans() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final tomorrow = today.add(const Duration(days: 1));
-
-    StaffMealPlan plan({
-      required String id,
-      required String title,
-      required MealType mealType,
-      required DateTime day,
-      required String serveTime,
-      String? description,
-      List<String> items = const [],
-      int? calories,
-      String? protein,
-      String? carbs,
-      String? fat,
-      String? notes,
-      String? conditionTag,
-      MealPlanSource source = MealPlanSource.careTeam,
-      MealAdherence adherence = MealAdherence.pending,
-    }) {
-      return StaffMealPlan(
-        id: id,
+    return [
+      StaffMealPlan(
+        id: 'meal_1',
         patientId: 'u_001',
         patientName: 'Amara Okonkwo',
-        title: title,
-        mealType: mealType,
-        description: description,
-        items: items,
-        calories: calories,
-        protein: protein,
-        carbs: carbs,
-        fat: fat,
-        notes: notes,
-        conditionTag: conditionTag,
-        assignedAt: today.add(const Duration(hours: 6)),
-        assignedBy: source == MealPlanSource.patient
-            ? 'You'
-            : 'Dr. Kojo Mensah',
-        scheduledFor: day,
-        serveTime: serveTime,
-        source: source,
-        adherence: adherence,
-        loggedAt: adherence.isLogged
-            ? day.add(const Duration(hours: 20))
-            : null,
-      );
-    }
-
-    return [
-      plan(
-        id: 'meal_y1',
         title: 'Steel-cut oats with berries',
         mealType: MealType.breakfast,
-        day: yesterday,
-        serveTime: '07:00',
-        calories: 320,
-        protein: '12 g',
-        carbs: '48 g',
-        fat: '7 g',
-        conditionTag: 'Type 2 diabetes',
-        adherence: MealAdherence.followed,
-      ),
-      plan(
-        id: 'meal_y2',
-        title: 'Grilled fish, greens and brown rice',
-        mealType: MealType.lunch,
-        day: yesterday,
-        serveTime: '13:00',
-        calories: 540,
-        protein: '38 g',
-        carbs: '52 g',
-        fat: '14 g',
-        adherence: MealAdherence.partial,
-      ),
-      plan(
-        id: 'meal_1',
-        title: 'Steel-cut oats with berries',
-        mealType: MealType.breakfast,
-        day: today,
-        serveTime: '07:00',
         description:
             'Half a cup of oats, unsweetened, with a handful of berries.',
-        items: const [
-          'Half cup steel-cut oats',
-          'Handful of mixed berries',
-          'Unsweetened almond milk',
-        ],
         calories: 320,
         protein: '12 g',
         carbs: '48 g',
         fat: '7 g',
         notes: 'Take Metformin with this meal.',
-        conditionTag: 'Type 2 diabetes',
+        assignedAt: today.add(const Duration(hours: 6, minutes: 30)),
+        assignedBy: 'Dr. Kojo Mensah',
       ),
-      plan(
+      StaffMealPlan(
         id: 'meal_2',
+        patientId: 'u_001',
+        patientName: 'Amara Okonkwo',
         title: 'Grilled fish, greens and brown rice',
         mealType: MealType.lunch,
-        day: today,
-        serveTime: '13:00',
         description: 'Palm-sized fish portion, half a plate of greens.',
-        items: const [
-          'Palm-sized grilled tilapia',
-          'Half plate steamed greens',
-          'Quarter cup brown rice',
-        ],
         calories: 540,
         protein: '38 g',
         carbs: '52 g',
         fat: '14 g',
-      ),
-      plan(
-        id: 'meal_3',
-        title: 'Roasted groundnuts',
-        mealType: MealType.snack,
-        day: today,
-        serveTime: '16:00',
-        calories: 180,
-        protein: '8 g',
-        source: MealPlanSource.patient,
-      ),
-      plan(
-        id: 'meal_t1',
-        title: 'Vegetable omelette with avocado',
-        mealType: MealType.breakfast,
-        day: tomorrow,
-        serveTime: '07:30',
-        calories: 380,
-        protein: '22 g',
-        carbs: '10 g',
-        fat: '26 g',
-        conditionTag: 'Type 2 diabetes',
+        assignedAt: today.add(const Duration(hours: 7)),
+        assignedBy: 'Dr. Kojo Mensah',
       ),
     ];
   }
@@ -193,9 +88,7 @@ class MockData {
     ];
   }
 
-  /// Joined yesterday, so the demo shows the home page a genuinely new
-  /// patient sees — welcome included — rather than only the steady state.
-  static AppUser samplePatient() => AppUser(
+  static AppUser samplePatient() => const AppUser(
     id: 'u_001',
     uniqueId: 'MCR-001284',
     firstName: 'Amara',
@@ -203,7 +96,6 @@ class MockData {
     email: 'amara.okonkwo@example.com',
     phone: '+254 712 000 000',
     role: UserRole.patient,
-    joinedAt: DateTime.now().subtract(const Duration(days: 1)),
   );
 
   static AppUser sampleDoctor() => const AppUser(
@@ -374,80 +266,10 @@ class MockData {
           VitalKey.heartRate,
         ],
         createdAt: now.subtract(const Duration(days: 3)),
-        status: VitalReportStatus.inProgress,
+        status: VitalReportStatus.pending,
         currentResponder: UserRole.mcareAssistant,
         lastEscalatedAt: now.subtract(const Duration(days: 1)),
         note: 'For cardiology follow-up',
-        claimedByName: 'Dr. Kojo Mensah',
-        claimedAt: now.subtract(const Duration(hours: 4)),
-        events: [
-          RequestActivityEvent(
-            id: 'vr_ev_1',
-            action: RequestActivityAction.opened,
-            actorLabel: 'You',
-            happenedAt: now.subtract(const Duration(days: 3)),
-            note: 'For cardiology follow-up',
-          ),
-          RequestActivityEvent(
-            id: 'vr_ev_2',
-            action: RequestActivityAction.claimed,
-            actorLabel: 'Dr. Kojo Mensah',
-            happenedAt: now.subtract(const Duration(hours: 4)),
-          ),
-        ],
-      ),
-    ];
-  }
-
-  /// One request in each of the two states that actually differ to a patient:
-  /// nobody has touched it, and somebody has. A demo where every row says
-  /// "waiting" cannot show the thing the shared queue was built for.
-  static List<DocumentRequest> seedDocumentRequests() {
-    final now = DateTime.now();
-    return [
-      DocumentRequest(
-        id: 'dreq_demo_1',
-        title: 'Referral letter for physiotherapy',
-        category: DocumentCategory.referral,
-        target: DocumentRequestTarget.team,
-        status: DocumentRequestStatus.inProgress,
-        createdAt: now.subtract(const Duration(days: 2)),
-        note: 'The clinic needs it before my first session.',
-        neededBy: now.add(const Duration(days: 5)),
-        claimedByName: 'Dr. Kojo Mensah',
-        claimedAt: now.subtract(const Duration(hours: 6)),
-        events: [
-          RequestActivityEvent(
-            id: 'ev_1',
-            action: RequestActivityAction.opened,
-            actorLabel: 'You',
-            happenedAt: now.subtract(const Duration(days: 2)),
-            note: 'The clinic needs it before my first session.',
-          ),
-          RequestActivityEvent(
-            id: 'ev_2',
-            action: RequestActivityAction.claimed,
-            actorLabel: 'Dr. Kojo Mensah',
-            happenedAt: now.subtract(const Duration(hours: 6)),
-          ),
-        ],
-      ),
-      DocumentRequest(
-        id: 'dreq_demo_2',
-        title: 'Copy of my 2025 discharge summary',
-        category: DocumentCategory.discharge,
-        target: DocumentRequestTarget.doctor,
-        targetDoctorName: 'Dr. Amina Yusuf',
-        status: DocumentRequestStatus.pending,
-        createdAt: now.subtract(const Duration(hours: 20)),
-        events: [
-          RequestActivityEvent(
-            id: 'ev_3',
-            action: RequestActivityAction.opened,
-            actorLabel: 'You',
-            happenedAt: now.subtract(const Duration(hours: 20)),
-          ),
-        ],
       ),
     ];
   }

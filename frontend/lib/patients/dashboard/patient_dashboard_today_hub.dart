@@ -8,8 +8,6 @@ class _SceneAction {
     required this.title,
     required this.detail,
     required this.onTap,
-    this.priority = 0,
-    this.standing = false,
   });
 
   final IconData icon;
@@ -17,16 +15,6 @@ class _SceneAction {
   final String title;
   final String detail;
   final VoidCallback onTap;
-
-  /// Higher sorts first, mirroring the priority of the scene the step came
-  /// from, so the rows read in the same order as the stream below them.
-  final int priority;
-
-  /// A standing offer rather than something today is waiting on — "add another
-  /// reading any time". It stays on the page as a row, but it is not counted
-  /// in the headline: a day with nothing outstanding must be allowed to say
-  /// so.
-  final bool standing;
 }
 
 /// A counted fact the scene can show without asking for anything.
@@ -37,15 +25,15 @@ class _SceneStat {
   final String value;
 }
 
-/// One thing today holds: an alert, a due dose, a visit, a notice, a tally.
+/// One full card of the home hub.
 ///
-/// A scene names itself — "Medicine time", "Next appointment" — and carries
-/// the lines that belong to it. The page lists scenes; it no longer turns
-/// through them.
+/// The card *is* the scene: its title, accent, icon, body and actions all
+/// change together, so the surface reads as "Medicine time" or "Next
+/// appointment" rather than as a fixed panel with a changing row inside it.
 ///
 /// A scene with no [actions] is informational — it renders no ink, no chevron
 /// and no button role, so nothing looks tappable that is not. Every line is
-/// derived from a store; the page never invents adherence, risk or schedule.
+/// derived from a store; the hub never invents adherence, risk or schedule.
 class _HubScene {
   const _HubScene({
     required this.id,
@@ -83,63 +71,21 @@ class _HubScene {
   /// Counted facts, shown as chips.
   final List<_SceneStat> stats;
 
-  /// The first is the row's destination; the rest live on the screen it opens.
+  /// At most two are drawn; the rest live on the screen the action opens.
   final List<_SceneAction> actions;
 
   /// A quiet closing line — status, provenance, a caveat.
   final String? footnote;
 
-  /// Something is wrong now: it leads the stream and the briefing says so.
+  /// Keeps the rotation from carrying this past unnoticed.
   final bool urgent;
 
   bool get isActionable => actions.isNotEmpty;
 }
 
-/// How long a new account is greeted for. Three days: long enough to be seen
-/// across a weekend, short enough that it is gone before it is furniture.
-const int _welcomeDays = 3;
-
-/// A counted fact about today, written as one tappable phrase on the page
-/// background: "Vitals 2/4". No chip, no tile — the number is the whole
-/// widget, and tapping it opens the screen the number came from.
-class _HubFact {
-  const _HubFact({
-    required this.label,
-    required this.value,
-    required this.accent,
-    this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-  final VoidCallback? onTap;
-}
-
-/// Everything the patient home knows about today, in the three shapes the
-/// page uses it in: the ranked [scenes] the "For you" stream lists, the
-/// [steps] that are actually asking the patient for something, and the
-/// counted [facts] that only report.
-class _HubBriefing {
-  const _HubBriefing({
-    required this.scenes,
-    required this.steps,
-    required this.facts,
-  });
-
-  final List<_HubScene> scenes;
-  final List<_SceneAction> steps;
-  final List<_HubFact> facts;
-
-  int get urgentCount => scenes.where((s) => s.urgent).length;
-
-  /// The steps today is actually waiting on — what the headline counts.
-  int get outstandingCount => steps.where((s) => !s.standing).length;
-}
-
-/// Builds everything the patient home can honestly show right now, from the
-/// stores the session seeds, and ranks it.
-_HubBriefing _buildHubBriefing(
+/// Builds every scene the patient home can honestly show right now, from the
+/// stores the session seeds, and ranks them.
+List<_HubScene> _buildHubScenes(
   BuildContext context, {
   required List<Appointment> appointments,
   required List<MedicationDose> doses,
@@ -148,9 +94,8 @@ _HubBriefing _buildHubBriefing(
   final now = DateTime.now();
   final scenes = <_HubScene>[];
 
-  // The day's steps: the things that are actually asking the patient for
-  // something. Built alongside the scenes because the two are views of the
-  // same work — the briefing lists the steps, the feed lists the scenes.
+  // Actions the plan scene draws on. Built first because the focused scenes
+  // and the plan overview are two views of the same work.
   final planActions = <_SceneAction>[];
 
   // --- Emergency -------------------------------------------------------------
@@ -172,7 +117,6 @@ _HubBriefing _buildHubBriefing(
         urgent: true,
         actions: [
           _SceneAction(
-            priority: 100,
             icon: AppIcons.sos,
             accent: AppColors.critical,
             title: 'Open emergency status',
@@ -213,11 +157,7 @@ _HubBriefing _buildHubBriefing(
     final accent = closed != null
         ? AppColors.success
         : (critical ? AppColors.critical : AppColors.warning);
-    final alertPriority = closed != null
-        ? (now.difference(closed.createdAt) < const Duration(days: 1) ? 76 : 58)
-        : (critical ? 96 : 88);
     final action = _SceneAction(
-      priority: alertPriority,
       icon: key.icon,
       accent: accent,
       title: 'Review ${key.label.toLowerCase()}',
@@ -236,11 +176,15 @@ _HubBriefing _buildHubBriefing(
             : '${key.label} · ${reading?.risk.label ?? 'Needs review'}',
         icon: key.icon,
         accent: accent,
-        // A fresh answer outranks the routine for a day — the patient was
-        // just alarmed by this reading and is owed the reply while they are
-        // still wondering about it. After that it settles below the day's work
+        // A fresh answer outranks the plan for a day — the patient was just
+        // alarmed by this reading and is owed the reply while they are still
+        // wondering about it. After that it settles below the day's routine
         // rather than following them around.
-        priority: alertPriority,
+        priority: closed != null
+            ? (now.difference(closed.createdAt) < const Duration(days: 1)
+                  ? 76
+                  : 58)
+            : (critical ? 96 : 88),
         at: closed?.createdAt ?? reading?.recordedAt ?? now,
         body: closed != null
             ? closed.body
@@ -267,7 +211,6 @@ _HubBriefing _buildHubBriefing(
     final doseActions = [
       for (final dose in pending.take(2))
         _SceneAction(
-          priority: dose.scheduledAt.isBefore(now) ? 92 : 78,
           icon: AppIcons.medication,
           accent: dose.scheduledAt.isBefore(now)
               ? AppColors.warning
@@ -307,7 +250,6 @@ _HubBriefing _buildHubBriefing(
     final appt = appointments.first;
     final today = DateUtils.isSameDay(appt.scheduledAt, now);
     final action = _SceneAction(
-      priority: today ? 84 : 58,
       icon: AppIcons.appointment,
       accent: AppColors.bpPurple,
       title: today ? 'Open today\'s visit' : 'View appointment',
@@ -348,19 +290,6 @@ _HubBriefing _buildHubBriefing(
   if (unreadThreads.isNotEmpty) {
     final convo = unreadThreads.first;
     final total = unreadThreads.fold<int>(0, (sum, c) => sum + c.unreadCount);
-    planActions.add(
-      _SceneAction(
-        priority: 80,
-        icon: AppIcons.chat,
-        accent: AppColors.info,
-        title: 'Reply to ${convo.participant.name}',
-        detail:
-            '${convo.unreadCount} unread · ${_relativeTime(convo.lastMessage.sentAt)}',
-        onTap: () => Navigator.of(
-          context,
-        ).pushNamed(RouteNames.patientChatThread, arguments: convo.id),
-      ),
-    );
     scenes.add(
       _HubScene(
         id: 'msg_${convo.id}',
@@ -376,10 +305,9 @@ _HubBriefing _buildHubBriefing(
         actions: [
           for (final c in unreadThreads.take(2))
             _SceneAction(
-              priority: 80,
               icon: AppIcons.chat,
               accent: AppColors.info,
-              title: 'Reply to ${c.participant.name}',
+              title: c.participant.name,
               detail:
                   '${c.unreadCount} unread · ${_relativeTime(c.lastMessage.sentAt)}',
               onTap: () => Navigator.of(
@@ -392,22 +320,8 @@ _HubBriefing _buildHubBriefing(
   }
 
   // --- Announcements ---------------------------------------------------------
-  var announcementStepTaken = false;
   for (final ann in AnnouncementsState.instance.live.take(2)) {
     final fresh = now.difference(ann.effectiveAt).inHours < 24;
-    if (!announcementStepTaken) {
-      announcementStepTaken = true;
-      planActions.add(
-        _SceneAction(
-          priority: fresh ? 68 : 60,
-          icon: AppIcons.announcements,
-          accent: AppColors.adminPurple,
-          title: 'Read announcement',
-          detail: ann.title,
-          onTap: () => _AnnouncementSheet.show(context, ann),
-        ),
-      );
-    }
     scenes.add(
       _HubScene(
         id: 'ann_${ann.id}',
@@ -423,7 +337,6 @@ _HubBriefing _buildHubBriefing(
         body: ann.title,
         actions: [
           _SceneAction(
-            priority: fresh ? 72 : 64,
             icon: AppIcons.announcements,
             accent: AppColors.adminPurple,
             title: 'Read announcement',
@@ -435,53 +348,6 @@ _HubBriefing _buildHubBriefing(
     );
   }
 
-  // --- Documents and uploads -------------------------------------------------
-  // Home only calls out the newest recent file. The Documents screen remains
-  // the complete record while this scene answers "what just changed?".
-  final documents = DocumentsState.instance.all;
-  if (documents.isNotEmpty) {
-    final document = documents.first;
-    final age = now.difference(document.uploadedAt);
-    if (!age.isNegative && age <= const Duration(days: 14)) {
-      final fromCareTeam = document.source != DocumentSource.patient;
-      planActions.add(
-        _SceneAction(
-          priority: fromCareTeam ? 68 : 52,
-          icon: AppIcons.document,
-          accent: document.category.color,
-          title: fromCareTeam ? 'Open new document' : 'Open documents',
-          detail: document.title,
-          onTap: () =>
-              Navigator.of(context).pushNamed(RouteNames.patientDocuments),
-        ),
-      );
-      scenes.add(
-        _HubScene(
-          id: 'document_${document.id}',
-          title: fromCareTeam ? 'New document' : 'Document uploaded',
-          subtitle:
-              '${document.category.label} · ${_relativeTime(document.uploadedAt)}',
-          icon: document.category.icon,
-          accent: document.category.color,
-          priority: fromCareTeam ? 68 : 52,
-          at: document.uploadedAt,
-          body: document.title,
-          actions: [
-            _SceneAction(
-              priority: fromCareTeam ? 68 : 52,
-              icon: AppIcons.document,
-              accent: document.category.color,
-              title: 'Open documents',
-              detail: document.title,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(RouteNames.patientDocuments),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
   // --- Assigned meals --------------------------------------------------------
   final mealsToday = MealPlansState.instance.assignedToday;
   final meal = mealsToday.isNotEmpty
@@ -490,23 +356,6 @@ _HubBriefing _buildHubBriefing(
   final mealIsToday = mealsToday.isNotEmpty;
   if (meal != null &&
       (mealIsToday || now.difference(meal.assignedAt).inDays <= 7)) {
-    planActions.add(
-      _SceneAction(
-        priority: mealIsToday ? 62 : 48,
-        icon: meal.mealType.icon,
-        accent: meal.mealType.color,
-        title: mealsToday.length > 1
-            ? "See today's meals"
-            : 'See your ${meal.mealType.label.toLowerCase()}',
-        detail: [
-          meal.title,
-          if (meal.macroSummary.isNotEmpty) meal.macroSummary,
-        ].join(' · '),
-        onTap: () => mealsToday.length > 1
-            ? Navigator.of(context).pushNamed(RouteNames.patientMeals)
-            : MealDetailSheet.show(context, meal),
-      ),
-    );
     scenes.add(
       _HubScene(
         id: 'meal_${meal.id}',
@@ -532,7 +381,6 @@ _HubBriefing _buildHubBriefing(
         actions: [
           for (final m in (mealIsToday ? mealsToday : [meal]).take(2))
             _SceneAction(
-              priority: mealIsToday ? 62 : 48,
               icon: m.mealType.icon,
               accent: m.mealType.color,
               title: m.title,
@@ -540,7 +388,7 @@ _HubBriefing _buildHubBriefing(
                 m.mealType.label,
                 if (m.macroSummary.isNotEmpty) m.macroSummary,
               ].join(' · '),
-              onTap: () => MealDetailSheet.show(context, m),
+              onTap: () => _MealPlanSheet.show(context, m),
             ),
         ],
       ),
@@ -560,7 +408,6 @@ _HubBriefing _buildHubBriefing(
   final allLogged = tracked.isNotEmpty && loggedToday == tracked.length;
   planActions.add(
     _SceneAction(
-      priority: allLogged ? 30 : 70,
       icon: AppIcons.vitals,
       accent: AppColors.brandIndigo,
       title: 'Record your vitals',
@@ -573,14 +420,12 @@ _HubBriefing _buildHubBriefing(
         context,
         initial: tracked.isEmpty ? null : tracked.first,
       ),
-      standing: allLogged,
     ),
   );
 
   // --- Notification centre ---------------------------------------------------
   if (unreadNotifications > 0) {
     final action = _SceneAction(
-      priority: 55,
       icon: AppIcons.bell,
       accent: AppColors.brandIndigo,
       title: 'Review care updates',
@@ -610,16 +455,6 @@ _HubBriefing _buildHubBriefing(
   for (final ticket in SupportState.instance.open) {
     final lastReply = ticket.replies.isEmpty ? null : ticket.replies.last;
     if (lastReply == null || !lastReply.isStaff) continue;
-    planActions.add(
-      _SceneAction(
-        priority: 60,
-        icon: AppIcons.ticket,
-        accent: AppColors.info,
-        title: 'Open your ticket',
-        detail: ticket.subject,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientSupport),
-      ),
-    );
     scenes.add(
       _HubScene(
         id: 'ticket_${ticket.id}',
@@ -633,7 +468,6 @@ _HubBriefing _buildHubBriefing(
         footnote: ticket.subject,
         actions: [
           _SceneAction(
-            priority: 60,
             icon: AppIcons.ticket,
             accent: AppColors.info,
             title: 'Open your ticket',
@@ -679,16 +513,6 @@ _HubBriefing _buildHubBriefing(
     assignedVitals: VitalsState.instance.assigned.toList(),
   );
   if (!completion.isComplete && completion.incompleteItems.isNotEmpty) {
-    planActions.add(
-      _SceneAction(
-        priority: 42,
-        icon: AppIcons.user,
-        accent: AppColors.brandIndigo,
-        title: 'Complete your profile',
-        detail: completion.incompleteItems.first.label,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientProfile),
-      ),
-    );
     scenes.add(
       _HubScene(
         id: 'profile',
@@ -703,62 +527,12 @@ _HubBriefing _buildHubBriefing(
             'profile means your care team is not guessing.',
         actions: [
           _SceneAction(
-            priority: 42,
             icon: AppIcons.user,
             accent: AppColors.brandIndigo,
             title: 'Complete your profile',
             detail: completion.incompleteItems.first.label,
             onTap: () =>
                 Navigator.of(context).pushNamed(RouteNames.patientProfile),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- Welcome: the first three days, and then never again ------------------
-  // Dated from the account the server created, not from a flag this app sets,
-  // so it cannot follow a returning patient around and cannot be reset by a
-  // reinstall. An account whose age is unknown — an older stored session —
-  // counts as not new.
-  final joinedAt = AuthState.instance.user?.joinedAt;
-  final daysHere = AuthState.instance.user?.daysSinceJoining;
-  if (joinedAt != null && daysHere != null && daysHere < _welcomeDays) {
-    final firstName = AuthState.instance.user?.firstName ?? '';
-    planActions.add(
-      _SceneAction(
-        priority: 74,
-        icon: AppIcons.home,
-        accent: AppColors.brandIndigo,
-        title: 'See what mCare can do',
-        detail: 'Vitals, medicines, meals, documents and messages',
-        onTap: () => _WelcomeSheet.show(context),
-      ),
-    );
-    scenes.add(
-      _HubScene(
-        id: 'welcome',
-        title: firstName.isEmpty
-            ? 'Welcome to mCare'
-            : 'Welcome to mCare, $firstName',
-        subtitle: daysHere == 0
-            ? 'Joined today'
-            : 'Day ${daysHere + 1} of $_welcomeDays',
-        icon: AppIcons.home,
-        accent: AppColors.brandIndigo,
-        priority: 74,
-        at: joinedAt,
-        body:
-            'Everything you log here reaches your care team. Take a look at '
-            'what the app holds — you can come back to this for three days.',
-        actions: [
-          _SceneAction(
-            priority: 74,
-            icon: AppIcons.home,
-            accent: AppColors.brandIndigo,
-            title: 'See what mCare can do',
-            detail: 'Vitals, medicines, meals, documents and messages',
-            onTap: () => _WelcomeSheet.show(context),
           ),
         ],
       ),
@@ -797,86 +571,66 @@ _HubBriefing _buildHubBriefing(
     );
   }
 
+  // --- The plan: the overview the focused scenes come from ------------------
+  final planSteps = planActions.length;
+  scenes.add(
+    _HubScene(
+      id: 'plan',
+      title: 'Your plan today',
+      subtitle: '$planSteps priority step${planSteps == 1 ? '' : 's'}',
+      icon: AppIcons.catalog,
+      accent: AppColors.brandIndigo,
+      priority: 74,
+      at: now,
+      actions: planActions.take(2).toList(),
+      footnote: planSteps > 2
+          ? '+${planSteps - 2} more in the cards that follow'
+          : null,
+    ),
+  );
+
+  // --- Welcome: the calm one, and the last turn -----------------------------
+  final firstName = AuthState.instance.user?.firstName ?? '';
+  final urgentCount = scenes.where((s) => s.urgent).length;
+  scenes.add(
+    _HubScene(
+      id: 'welcome',
+      title: firstName.isEmpty ? 'Welcome back' : 'Welcome back, $firstName',
+      subtitle: DateFormat.yMMMMEEEEd().format(now),
+      icon: AppIcons.home,
+      accent: AppColors.brandIndigo,
+      priority: 20,
+      at: now,
+      body: urgentCount > 0
+          ? 'Something needs you today — the cards above show what.'
+          : 'Nothing is overdue right now. Swipe through today, or log a '
+                'reading whenever you are ready.',
+      stats: [
+        if (tracked.isNotEmpty)
+          _SceneStat('Vitals logged', '$loggedToday/${tracked.length}'),
+        if (pending.isNotEmpty) _SceneStat('Doses due', '${pending.length}'),
+        if (appointments.isNotEmpty)
+          _SceneStat(
+            'Next visit',
+            _patientVisitTime(appointments.first.scheduledAt),
+          ),
+      ],
+    ),
+  );
+
   scenes.sort((a, b) {
     final byPriority = b.priority.compareTo(a.priority);
     if (byPriority != 0) return byPriority;
     return b.at.compareTo(a.at);
   });
-
-  // The steps read in the same order as the stream: what is wrong, then what
-  // is due, then what is merely there.
-  planActions.sort((a, b) => b.priority.compareTo(a.priority));
-
-  final nextVisit = appointments.isEmpty ? null : appointments.first;
-
-  return _HubBriefing(
-    scenes: scenes,
-    steps: planActions,
-    facts: [
-      if (tracked.isNotEmpty)
-        _HubFact(
-          label: 'Vitals',
-          value: '$loggedToday/${tracked.length}',
-          accent: allLogged ? AppColors.success : AppColors.brandIndigo,
-          onTap: () =>
-              Navigator.of(context).pushNamed(RouteNames.patientVitals),
-        ),
-      if (doses.isNotEmpty)
-        _HubFact(
-          label: 'Doses',
-          value: '$takenToday/${doses.length}',
-          accent: pending.isEmpty ? AppColors.success : AppColors.warning,
-          onTap: () =>
-              Navigator.of(context).pushNamed(RouteNames.patientMedications),
-        ),
-      if (nextVisit != null)
-        _HubFact(
-          label: 'Next visit',
-          value: _patientVisitTime(nextVisit.scheduledAt),
-          accent: AppColors.bpPurple,
-          onTap: () => Navigator.of(context).pushNamed(
-            RouteNames.patientAppointmentDetail,
-            arguments: nextVisit.id,
-          ),
-        ),
-    ],
-  );
+  return scenes;
 }
 
-/// The ranked stream on its own — what the "For you" list is built from.
-List<_HubScene> _buildHubScenes(
-  BuildContext context, {
-  required List<Appointment> appointments,
-  required List<MedicationDose> doses,
-  required int unreadNotifications,
-}) => _buildHubBriefing(
-  context,
-  appointments: appointments,
-  doses: doses,
-  unreadNotifications: unreadNotifications,
-).scenes;
-
-/// The top of the patient home, written straight onto the page background.
-///
-/// This used to be a card that re-dealt itself every six seconds. Its height,
-/// its colour and its whole contents changed under the reader: the page moved
-/// while it was being used, and anything worth reading was gone before it was
-/// read. Nothing here is boxed and nothing moves on its own — but every line
-/// of it is live, and re-reads its stores the moment they change.
-///
-/// The shape is what keeps being live from costing the page anything: two
-/// lines of text that never wrap, one line of counted facts, then the steps as
-/// rows of one fixed shape. A dose being taken, an alert closing or a reading
-/// landing swaps a row for a row and rewrites a count in place — it does not
-/// re-lay the page out under a thumb already on its way somewhere.
-///
-/// What the rows hold is the whole app, not one corner of it: an alert, a
-/// dose, a visit, an unread message, a notice from the clinic, a new document,
-/// today's meal, the reading that is still to be logged, an unfinished
-/// profile — and, for a new account's first [_welcomeDays], the welcome. They
-/// are ranked, the top of the list is fixed, and the last row is a slot that
-/// turns with the calendar day so the quieter things get their turn.
-class _PatientTodayHub extends StatelessWidget {
+/// The home hub: one card that becomes each thing today holds in turn —
+/// "Your plan today", "Medicine time", "Next appointment", "Assigned meal",
+/// "Announcement", "Welcome back". Title, accent, body and actions change
+/// together, so the whole card is the live surface, not a strip inside it.
+class _PatientTodayHub extends StatefulWidget {
   const _PatientTodayHub({
     required this.appointments,
     required this.doses,
@@ -887,27 +641,101 @@ class _PatientTodayHub extends StatelessWidget {
   final List<MedicationDose> doses;
   final int unreadNotifications;
 
-  /// Steps drawn as rows. The rest are not hidden — they are rows in "For you",
-  /// and the line under the last one says how many.
-  static const _maxSteps = 3;
+  @override
+  State<_PatientTodayHub> createState() => _PatientTodayHubState();
+}
 
-  /// Which steps get the rows, when there are more than [_maxSteps].
-  ///
-  /// The top of the list is not negotiable: what is wrong and what is due keep
-  /// their places every single time. The last row is a rotating slot, so the
-  /// quieter things the app knows — an assigned meal, a new document, a notice
-  /// from the clinic — each get their turn on the home page instead of living
-  /// permanently below the fold.
-  ///
-  /// The slot turns with the calendar day, never with a timer: a patient
-  /// looking twice in one afternoon sees the same page both times, and a
-  /// patient looking every morning sees a different one.
-  static List<_SceneAction> _rowsFor(List<_SceneAction> steps, DateTime now) {
-    if (steps.length <= _maxSteps) return steps;
-    final pinned = steps.take(_maxSteps - 1).toList();
-    final rest = steps.skip(_maxSteps - 1).toList();
-    final day = DateUtils.dateOnly(now).difference(DateTime(2020)).inDays;
-    return [...pinned, rest[day % rest.length]];
+class _PatientTodayHubState extends State<_PatientTodayHub>
+    with TickerProviderStateMixin {
+  /// How long each scene holds the card. Long enough to read a title and two
+  /// lines, short enough that the last of eight is seen inside a minute.
+  static const _dwell = Duration(seconds: 6);
+
+  /// How long the card stays put after the patient swipes it themselves.
+  static const _resumeAfter = Duration(seconds: 15);
+
+  static const _maxScenes = 8;
+
+  late final AnimationController _pulse;
+  late final AnimationController _flash;
+
+  Timer? _rotationTimer;
+  Timer? _resumeTimer;
+  int _index = 0;
+  int _sceneCount = 0;
+  String _signature = '';
+
+  /// Read from [MediaQuery] each build — the same source the staff urgent
+  /// strip uses — so a platform setting and a test override both land.
+  bool _reduceMotion = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(vsync: this, duration: AppMotion.pulseCycle);
+    _flash = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rotationTimer?.cancel();
+    _resumeTimer?.cancel();
+    _pulse.dispose();
+    _flash.dispose();
+    super.dispose();
+  }
+
+  /// Keeps the timer, the page index and the "new content" flash in step with
+  /// whatever the stores now hold.
+  void _syncRotation(List<_HubScene> scenes) {
+    final signature = scenes.map((s) => s.id).join('|');
+    final changed = signature != _signature;
+    _signature = signature;
+    _sceneCount = scenes.length;
+
+    if (changed) {
+      if (_index >= scenes.length) _index = 0;
+      if (!_reduceMotion && scenes.isNotEmpty) {
+        _flash
+          ..reset()
+          ..forward();
+      }
+      _restartTimer();
+    }
+
+    final urgent = scenes.any((s) => s.urgent);
+    if (urgent && !_reduceMotion) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else if (_pulse.isAnimating) {
+      _pulse
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  void _restartTimer() {
+    _rotationTimer?.cancel();
+    if (_reduceMotion || _sceneCount < 2) return;
+    _rotationTimer = Timer.periodic(_dwell, (_) => _advance());
+  }
+
+  void _advance() => _goTo(_index + 1);
+
+  void _goTo(int index) {
+    if (!mounted || _sceneCount < 1) return;
+    setState(() => _index = (index + _sceneCount) % _sceneCount);
+  }
+
+  /// A swipe means the patient is reading — hold this scene, then resume.
+  void _onUserSwipe() {
+    _rotationTimer?.cancel();
+    _resumeTimer?.cancel();
+    _resumeTimer = Timer(_resumeAfter, () {
+      if (mounted) _restartTimer();
+    });
   }
 
   @override
@@ -917,238 +745,566 @@ class _PatientTodayHub extends StatelessWidget {
         MessagesState.instance,
         AnnouncementsState.instance,
         MealPlansState.instance,
-        DocumentsState.instance,
         SupportState.instance,
         VitalReportState.instance,
         SosState.instance,
         ProfileState.instance,
       ]),
       builder: (context, _) {
-        final briefing = _buildHubBriefing(
+        _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+        final scenes = _buildHubScenes(
           context,
-          appointments: appointments,
-          doses: doses,
-          unreadNotifications: unreadNotifications,
-        );
+          appointments: widget.appointments,
+          doses: widget.doses,
+          unreadNotifications: widget.unreadNotifications,
+        ).take(_maxScenes).toList();
 
-        final theme = Theme.of(context);
-        final steps = briefing.steps;
-        final urgent = briefing.urgentCount;
-        final outstanding = briefing.outstandingCount;
-        final shown = _rowsFor(steps, DateTime.now());
-        final hidden = steps.length - shown.length;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _syncRotation(scenes);
+        });
 
-        final headline = outstanding == 0
-            ? 'Nothing needs you right now'
-            : '$outstanding step${outstanding == 1 ? '' : 's'} today';
-        final detail = urgent > 0
-            ? urgent == 1
-                  ? '1 thing needs attention now — it is first below.'
-                  : '$urgent things need attention now — they are first below.'
-            : outstanding == 0
-            ? 'Log a reading whenever you are ready.'
-            : 'Nothing is overdue.';
+        final current = scenes[_index.clamp(0, scenes.length - 1)];
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Two lines that never wrap: the head of the block is the same
-            // height whatever the day turns out to hold.
-            Text(
-              headline,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-                color: urgent > 0
-                    ? AppColors.critical
-                    : AppPalette.ink(context),
-              ),
-            ),
-            Text(
-              detail,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppPalette.textMuted(context),
-              ),
-            ),
-            if (briefing.facts.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xs),
-              _HubFactsLine(facts: briefing.facts),
-            ],
-            for (final step in shown) _HubStepRow(action: step),
-            if (hidden > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.xs),
-                child: Text(
-                  '$hidden more listed under For you.',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppPalette.textFaint(context),
+        if (_reduceMotion) return _StaticHubCard(scenes: scenes);
+
+        // The card takes the scene's colour with it: the whole surface
+        // changes, not a row inside it.
+        return TweenAnimationBuilder<Color?>(
+          tween: ColorTween(end: current.accent),
+          duration: AppMotion.page,
+          curve: AppMotion.easeOut,
+          builder: (context, accent, _) {
+            final tint = accent ?? current.accent;
+            return AnimatedBuilder(
+              animation: Listenable.merge([_pulse, _flash]),
+              builder: (context, child) {
+                // One ring, two jobs: a slow pulse while something urgent is
+                // in the rotation, and a single flash when new content lands.
+                final glow = current.urgent
+                    ? 0.16 + 0.30 * _pulse.value
+                    : 0.34 * (1 - Curves.easeOut.transform(_flash.value));
+                return GlassCard(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      tint.withValues(alpha: 0.12),
+                      AppPalette.surface(context),
+                    ],
                   ),
-                ),
+                  border: Border.all(
+                    color: tint.withValues(alpha: current.urgent ? 0.42 : 0.20),
+                    width: current.urgent ? 1.4 : 1,
+                  ),
+                  shadow: glow <= 0.01
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: tint.withValues(alpha: glow),
+                            blurRadius: 22,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                  child: child!,
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SceneDeck(
+                    scenes: scenes,
+                    index: _index.clamp(0, scenes.length - 1),
+                    onSwipe: (forward) {
+                      _onUserSwipe();
+                      _goTo(_index + (forward ? 1 : -1));
+                    },
+                  ),
+                  if (scenes.length > 1) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _HubFooter(
+                      count: scenes.length,
+                      index: _index.clamp(0, scenes.length - 1),
+                      accent: tint,
+                      onSelect: (i) {
+                        _onUserSwipe();
+                        _goTo(i);
+                      },
+                    ),
+                  ],
+                ],
               ),
-          ],
+            );
+          },
         );
       },
     );
   }
 }
 
-/// The counted facts, on one line that wraps: label, then the number in the
-/// colour the number earned — green once every tracked vital is in, amber
-/// while a dose is still due. Each is a tap onto the screen it came from.
-class _HubFactsLine extends StatelessWidget {
-  const _HubFactsLine({required this.facts});
+/// Every scene, stacked, with one of them showing.
+///
+/// The deck is not a [PageView] on a fixed height. Scenes hold different
+/// amounts — two action rows, or a paragraph and a row of facts — and a fixed
+/// page either clips the tall ones or leaves the short ones hollow; at a large
+/// text size it clipped them all. Stacking instead makes the card as tall as
+/// its tallest scene and no taller, whatever the reader's text size, so the
+/// card cannot overflow and the page below never jumps as scenes swap.
+class _SceneDeck extends StatelessWidget {
+  const _SceneDeck({
+    required this.scenes,
+    required this.index,
+    required this.onSwipe,
+  });
 
-  final List<_HubFact> facts;
+  final List<_HubScene> scenes;
+  final int index;
+
+  /// True for the next scene, false for the previous one.
+  final ValueChanged<bool> onSwipe;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (var i = 0; i < facts.length; i++) ...[
-          if (i > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              child: Text(
-                '·',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppPalette.textFaint(context),
-                ),
-              ),
+    return GestureDetector(
+      // Horizontal only: the page under this card scrolls vertically, and a
+      // tap still reaches the action rows.
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity.abs() < 120 || scenes.length < 2) return;
+        onSwipe(velocity < 0);
+      },
+      child: Stack(
+        alignment: Alignment.topLeft,
+        children: [
+          for (var i = 0; i < scenes.length; i++)
+            _SceneSlot(
+              active: i == index,
+              child: _HubSceneView(scene: scenes[i]),
             ),
-          _HubFactText(fact: facts[i]),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _HubFactText extends StatelessWidget {
-  const _HubFactText({required this.fact});
+/// One scene in the deck. The inactive ones keep their space — that is what
+/// sizes the card — but are not painted, not tappable and not read aloud.
+class _SceneSlot extends StatelessWidget {
+  const _SceneSlot({required this.active, required this.child});
 
-  final _HubFact fact;
+  final bool active;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final text = Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '${fact.label} ',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppPalette.textMuted(context),
-            ),
-          ),
-          TextSpan(
-            text: fact.value,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: fact.accent,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-
-    if (fact.onTap == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: text,
-      );
-    }
-
-    return Semantics(
-      button: true,
-      label: '${fact.label} ${fact.value}',
-      onTap: fact.onTap,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: fact.onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-          child: text,
+    return AnimatedOpacity(
+      opacity: active ? 1 : 0,
+      duration: AppMotion.page,
+      curve: AppMotion.easeOut,
+      child: AnimatedSlide(
+        offset: active ? Offset.zero : const Offset(0.05, 0),
+        duration: AppMotion.page,
+        curve: AppMotion.easeOut,
+        child: IgnorePointer(
+          ignoring: !active,
+          child: ExcludeSemantics(excluding: !active, child: child),
         ),
       ),
     );
   }
 }
 
-/// One step, as a row on the background: icon, what it is, what it says, and a
-/// chevron. No fill, no border, no card — the page shows through it, and the
-/// colour is the step's own, so a late dose reads amber without anything
-/// having to say "late" twice.
-///
-/// Every row is [height] tall and clips its two lines, so the strip of steps
-/// keeps its height as the day changes underneath it.
-class _HubStepRow extends StatelessWidget {
-  const _HubStepRow({required this.action});
+/// With animations off nothing may hide behind a timer: the leading scene is
+/// drawn in full and the rest are listed under it, still reachable.
+class _StaticHubCard extends StatelessWidget {
+  const _StaticHubCard({required this.scenes});
 
-  final _SceneAction action;
+  final List<_HubScene> scenes;
 
-  static const double height = 52;
+  @override
+  Widget build(BuildContext context) {
+    final lead = scenes.first;
+    return GlassCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          lead.accent.withValues(alpha: 0.12),
+          AppPalette.surface(context),
+        ],
+      ),
+      border: Border.all(color: lead.accent.withValues(alpha: 0.20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _HubSceneView(scene: lead),
+          for (final scene in scenes.skip(1)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _HubSceneSummaryRow(scene: scene),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One scene, drawn as the whole card: title, accent line, body, facts and
+/// the actions it is asking for.
+class _HubSceneView extends StatelessWidget {
+  const _HubSceneView({required this.scene});
+
+  final _HubScene scene;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final radius = BorderRadius.circular(AppSpacing.radiusMd);
 
+    // The deck is as tall as its tallest scene, so a scene that showed
+    // everything it holds would stretch every other one. Two shapes keep the
+    // card comparable turn to turn, and the ask always wins:
+    //   two actions            → header + the two rows;
+    //   one action or none     → header + body + facts + the row.
+    // The footnote is the first thing dropped when the scene is already
+    // carrying both a paragraph and a row of facts.
+    final twoActions = scene.actions.length >= 2;
+    final showBody = scene.body != null && !twoActions;
+    final showStats = scene.stats.isNotEmpty && !twoActions;
+    final showFootnote =
+        scene.footnote != null && !twoActions && !(showBody && showStats);
+
+    final children = <Widget>[
+      Row(
+        children: [
+          _PatientIconDisc(icon: scene.icon, color: scene.accent, size: 52),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  scene.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  scene.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scene.accent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      if (showBody) ...[
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          scene.body!,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppPalette.textMuted(context),
+            height: 1.35,
+          ),
+        ),
+      ],
+      if (showStats) ...[
+        const SizedBox(height: AppSpacing.sm),
+        _SceneStatsRow(stats: scene.stats, accent: scene.accent),
+      ],
+      for (var i = 0; i < scene.actions.length && i < 2; i++) ...[
+        SizedBox(height: i == 0 ? AppSpacing.md : AppSpacing.sm),
+        _SceneActionRow(action: scene.actions[i]),
+      ],
+      if (showFootnote) ...[
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          scene.footnote!,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppPalette.textFaint(context),
+          ),
+        ),
+      ],
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+}
+
+/// The scenes below the leading one when the card is not rotating.
+class _HubSceneSummaryRow extends StatelessWidget {
+  const _HubSceneSummaryRow({required this.scene});
+
+  final _HubScene scene;
+
+  @override
+  Widget build(BuildContext context) {
+    final action = scene.actions.isEmpty ? null : scene.actions.first;
+    return _SceneActionRow(
+      action: _SceneAction(
+        icon: scene.icon,
+        accent: scene.accent,
+        title: scene.title,
+        detail: scene.subtitle,
+        onTap: action?.onTap ?? () {},
+      ),
+      informational: action == null,
+    );
+  }
+}
+
+/// A row the scene is asking the patient to act on. With [informational] it
+/// carries no ink, no chevron and no button role.
+class _SceneActionRow extends StatelessWidget {
+  const _SceneActionRow({required this.action, this.informational = false});
+
+  final _SceneAction action;
+  final bool informational;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final radius = BorderRadius.circular(AppSpacing.radiusLg);
+
+    final body = Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppPalette.surface(context),
+        borderRadius: radius,
+        border: Border.all(color: AppPalette.border(context)),
+      ),
+      child: Row(
+        children: [
+          _PatientIconDisc(icon: action.icon, color: action.accent),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  action.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  action.detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!informational) ...[
+            const SizedBox(width: AppSpacing.xs),
+            Icon(AppIcons.chevronRight, color: action.accent),
+          ],
+        ],
+      ),
+    );
+
+    final label = '${action.title}. ${action.detail}';
+
+    if (informational) {
+      return Semantics(
+        label: label,
+        readOnly: true,
+        excludeSemantics: true,
+        child: body,
+      );
+    }
+
+    // `onTap` is declared on this node, not only on the ink below it: the
+    // descendants are excluded, so a screen reader's activation has to have
+    // somewhere to land.
     return Semantics(
       button: true,
-      label: '${action.title}. ${action.detail}',
+      label: label,
       onTap: action.onTap,
       excludeSemantics: true,
       child: Material(
         color: Colors.transparent,
         borderRadius: radius,
-        child: InkWell(
-          onTap: action.onTap,
-          borderRadius: radius,
-          child: SizedBox(
-            height: height,
-            child: Row(
-              children: [
-                _PatientIconDisc(icon: action.icon, color: action.accent),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        action.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        action.detail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Icon(AppIcons.chevronRight, color: action.accent, size: 20),
-              ],
+        child: InkWell(onTap: action.onTap, borderRadius: radius, child: body),
+      ),
+    );
+  }
+}
+
+class _SceneStatsRow extends StatelessWidget {
+  const _SceneStatsRow({required this.stats, required this.accent});
+
+  final List<_SceneStat> stats;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.xs,
+      children: [
+        for (final stat in stats.take(3))
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 4,
+            ),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            ),
+            child: Text(
+              '${stat.label} ${stat.value}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Position dots on the left of the card's foot, with the live badge on the
+/// right — the card says both where you are and that it is moving.
+class _HubFooter extends StatelessWidget {
+  const _HubFooter({
+    required this.count,
+    required this.index,
+    required this.accent,
+    required this.onSelect,
+  });
+
+  final int count;
+  final int index;
+  final Color accent;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              for (var i = 0; i < count; i++)
+                Semantics(
+                  label: 'Card ${i + 1} of $count',
+                  selected: i == index,
+                  button: true,
+                  child: InkResponse(
+                    onTap: () => onSelect(i),
+                    radius: 14,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 3,
+                        vertical: AppSpacing.xs,
+                      ),
+                      child: AnimatedContainer(
+                        duration: AppMotion.micro,
+                        height: 6,
+                        width: i == index ? 18 : 6,
+                        decoration: BoxDecoration(
+                          color: i == index
+                              ? accent
+                              : AppPalette.borderStrong(context),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
+        _HubLivePill(accent: accent),
+      ],
+    );
+  }
+}
+
+/// Tells the patient the card moves on its own.
+class _HubLivePill extends StatefulWidget {
+  const _HubLivePill({required this.accent});
+
+  final Color accent;
+
+  @override
+  State<_HubLivePill> createState() => _HubLivePillState();
+}
+
+class _HubLivePillState extends State<_HubLivePill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: AppMotion.pulseCycle,
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: widget.accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FadeTransition(
+            opacity: Tween<double>(begin: 0.35, end: 1).animate(_ctrl),
+            child: Container(
+              height: 7,
+              width: 7,
+              decoration: BoxDecoration(
+                color: widget.accent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Live',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: widget.accent,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1206,125 +1362,35 @@ class _AnnouncementSheet {
   }
 }
 
-/// What the app holds, for someone who has just been given it.
-///
-/// Every line opens the real screen rather than describing it — a first look
-/// that leaves the patient somewhere useful instead of back where they were.
-/// It is reachable for [_welcomeDays] from the home page, and after that from
-/// the areas themselves, which is where it was always pointing.
-class _WelcomeSheet {
-  _WelcomeSheet._();
+/// The assigned meal in full — what it is, the macros the clinician set, and
+/// any note attached to it.
+class _MealPlanSheet {
+  _MealPlanSheet._();
 
-  static Future<void> show(BuildContext context) {
-    final name = AuthState.instance.user?.firstName ?? '';
-
+  static Future<void> show(BuildContext context, StaffMealPlan meal) {
+    final theme = Theme.of(context);
     return PatientSheet.show<void>(
       context,
-      title: name.isEmpty ? 'Welcome to mCare' : 'Welcome, $name',
-      subtitle: 'What is here, and where it goes',
-      child: Builder(
-        builder: (sheetContext) {
-          void openAfterClosing(VoidCallback open) {
-            Navigator.of(sheetContext).pop();
-            open();
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Everything you record here reaches your care team, and '
-                'everything they send you arrives in the same place.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(height: 1.45),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              for (final entry in _entries(context))
-                _HubStepRow(
-                  action: _SceneAction(
-                    icon: entry.icon,
-                    accent: entry.accent,
-                    title: entry.title,
-                    detail: entry.detail,
-                    onTap: () => openAfterClosing(entry.open),
-                  ),
-                ),
-            ],
-          );
-        },
+      title: meal.title,
+      subtitle:
+          '${meal.mealType.label} · assigned ${_relativeTime(meal.assignedAt)}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if ((meal.description ?? '').isNotEmpty)
+            Text(
+              meal.description!,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
+          const SizedBox(height: AppSpacing.md),
+          if (meal.macroSummary.isNotEmpty)
+            PatientCompactInfoRow(label: 'Nutrition', value: meal.macroSummary),
+          if ((meal.notes ?? '').isNotEmpty)
+            PatientCompactInfoRow(label: 'Care team note', value: meal.notes!),
+          if (meal.assignedBy.isNotEmpty)
+            PatientCompactInfoRow(label: 'Assigned by', value: meal.assignedBy),
+        ],
       ),
     );
   }
-
-  static List<_WelcomeEntry> _entries(BuildContext context) {
-    void go(String route) => Navigator.of(context).pushNamed(route);
-    return [
-      _WelcomeEntry(
-        icon: AppIcons.vitals,
-        accent: AppColors.brandIndigo,
-        title: 'Vitals',
-        detail: 'Log a reading — your care team reads today\'s numbers',
-        open: () => SubmitVitalSheet.show(context),
-      ),
-      _WelcomeEntry(
-        icon: AppIcons.medication,
-        accent: AppColors.success,
-        title: 'Medications',
-        detail: 'What to take, when, and what you have taken',
-        open: () => go(RouteNames.patientMedications),
-      ),
-      _WelcomeEntry(
-        icon: AppIcons.meals,
-        accent: AppColors.warning,
-        title: 'Meals',
-        detail: 'Meal plans your care team assigns you',
-        open: () => go(RouteNames.patientMeals),
-      ),
-      _WelcomeEntry(
-        icon: AppIcons.appointment,
-        accent: AppColors.bpPurple,
-        title: 'Appointments',
-        detail: 'Visits, in person or by video',
-        open: () => go(RouteNames.patientAppointments),
-      ),
-      _WelcomeEntry(
-        icon: AppIcons.document,
-        accent: AppColors.info,
-        title: 'Documents',
-        detail: 'Results and letters, yours and theirs',
-        open: () => go(RouteNames.patientDocuments),
-      ),
-      _WelcomeEntry(
-        icon: AppIcons.chat,
-        accent: AppColors.info,
-        title: 'Messages',
-        detail: 'Talk to your care team',
-        open: () => go(RouteNames.patientMessages),
-      ),
-      _WelcomeEntry(
-        icon: AppIcons.user,
-        accent: AppColors.adminPurple,
-        title: 'Your profile',
-        detail: 'The details a care team should not have to guess',
-        open: () => go(RouteNames.patientProfile),
-      ),
-    ];
-  }
-}
-
-class _WelcomeEntry {
-  const _WelcomeEntry({
-    required this.icon,
-    required this.accent,
-    required this.title,
-    required this.detail,
-    required this.open,
-  });
-
-  final IconData icon;
-  final Color accent;
-  final String title;
-  final String detail;
-  final VoidCallback open;
 }

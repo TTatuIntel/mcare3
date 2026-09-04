@@ -9,13 +9,6 @@ enum DocumentCategory {
   imaging,
   discharge,
   consultationNote,
-
-  /// Issued by the care team from a vital report request. Its own category
-  /// rather than "other" because it is the one document a patient goes looking
-  /// for by name — they asked for it, so they know it exists.
-  vitalReport,
-  referral,
-  insurance,
   other,
 }
 
@@ -26,9 +19,6 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => 'Imaging',
     DocumentCategory.discharge => 'Discharge',
     DocumentCategory.consultationNote => 'Consultation note',
-    DocumentCategory.vitalReport => 'Vital report',
-    DocumentCategory.referral => 'Referral',
-    DocumentCategory.insurance => 'Insurance',
     DocumentCategory.other => 'Other',
   };
 
@@ -38,9 +28,6 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppColors.bpPurple,
     DocumentCategory.discharge => AppColors.doctorGreen,
     DocumentCategory.consultationNote => AppColors.info,
-    DocumentCategory.vitalReport => AppColors.brandIndigo,
-    DocumentCategory.referral => AppColors.tempTeal,
-    DocumentCategory.insurance => AppColors.adminPurple,
     DocumentCategory.other => AppColors.weightSlate,
   };
 
@@ -50,9 +37,6 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppIcons.image,
     DocumentCategory.discharge => AppIcons.nurse,
     DocumentCategory.consultationNote => AppIcons.report,
-    DocumentCategory.vitalReport => AppIcons.vitals,
-    DocumentCategory.referral => AppIcons.send,
-    DocumentCategory.insurance => AppIcons.approval,
     DocumentCategory.other => AppIcons.document,
   };
 }
@@ -75,23 +59,6 @@ extension DocumentFileTypeX on DocumentFileType {
   };
 }
 
-/// Where a document came from, which is what decides whether it can be
-/// removed. A file the patient uploaded is theirs to delete; anything a
-/// clinician filed is part of the clinical record, and an issued report is the
-/// evidence of a disclosure they consented to. Neither of those goes away.
-enum DocumentSource { patient, clinician, report }
-
-extension DocumentSourceX on DocumentSource {
-  bool get isDeletable => this == DocumentSource.patient;
-
-  /// Shown where the document came from matters to the reader.
-  String? get badge => switch (this) {
-    DocumentSource.patient => null,
-    DocumentSource.clinician => 'From your care team',
-    DocumentSource.report => 'Issued report',
-  };
-}
-
 class MedicalDocument {
   const MedicalDocument({
     required this.id,
@@ -104,14 +71,6 @@ class MedicalDocument {
     this.description,
     this.sharedWithDoctorId,
     this.hasFile = true,
-    this.source = DocumentSource.patient,
-    this.issuedReportId,
-    this.removalRequested = false,
-    this.removalRequestedAt,
-    this.removalReason,
-    this.removalDeclinedAt,
-    this.removalDeclinedReason,
-    this.canRequestRemoval = false,
   });
 
   final String id;
@@ -124,38 +83,6 @@ class MedicalDocument {
   final String? description;
   final String? sharedWithDoctorId;
   final bool hasFile;
-
-  /// Legacy rows carry no source and are treated as patient uploads, which is
-  /// what they were.
-  final DocumentSource source;
-
-  /// Set when this document is the copy of an issued report.
-  final String? issuedReportId;
-
-  /// The patient has asked for this to be taken out and staff have not
-  /// answered yet.
-  final bool removalRequested;
-  final DateTime? removalRequestedAt;
-
-  /// Why the patient wants it gone — staff read this before deciding.
-  final String? removalReason;
-
-  /// Set when staff refused, with the reason the patient reads.
-  final DateTime? removalDeclinedAt;
-  final String? removalDeclinedReason;
-
-  /// Whether asking for removal is open to the patient on this document.
-  /// Server-decided: their own uploads they simply delete, and an issued
-  /// report is revoked rather than removed.
-  final bool canRequestRemoval;
-
-  /// Whether the app should offer a delete control at all. Showing one the
-  /// server will always refuse is worse than not showing it.
-  bool get canDelete => source.isDeletable;
-
-  /// Staff may delete this — and only because the patient asked them to.
-  bool get isRemovableByStaff =>
-      source == DocumentSource.clinician && removalRequested;
 
   String get sizeLabel {
     if (sizeBytes < 1024) return '$sizeBytes B';
@@ -176,14 +103,6 @@ class MedicalDocument {
     String? description,
     String? sharedWithDoctorId,
     bool? hasFile,
-    DocumentSource? source,
-    String? issuedReportId,
-    bool? removalRequested,
-    DateTime? removalRequestedAt,
-    String? removalReason,
-    DateTime? removalDeclinedAt,
-    String? removalDeclinedReason,
-    bool? canRequestRemoval,
   }) {
     return MedicalDocument(
       id: id ?? this.id,
@@ -196,15 +115,6 @@ class MedicalDocument {
       description: description ?? this.description,
       sharedWithDoctorId: sharedWithDoctorId ?? this.sharedWithDoctorId,
       hasFile: hasFile ?? this.hasFile,
-      source: source ?? this.source,
-      issuedReportId: issuedReportId ?? this.issuedReportId,
-      removalRequested: removalRequested ?? this.removalRequested,
-      removalRequestedAt: removalRequestedAt ?? this.removalRequestedAt,
-      removalReason: removalReason ?? this.removalReason,
-      removalDeclinedAt: removalDeclinedAt ?? this.removalDeclinedAt,
-      removalDeclinedReason:
-          removalDeclinedReason ?? this.removalDeclinedReason,
-      canRequestRemoval: canRequestRemoval ?? this.canRequestRemoval,
     );
   }
 }
