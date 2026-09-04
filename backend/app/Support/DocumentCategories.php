@@ -23,6 +23,11 @@ final class DocumentCategories
         'consultationNote' => 'consultation note',
         // Issued by the care team from a patient's vital report request.
         'vitalReport' => 'vital report',
+        // A customised report issued from the record — the patient's own copy
+        // of a disclosure that went to a third party. Filed as 'other' until
+        // now, which buried the one document a patient is most likely to come
+        // looking for by name among their insurance scans.
+        'report' => 'medical report',
         'referral' => 'referral letter',
         'insurance' => 'insurance or claim form',
         'other' => 'document',

@@ -77,14 +77,6 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by('external-token:'.$token);
         });
 
-        // Payload-free cursor for the one-patient guest portal. It has a
-        // separate allowance so live watching cannot consume write capacity.
-        RateLimiter::for('external-pulse', function (Request $request) {
-            $token = (string) $request->route('token', '');
-
-            return Limit::perMinute(60)->by('external-pulse:'.hash('sha256', $token));
-        });
-
         // General authenticated API — per-user cap, IP fallback for guests.
         RateLimiter::for('api-general', function (Request $request) {
             $key = $request->user()
@@ -92,19 +84,6 @@ class AppServiceProvider extends ServiceProvider
                 : 'ip:'.$request->ip();
 
             return Limit::perMinute(120)->by($key);
-        });
-
-        // The change-cursor endpoint clients poll when they have no socket
-        // (§7.1). It is deliberately cheap and deliberately frequent — a few
-        // seconds apart is what makes an alert arrive without a refresh — so
-        // it gets its own budget instead of eating the general one. Two tabs
-        // at the normal cadence still fit inside this.
-        RateLimiter::for('realtime-pulse', function (Request $request) {
-            $key = $request->user()
-                ? 'user:'.$request->user()->getAuthIdentifier()
-                : 'ip:'.$request->ip();
-
-            return Limit::perMinute(60)->by($key);
         });
 
         // Client-fallback polling endpoint (§7.1) — 1/30s/user.

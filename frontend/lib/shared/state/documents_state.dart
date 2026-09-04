@@ -20,16 +20,6 @@ class DocumentsState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Re-pulls the list from the server.
-  ///
-  /// Used when the patient opens their documents from a "new document" alert:
-  /// the notification is the first they hear of it, so the screen must be able
-  /// to fetch it without waiting for the next full session sync.
-  Future<void> refresh() async {
-    final items = await DocumentsApi.instance.listMine();
-    seed(items);
-  }
-
   void add(MedicalDocument doc) {
     _items.insert(0, doc);
     notifyListeners();
@@ -124,7 +114,7 @@ class DocumentsState extends ChangeNotifier {
       return draft;
     }
 
-    final saved = await DocumentsApi.instance.createWithFile(
+    final saved = await DocumentsApi.instance.create(
       file: file,
       title: title,
       category: category,
@@ -140,37 +130,6 @@ class DocumentsState extends ChangeNotifier {
 
   /// Persisting variant of [remove]. DELETEs the document on the server,
   /// then removes from local state. Rolls back on failure.
-  /// Ask the care team to take a clinician-filed document out of the record.
-  ///
-  /// The patient cannot delete one themselves — and should not be able to —
-  /// but a result filed against the wrong person is theirs to get removed.
-  /// Replaces the row in place so the list reflects the pending request
-  /// without a refetch.
-  Future<MedicalDocument> requestRemoval({
-    required String id,
-    required String reason,
-  }) async {
-    final saved = await DocumentsApi.instance.requestRemoval(
-      documentId: id,
-      reason: reason,
-    );
-    if (saved != null) replaceLocal(id, saved);
-    return saved ?? _byId(id);
-  }
-
-  /// Withdraw a removal request before staff have answered it.
-  Future<MedicalDocument> cancelRemovalRequest(String id) async {
-    await DocumentsApi.instance.cancelRemovalRequest(id);
-    // The server clears two fields; mirroring them locally beats a refetch of
-    // the whole list to learn what we already know.
-    final current = _byId(id);
-    final updated = current.copyWith(removalRequested: false);
-    replaceLocal(id, updated);
-    return updated;
-  }
-
-  MedicalDocument _byId(String id) => _items.firstWhere((d) => d.id == id);
-
   Future<void> deleteDocument(String id) async {
     final i = _items.indexWhere((d) => d.id == id);
     if (i == -1) return;

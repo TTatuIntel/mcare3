@@ -1,10 +1,7 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/api/admin_api.dart';
-import '../../core/api/api_client.dart';
-import '../../core/api/documents_api.dart';
 import '../../core/api/doctor_api.dart';
 import '../../core/api/patient_profile_mapper.dart';
 import '../../core/api/staff_mapper.dart';
@@ -23,14 +20,6 @@ import 'notification_state.dart';
 import 'staff_models.dart';
 
 export 'staff_models.dart';
-
-/// What a shared-queue action actually did.
-///
-/// A bare bool cannot express the outcome that matters most here: losing a
-/// claim race is not a failure of the app, and the server's message names the
-/// colleague who got there first. Callers show [error] rather than a generic
-/// "something went wrong", which would invite a retry into the same wall.
-typedef RequestActionResult = ({bool ok, String? error});
 
 /// Fallback store for assigned-vitals notes. Kept at library scope so a
 /// hot-reloaded [StaffState] singleton on web never reads an undefined field.
@@ -60,7 +49,6 @@ class StaffState extends ChangeNotifier {
   final List<StaffPatientDocument> _documents = [];
   final List<StaffPatientSos> _sosEvents = [];
   final List<StaffPatientRequest> _requests = [];
-  final List<StaffDocumentRequest> _documentRequests = [];
   final List<StaffPatientVitalReading> _vitalReadings = [];
   final List<PatientVitalThreshold> _vitalOverrides = [];
   final List<StaffMealPlan> _mealPlans = [];
@@ -84,25 +72,6 @@ class StaffState extends ChangeNotifier {
       List.unmodifiable(_documents);
   List<StaffPatientSos> get patientSos => List.unmodifiable(_sosEvents);
   List<StaffPatientRequest> get patientRequests => List.unmodifiable(_requests);
-
-  /// Documents patients have asked the care team to produce.
-  List<StaffDocumentRequest> get documentRequests =>
-      List.unmodifiable(_documentRequests);
-
-  /// Still open, and ordered so unclaimed work comes before work a
-  /// colleague has already taken on — a queue that buries the untouched
-  /// request under three in-progress ones is not a queue.
-  List<StaffDocumentRequest> get openDocumentRequests {
-    final open = _documentRequests.where((r) => r.isOpen).toList()
-      ..sort((a, b) {
-        if (a.isClaimed != b.isClaimed) return a.isClaimed ? 1 : -1;
-        return a.createdAt.compareTo(b.createdAt);
-      });
-    return List.unmodifiable(open);
-  }
-
-  List<StaffDocumentRequest> documentRequestsForPatient(String patientId) =>
-      _documentRequests.where((r) => r.patientId == patientId).toList();
   List<StaffPatientVitalReading> get patientVitalReadings =>
       List.unmodifiable(_vitalReadings);
 
@@ -204,6 +173,22 @@ class StaffState extends ChangeNotifier {
 
   void addDocumentForPatient(StaffPatientDocument doc) {
     _documents.insert(0, doc);
+    notifyListeners();
+  }
+
+  /// Swaps in a freshly fetched list for one patient, leaving every other
+  /// patient's rows alone.
+  ///
+  /// Lets a screen refresh the documents it is showing without pulling the
+  /// whole dossier — five hundred vital readings and every medication — back
+  /// down to find out whether one file arrived.
+  void replaceDocumentsForPatient(
+    String patientId,
+    List<StaffPatientDocument> documents,
+  ) {
+    _documents
+      ..removeWhere((d) => d.patientId == patientId)
+      ..addAll(documents);
     notifyListeners();
   }
 
@@ -728,68 +713,13 @@ class StaffState extends ChangeNotifier {
   List<StaffMealPlan> mealPlansForPatient(String patientId) =>
       _mealPlans.where((m) => m.patientId == patientId).toList();
 
-  /// Assigns [plan] to one or more patients across one or more days.
-  ///
-  /// [patientIds] defaults to the plan's own patient and [days] to the day it
-  /// is scheduled for, so a single assign is just the one-of-each case. Rows
-  /// appear locally straight away and are swapped for the server's canonical
-  /// copies when the single batched call returns.
-  Future<bool> addMealPlan(
-    StaffMealPlan plan, {
-    List<String> patientIds = const [],
-    List<DateTime> days = const [],
-  }) {
-    final targets = patientIds.isEmpty ? [plan.patientId] : patientIds;
-    final schedule = days.isEmpty ? [plan.planDate] : days;
-
-    // Optimistic rows, one per patient per day, each with its own local id so
-    // a failed batch can be rolled back precisely.
-    final optimistic = <StaffMealPlan>[];
-    for (final patientId in targets) {
-      for (var i = 0; i < schedule.length; i++) {
-        optimistic.add(
-          StaffMealPlan(
-            id: targets.length == 1 && schedule.length == 1
-                ? plan.id
-                : '${plan.id}_${patientId}_$i',
-            patientId: patientId,
-            patientName: patientId == plan.patientId
-                ? plan.patientName
-                : patientById(patientId)?.name ?? '',
-            title: plan.title,
-            mealType: plan.mealType,
-            description: plan.description,
-            calories: plan.calories,
-            protein: plan.protein,
-            carbs: plan.carbs,
-            fat: plan.fat,
-            notes: plan.notes,
-            assignedAt: plan.assignedAt,
-            assignedBy: plan.assignedBy,
-            scheduledFor: schedule[i],
-            serveTime: plan.serveTime,
-            conditionTag: plan.conditionTag,
-            items: plan.items,
-            source: MealPlanSource.careTeam,
-          ),
-        );
-      }
-    }
-
-    _mealPlans.insertAll(0, optimistic);
+  Future<bool> addMealPlan(StaffMealPlan plan) {
+    _mealPlans.insert(0, plan);
     notifyListeners();
     if (!AppEnv.backendEnabled) return Future.value(true);
-
-    final localIds = optimistic.map((m) => m.id).toSet();
-
     return DoctorApi.instance
         .assignMealPlan(
           patientUserId: plan.patientId,
-          patientUserIds: targets.length > 1 ? targets : null,
-          scheduledFor: schedule,
-          serveTime: plan.serveTime,
-          conditionTag: plan.conditionTag,
-          items: plan.items.isEmpty ? null : plan.items,
           title: plan.title,
           mealType: plan.mealType.name,
           description: plan.description,
@@ -800,19 +730,22 @@ class StaffState extends ChangeNotifier {
           notes: plan.notes,
         )
         .then((data) {
-          final list = (data?['meal_plans'] as List?)
-              ?.whereType<Map>()
-              .map((raw) => raw.cast<String, dynamic>())
-              .toList();
-          if (list != null && list.isNotEmpty) {
-            _mealPlans.removeWhere((m) => localIds.contains(m.id));
-            _mealPlans.insertAll(0, list.map(StaffMapper.mealPlanFromApi));
-            notifyListeners();
+          if (data != null) {
+            final raw = (data['meal_plan'] as Map?)?.cast<String, dynamic>();
+            if (raw != null) {
+              raw['patient_id'] ??= plan.patientId;
+              raw['patient_name'] ??= plan.patientName;
+              final i = _mealPlans.indexWhere((m) => m.id == plan.id);
+              if (i != -1) {
+                _mealPlans[i] = StaffMapper.mealPlanFromApi(raw);
+                notifyListeners();
+              }
+            }
           }
           return true;
         })
         .catchError((_) {
-          _mealPlans.removeWhere((m) => localIds.contains(m.id));
+          _mealPlans.removeWhere((m) => m.id == plan.id);
           notifyListeners();
           return false;
         });
@@ -1572,7 +1505,6 @@ class StaffState extends ChangeNotifier {
     required List<ClinicalReport> reports,
     required List<StaffPatientRequest> vitalRequests,
     required List<CareRequestItem> careRequests,
-    List<StaffDocumentRequest>? documentRequests,
     List<StaffPatientSos>? sosEvents,
     List<VitalCatalogEntry>? vitalCatalog,
     List<StaffMealPlan>? mealPlans,
@@ -1596,11 +1528,6 @@ class StaffState extends ChangeNotifier {
     _requests
       ..clear()
       ..addAll(vitalRequests);
-    if (documentRequests != null) {
-      _documentRequests
-        ..clear()
-        ..addAll(documentRequests);
-    }
     _careRequests
       ..clear()
       ..addAll(careRequests);
@@ -1668,21 +1595,7 @@ class StaffState extends ChangeNotifier {
         _reports.map((r) => '${r.id}:${r.title}:${r.body}:${r.published}'),
       ),
       Object.hashAll(
-        // The claim has to be in here: it is the only thing that changes
-        // when a colleague takes a request on, and a queue that does not
-        // repaint for that is offering a button that cannot work.
-        _requests.map(
-          (r) =>
-              '${r.id}:${r.type}:${r.summary}:${r.status}:'
-              '${r.claimedByName}:${r.claimedByMe}',
-        ),
-      ),
-      Object.hashAll(
-        _documentRequests.map(
-          (r) =>
-              '${r.id}:${r.title}:${r.status}:'
-              '${r.claimedByName}:${r.claimedByMe}',
-        ),
+        _requests.map((r) => '${r.id}:${r.type}:${r.summary}:${r.status}'),
       ),
       Object.hashAll(
         _careRequests.map(
@@ -2012,15 +1925,6 @@ class StaffState extends ChangeNotifier {
     for (final raw in data['vital_report_requests'] as List? ?? const []) {
       _requests.add(
         StaffMapper.vitalReportRequestFromApi(
-          (raw as Map).cast<String, dynamic>(),
-        ),
-      );
-    }
-
-    _documentRequests.removeWhere((r) => r.patientId == patientId);
-    for (final raw in data['document_requests'] as List? ?? const []) {
-      _documentRequests.add(
-        StaffMapper.documentRequestFromApi(
           (raw as Map).cast<String, dynamic>(),
         ),
       );
@@ -2415,23 +2319,6 @@ class StaffState extends ChangeNotifier {
       );
     }
 
-    for (final r in _documentRequests) {
-      if (!inScope(r.patientId) || !r.isOpen) continue;
-      items.add(
-        AppNotification(
-          id: 'staff_docreq_${r.id}',
-          kind: NotificationKind.document,
-          title: '${_patientNameFor(r.patientId)} · Document request',
-          body: r.title,
-          createdAt: r.createdAt,
-          // Claimed work is not unread work. A colleague picking it up is
-          // the signal to stop nagging the rest of the team about it.
-          read: r.isClaimed,
-          actionRoute: RouteNames.doctorInbox,
-        ),
-      );
-    }
-
     for (final r in _requests) {
       if (!inScope(r.patientId)) continue;
       items.add(
@@ -2497,7 +2384,6 @@ class StaffState extends ChangeNotifier {
     _documents.clear();
     _sosEvents.clear();
     _requests.clear();
-    _documentRequests.clear();
     _vitalReadings.clear();
     _mealPlans.clear();
     notifyListeners();
@@ -2689,309 +2575,79 @@ class StaffState extends ChangeNotifier {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // The shared care-team queue.
-  //
-  // These are deliberately not routed through [_doctorMutation]. It swallows
-  // the server's message and answers a bare false, and here the message *is*
-  // the outcome: losing a claim race is normal, and "Dr. Achieng is already
-  // working on this request" is the only thing that tells the clinician what
-  // to do next. A bare failure would read as a network problem and invite them
-  // to retry into the same wall.
-  // ---------------------------------------------------------------------------
-
-  StaffPatientRequest? _requestById(String id) {
+  Future<bool> fulfillRequest(String id) {
+    StaffPatientRequest? before;
     for (final r in _requests) {
-      if (r.id == id) return r;
+      if (r.id == id) {
+        before = r;
+        break;
+      }
     }
-    return null;
-  }
+    if (before == null) return Future.value(false);
 
-  void _replaceRequest(String id, StaffPatientRequest updated) {
-    for (var i = 0; i < _requests.length; i++) {
-      if (_requests[i].id == id) _requests[i] = updated;
-    }
-    _syncToNotificationCenter();
-    notifyListeners();
-  }
-
-  /// Take a vital report request on, so the rest of the team can see it is
-  /// being handled and nobody writes the same report twice.
-  Future<RequestActionResult> claimRequest(String id) async {
-    final before = _requestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceRequest(
-      id,
-      before.copyWith(
-        status: 'in_progress',
-        claimedByName: _myStaffLabel(),
-        claimedAt: DateTime.now(),
-        claimedByMe: true,
-        claimable: false,
-      ),
+    return _doctorMutation(
+      apply: () {
+        for (var i = 0; i < _requests.length; i++) {
+          if (_requests[i].id == id) {
+            final r = _requests[i];
+            _requests[i] = StaffPatientRequest(
+              id: r.id,
+              patientId: r.patientId,
+              type: r.type,
+              summary: r.summary,
+              status: 'fulfilled',
+              createdAt: r.createdAt,
+            );
+          }
+        }
+      },
+      revert: () {
+        for (var i = 0; i < _requests.length; i++) {
+          if (_requests[i].id == id) _requests[i] = before!;
+        }
+      },
+      apiCall: () => DoctorApi.instance.fulfillVitalReportRequest(id),
     );
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
+  }
 
-    try {
-      final saved = await DoctorApi.instance.claimVitalReportRequest(id);
-      if (saved != null) {
-        _replaceRequest(id, StaffMapper.vitalReportRequestFromApi(saved));
+  /// Escalate a pending vital-report request to the next responder tier
+  /// (assistant → admin) on the backend. Locally the request drops off the
+  /// doctor's actionable list until the next session sync reflects the new
+  /// responder.
+  Future<bool> escalateRequest(String id) {
+    StaffPatientRequest? before;
+    for (final r in _requests) {
+      if (r.id == id) {
+        before = r;
+        break;
       }
-      return (ok: true, error: null);
-    } catch (e) {
-      // Someone else won the race. Their claim is the truth, so the row stays
-      // unclaimable rather than rolling back to a state that offers the button
-      // again.
-      _replaceRequest(
-        id,
-        before.copyWith(claimable: false, claimedByMe: false),
-      );
-      return (ok: false, error: _messageOf(e));
     }
-  }
+    if (before == null) return Future.value(false);
 
-  /// Hand it back — wrong specialty, going off shift. Only the holder can.
-  Future<RequestActionResult> releaseRequest(String id, {String? note}) async {
-    final before = _requestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceRequest(id, before.released());
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
-
-    try {
-      final saved = await DoctorApi.instance.releaseVitalReportRequest(
-        id,
-        note: note,
-      );
-      if (saved != null) {
-        _replaceRequest(id, StaffMapper.vitalReportRequestFromApi(saved));
-      }
-      return (ok: true, error: null);
-    } catch (e) {
-      _replaceRequest(id, before);
-      return (ok: false, error: _messageOf(e));
-    }
-  }
-
-  /// Complete it. The server renders the report and files it in the patient's
-  /// documents under Vital report — "fulfilled" now points at something they
-  /// can open rather than at a status flag.
-  Future<RequestActionResult> fulfillRequest(String id, {String? note}) async {
-    final before = _requestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceRequest(id, before.copyWith(status: 'fulfilled', claimable: false));
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
-
-    try {
-      final saved = await DoctorApi.instance.fulfillVitalReportRequest(
-        id,
-        note: note,
-      );
-      if (saved != null) {
-        _replaceRequest(id, StaffMapper.vitalReportRequestFromApi(saved));
-      }
-      return (ok: true, error: null);
-    } catch (e) {
-      _replaceRequest(id, before);
-      return (ok: false, error: _messageOf(e));
-    }
-  }
-
-  /// Escalate to care admin. The claim is dropped server-side: handing a
-  /// request away while still holding it would show the next tier work that
-  /// looks like somebody else's.
-  Future<RequestActionResult> escalateRequest(String id, {String? note}) async {
-    final before = _requestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceRequest(id, before.released());
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
-
-    try {
-      final saved = await DoctorApi.instance.escalateVitalReportRequest(
-        id,
-        note: note,
-      );
-      if (saved != null) {
-        _replaceRequest(id, StaffMapper.vitalReportRequestFromApi(saved));
-      }
-      return (ok: true, error: null);
-    } catch (e) {
-      _replaceRequest(id, before);
-      return (ok: false, error: _messageOf(e));
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Document requests — the patient asking the team for a document.
-  // ---------------------------------------------------------------------------
-
-  StaffDocumentRequest? _documentRequestById(String id) {
-    for (final r in _documentRequests) {
-      if (r.id == id) return r;
-    }
-    return null;
-  }
-
-  void _replaceDocumentRequest(String id, StaffDocumentRequest updated) {
-    for (var i = 0; i < _documentRequests.length; i++) {
-      if (_documentRequests[i].id == id) _documentRequests[i] = updated;
-    }
-    _syncToNotificationCenter();
-    notifyListeners();
-  }
-
-  Future<RequestActionResult> claimDocumentRequest(String id) async {
-    final before = _documentRequestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceDocumentRequest(
-      id,
-      before.copyWith(
-        status: 'in_progress',
-        claimedByName: _myStaffLabel(),
-        claimedByMe: true,
-        claimable: false,
-      ),
+    return _doctorMutation(
+      apply: () {
+        for (var i = 0; i < _requests.length; i++) {
+          if (_requests[i].id == id) {
+            final r = _requests[i];
+            _requests[i] = StaffPatientRequest(
+              id: r.id,
+              patientId: r.patientId,
+              type: r.type,
+              summary: r.summary,
+              status: 'escalated',
+              createdAt: r.createdAt,
+            );
+          }
+        }
+      },
+      revert: () {
+        for (var i = 0; i < _requests.length; i++) {
+          if (_requests[i].id == id) _requests[i] = before!;
+        }
+      },
+      apiCall: () => DoctorApi.instance.escalateVitalReportRequest(id),
     );
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
-
-    try {
-      final saved = await DoctorApi.instance.claimDocumentRequest(id);
-      if (saved != null) {
-        _replaceDocumentRequest(id, StaffMapper.documentRequestFromApi(saved));
-      }
-      return (ok: true, error: null);
-    } catch (e) {
-      _replaceDocumentRequest(
-        id,
-        before.copyWith(claimable: false, claimedByMe: false),
-      );
-      return (ok: false, error: _messageOf(e));
-    }
   }
-
-  Future<RequestActionResult> releaseDocumentRequest(
-    String id, {
-    String? note,
-  }) async {
-    final before = _documentRequestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceDocumentRequest(id, before.released());
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
-
-    try {
-      final saved = await DoctorApi.instance.releaseDocumentRequest(
-        id,
-        note: note,
-      );
-      if (saved != null) {
-        _replaceDocumentRequest(id, StaffMapper.documentRequestFromApi(saved));
-      }
-      return (ok: true, error: null);
-    } catch (e) {
-      _replaceDocumentRequest(id, before);
-      return (ok: false, error: _messageOf(e));
-    }
-  }
-
-  /// Say no, with a reason the patient reads verbatim. A refusal with no
-  /// explanation is indistinguishable from being ignored.
-  Future<RequestActionResult> declineDocumentRequest(
-    String id, {
-    required String reason,
-  }) async {
-    final before = _documentRequestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    _replaceDocumentRequest(
-      id,
-      before.copyWith(
-        status: 'declined',
-        declineReason: reason,
-        claimable: false,
-      ),
-    );
-    if (!AppEnv.backendEnabled) return (ok: true, error: null);
-
-    try {
-      final saved = await DoctorApi.instance.declineDocumentRequest(
-        id,
-        reason: reason,
-      );
-      if (saved != null) {
-        _replaceDocumentRequest(id, StaffMapper.documentRequestFromApi(saved));
-      }
-      return (ok: true, error: null);
-    } catch (e) {
-      _replaceDocumentRequest(id, before);
-      return (ok: false, error: _messageOf(e));
-    }
-  }
-
-  /// Answer it with the file. The upload and the close-out are one server
-  /// call, so a lost second request cannot leave a filed document sitting
-  /// beside a request that still reads "waiting".
-  ///
-  /// Not optimistic: there is a file in flight, and showing the request as
-  /// done before the upload lands would be a claim we cannot back up.
-  Future<RequestActionResult> fulfillDocumentRequest({
-    required String id,
-    required PlatformFile file,
-    required String title,
-    required DocumentCategory category,
-    required DocumentFileType fileType,
-    String? description,
-    String? note,
-  }) async {
-    final before = _documentRequestById(id);
-    if (before == null) return (ok: false, error: 'Request not found.');
-
-    if (!AppEnv.backendEnabled) {
-      _replaceDocumentRequest(
-        id,
-        before.copyWith(status: 'fulfilled', claimable: false),
-      );
-      return (ok: true, error: null);
-    }
-
-    try {
-      final result = await DocumentsApi.instance.fulfilDocumentRequest(
-        requestId: id,
-        file: file,
-        title: title,
-        category: category,
-        fileType: fileType,
-        description: description,
-        note: note,
-      );
-      _replaceDocumentRequest(
-        id,
-        result.request == null
-            ? before.copyWith(status: 'fulfilled', claimable: false)
-            : StaffMapper.documentRequestFromApi(result.request!),
-      );
-      return (ok: true, error: null);
-    } catch (e) {
-      return (ok: false, error: _messageOf(e));
-    }
-  }
-
-  /// The label the server stamps on a claim, mirrored locally so the
-  /// optimistic row reads the same as the one that comes back.
-  String _myStaffLabel() {
-    final name = AuthState.instance.user?.fullName.trim();
-    if (name == null || name.isEmpty) return 'You';
-    return AuthState.instance.user?.role == UserRole.doctor
-        ? 'Dr. $name'
-        : name;
-  }
-
-  static String _messageOf(Object e) =>
-      e is ApiException ? e.message : 'Could not reach the server.';
 
   Future<bool> addPrescription(StaffPrescription rx) {
     _prescriptions.insert(0, rx);

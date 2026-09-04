@@ -36,9 +36,7 @@ class PrivacySettingsSection extends StatelessWidget {
                 s.setPrivacyShareWithCareTeam(v);
                 AppToast.success(
                   context,
-                  v
-                      ? 'Care team sharing enabled'
-                      : 'Care team sharing disabled',
+                  v ? 'Care team sharing enabled' : 'Care team sharing disabled',
                 );
               },
             ),

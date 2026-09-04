@@ -110,7 +110,7 @@ class _FormState extends State<_Form> {
           ),
         );
       } else if (widget.patientUserId != null) {
-        await DocumentsApi.instance.doctorUpdate(
+        await DocumentsApi.instance.update(
           patientUserId: widget.patientUserId!,
           documentId: widget.doc.id,
           title: _title.text.trim(),
@@ -119,7 +119,7 @@ class _FormState extends State<_Form> {
           description: description.isEmpty ? '' : description,
           file: _pickedFile,
         );
-        await DoctorPatientDetailService.instance.loadPatient(
+        await DoctorPatientDetailService.instance.loadDocuments(
           widget.patientUserId!,
         );
       } else {

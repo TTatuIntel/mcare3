@@ -13,24 +13,18 @@ import '../../shared/widgets/app_toast.dart';
 import '../../shared/alerts/alert_center.dart';
 import '../env/app_env.dart';
 import 'background_session_sync.dart';
-import 'pulse_watcher.dart';
 import 'realtime_channel.dart';
 
-/// Keeps every signed-in role's session data current without being asked.
+/// Standard background refresh for all signed-in roles.
 ///
-/// Three things drive a refresh, in order of how fast they notice:
+/// - Runs on a fixed interval (30s normal, 8s when SOS/alerts are active)
+/// - Skips overlapping requests
+/// - Only rebuilds UI when session data actually changed
+/// - Surfaces toasts only for new critical alerts / SOS events
 ///
-/// 1. The WebSocket, when this deployment runs one — milliseconds.
-/// 2. [PulseWatcher], a cheap change-cursor poll — a few seconds, and it
-///    needs nothing running but the API itself. This is what removed the
-///    "nothing happens until I refresh" gap on deployments with no socket.
-/// 3. This timer, which is now only a safety sweep. Both paths above tell it
-///    exactly when to run, so the blind interval exists for the case where
-///    neither is being heard at all.
-///
-/// It also owns the human side of an arriving change: a toast for a new
-/// critical alert or SOS, and the patient's update notice. Those fire from
-/// whichever path noticed first, so they are never delayed by the sweep.
+/// When all Reverb subscriptions are confirmed this automatically drops to
+/// [fallbackInterval] and becomes a reconciliation sweep for missed events.
+/// A disconnect immediately restores normal/urgent polling.
 class SessionPoller {
   SessionPoller._();
   static final SessionPoller instance = SessionPoller._();
@@ -39,22 +33,16 @@ class SessionPoller {
   static const Duration urgentInterval = Duration(seconds: 8);
   static const Duration initialDelay = Duration(seconds: 3);
 
-  /// Reconciliation sweep used whenever a live path — socket or pulse — is
-  /// actually reporting changes (§7.1). At that point the timer is a backstop
-  /// against a missed event, not the way anything arrives.
+  /// Post-Reverb reconciliation sweep interval (§7.1).
   static const Duration fallbackInterval = Duration(minutes: 5);
 
   Timer? _timer;
   Timer? _initialTimer;
-  StreamSubscription<Set<String>>? _pulseChanges;
-  StreamSubscription<void>? _pulseGaps;
   BuildContext? _context;
   final Map<Object, BuildContext> _scopeContexts = {};
   int _openAlerts = 0;
   int _activeSos = 0;
-  bool _tickRunning = false;
-  bool _tickPending = false;
-  final Set<String> _seenNotificationIds = {};
+  final Set<String> _seenPatientNotificationIds = {};
 
   bool get hasAttachedScopes => _scopeContexts.isNotEmpty;
 
@@ -77,44 +65,14 @@ class SessionPoller {
       ..[owner] = context;
     _context = context;
     if (firstScope) {
-      _seenNotificationIds
+      _seenPatientNotificationIds
         ..clear()
         ..addAll(NotificationState.instance.items.map((item) => item.id));
     }
     _snapshotCounts();
-    _listenToPulse();
     _scheduleNext();
     _initialTimer?.cancel();
     _initialTimer = Timer(initialDelay, _tick);
-  }
-
-  /// Watches the change cursor and reacts the moment it moves.
-  ///
-  /// The cursor answers "what changed", so a refresh here costs one session
-  /// read only when something actually happened — which is what lets the
-  /// blind timer above stretch out instead of re-fetching on a stopwatch.
-  void _listenToPulse() {
-    _pulseChanges ??= PulseWatcher.instance.changes.listen((_) => triggerNow());
-    // A gap means the server could no longer enumerate what we missed, so the
-    // only honest response is to re-read everything.
-    _pulseGaps ??= PulseWatcher.instance.gaps.listen((_) => triggerNow());
-    _syncPulseLifecycle();
-  }
-
-  /// Keep the cheap cursor watcher alive beside the socket.
-  ///
-  /// A successful private-channel subscription proves transport access, but
-  /// it cannot prove that the API is publishing model changes to that same
-  /// broadcaster. Keeping the PHI-free cursor active prevents a deployment
-  /// with mismatched Reverb settings from becoming silently stale for five
-  /// minutes. Duplicate notices are coalesced by [_tick] and persisted
-  /// notifications are de-duplicated before presentation.
-  void _syncPulseLifecycle() {
-    if (_scopeContexts.isEmpty) {
-      PulseWatcher.instance.stop();
-      return;
-    }
-    PulseWatcher.instance.start();
   }
 
   void detach([Object? owner]) {
@@ -132,16 +90,11 @@ class SessionPoller {
     _initialTimer?.cancel();
     _initialTimer = null;
     _context = null;
-    PulseWatcher.instance.stop();
   }
 
   /// Out-of-band background sync (does not reset the interval timer).
   void triggerNow() {
     if (!AppEnv.backendEnabled) return;
-    if (_tickRunning) {
-      _tickPending = true;
-      return;
-    }
     Future.microtask(_tick);
   }
 
@@ -151,15 +104,12 @@ class SessionPoller {
   /// same persisted notification has already been presented.
   bool markPatientNotificationSeen(String? id) {
     if (id == null || id.isEmpty) return true;
-    return _seenNotificationIds.add(id);
+    return _seenPatientNotificationIds.add(id);
   }
 
   /// Called by [RealtimeChannel] after subscription or disconnect.
   void onRealtimeStatusChanged({bool refresh = false}) {
     if (_context == null) return;
-    // A socket transition may have crossed a short delivery gap. The cursor
-    // remains active as a watchdog and the reconciliation timer is reset.
-    _syncPulseLifecycle();
     _scheduleNext();
     if (refresh) triggerNow();
   }
@@ -167,12 +117,7 @@ class SessionPoller {
   void _scheduleNext() {
     _timer?.cancel();
     final user = AuthState.instance.user;
-    // Either live path makes this a backstop rather than the delivery
-    // mechanism, so it steps back to the long sweep in both cases.
-    final live =
-        RealtimeChannel.instance.isSubscribed ||
-        PulseWatcher.instance.isRunning;
-    final interval = live
+    final interval = RealtimeChannel.instance.isSubscribed
         ? fallbackInterval
         : user?.role == UserRole.patient
         ? (SosState.instance.hasActiveSos ? urgentInterval : normalInterval)
@@ -220,23 +165,6 @@ class SessionPoller {
   }
 
   Future<void> _tick() async {
-    if (_tickRunning) {
-      _tickPending = true;
-      return;
-    }
-
-    _tickRunning = true;
-    try {
-      do {
-        _tickPending = false;
-        await _tickOnce();
-      } while (_tickPending && AuthState.instance.user != null);
-    } finally {
-      _tickRunning = false;
-    }
-  }
-
-  Future<void> _tickOnce() async {
     final user = AuthState.instance.user;
     if (user == null) return;
 
@@ -249,7 +177,7 @@ class SessionPoller {
     if (user.role == UserRole.patient) {
       _maybeNotifyPatientUrgent(beforeSos);
       _activeSos = SosState.instance.hasActiveSos ? 1 : 0;
-      _maybeNotifyPersistedUpdate();
+      _maybeNotifyPatientUpdate();
       return;
     }
 
@@ -295,7 +223,6 @@ class SessionPoller {
         AlertCenter.instance.refresh();
       }
     }
-    _maybeNotifyPersistedUpdate();
   }
 
   void _maybeNotifyPatientUrgent(int beforeSos) {
@@ -311,7 +238,7 @@ class SessionPoller {
     }
   }
 
-  void _maybeNotifyPersistedUpdate() {
+  void _maybeNotifyPatientUpdate() {
     final current = NotificationState.instance.items;
     final unseen =
         current
@@ -319,12 +246,11 @@ class SessionPoller {
               (item) =>
                   !item.read &&
                   !item.resolved &&
-                  !item.id.startsWith('staff_') &&
-                  !_seenNotificationIds.contains(item.id),
+                  !_seenPatientNotificationIds.contains(item.id),
             )
             .toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    _seenNotificationIds.addAll(current.map((item) => item.id));
+    _seenPatientNotificationIds.addAll(current.map((item) => item.id));
     if (unseen.isEmpty) return;
 
     final ctx = _context;
@@ -363,9 +289,8 @@ class _SessionPollerScopeState extends State<SessionPollerScope>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         SessionPoller.instance.attach(_owner, context);
-        // Opt-in WebSocket channel (§7.1). Runtime API configuration is the
-        // normal source; compile-time URL/key values may pin a deployment.
-        // The cursor watchdog continues either way.
+        // Opt-in WebSocket channel (§7.1). No-op unless MCARE_WS_URL +
+        // MCARE_WS_APP_KEY are set — REST polling continues either way.
         RealtimeChannel.instance.attach();
       }
     });
@@ -384,12 +309,8 @@ class _SessionPollerScopeState extends State<SessionPollerScope>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    // Coming back from the lock screen or another app is the moment a user is
-    // most likely to be looking at stale data, so ask on all three paths at
-    // once rather than waiting for whichever timer fires first.
     SessionPoller.instance.triggerNow();
     RealtimeChannel.instance.attach();
-    unawaited(PulseWatcher.instance.poll());
   }
 
   @override

@@ -72,9 +72,8 @@ class DoctorAlertDetailView extends StatelessWidget {
                           width: 48,
                           decoration: BoxDecoration(
                             color: alert.severity.color.withOpacity(0.14),
-                            borderRadius: BorderRadius.circular(
-                              AppSpacing.radiusMd,
-                            ),
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusMd),
                           ),
                           alignment: Alignment.center,
                           child: Icon(
@@ -89,9 +88,7 @@ class DoctorAlertDetailView extends StatelessWidget {
                             children: [
                               Text(
                                 alert.value,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
+                                style: Theme.of(context).textTheme.headlineSmall,
                               ),
                               RiskBadge(risk: alert.severity, dense: true),
                             ],
@@ -103,8 +100,8 @@ class DoctorAlertDetailView extends StatelessWidget {
                     Text(
                       'Reported ${DateFormat.MMMd().add_jm().format(alert.createdAt)}',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.textMuted(context),
-                      ),
+                            color: AppPalette.textMuted(context),
+                          ),
                     ),
                     if (alert.resolved &&
                         (alert.resolutionAction != null ||
@@ -115,16 +112,17 @@ class DoctorAlertDetailView extends StatelessWidget {
                         padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
                           color: AppPalette.successSoft(context),
-                          borderRadius: BorderRadius.circular(
-                            AppSpacing.radiusMd,
-                          ),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusMd),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Resolution',
-                              style: Theme.of(context).textTheme.labelMedium
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.success,
@@ -141,17 +139,19 @@ class DoctorAlertDetailView extends StatelessWidget {
                               const SizedBox(height: AppSpacing.xs),
                               Text(
                                 alert.resolutionNote!,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: AppPalette.textMuted(context),
-                                    ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: AppPalette.textMuted(context)),
                               ),
                             ],
                             if (alert.resolvedBy?.isNotEmpty ?? false) ...[
                               const SizedBox(height: AppSpacing.xs),
                               Text(
                                 'Closed by ${alert.resolvedBy}',
-                                style: Theme.of(context).textTheme.bodySmall
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
                                     ?.copyWith(
                                       color: AppPalette.textMuted(context),
                                       fontWeight: FontWeight.w600,
@@ -172,9 +172,7 @@ class DoctorAlertDetailView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AppButton(
-                      label: alert.acknowledged
-                          ? 'Acknowledged'
-                          : 'Acknowledge',
+                      label: alert.acknowledged ? 'Acknowledged' : 'Acknowledge',
                       icon: AppIcons.check,
                       variant: alert.acknowledged
                           ? AppButtonVariant.secondary
@@ -187,14 +185,10 @@ class DoctorAlertDetailView extends StatelessWidget {
                               if (!context.mounted) return;
                               if (ok) {
                                 AppToast.success(
-                                  context,
-                                  'Alert acknowledged.',
-                                );
+                                    context, 'Alert acknowledged.');
                               } else {
                                 AppToast.warn(
-                                  context,
-                                  'Could not acknowledge alert.',
-                                );
+                                    context, 'Could not acknowledge alert.');
                               }
                             },
                     ),
@@ -233,9 +227,8 @@ class DoctorAlertDetailView extends StatelessWidget {
                       label: 'Message patient',
                       icon: AppIcons.chat,
                       variant: AppButtonVariant.ghost,
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pushNamed(RouteNames.doctorMessages),
+                      onPressed: () => Navigator.of(context)
+                          .pushNamed(RouteNames.doctorMessages),
                     ),
                   ],
                 ),

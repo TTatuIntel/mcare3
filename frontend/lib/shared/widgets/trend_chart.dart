@@ -27,10 +27,8 @@ class TrendChart extends StatelessWidget {
       return SizedBox(
         height: height,
         child: Center(
-          child: Text(
-            'No readings yet',
-            style: TextStyle(color: AppPalette.textMuted(context)),
-          ),
+          child: Text('No readings yet',
+              style: TextStyle(color: AppPalette.textMuted(context))),
         ),
       );
     }
@@ -51,13 +49,9 @@ class TrendChart extends StatelessWidget {
 
     final allValues = [
       ...sorted.map((r) => r.value),
-      ...sorted
-          .where((r) => r.secondaryValue != null)
-          .map((r) => r.secondaryValue!),
+      ...sorted.where((r) => r.secondaryValue != null).map((r) => r.secondaryValue!),
     ];
-    final minY = (allValues.reduce((a, b) => a < b ? a : b) - 5)
-        .clamp(0, double.infinity)
-        .toDouble();
+    final minY = (allValues.reduce((a, b) => a < b ? a : b) - 5).clamp(0, double.infinity).toDouble();
     final maxY = allValues.reduce((a, b) => a > b ? a : b) + 5;
 
     return SizedBox(
@@ -87,9 +81,7 @@ class TrendChart extends StatelessWidget {
                 getTitlesWidget: (v, _) => Text(
                   v.toStringAsFixed(0),
                   style: TextStyle(
-                    fontSize: 10,
-                    color: AppPalette.textMuted(context),
-                  ),
+                      fontSize: 10, color: AppPalette.textMuted(context)),
                 ),
               ),
             ),
@@ -108,20 +100,16 @@ class TrendChart extends StatelessWidget {
                     child: Text(
                       DateFormat.Md().format(sorted[i].recordedAt),
                       style: TextStyle(
-                        fontSize: 10,
-                        color: AppPalette.textMuted(context),
-                      ),
+                          fontSize: 10, color: AppPalette.textMuted(context)),
                     ),
                   );
                 },
               ),
             ),
             rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
+                sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
+                sideTitles: SideTitles(showTitles: false)),
           ),
           borderData: FlBorderData(show: false),
           extraLinesData: ExtraLinesData(
@@ -193,14 +181,11 @@ class TrendChart extends StatelessWidget {
                 return LineTooltipItem(
                   '${reading.formatValue()} ${vital.unit}\n',
                   const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+                      color: Colors.white, fontWeight: FontWeight.w600),
                   children: [
                     TextSpan(
-                      text: DateFormat.MMMd().add_jm().format(
-                        reading.recordedAt,
-                      ),
+                      text:
+                          DateFormat.MMMd().add_jm().format(reading.recordedAt),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w400,

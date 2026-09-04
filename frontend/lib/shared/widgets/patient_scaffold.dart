@@ -11,6 +11,7 @@ import 'app_toast.dart';
 import 'bubble_background.dart';
 import 'patient_app_header.dart';
 import 'patient_bottom_nav.dart';
+import 'patient_ui_scope.dart';
 import 'responsive.dart';
 
 /// Single scaffold patient screens render into. Handles:
@@ -18,6 +19,8 @@ import 'responsive.dart';
 ///  - tablet: header + bottom nav with wider content
 ///  - desktop: side rail + header + content (no bottom nav)
 class PatientScaffold extends StatelessWidget {
+  static const double _desktopPageInset = 25;
+
   const PatientScaffold({
     super.key,
     required this.currentRoute,
@@ -82,13 +85,18 @@ class PatientScaffold extends StatelessWidget {
               ? AppSpacing.pageInsetMobile
               : tier.isTablet
               ? AppSpacing.pageInsetTablet
-              : AppSpacing.pageInsetDesktop,
+              : _desktopPageInset,
           vertical: AppSpacing.lg,
         );
 
     final centered = Center(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxContentWidth),
+        // Patient pages should use all of the workspace beside the desktop
+        // rail. Width caps remain useful on tablet, where several focused
+        // hubs deliberately request a narrower composition.
+        constraints: BoxConstraints(
+          maxWidth: tier.isDesktop ? double.infinity : maxContentWidth,
+        ),
         child: Padding(padding: pad, child: body),
       ),
     );
@@ -109,41 +117,72 @@ class PatientScaffold extends StatelessWidget {
 
     if (!tier.isMobile) {
       return SessionPollerScope(
-        child: RootNavigationScope(
-          route: currentRoute,
-          child: PopScope(
-            canPop: !isHome && !isTabHub,
-            onPopInvokedWithResult: popToHome,
-            child: Scaffold(
-              backgroundColor: surface,
-              body: Row(
-                children: [
-                  PatientSideRail(
-                    currentRoute: currentRoute,
-                    compact: tier.isTablet,
-                  ),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        PatientAppHeader(
-                          title: title,
-                          subtitle: subtitle,
-                          actions: headerActions,
-                          currentRoute: currentRoute,
+        child: PatientUiScope(
+          child: _PatientDesktopScaler(
+            enabled: tier.isDesktop,
+            child: RootNavigationScope(
+              route: currentRoute,
+              child: PopScope(
+                canPop: !isHome && !isTabHub,
+                onPopInvokedWithResult: popToHome,
+                child: Scaffold(
+                  backgroundColor: surface,
+                  body: Row(
+                    children: [
+                      PatientSideRail(
+                        currentRoute: currentRoute,
+                        compact: tier.isTablet,
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            PatientAppHeader(
+                              title: title,
+                              subtitle: subtitle,
+                              actions: headerActions,
+                              currentRoute: currentRoute,
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(10.0),
+                                child: Container(
+                                  clipBehavior: Clip.antiAlias,
+                                  decoration: BoxDecoration(
+                                    color: AppPalette.surface(context),
+                                    borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusLg,
+                                    ),
+                                    border: Border.all(
+                                      color: AppPalette.border(
+                                        context,
+                                      ).withValues(alpha: 0.6),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: BubbleBackground(
+                                    bubbleCount: 5,
+                                    surfaceColor: AppPalette.surface(context),
+                                    child: scrollBody,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        Expanded(
-                          child: BubbleBackground(
-                            bubbleCount: 5,
-                            surfaceColor: surface,
-                            child: scrollBody,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                  floatingActionButton: floatingActionButton,
+                ),
               ),
-              floatingActionButton: floatingActionButton,
             ),
           ),
         ),
@@ -151,31 +190,107 @@ class PatientScaffold extends StatelessWidget {
     }
 
     return SessionPollerScope(
-      child: RootNavigationScope(
-        route: currentRoute,
-        child: PopScope(
-          canPop: !isHome && !isTabHub,
-          onPopInvokedWithResult: popToHome,
-          child: Scaffold(
-            backgroundColor: surface,
-            appBar: PatientAppHeader(
-              title: title,
-              subtitle: subtitle,
-              actions: headerActions,
-              currentRoute: currentRoute,
+      child: PatientUiScope(
+        child: RootNavigationScope(
+          route: currentRoute,
+          child: PopScope(
+            canPop: !isHome && !isTabHub,
+            onPopInvokedWithResult: popToHome,
+            child: Scaffold(
+              backgroundColor: surface,
+              appBar: PatientAppHeader(
+                title: title,
+                subtitle: subtitle,
+                actions: headerActions,
+                currentRoute: currentRoute,
+              ),
+              body: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: AppPalette.surface(context),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                    border: Border.all(
+                      color: AppPalette.border(context).withValues(alpha: 0.6),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: BubbleBackground(
+                    bubbleCount: 5,
+                    surfaceColor: AppPalette.surface(context),
+                    child: scrollBody,
+                  ),
+                ),
+              ),
+              bottomNavigationBar: detachedNav
+                  ? const PatientBottomNav.detached()
+                  : PatientBottomNav(currentRoute: currentRoute),
+              floatingActionButton: floatingActionButton,
             ),
-            body: BubbleBackground(
-              bubbleCount: 5,
-              surfaceColor: surface,
-              child: scrollBody,
-            ),
-            bottomNavigationBar: detachedNav
-                ? const PatientBottomNav.detached()
-                : PatientBottomNav(currentRoute: currentRoute),
-            floatingActionButton: floatingActionButton,
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Enlarges the complete patient shell as wide desktop viewports grow.
+///
+/// Scaling the shell as one unit keeps type, icons, controls, cards, spacing,
+/// the header, and the navigation rail in the same visual proportion. The
+/// logical viewport is reduced by the inverse scale so layout and hit testing
+/// continue to match what is painted.
+class _PatientDesktopScaler extends StatelessWidget {
+  const _PatientDesktopScaler({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  static const double _baselineWidth = 1600;
+  static const double _maximumScale = 1.1;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = (constraints.maxWidth / _baselineWidth).clamp(
+          1.0,
+          _maximumScale,
+        );
+        if (scale == 1.0) return child;
+
+        final logicalSize = Size(
+          constraints.maxWidth / scale,
+          constraints.maxHeight / scale,
+        );
+        final mediaQuery = MediaQuery.of(context);
+
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.topLeft,
+              child: SizedBox.fromSize(
+                size: logicalSize,
+                child: MediaQuery(
+                  data: mediaQuery.copyWith(size: logicalSize),
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

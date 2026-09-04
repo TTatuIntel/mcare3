@@ -7,7 +7,6 @@ use App\Models\ChatMessage;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Services\RealtimeSignalService;
-use App\Services\WorkflowNotificationService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -75,7 +74,6 @@ class DoctorMessagesController extends Controller
             'read' => false,
             'sent_at' => now(),
         ]);
-        WorkflowNotificationService::messageSent($msg, $conversation, $doctor);
 
         DoctorAccess::audit(
             $doctor,
@@ -95,7 +93,6 @@ class DoctorMessagesController extends Controller
             ->where('sender_user_id', '!=', $request->user()->id)
             ->where('read', false)
             ->update(['read' => true]);
-        WorkflowNotificationService::markConversationRead($request->user(), $conversation);
         RealtimeSignalService::forModel($conversation, 'updated', ['messages']);
 
         return $this->success(null, 'Marked read.');

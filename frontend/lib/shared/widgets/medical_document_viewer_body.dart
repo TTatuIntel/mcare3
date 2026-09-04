@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../core/env/app_env.dart';
+import '../../core/web/web_platform.dart' as web_platform;
 import '../models/document.dart';
-import '../services/document_opener.dart';
+import '../services/document_preview_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'document_action_bar.dart';
@@ -18,22 +20,36 @@ class MedicalDocumentViewerBody extends StatefulWidget {
     required this.documentId,
     required this.fileType,
     required this.metaRows,
+<<<<<<< Updated upstream
+=======
     this.documentTitle = 'document',
+    this.mimeType,
+    this.downloadName,
+>>>>>>> Stashed changes
     this.patientUserId,
     this.hasFile = true,
     this.onDelete,
     this.onEdit,
     this.previewHeight = 300,
     this.previewReloadToken = 0,
-    this.footer,
   });
 
   final String documentId;
   final DocumentFileType fileType;
+<<<<<<< Updated upstream
+=======
 
   /// Names the file handed to the browser or the share sheet. A PDF arriving
   /// as an extensionless temp name opens in nothing.
   final String documentTitle;
+
+  /// What the server recorded the stored file to be, and what it should be
+  /// saved as. Without these the type is guessed from [fileType], which files
+  /// every issued report under `application/octet-stream` named `.bin`.
+  final String? mimeType;
+  final String? downloadName;
+
+>>>>>>> Stashed changes
   final List<Widget> metaRows;
   final String? patientUserId;
   final bool hasFile;
@@ -41,11 +57,6 @@ class MedicalDocumentViewerBody extends StatefulWidget {
   final VoidCallback? onEdit;
   final double previewHeight;
   final int previewReloadToken;
-
-  /// Rendered under the action bar. Carries the actions that are about the
-  /// record rather than the file — asking staff to remove a document the
-  /// patient cannot delete themselves, and the answer when they refuse.
-  final Widget? footer;
 
   @override
   State<MedicalDocumentViewerBody> createState() =>
@@ -57,27 +68,55 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
   bool _deleting = false;
   bool _viewing = false;
 
+<<<<<<< Updated upstream
+  Future<String?> _resolveOpenUrl() async {
+    final content = await DocumentPreviewService.resolveContent(
+      documentId: widget.documentId,
+      fileType: widget.fileType,
+      patientUserId: widget.patientUserId,
+    );
+    return DocumentPreviewService.objectUrlFor(content);
+  }
+
+  Future<void> _openExternal() async {
+=======
+  /// Fetches the bytes once and hands them to the platform, either to display
+  /// or to save. One call site for both so the two actions cannot drift apart
+  /// again in what they ask the server for.
+  Future<bool> _fetchAndHandOver({required bool save}) {
+    return DocumentOpener.open(
+      documentId: widget.documentId,
+      fileType: widget.fileType,
+      title: widget.documentTitle,
+      patientUserId: widget.patientUserId,
+      mimeType: widget.mimeType,
+      downloadName: widget.downloadName,
+      save: save,
+    );
+  }
+
   /// Opens the file the way the current platform can: a browser tab on web,
   /// the system share sheet ("Open in…", Files, Books, print) on iOS and
-  /// Android. This used to call the web path unconditionally, so every Open
-  /// and Download on a phone ended in a stopped spinner and no file.
-  Future<void> _openExternal() async {
+  /// Android.
+  Future<void> _view() async {
+>>>>>>> Stashed changes
     if (!widget.hasFile) {
       AppToast.warn(context, 'No file attached. Use Edit to upload a file.');
       return;
     }
     setState(() => _viewing = true);
     try {
-      final opened = await DocumentOpener.open(
-        documentId: widget.documentId,
-        fileType: widget.fileType,
-        title: widget.documentTitle,
-        patientUserId: widget.patientUserId,
-      );
+<<<<<<< Updated upstream
+      final url = await _resolveOpenUrl();
+=======
+      final opened = await _fetchAndHandOver(save: false);
+>>>>>>> Stashed changes
       if (!mounted) return;
-      if (!opened) {
-        AppToast.warn(context, 'This file could not be opened.');
+      if (url == null) {
+        AppToast.warn(context, 'File link unavailable.');
+        return;
       }
+      web_platform.openWindow(url, '_blank');
     } catch (e) {
       if (!mounted) return;
       AppToast.warn(context, 'Could not open file: $e');
@@ -86,8 +125,13 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
     }
   }
 
-  Future<void> _view() => _openExternal();
-
+  /// Puts the file on the reader's device.
+  ///
+  /// This used to be [_view] under another name — the same call, the same
+  /// `inline` response, the same new tab. A patient at a hospital reception
+  /// tapping Download got a tab they could not hand over and no file. On web
+  /// it now writes to their Downloads folder; on a phone the share sheet is
+  /// where Save to Files lives, so that is still the right destination.
   Future<void> _download() async {
     if (!widget.hasFile) {
       AppToast.warn(context, 'No file attached. Use Edit to upload a file.');
@@ -95,22 +139,30 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
     }
     setState(() => _downloading = true);
     try {
+<<<<<<< Updated upstream
       if (!AppEnv.backendEnabled) {
         await _openExternal();
         return;
       }
-      final opened = await DocumentOpener.open(
-        documentId: widget.documentId,
-        fileType: widget.fileType,
-        title: widget.documentTitle,
-        patientUserId: widget.patientUserId,
-      );
+      final url = await _resolveOpenUrl();
       if (!mounted) return;
-      if (opened) {
-        AppToast.success(context, 'Opening file…');
+      if (url == null) {
+        AppToast.warn(context, 'Download link unavailable.');
+        return;
+=======
+      final saved = await _fetchAndHandOver(save: AppEnv.backendEnabled);
+      if (!mounted) return;
+      if (saved) {
+        AppToast.success(
+          context,
+          kIsWeb ? 'Saved to your downloads.' : 'Choose where to save it…',
+        );
       } else {
-        AppToast.warn(context, 'This file could not be opened.');
+        AppToast.warn(context, 'This file could not be downloaded.');
+>>>>>>> Stashed changes
       }
+      web_platform.openWindow(url, '_blank');
+      AppToast.success(context, 'Opening file…');
     } catch (e) {
       if (!mounted) return;
       AppToast.warn(context, 'Could not download: $e');
@@ -152,6 +204,7 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
         DocumentPreviewPanel(
           documentId: widget.documentId,
           fileType: widget.fileType,
+          mimeType: widget.mimeType,
           patientUserId: widget.patientUserId,
           hasFile: widget.hasFile,
           height: widget.previewHeight,
@@ -169,10 +222,6 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
           downloadLoading: _downloading,
           deleteLoading: _deleting,
         ),
-        if (widget.footer != null) ...[
-          const SizedBox(height: AppSpacing.lg),
-          widget.footer!,
-        ],
       ],
     );
   }

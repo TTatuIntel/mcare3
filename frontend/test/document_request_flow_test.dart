@@ -16,6 +16,7 @@ import 'package:mcare/shared/models/user_role.dart';
 import 'package:mcare/shared/state/document_requests_state.dart';
 import 'package:mcare/shared/state/documents_state.dart';
 import 'package:mcare/shared/theme/app_theme.dart';
+import 'package:mcare/shared/widgets/patient_page_blocks.dart';
 
 /// The documents screen holds two different things and must not blur them:
 /// what is filed, which the patient can open, and what has been asked for,
@@ -165,7 +166,15 @@ void main() {
 
     // Answered requests are folded away, so the reason lives one tap in.
     final toggle = find.textContaining('Show 1 answered request');
-    await tester.scrollUntilVisible(toggle, 200);
+    // Named by axis rather than by type: the quick-action bar scrolls
+    // horizontally, so "the page's scrollable" is no longer "the only one".
+    await tester.scrollUntilVisible(
+      toggle,
+      200,
+      scrollable: find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+      ),
+    );
     await tester.tap(toggle);
     await tester.pumpAndSettle();
 
@@ -211,6 +220,80 @@ void main() {
     expect(find.text('Vital report'), findsWidgets);
     // Issued reports are not the patient's to delete, and the row says so.
     expect(find.text('Issued report'), findsOneWidget);
+  });
+
+  testWidgets('an issued medical report is counted as a report too', (
+    tester,
+  ) async {
+    DocumentsState.instance.seed([
+      document(
+        id: 'd1',
+        title: 'Vital report — 1 Aug 2026 to 30 Aug 2026',
+        category: DocumentCategory.vitalReport,
+        source: DocumentSource.report,
+      ),
+      // The patient's copy of a disclosure issued from their record. A second
+      // report category, produced by a different flow — and while the Reports
+      // count named only the first, someone holding one was shown "0 Reports".
+      document(
+        id: 'd2',
+        title: 'Continuity of care summary',
+        category: DocumentCategory.report,
+        source: DocumentSource.report,
+      ),
+      document(id: 'd3', title: 'Lipid panel'),
+    ]);
+
+    await pump(tester);
+
+    // Both reports under the one heading the patient reads.
+    expect(
+      find.descendant(
+        of: find.byType(PatientHeroStat),
+        matching: find.text('2'),
+      ),
+      findsWidgets,
+    );
+
+    // And the Reports filter spans both rather than one of them. Named inside
+    // the action bar: "Reports" is also the hero stat's label, and tapping
+    // that one filters nothing.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(PatientQuickActionsBar),
+        matching: find.text('Reports'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continuity of care summary'), findsOneWidget);
+    expect(
+      find.text('Vital report — 1 Aug 2026 to 30 Aug 2026'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Lipid panel'),
+      findsNothing,
+      reason: 'A lab result is not a report and must not survive the filter.',
+    );
+  });
+
+  testWidgets('a vitals report can be asked for from the documents page', (
+    tester,
+  ) async {
+    DocumentsState.instance.seed([document(id: 'd1', title: 'Lipid panel')]);
+
+    await pump(tester);
+
+    // The report a patient is most often asked for was the one thing they had
+    // to leave this screen to request.
+    final action = find.text('Vitals report');
+    expect(action, findsOneWidget);
+
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vital reports'), findsWidgets);
   });
 
   testWidgets('search narrows the record but never hides an open request', (

@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\CareAssignment;
 use App\Models\CareProvider;
-use App\Models\DocumentRequest;
 use App\Models\EmergencyContact;
 use App\Models\PatientReportRequest;
 use App\Models\VitalCatalog;
@@ -128,20 +127,7 @@ class PatientSessionController extends Controller
                 ->all(),
 
             'vital_report_requests' => $user->vitalReportRequests()
-                ->with('events')
                 ->orderByDesc('created_at')
-                ->get()
-                ->map->toApiArray()
-                ->all(),
-
-            // Documents the patient has asked the care team for. Carried in
-            // the session for the same reason report consents are: without
-            // them the documents screen only learns about an outstanding
-            // request from a notification that may already have been read.
-            'document_requests' => DocumentRequest::with(['events', 'targetDoctor'])
-                ->where('user_id', $user->id)
-                ->orderByDesc('created_at')
-                ->limit(50)
                 ->get()
                 ->map->toApiArray()
                 ->all(),
@@ -158,15 +144,12 @@ class PatientSessionController extends Controller
                 ->map->toPatientApiArray()
                 ->all(),
 
-            // The nutrition timetable — clinician-assigned plans and the meals
-            // the patient added themselves, ordered by the day they are meant
-            // to be eaten so upcoming days travel with the session. Plans
-            // written before scheduling existed fall back to their assign date.
+            // Clinician-assigned nutrition. The patient home feed shows the
+            // plans assigned for today; older ones stay available for context.
             'meal_plans' => $user->mealPlans()
                 ->with(['assignedBy', 'patient'])
-                ->orderByRaw('COALESCE(scheduled_for, DATE(assigned_at)) DESC')
                 ->orderByDesc('assigned_at')
-                ->limit(150)
+                ->limit(50)
                 ->get()
                 ->map->toApiArray()
                 ->all(),

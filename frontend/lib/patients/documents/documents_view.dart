@@ -3,48 +3,30 @@ import 'package:intl/intl.dart';
 
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/document.dart';
-import '../../shared/state/document_requests_state.dart';
 import '../../shared/state/documents_state.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_icons.dart';
 import '../../shared/widgets/app_page_route.dart';
-import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/patient_page_blocks.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/section_label.dart';
+<<<<<<< Updated upstream
+=======
+import '../../core/realtime/realtime_refresh_mixin.dart';
+import '../../shared/models/vital_report_request.dart';
+import '../../shared/state/vital_report_state.dart';
 import '../consents/patient_report_consents_view.dart';
+import '../vitals/request_vital_report_sheet.dart';
 import 'document_request_card.dart';
+>>>>>>> Stashed changes
 import 'document_viewer_sheet.dart';
-import 'request_document_sheet.dart';
 import 'upload_document_sheet.dart';
 
-/// How the list is ordered. Newest-first is right for a record that mostly
-/// grows at the top, but a patient hunting for last year's discharge summary
-/// is looking for a *name*, and scrolling three years of labs to find it is
-/// the failure this exists to fix.
-enum _DocumentSort { newest, oldest, title, category }
-
-extension _DocumentSortX on _DocumentSort {
-  String get label => switch (this) {
-    _DocumentSort.newest => 'Newest',
-    _DocumentSort.oldest => 'Oldest',
-    _DocumentSort.title => 'A–Z',
-    _DocumentSort.category => 'By type',
-  };
-}
-
-/// The patient's record, and the things they are still waiting on.
-///
-/// Two collections, deliberately not merged. What is filed can be opened; what
-/// has been requested cannot, and a row that looked the same for both would be
-/// a promise the record cannot keep. They sit on one screen because the
-/// question the patient arrives with — "do I have my referral letter?" — is
-/// answered by both halves together.
 class DocumentsView extends StatefulWidget {
   const DocumentsView({super.key});
 
@@ -52,8 +34,18 @@ class DocumentsView extends StatefulWidget {
   State<DocumentsView> createState() => _DocumentsViewState();
 }
 
-class _DocumentsViewState extends State<DocumentsView> {
+class _DocumentsViewState extends State<DocumentsView>
+    with RealtimeRefreshMixin<DocumentsView> {
   DocumentCategory? _filter;
+<<<<<<< Updated upstream
+=======
+
+  /// The Reports chip spans two categories, so it cannot be expressed as a
+  /// single [_filter] value. Kept as its own flag rather than by widening
+  /// [_filter] to a set, which every other chip would then have to reason about
+  /// for no benefit.
+  bool _reportsOnly = false;
+
   _DocumentSort _sort = _DocumentSort.newest;
   final _searchController = TextEditingController();
   String _query = '';
@@ -74,6 +66,27 @@ class _DocumentsViewState extends State<DocumentsView> {
     // Same reasoning for requests: a claim or a decline that landed while the
     // app was closed is exactly what they came here to check.
     DocumentRequestsState.instance.refresh().catchError((_) {});
+    // And the vital reports they asked for from this screen.
+    VitalReportState.instance.refresh().catchError((_) {});
+
+    // A one-shot fetch on open is not enough. A patient sitting on this screen
+    // while a doctor signs their report — which is the exact moment they are
+    // told to come and look — would otherwise watch a list that never changes.
+    // The same signal covers a document filed by the care team and a request
+    // being claimed or answered.
+    watchRealtime({'documents', 'vitals', 'notifications'}, _refreshAll);
+  }
+
+  /// Pulls every collection this screen shows.
+  ///
+  /// Failures are swallowed per-store on purpose: whatever is already on screen
+  /// is more useful than an error page over a list the patient can still read.
+  Future<void> _refreshAll() async {
+    await Future.wait([
+      DocumentsState.instance.refresh().catchError((_) {}),
+      DocumentRequestsState.instance.refresh().catchError((_) {}),
+      VitalReportState.instance.refresh().catchError((_) {}),
+    ]);
   }
 
   @override
@@ -81,15 +94,19 @@ class _DocumentsViewState extends State<DocumentsView> {
     _searchController.dispose();
     super.dispose();
   }
+>>>>>>> Stashed changes
 
   int _countFor(DocumentCategory c, List<MedicalDocument> all) =>
       all.where((d) => d.category == c).length;
 
+<<<<<<< Updated upstream
+=======
   /// Filter, search, then sort — in that order, so the count under the section
   /// label always describes what is actually on screen.
   List<MedicalDocument> _visible(List<MedicalDocument> all) {
     final q = _query.trim().toLowerCase();
     final items = all.where((d) {
+      if (_reportsOnly && !d.category.isIssuedReport) return false;
       if (_filter != null && d.category != _filter) return false;
       if (q.isEmpty) return true;
       return d.title.toLowerCase().contains(q) ||
@@ -115,12 +132,13 @@ class _DocumentsViewState extends State<DocumentsView> {
     return items;
   }
 
+>>>>>>> Stashed changes
   @override
   Widget build(BuildContext context) {
     return PatientScaffold(
       currentRoute: RouteNames.patientDocuments,
       title: 'Documents',
-      subtitle: 'Lab results, prescriptions, imaging and reports',
+      subtitle: 'Lab results, prescriptions, imaging and more',
       headerActions: [
         AppButton(
           label: 'Upload',
@@ -131,37 +149,49 @@ class _DocumentsViewState extends State<DocumentsView> {
         const SizedBox(width: AppSpacing.sm),
       ],
       body: AnimatedBuilder(
+<<<<<<< Updated upstream
+        animation: DocumentsState.instance,
+=======
         // Both stores drive this screen, and a request being answered changes
         // both at once — the document appears and the request closes.
         animation: Listenable.merge([
           DocumentsState.instance,
           DocumentRequestsState.instance,
+          // A vital report can now be asked for from this screen, so the queue
+          // it lands in has to drive this screen too.
+          VitalReportState.instance,
         ]),
+>>>>>>> Stashed changes
         builder: (context, _) {
           final all = DocumentsState.instance.all;
-          final items = _visible(all);
+          final items = DocumentsState.instance.filter(_filter);
           final tier = ResponsiveBuilder.of(context);
-
-          final openRequests = DocumentRequestsState.instance.open;
-          final closedRequests = DocumentRequestsState.instance.closed;
-          final overdueCount = DocumentRequestsState.instance.overdue.length;
-
           final labCount = _countFor(DocumentCategory.labResult, all);
           final rxCount = _countFor(DocumentCategory.prescription, all);
           final imagingCount = _countFor(DocumentCategory.imaging, all);
-          final reportCount = _countFor(DocumentCategory.vitalReport, all);
+<<<<<<< Updated upstream
+          final mostRecent = all.isNotEmpty
+              ? all
+=======
+          // Both report categories. A patient counting the reports they hold
+          // does not care whether a vital report or a record disclosure made
+          // it — and after the second category was added, counting only the
+          // first would have shown "0 Reports" to someone holding one.
+          final reportCount = all.where((d) => d.category.isIssuedReport).length;
+          final openVitalReports = VitalReportState.instance.pending;
           final mostRecent = all.isEmpty
               ? null
               : all
+>>>>>>> Stashed changes
                     .map((d) => d.uploadedAt)
-                    .reduce((a, b) => a.isAfter(b) ? a : b);
+                    .reduce((a, b) => a.isAfter(b) ? a : b)
+              : null;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               StaggeredEntry(index: 0, child: PatientDateHeader()),
               const SizedBox(height: AppSpacing.sm),
-
               StaggeredEntry(
                 index: 1,
                 child: _DocumentsHero(
@@ -169,14 +199,15 @@ class _DocumentsViewState extends State<DocumentsView> {
                   labCount: labCount,
                   rxCount: rxCount,
                   imagingCount: imagingCount,
-                  reportCount: reportCount,
                   mostRecent: mostRecent,
-                  openRequestCount: openRequests.length,
+<<<<<<< Updated upstream
+=======
+                  openRequestCount: openRequests.length + openVitalReports.length,
                   overdueRequestCount: overdueCount,
+>>>>>>> Stashed changes
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-
               StaggeredEntry(
                 index: 2,
                 child: GlassCard(
@@ -190,11 +221,13 @@ class _DocumentsViewState extends State<DocumentsView> {
                       PatientQuickAction(
                         icon: AppIcons.add,
                         label: 'Upload',
+                        horizontal: true,
                         onTap: () => UploadDocumentSheet.show(context),
                       ),
-                      // The other direction, and the reason this screen is
-                      // no longer a one-way street.
                       PatientQuickAction(
+<<<<<<< Updated upstream
+                        icon: DocumentCategory.labResult.icon,
+=======
                         icon: AppIcons.send,
                         label: 'Request',
                         badge: openRequests.isEmpty
@@ -203,45 +236,86 @@ class _DocumentsViewState extends State<DocumentsView> {
                         badgeColor: AppColors.warning,
                         onTap: () => RequestDocumentSheet.show(context),
                       ),
+                      // Asking for a vital report belonged here as much as on
+                      // the vitals screen. This is where a patient comes when
+                      // they need a document to hand someone — the report they
+                      // are most often asked for was the one thing they had to
+                      // go somewhere else to request.
+                      PatientQuickAction(
+                        icon: AppIcons.vitals,
+                        label: 'Vitals report',
+                        badge: openVitalReports.isEmpty
+                            ? null
+                            : '${openVitalReports.length}',
+                        badgeColor: AppColors.warning,
+                        onTap: () => RequestVitalReportSheet.show(context),
+                      ),
                       _CategoryQuickAction(
                         category: DocumentCategory.labResult,
+>>>>>>> Stashed changes
                         label: 'Labs',
-                        count: labCount,
+                        horizontal: true,
+                        badge: labCount > 0 ? '$labCount' : null,
+                        badgeColor: DocumentCategory.labResult.color,
                         selected: _filter == DocumentCategory.labResult,
-                        onTap: () => _toggleFilter(DocumentCategory.labResult),
+                        onTap: () => setState(
+                          () => _filter = DocumentCategory.labResult,
+                        ),
                       ),
-                      _CategoryQuickAction(
-                        category: DocumentCategory.prescription,
+                      PatientQuickAction(
+                        icon: DocumentCategory.prescription.icon,
                         label: 'Rx',
-                        count: rxCount,
+                        horizontal: true,
+                        badge: rxCount > 0 ? '$rxCount' : null,
+                        badgeColor: DocumentCategory.prescription.color,
                         selected: _filter == DocumentCategory.prescription,
-                        onTap: () =>
-                            _toggleFilter(DocumentCategory.prescription),
+                        onTap: () => setState(
+                          () => _filter = DocumentCategory.prescription,
+                        ),
                       ),
+<<<<<<< Updated upstream
+                      PatientQuickAction(
+                        icon: DocumentCategory.imaging.icon,
+                        label: 'Imaging',
+                        horizontal: true,
+                        badge: imagingCount > 0 ? '$imagingCount' : null,
+                        badgeColor: DocumentCategory.imaging.color,
+                        selected: _filter == DocumentCategory.imaging,
+                        onTap: () =>
+                            setState(() => _filter = DocumentCategory.imaging),
+=======
                       _CategoryQuickAction(
                         category: DocumentCategory.vitalReport,
                         label: 'Reports',
                         count: reportCount,
-                        selected: _filter == DocumentCategory.vitalReport,
-                        onTap: () =>
-                            _toggleFilter(DocumentCategory.vitalReport),
+                        selected: _reportsFilterOn,
+                        onTap: _toggleReportsFilter,
+>>>>>>> Stashed changes
                       ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
+<<<<<<< Updated upstream
+=======
 
               // ---------------------------------------------------------
               // Waiting on the care team
               // ---------------------------------------------------------
-              if (openRequests.isNotEmpty) ...[
+              // One section for everything outstanding, whichever queue it
+              // sits in. A patient waiting on a referral letter and a patient
+              // waiting on a vitals report are asking the same question, and
+              // splitting them into two headings made the screen answer it
+              // twice.
+              if (openRequests.isNotEmpty || openVitalReports.isNotEmpty) ...[
                 StaggeredEntry(
                   index: 3,
                   child: SectionLabel(
                     title: 'Waiting on your care team',
                     icon: AppIcons.time,
-                    trailing: '${openRequests.length}',
+                    trailing:
+                        '${openRequests.length + openVitalReports.length}',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -251,6 +325,14 @@ class _DocumentsViewState extends State<DocumentsView> {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: DocumentRequestCard(request: r),
+                    ),
+                  ),
+                for (final r in openVitalReports)
+                  StaggeredEntry(
+                    index: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _VitalReportWaitingCard(request: r),
                     ),
                   ),
                 const SizedBox(height: AppSpacing.md),
@@ -282,8 +364,16 @@ class _DocumentsViewState extends State<DocumentsView> {
                   child: _FilterRow(
                     all: all,
                     filter: _filter,
+                    reportsOnly: _reportsOnly,
                     sort: _sort,
-                    onFilter: (c) => setState(() => _filter = c),
+                    // Clearing the Reports flag here matters: the two filters
+                    // intersect, so a chip tapped while Reports was on used to
+                    // leave the patient looking at an empty list they had no
+                    // way to explain.
+                    onFilter: (c) => setState(() {
+                      _filter = c;
+                      _reportsOnly = false;
+                    }),
                     onSort: (s) => setState(() => _sort = s),
                   ),
                 ),
@@ -293,21 +383,59 @@ class _DocumentsViewState extends State<DocumentsView> {
               // ---------------------------------------------------------
               // The record
               // ---------------------------------------------------------
+>>>>>>> Stashed changes
               StaggeredEntry(
-                index: 5,
+                index: 3,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        selected: _filter == null,
+                        onTap: () => setState(() => _filter = null),
+                      ),
+                      ...DocumentCategory.values.map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.sm),
+                          child: _FilterChip(
+                            label: c.label,
+                            selected: _filter == c,
+                            color: c.color,
+                            onTap: () => setState(() => _filter = c),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              StaggeredEntry(
+                index: 4,
                 child: SectionLabel(
-                  title: _sectionTitle(),
+                  title: _filter == null ? 'All documents' : _filter!.label,
                   icon: AppIcons.document,
                   trailing: items.isEmpty ? null : '${items.length}',
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-
               if (items.isEmpty)
-                StaggeredEntry(index: 6, child: _emptyState(all.isEmpty))
+                StaggeredEntry(
+                  index: 5,
+                  child: EmptyStateView(
+                    icon: AppIcons.document,
+                    title: 'No documents',
+                    message: _filter == null
+                        ? 'Upload your first document to get started.'
+                        : 'No documents in this category.',
+                    actionLabel: 'Upload',
+                    onAction: () => UploadDocumentSheet.show(context),
+                  ),
+                )
               else if (tier.isDesktop)
                 StaggeredEntry(
-                  index: 6,
+                  index: 5,
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -316,7 +444,10 @@ class _DocumentsViewState extends State<DocumentsView> {
                           crossAxisCount: 3,
                           mainAxisSpacing: AppSpacing.md,
                           crossAxisSpacing: AppSpacing.md,
-                          childAspectRatio: 1.1,
+                          // Document tiles contain a compact icon and three
+                          // text lines; their height should not grow with the
+                          // much wider patient desktop workspace.
+                          mainAxisExtent: 180,
                         ),
                     itemCount: items.length,
                     itemBuilder: (_, i) => _DocumentTile(doc: items[i]),
@@ -325,38 +456,13 @@ class _DocumentsViewState extends State<DocumentsView> {
               else
                 ...items.asMap().entries.map(
                   (e) => StaggeredEntry(
-                    index: e.key + 6,
+                    index: e.key + 5,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: _DocumentTile(doc: e.value, compact: true),
                     ),
                   ),
                 ),
-
-              // ---------------------------------------------------------
-              // Answered requests
-              // ---------------------------------------------------------
-              if (closedRequests.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.lg),
-                SectionLabel(
-                  title: 'Past requests',
-                  icon: AppIcons.history,
-                  trailing: '${closedRequests.length}',
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                if (_showClosedRequests)
-                  for (final r in closedRequests)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: DocumentRequestCard(request: r),
-                    )
-                else
-                  _ShowClosedButton(
-                    count: closedRequests.length,
-                    onTap: () => setState(() => _showClosedRequests = true),
-                  ),
-              ],
-
               const SizedBox(height: AppSpacing.huge),
             ],
           );
@@ -364,12 +470,24 @@ class _DocumentsViewState extends State<DocumentsView> {
       ),
     );
   }
+<<<<<<< Updated upstream
+=======
 
-  void _toggleFilter(DocumentCategory c) =>
-      setState(() => _filter = _filter == c ? null : c);
+  void _toggleFilter(DocumentCategory c) => setState(() {
+    _filter = _filter == c ? null : c;
+    _reportsOnly = false;
+  });
+
+  bool get _reportsFilterOn => _reportsOnly;
+
+  void _toggleReportsFilter() => setState(() {
+    _reportsOnly = !_reportsOnly;
+    _filter = null;
+  });
 
   String _sectionTitle() {
     if (_query.isNotEmpty) return 'Search results';
+    if (_reportsOnly) return 'Reports';
     return _filter?.label ?? 'All documents';
   }
 
@@ -404,6 +522,23 @@ class _DocumentsViewState extends State<DocumentsView> {
       );
     }
 
+    // A patient filtered to Reports with none yet is asking a different
+    // question from one filtered to Labs: the way to get a report is to
+    // request one from the care team, not to look harder.
+    if (_reportsOnly) {
+      return EmptyStateView(
+        icon: AppIcons.vitals,
+        title: 'No reports yet',
+        message:
+            'Reports your care team issues you land here automatically — '
+            'the moment they are signed off.',
+        actionLabel: 'Request a vitals report',
+        onAction: () => RequestVitalReportSheet.show(context),
+        secondaryActionLabel: 'Show all',
+        onSecondaryAction: () => setState(() => _reportsOnly = false),
+      );
+    }
+
     return EmptyStateView(
       icon: _filter?.icon ?? AppIcons.document,
       title: 'No ${_filter?.label.toLowerCase() ?? 'documents'}',
@@ -417,11 +552,8 @@ class _DocumentsViewState extends State<DocumentsView> {
       onSecondaryAction: () => setState(() => _filter = null),
     );
   }
+>>>>>>> Stashed changes
 }
-
-// ---------------------------------------------------------------------------
-// Hero
-// ---------------------------------------------------------------------------
 
 class _DocumentsHero extends StatelessWidget {
   const _DocumentsHero({
@@ -429,20 +561,14 @@ class _DocumentsHero extends StatelessWidget {
     required this.labCount,
     required this.rxCount,
     required this.imagingCount,
-    required this.reportCount,
     required this.mostRecent,
-    required this.openRequestCount,
-    required this.overdueRequestCount,
   });
 
   final int totalCount;
   final int labCount;
   final int rxCount;
   final int imagingCount;
-  final int reportCount;
   final DateTime? mostRecent;
-  final int openRequestCount;
-  final int overdueRequestCount;
 
   @override
   Widget build(BuildContext context) {
@@ -457,124 +583,136 @@ class _DocumentsHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 40,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: AppPalette.infoSoft(context),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: const Icon(
-                  AppIcons.document,
-                  color: AppColors.info,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      headline,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppPalette.ink(context),
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: AppPalette.infoSoft(context),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: const Icon(
+                      AppIcons.document,
+                      color: AppColors.info,
+                      size: 21,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (mostRecent != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Last added · ${DateFormat.yMMMd().format(mostRecent!)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppPalette.textMuted(context),
-                        ),
-                      ),
-                    ],
+                  ),
+                ],
+              );
+
+              final rightSide = _HeroRecentDocStrip(
+                mostRecent: mostRecent,
+                totalCount: totalCount,
+              );
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    const SizedBox(height: AppSpacing.sm),
+                    rightSide,
                   ],
-                ),
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Divider(height: 1, color: AppPalette.border(context)),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              PatientHeroStat(
+                label: 'Labs',
+                value: '$labCount',
+                accent: DocumentCategory.labResult.color,
+                horizontal: true,
+              ),
+              PatientHeroStatDivider(),
+              PatientHeroStat(
+                label: 'Rx',
+                value: '$rxCount',
+                accent: DocumentCategory.prescription.color,
+                horizontal: true,
+              ),
+              PatientHeroStatDivider(),
+              PatientHeroStat(
+                label: 'Imaging',
+                value: '$imagingCount',
+                accent: DocumentCategory.imaging.color,
+                horizontal: true,
               ),
             ],
           ),
-
-          // The waiting line goes above the counts on purpose: a patient with
-          // an outstanding request came here to check on it, not to count
-          // what they already have.
-          if (openRequestCount > 0) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _WaitingBanner(
-              openCount: openRequestCount,
-              overdueCount: overdueRequestCount,
-            ),
-          ],
-
-          if (totalCount > 0) ...[
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                PatientHeroStat(
-                  label: 'Labs',
-                  value: '$labCount',
-                  accent: DocumentCategory.labResult.color,
-                ),
-                PatientHeroStatDivider(),
-                PatientHeroStat(
-                  label: 'Rx',
-                  value: '$rxCount',
-                  accent: DocumentCategory.prescription.color,
-                ),
-                PatientHeroStatDivider(),
-                PatientHeroStat(
-                  label: 'Imaging',
-                  value: '$imagingCount',
-                  accent: DocumentCategory.imaging.color,
-                ),
-                PatientHeroStatDivider(),
-                PatientHeroStat(
-                  label: 'Reports',
-                  value: '$reportCount',
-                  accent: DocumentCategory.vitalReport.color,
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 }
 
-class _WaitingBanner extends StatelessWidget {
-  const _WaitingBanner({required this.openCount, required this.overdueCount});
+class _HeroRecentDocStrip extends StatelessWidget {
+  const _HeroRecentDocStrip({
+    required this.mostRecent,
+    required this.totalCount,
+  });
 
-  final int openCount;
-  final int overdueCount;
+  final DateTime? mostRecent;
+  final int totalCount;
 
   @override
   Widget build(BuildContext context) {
-    final overdue = overdueCount > 0;
-    final color = overdue ? AppColors.critical : AppColors.warning;
+    final theme = Theme.of(context);
+    final accent = AppColors.brandIndigo;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => UploadDocumentSheet.show(context),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            overdue ? AppIcons.alert : AppIcons.time,
-            size: 16,
-            color: color,
+        child: Ink(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           ),
+<<<<<<< Updated upstream
+          child: Padding(
+=======
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -632,6 +770,7 @@ class _FilterRow extends StatelessWidget {
   const _FilterRow({
     required this.all,
     required this.filter,
+    required this.reportsOnly,
     required this.sort,
     required this.onFilter,
     required this.onSort,
@@ -639,6 +778,11 @@ class _FilterRow extends StatelessWidget {
 
   final List<MedicalDocument> all;
   final DocumentCategory? filter;
+
+  /// The Reports quick action is on, which is a filter this row does not own
+  /// but must not contradict by showing "All" as selected.
+  final bool reportsOnly;
+
   final _DocumentSort sort;
   final ValueChanged<DocumentCategory?> onFilter;
   final ValueChanged<_DocumentSort> onSort;
@@ -661,7 +805,7 @@ class _FilterRow extends StatelessWidget {
               children: [
                 _FilterChip(
                   label: 'All',
-                  selected: filter == null,
+                  selected: filter == null && !reportsOnly,
                   onTap: () => onFilter(null),
                 ),
                 for (final c in present)
@@ -688,30 +832,65 @@ class _FilterRow extends StatelessWidget {
               PopupMenuItem(value: s, child: Text(s.label)),
           ],
           child: Container(
+>>>>>>> Stashed changes
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              border: Border.all(color: AppPalette.border(context)),
+              vertical: AppSpacing.xs + 2,
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(AppIcons.filter, size: 15),
-                const SizedBox(width: 4),
-                Text(
-                  sort.label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(AppIcons.add, size: 16, color: accent),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mostRecent != null
+                            ? 'LAST UPLOAD (${DateFormat.yMMMd().format(mostRecent!)})'
+                            : 'ADD RECORDS',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppPalette.textMuted(context),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Upload new document',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
                 ),
               ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -723,7 +902,6 @@ class _FilterChip extends StatelessWidget {
     required this.onTap,
     this.color,
   });
-
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -742,6 +920,8 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+<<<<<<< Updated upstream
+=======
 class _ShowClosedButton extends StatelessWidget {
   const _ShowClosedButton({required this.count, required this.onTap});
 
@@ -779,12 +959,89 @@ class _ShowClosedButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Outstanding vital report
+// ---------------------------------------------------------------------------
+
+/// A vitals report the patient has asked for and not yet been given.
+///
+/// Deliberately not the same widget as [DocumentRequestCard]: that one is about
+/// a file the care team holds and can attach, this one about a report that does
+/// not exist yet and is being written. Rendering them identically would promise
+/// the patient a document they cannot open.
+class _VitalReportWaitingCard extends StatelessWidget {
+  const _VitalReportWaitingCard({required this.request});
+
+  final VitalReportRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = request.status;
+    final claimedBy = request.claimedByName;
+
+    return GlassCard(
+      onTap: () => RequestVitalReportSheet.show(context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: status.color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
+            child: Icon(status.icon, color: status.color, size: 22),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Vitals report',
+                  style: theme.textTheme.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '${DateFormat.yMMMd().format(request.from)} – '
+                  '${DateFormat.yMMMd().format(request.to)}',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: 2,
+                  children: [
+                    _SourceBadge(label: status.label, color: status.color),
+                    // Who has it matters more than that somebody does: it is
+                    // the difference between "nobody has looked at this" and
+                    // "it is being written right now".
+                    if (claimedBy != null && claimedBy.isNotEmpty)
+                      _SourceBadge(
+                        label: 'With $claimedBy',
+                        color: AppColors.info,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: AppPalette.textMuted(context)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Document tile
 // ---------------------------------------------------------------------------
 
+>>>>>>> Stashed changes
 class _DocumentTile extends StatelessWidget {
   const _DocumentTile({required this.doc, this.compact = false});
-
   final MedicalDocument doc;
   final bool compact;
 
@@ -815,7 +1072,6 @@ class _DocumentTile extends StatelessWidget {
 
 class _IconBox extends StatelessWidget {
   const _IconBox({required this.doc, this.large = false});
-
   final MedicalDocument doc;
   final bool large;
 
@@ -839,84 +1095,25 @@ class _IconBox extends StatelessWidget {
 
 class _Content extends StatelessWidget {
   const _Content({required this.doc});
-
   final MedicalDocument doc;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final badge = doc.source.badge;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          doc.title,
-          style: theme.textTheme.titleMedium,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
+        Text(doc.title, style: Theme.of(context).textTheme.titleMedium),
         Text(
           '${doc.category.label} · ${doc.sizeLabel}',
-          style: theme.textTheme.bodySmall,
+          style: Theme.of(context).textTheme.bodySmall,
         ),
         Text(
           DateFormat.yMMMd().format(doc.uploadedAt),
-          style: theme.textTheme.labelSmall?.copyWith(
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: AppPalette.textMuted(context),
           ),
         ),
-        // Where a document came from decides what the patient can do with it —
-        // their own upload they can delete, anything else they cannot — so it
-        // is worth saying on the row rather than only inside the viewer.
-        if (badge != null || doc.removalRequested) ...[
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: 2,
-            children: [
-              if (badge != null)
-                _SourceBadge(
-                  label: badge,
-                  color: doc.source == DocumentSource.report
-                      ? AppColors.brandIndigo
-                      : AppColors.doctorGreen,
-                ),
-              if (doc.removalRequested)
-                _SourceBadge(
-                  label: 'Removal requested',
-                  color: AppColors.warning,
-                ),
-            ],
-          ),
-        ],
       ],
-    );
-  }
-}
-
-class _SourceBadge extends StatelessWidget {
-  const _SourceBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 10.5,
-        ),
-      ),
     );
   }
 }

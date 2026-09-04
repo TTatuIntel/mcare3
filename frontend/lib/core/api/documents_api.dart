@@ -4,30 +4,36 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 
 import '../../shared/models/document.dart';
-import '../../shared/auth/auth_state.dart';
-import '../../shared/models/user_role.dart';
 import '../env/app_env.dart';
 import 'api_client.dart';
 import 'multipart_file_builder.dart';
 import 'patient_domain_mapper.dart';
 
+/// Every route that reads or writes a medical document.
+///
+/// One method per operation, with `patientUserId` deciding whose record is
+/// being acted on rather than a second near-identical method per caller. The
+/// class previously carried both — `update` and `doctorUpdate`, `delete` and
+/// `doctorDelete`, `downloadUrl` and `doctorDownloadUrl` — differing only in a
+/// hardcoded path prefix. Half of those were already dead, and the surviving
+/// halves had begun to diverge in what they parsed out of the response, which
+/// is how a patient and their doctor came to see different fields for the same
+/// row.
 class DocumentsApi {
   DocumentsApi._();
   static final DocumentsApi instance = DocumentsApi._();
 
-  String patientStreamPath(String documentId) =>
-      '/patient/documents/$documentId/stream';
-
-  String doctorStreamPath({
-    required String patientUserId,
-    required String documentId,
-  }) => '/doctor/patients/$patientUserId/documents/$documentId/stream';
-
-  /// Base path for acting on another user's documents as staff.
+<<<<<<< Updated upstream
+=======
+  /// Base path for acting on a patient's documents.
   ///
-  /// Admin and mCare assistants are not on a caseload, so the doctor routes
-  /// reject them outright — the role has to pick the prefix, not the caller.
-  String staffDocumentsBase(String patientUserId) {
+  /// [patientUserId] null means the signed-in patient's own record. Otherwise
+  /// the caller is staff, and the role picks the prefix: admin and mCare
+  /// assistants are not on a caseload, so the doctor routes reject them
+  /// outright.
+  String _base([String? patientUserId]) {
+    if (patientUserId == null) return '/patient/documents';
+
     final role = AuthState.instance.user?.role;
     final isAdminSide =
         role == UserRole.admin || role == UserRole.mcareAssistant;
@@ -37,15 +43,43 @@ class DocumentsApi {
         : '/doctor/patients/$patientUserId/documents';
   }
 
+>>>>>>> Stashed changes
+  String patientStreamPath(String documentId) =>
+      '/patient/documents/$documentId/stream';
+
+  String doctorStreamPath({
+    required String patientUserId,
+    required String documentId,
+  }) => '/doctor/patients/$patientUserId/documents/$documentId/stream';
+
+<<<<<<< Updated upstream
+=======
   /// The signed-in patient's own documents.
   ///
   /// Everything used to arrive through the one session payload, so a document
   /// a doctor had just filed could only be picked up by refetching the whole
   /// record. This is the list the documents screen actually needs.
-  Future<List<MedicalDocument>> listMine() async {
+  Future<List<MedicalDocument>> listMine() => _list(null);
+
+  /// A patient's documents as their care team sees them.
+  ///
+  /// The dossier carries these too, but reloading a whole chart to find out
+  /// whether one file arrived is not a refresh anyone performs — so a clinician
+  /// watching for the result they asked the patient to upload had no way to see
+  /// it land.
+  Future<List<MedicalDocument>> listForPatient(
+    String patientUserId, {
+    bool removalRequestedOnly = false,
+  }) => _list(patientUserId, removalRequestedOnly: removalRequestedOnly);
+
+  Future<List<MedicalDocument>> _list(
+    String? patientUserId, {
+    bool removalRequestedOnly = false,
+  }) async {
     if (!AppEnv.backendEnabled) return const [];
 
-    final res = await ApiClient.instance.get('/patient/documents');
+    final query = removalRequestedOnly ? '?removal_requested=1' : '';
+    final res = await ApiClient.instance.get('${_base(patientUserId)}$query');
     final list = res['data']?['documents'] as List? ?? const [];
 
     return list
@@ -57,6 +91,7 @@ class DocumentsApi {
         .toList();
   }
 
+>>>>>>> Stashed changes
   Future<Uint8List> fetchBytes({
     required String documentId,
     String? patientUserId,
@@ -70,13 +105,20 @@ class DocumentsApi {
     return ApiClient.instance.getBytes(path);
   }
 
-  Future<MedicalDocument?> createWithFile({
+  /// Files a document into a record.
+  ///
+  /// [patientUserId] null uploads to the signed-in patient's own record;
+  /// otherwise staff are filing into someone else's. The server marks the
+  /// provenance accordingly — which is what decides, later, whether it can ever
+  /// be deleted — so the caller does not have to say.
+  Future<MedicalDocument?> create({
     required PlatformFile file,
     required String title,
     required DocumentCategory category,
     required DocumentFileType fileType,
     String? description,
     String? sharedWithDoctorId,
+    String? patientUserId,
   }) async {
     if (!AppEnv.backendEnabled) return null;
     final fields = PatientDomainMapper.documentMetaToApi(
@@ -89,7 +131,7 @@ class DocumentsApi {
 
     final multipart = await MultipartFileBuilder.fromPlatformFile(file);
     final res = await ApiClient.instance.postMultipart(
-      '/patient/documents',
+      _base(patientUserId),
       fields: fields,
       files: [multipart],
     );
@@ -100,6 +142,7 @@ class DocumentsApi {
 
   Future<MedicalDocument?> update({
     required String documentId,
+    String? patientUserId,
     String? title,
     DocumentCategory? category,
     DocumentFileType? fileType,
@@ -118,7 +161,7 @@ class DocumentsApi {
         : [await MultipartFileBuilder.fromPlatformFile(file)];
 
     final res = await ApiClient.instance.patchMultipart(
-      '/patient/documents/$documentId',
+      '${_base(patientUserId)}/$documentId',
       fields: fields,
       files: files,
     );
@@ -127,12 +170,43 @@ class DocumentsApi {
     return PatientDomainMapper.documentFromApi(json);
   }
 
+  /// The patient deleting one of their own uploads. Everything else in the
+  /// record is refused by the server — see [requestRemoval].
   Future<bool> delete(String id) async {
     if (!AppEnv.backendEnabled) return false;
     await ApiClient.instance.delete('/patient/documents/$id');
     return true;
   }
 
+<<<<<<< Updated upstream
+  Future<String?> downloadUrl(String id) async {
+    if (!AppEnv.backendEnabled) return null;
+    final res = await ApiClient.instance.get('/patient/documents/$id/download');
+    return res['data']?['url'] as String?;
+  }
+
+  Future<MedicalDocument?> uploadForPatient({
+    required String patientUserId,
+    required PlatformFile file,
+    required String title,
+    required DocumentCategory category,
+    required DocumentFileType fileType,
+    String? description,
+  }) async {
+    if (!AppEnv.backendEnabled) return null;
+    final fields = PatientDomainMapper.documentMetaToApi(
+      title: title,
+      category: category,
+      fileType: fileType,
+      description: description,
+    ).map((k, v) => MapEntry(k, v.toString()));
+
+    final multipart = await MultipartFileBuilder.fromPlatformFile(file);
+    final res = await ApiClient.instance.postMultipart(
+      '/doctor/patients/$patientUserId/documents',
+      fields: fields,
+      files: [multipart],
+=======
   /// Ask the care team to take a clinician-filed document out of the record.
   ///
   /// The patient cannot delete one themselves and should not be able to, but a
@@ -173,7 +247,7 @@ class DocumentsApi {
   }) async {
     if (!AppEnv.backendEnabled) return false;
     await ApiClient.instance.delete(
-      '${staffDocumentsBase(patientUserId)}/$documentId',
+      '${_base(patientUserId)}/$documentId',
       body: {if (note != null && note.isNotEmpty) 'note': note},
     );
     return true;
@@ -187,7 +261,7 @@ class DocumentsApi {
   }) async {
     if (!AppEnv.backendEnabled) return null;
     final res = await ApiClient.instance.post(
-      '${staffDocumentsBase(patientUserId)}/$documentId/decline-removal',
+      '${_base(patientUserId)}/$documentId/decline-removal',
       body: {'reason': reason},
     );
     final json = res['data']?['document'] as Map<String, dynamic>?;
@@ -195,83 +269,28 @@ class DocumentsApi {
     return PatientDomainMapper.documentFromApi(json);
   }
 
-  Future<String?> downloadUrl(String id) async {
-    if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.get('/patient/documents/$id/download');
-    return res['data']?['url'] as String?;
-  }
-
-  Future<MedicalDocument?> uploadForPatient({
-    required String patientUserId,
-    required PlatformFile file,
-    required String title,
-    required DocumentCategory category,
-    required DocumentFileType fileType,
-    String? description,
+  /// The addressable URL for a document's bytes, with the name and type the
+  /// server holds for it.
+  Future<({String? url, String? downloadName, String? mimeType})> downloadUrl(
+    String id, {
+    String? patientUserId,
   }) async {
-    if (!AppEnv.backendEnabled) return null;
-    final fields = PatientDomainMapper.documentMetaToApi(
-      title: title,
-      category: category,
-      fileType: fileType,
-      description: description,
-    ).map((k, v) => MapEntry(k, v.toString()));
-
-    final multipart = await MultipartFileBuilder.fromPlatformFile(file);
-    final res = await ApiClient.instance.postMultipart(
-      staffDocumentsBase(patientUserId),
-      fields: fields,
-      files: [multipart],
+    if (!AppEnv.backendEnabled) {
+      return (url: null, downloadName: null, mimeType: null);
+    }
+    final res = await ApiClient.instance.get(
+      '${_base(patientUserId)}/$id/download',
     );
-    final json = res['data']?['document'] as Map<String, dynamic>?;
-    if (json == null) return null;
-    return PatientDomainMapper.documentFromApi(json);
-  }
-
-  /// Answers a patient's document request with the file, closing the request
-  /// in the same call.
-  ///
-  /// Uploading and closing are one act, so they are one request. Splitting
-  /// them left a filed document sitting beside a request still reading
-  /// "waiting" whenever the second call was lost — which is exactly the state
-  /// a patient reads as "nobody has done anything".
-  ///
-  /// Returns the filed document and the closed request together.
-  Future<({MedicalDocument? document, Map<String, dynamic>? request})>
-  fulfilDocumentRequest({
-    required String requestId,
-    required PlatformFile file,
-    required String title,
-    required DocumentCategory category,
-    required DocumentFileType fileType,
-    String? description,
-    String? note,
-  }) async {
-    if (!AppEnv.backendEnabled) return (document: null, request: null);
-
-    final fields = PatientDomainMapper.documentMetaToApi(
-      title: title,
-      category: category,
-      fileType: fileType,
-      description: description,
-    ).map((k, v) => MapEntry(k, v.toString()));
-    if (note != null && note.isNotEmpty) fields['note'] = note;
-
-    final res = await ApiClient.instance.postMultipart(
-      '/doctor/document-requests/$requestId/fulfill',
-      fields: fields,
-      files: [await MultipartFileBuilder.fromPlatformFile(file)],
-    );
-
-    final docJson = res['data']?['document'] as Map<String, dynamic>?;
+    final data = res['data'] as Map?;
     return (
-      document: docJson == null
-          ? null
-          : PatientDomainMapper.documentFromApi(docJson),
-      request: (res['data']?['request'] as Map?)?.cast<String, dynamic>(),
+      url: data?['url'] as String?,
+      downloadName: data?['download_name'] as String?,
+      mimeType: data?['mime_type'] as String?,
+>>>>>>> Stashed changes
     );
   }
 
+<<<<<<< Updated upstream
   Future<MedicalDocument?> doctorUpdate({
     required String patientUserId,
     required String documentId,
@@ -322,5 +341,49 @@ class DocumentsApi {
       '/doctor/patients/$patientUserId/documents/$documentId',
     );
     return true;
+=======
+  /// Answers a patient's document request with the file, closing the request
+  /// in the same call.
+  ///
+  /// Uploading and closing are one act, so they are one request. Splitting
+  /// them left a filed document sitting beside a request still reading
+  /// "waiting" whenever the second call was lost — which is exactly the state
+  /// a patient reads as "nobody has done anything".
+  ///
+  /// Returns the filed document and the closed request together.
+  Future<({MedicalDocument? document, Map<String, dynamic>? request})>
+  fulfilDocumentRequest({
+    required String requestId,
+    required PlatformFile file,
+    required String title,
+    required DocumentCategory category,
+    required DocumentFileType fileType,
+    String? description,
+    String? note,
+  }) async {
+    if (!AppEnv.backendEnabled) return (document: null, request: null);
+
+    final fields = PatientDomainMapper.documentMetaToApi(
+      title: title,
+      category: category,
+      fileType: fileType,
+      description: description,
+    ).map((k, v) => MapEntry(k, v.toString()));
+    if (note != null && note.isNotEmpty) fields['note'] = note;
+
+    final res = await ApiClient.instance.postMultipart(
+      '/doctor/document-requests/$requestId/fulfill',
+      fields: fields,
+      files: [await MultipartFileBuilder.fromPlatformFile(file)],
+    );
+
+    final docJson = res['data']?['document'] as Map<String, dynamic>?;
+    return (
+      document: docJson == null
+          ? null
+          : PatientDomainMapper.documentFromApi(docJson),
+      request: (res['data']?['request'] as Map?)?.cast<String, dynamic>(),
+    );
+>>>>>>> Stashed changes
   }
 }

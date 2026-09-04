@@ -13,8 +13,6 @@ class EmptyStateView extends StatelessWidget {
     this.message,
     this.actionLabel,
     this.onAction,
-    this.secondaryActionLabel,
-    this.onSecondaryAction,
     this.compact = false,
   });
 
@@ -23,15 +21,6 @@ class EmptyStateView extends StatelessWidget {
   final String? message;
   final String? actionLabel;
   final VoidCallback? onAction;
-
-  /// The other way out.
-  ///
-  /// Several empty states are reachable two ways — an empty filter is fixed by
-  /// clearing it *or* by asking for the missing thing — and offering only one
-  /// of them makes the screen a dead end for whoever wanted the other.
-  final String? secondaryActionLabel;
-  final VoidCallback? onSecondaryAction;
-
   final bool compact;
 
   @override
@@ -76,15 +65,6 @@ class EmptyStateView extends StatelessWidget {
               if (actionLabel != null && onAction != null) ...[
                 const SizedBox(height: AppSpacing.xl),
                 AppButton(label: actionLabel!, onPressed: onAction),
-              ],
-              if (secondaryActionLabel != null &&
-                  onSecondaryAction != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                AppButton(
-                  label: secondaryActionLabel!,
-                  variant: AppButtonVariant.ghost,
-                  onPressed: onSecondaryAction,
-                ),
               ],
             ],
           ),

@@ -30,6 +30,23 @@ Future<bool> openDocumentBytes({
   return true;
 }
 
+/// Saves the bytes somewhere the reader can get at them again.
+///
+/// On web these are two different acts and Download has its own implementation.
+/// Here they are one: there is no folder a patient can browse to on iOS or
+/// Android, and the share sheet is itself the save dialog — Save to Files,
+/// Drive, Books, print. Routing both through it keeps the platform honest
+/// rather than showing a Download that quietly does nothing.
+Future<bool> downloadDocumentBytes({
+  required Uint8List bytes,
+  required String mimeType,
+  required String filename,
+}) => openDocumentBytes(
+  bytes: bytes,
+  mimeType: mimeType,
+  filename: filename,
+);
+
 /// Opens an already-addressable URL — the fixture-mode path, where there are
 /// no bytes to hand the share sheet.
 Future<bool> openDocumentUrl(String url) async {

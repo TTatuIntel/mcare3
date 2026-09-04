@@ -124,19 +124,6 @@ class AdminWorkspaceCatalog {
       featured: true,
       badgeKey: 'alerts',
     ),
-    // Reachable from the Work hub as well as from a patient's row. A signed
-    // report waiting to be issued has no patient in mind — the admin is
-    // working a queue, not a person — so it needs a door of its own.
-    AdminWorkspaceArea(
-      id: 'patient_reports',
-      label: 'Patient reports',
-      subtitle: 'Review, issue or send back what doctors have signed',
-      icon: AppIcons.report,
-      route: RouteNames.adminReports,
-      color: AppColors.adminPurple,
-      category: AdminWorkspaceCategory.operations,
-      featured: true,
-    ),
     AdminWorkspaceArea(
       id: 'sos',
       label: 'SOS',

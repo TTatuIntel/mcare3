@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/api/patient_chart_api.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/models/notifications_filter.dart';
 import '../../shared/models/vital.dart';
@@ -17,8 +18,8 @@ import '../../shared/widgets/glass_floating_button.dart';
 import '../../shared/widgets/patient_scaffold.dart';
 import '../../shared/widgets/responsive.dart';
 import '../../shared/widgets/section_label.dart';
-import 'vitals_period_panel.dart';
-import 'patient_vital_insights.dart';
+import '../../shared/widgets/vital_tile.dart';
+import 'request_vital_report_sheet.dart';
 import 'submit_vital_sheet.dart';
 import 'vital_reading_sheet.dart';
 import 'vital_preferences_sheet.dart';
@@ -92,17 +93,8 @@ List<VitalReading> _lastProvidedReadings(
       .toList();
 }
 
-class VitalsView extends StatefulWidget {
+class VitalsView extends StatelessWidget {
   const VitalsView({super.key});
-
-  @override
-  State<VitalsView> createState() => _VitalsViewState();
-}
-
-class _VitalsViewState extends State<VitalsView> {
-  /// Three weeks by default — the same window the insights open on, so the
-  /// two surfaces on this page never disagree about what "recent" means.
-  ChartPeriod _period = ChartPeriod.threeWeeks;
 
   @override
   Widget build(BuildContext context) {
@@ -181,11 +173,12 @@ class _VitalsViewState extends State<VitalsView> {
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               StaggeredEntry(
                 index: 2,
-                child: const PatientVitalInsightsLauncher(
-                  title: 'Open statistics & charts',
+                child: _VitalsQuickActions(
+                  resolvedCount:
+                      NotificationState.instance.resolvedVitalAlertCount,
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -196,9 +189,10 @@ class _VitalsViewState extends State<VitalsView> {
                   icon: AppIcons.vitals,
                   trailing: tracked.isEmpty
                       ? null
-                      : '${tracked.length} tracked',
+                      : 'Last 6 · ${tracked.length} tracked',
                 ),
               ),
+              const SizedBox(height: AppSpacing.sm),
               if (tracked.isEmpty)
                 StaggeredEntry(
                   index: 4,
@@ -218,12 +212,7 @@ class _VitalsViewState extends State<VitalsView> {
               else
                 StaggeredEntry(
                   index: 4,
-                  child: VitalsPeriodSection(
-                    period: _period,
-                    tracked: tracked,
-                    onPeriodChanged: (period) =>
-                        setState(() => _period = period),
-                  ),
+                  child: _LastSixReadingsPanel(tracked: tracked),
                 ),
               SizedBox(height: tier.isHandheld ? 88 : AppSpacing.huge),
             ],
@@ -234,6 +223,190 @@ class _VitalsViewState extends State<VitalsView> {
   }
 }
 
+class _LastSixReadingsPanel extends StatefulWidget {
+  const _LastSixReadingsPanel({required this.tracked});
+
+  final List<VitalKey> tracked;
+
+  @override
+  State<_LastSixReadingsPanel> createState() => _LastSixReadingsPanelState();
+}
+
+class _LastSixReadingsPanelState extends State<_LastSixReadingsPanel> {
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final readings = _lastProvidedReadings(widget.tracked, limit: 6);
+    final newest = readings.isNotEmpty ? readings.first : null;
+
+    if (readings.isEmpty) {
+      return GlassCard(
+        frosted: true,
+        child: EmptyStateView(
+          icon: AppIcons.vitals,
+          title: 'No readings yet',
+          message:
+              'Log a vital and your last 6 readings appear here automatically.',
+          actionLabel: 'Log vital',
+          onAction: () => SubmitVitalSheet.show(context),
+          compact: true,
+        ),
+      );
+    }
+
+    return GlassCard(
+      frosted: true,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 8,
+                width: 8,
+                decoration: const BoxDecoration(
+                  color: AppColors.success,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  newest == null
+                      ? 'Waiting for readings'
+                      : 'Updated ${_relativeTime(newest.recordedAt)} · showing ${readings.length} of last 6',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isTwoColumn = constraints.maxWidth >= 340;
+              if (!isTwoColumn) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < readings.length; i++) ...[
+                      if (i > 0) const SizedBox(height: AppSpacing.xs),
+                      VitalTile(
+                        vital: readings[i].vital,
+                        reading: readings[i],
+                        alert: NotificationState.instance.vitalAlertFor(
+                          readings[i].vital,
+                        ),
+                        resolvedAlert:
+                            NotificationState.instance.resolvedVitalAlertFor(
+                          readings[i].vital,
+                        ),
+                        assigned:
+                            VitalsState.instance.isAssigned(readings[i].vital),
+                        variant: VitalTileVariant.compact,
+                        onTap: () => VitalReadingSheet.show(
+                          context,
+                          reading: readings[i],
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              }
+
+              final rows = <Widget>[];
+              for (var i = 0; i < readings.length; i += 2) {
+                if (rows.isNotEmpty) {
+                  rows.add(const SizedBox(height: AppSpacing.xs));
+                }
+                final first = readings[i];
+                final second =
+                    (i + 1 < readings.length) ? readings[i + 1] : null;
+
+                rows.add(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: VitalTile(
+                          vital: first.vital,
+                          reading: first,
+                          alert: NotificationState.instance.vitalAlertFor(
+                            first.vital,
+                          ),
+                          resolvedAlert: NotificationState.instance
+                              .resolvedVitalAlertFor(first.vital),
+                          assigned:
+                              VitalsState.instance.isAssigned(first.vital),
+                          variant: VitalTileVariant.compact,
+                          onTap: () => VitalReadingSheet.show(
+                            context,
+                            reading: first,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: second != null
+                            ? VitalTile(
+                                vital: second.vital,
+                                reading: second,
+                                alert: NotificationState.instance.vitalAlertFor(
+                                  second.vital,
+                                ),
+                                resolvedAlert: NotificationState.instance
+                                    .resolvedVitalAlertFor(second.vital),
+                                assigned: VitalsState.instance.isAssigned(
+                                  second.vital,
+                                ),
+                                variant: VitalTileVariant.compact,
+                                onTap: () => VitalReadingSheet.show(
+                                  context,
+                                  reading: second,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: rows,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _VitalsHero extends StatelessWidget {
   const _VitalsHero({
@@ -289,39 +462,76 @@ class _VitalsHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                height: 40,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  isCritical || isWatch ? AppIcons.alert : AppIcons.vitals,
-                  color: accent,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  headline,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppPalette.ink(context),
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 500;
+              final leftSide = Row(
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Icon(
+                      isCritical || isWatch ? AppIcons.alert : AppIcons.vitals,
+                      color: accent,
+                      size: 21,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        headline,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppPalette.ink(context),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 17,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+
+              final rightSide = trackedCount > 0
+                  ? _LastUpdatedStrip(reading: latestReading)
+                  : const SizedBox.shrink();
+
+              if (!isWide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    leftSide,
+                    if (trackedCount > 0) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      rightSide,
+                    ],
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: leftSide),
+                  Container(
+                    height: 42,
+                    width: 1,
+                    color: AppPalette.border(context),
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  ),
+                  Expanded(child: rightSide),
+                ],
+              );
+            },
           ),
-          if (trackedCount > 0) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _LastUpdatedStrip(reading: latestReading),
-          ],
           const SizedBox(height: AppSpacing.sm),
           Divider(height: 1, color: AppPalette.border(context)),
           const SizedBox(height: AppSpacing.sm),
@@ -363,6 +573,136 @@ class _VitalsHero extends StatelessWidget {
   }
 }
 
+class _VitalsQuickActions extends StatelessWidget {
+  const _VitalsQuickActions({required this.resolvedCount});
+
+  final int resolvedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      frosted: true,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickAction(
+              icon: AppIcons.time,
+              label: 'Past 7 days',
+              onTap: () =>
+                  Navigator.of(context).pushNamed(RouteNames.patientVital7Day),
+            ),
+          ),
+          Container(height: 28, width: 1, color: AppPalette.border(context)),
+          Expanded(
+            child: _QuickAction(
+              icon: AppIcons.report,
+              label: 'Request report',
+              onTap: () => RequestVitalReportSheet.show(context),
+            ),
+          ),
+          Container(height: 28, width: 1, color: AppPalette.border(context)),
+          Expanded(
+            child: _QuickAction(
+              icon: AppIcons.check,
+              label: 'Resolved',
+              badge: resolvedCount > 0 ? '$resolvedCount' : null,
+              onTap: () => Navigator.of(context).pushNamed(
+                RouteNames.patientNotifications,
+                arguments: const NotificationsFilter(showResolved: true),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.badge,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, size: 21, color: AppColors.brandIndigo),
+                  if (badge != null)
+                    Positioned(
+                      right: -8,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusPill,
+                          ),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.ink(context),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _LastUpdatedStrip extends StatelessWidget {
   const _LastUpdatedStrip({required this.reading});
@@ -374,19 +714,12 @@ class _LastUpdatedStrip extends StatelessWidget {
     final theme = Theme.of(context);
 
     if (reading == null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs + 2,
-        ),
-        decoration: BoxDecoration(
-          color: AppPalette.surfaceMuted(context).withOpacity(0.5),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        ),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            Icon(AppIcons.time, size: 14, color: AppPalette.textMuted(context)),
-            const SizedBox(width: AppSpacing.sm),
+            Icon(AppIcons.time, size: 16, color: AppPalette.textMuted(context)),
+            const SizedBox(width: AppSpacing.xs),
             Text(
               'No readings logged yet',
               style: theme.textTheme.labelSmall?.copyWith(
@@ -400,63 +733,73 @@ class _LastUpdatedStrip extends StatelessWidget {
     }
 
     final vital = reading!.vital;
+    final accent = vital.accent;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => VitalReadingSheet.show(context, reading: reading!),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.xs + 2,
-          ),
+        child: Ink(
+          width: double.infinity,
           decoration: BoxDecoration(
-            color: vital.accent.withOpacity(0.08),
+            color: accent.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            border: Border.all(color: vital.accent.withOpacity(0.2)),
           ),
-          child: Row(
-            children: [
-              Icon(AppIcons.time, size: 14, color: vital.accent),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs + 2,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  height: 36,
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(vital.icon, size: 16, color: accent),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextSpan(
-                        text:
-                            'Last updated ${_relativeTime(reading!.recordedAt)} · ',
+                      Text(
+                        'LATEST READING (${_relativeTime(reading!.recordedAt)})',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: AppPalette.textMuted(context),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      TextSpan(
-                        text: vital.shortLabel,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppPalette.ink(context),
                           fontWeight: FontWeight.w700,
+                          fontSize: 9.5,
+                          letterSpacing: 0.4,
                         ),
                       ),
-                      TextSpan(
-                        text: ' ${reading!.formatValue()} ${vital.unit}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: vital.accent,
+                      const SizedBox(height: 2),
+                      Text(
+                        '${vital.shortLabel}: ${reading!.formatValue()} ${vital.unit}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppPalette.ink(context),
                           fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          height: 1.15,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Icon(
-                AppIcons.chevronRight,
-                size: 14,
-                color: vital.accent.withOpacity(0.7),
-              ),
-            ],
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  AppIcons.chevronRight,
+                  size: 14,
+                  color: accent,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -486,34 +829,56 @@ class _HeroStatAction extends StatelessWidget {
 
     final child = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+                fontSize: 21,
+                height: 1.05,
+              ),
             ),
           ),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.textMuted(context),
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
-          ),
-          Text(
-            hint,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color:
-                  accent ??
-                  (onTap != null
-                      ? AppColors.brandIndigo
-                      : AppPalette.textFaint(context)),
-              fontWeight: FontWeight.w700,
-              fontSize: 9,
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppPalette.textMuted(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11.5,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  hint,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color:
+                        accent ??
+                        (onTap != null
+                            ? AppColors.brandIndigo
+                            : AppPalette.textFaint(context)),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10.5,
+                    height: 1.1,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -10,39 +10,39 @@ enum RiskLevel {
   unknown;
 
   Color get color => switch (this) {
-    RiskLevel.normal => AppColors.success,
-    RiskLevel.warning => AppColors.warning,
-    RiskLevel.critical => AppColors.critical,
-    RiskLevel.unknown => AppColors.textMutedAA,
-  };
+        RiskLevel.normal => AppColors.success,
+        RiskLevel.warning => AppColors.warning,
+        RiskLevel.critical => AppColors.critical,
+        RiskLevel.unknown => AppColors.textMutedAA,
+      };
 
   /// Theme-aware soft background for status chips.
   Color softBg(BuildContext context) => switch (this) {
-    RiskLevel.normal => AppPalette.successSoft(context),
-    RiskLevel.warning => AppPalette.warningSoft(context),
-    RiskLevel.critical => AppPalette.criticalSoft(context),
-    RiskLevel.unknown => AppPalette.surfaceMuted(context),
-  };
+        RiskLevel.normal => AppPalette.successSoft(context),
+        RiskLevel.warning => AppPalette.warningSoft(context),
+        RiskLevel.critical => AppPalette.criticalSoft(context),
+        RiskLevel.unknown => AppPalette.surfaceMuted(context),
+      };
 
   /// Theme-aware label color for status chips.
   Color labelColor(BuildContext context) => switch (this) {
-    RiskLevel.unknown => AppPalette.textMuted(context),
-    _ => color,
-  };
+        RiskLevel.unknown => AppPalette.textMuted(context),
+        _ => color,
+      };
 
   Color get soft => switch (this) {
-    RiskLevel.normal => AppColors.successSoft,
-    RiskLevel.warning => AppColors.warningSoft,
-    RiskLevel.critical => AppColors.criticalSoft,
-    RiskLevel.unknown => AppColors.surfaceMuted,
-  };
+        RiskLevel.normal => AppColors.successSoft,
+        RiskLevel.warning => AppColors.warningSoft,
+        RiskLevel.critical => AppColors.criticalSoft,
+        RiskLevel.unknown => AppColors.surfaceMuted,
+      };
 
   String get label => switch (this) {
-    RiskLevel.normal => 'Normal',
-    RiskLevel.warning => 'Watch',
-    RiskLevel.critical => 'Critical',
-    RiskLevel.unknown => 'No data',
-  };
+        RiskLevel.normal => 'Normal',
+        RiskLevel.warning => 'Watch',
+        RiskLevel.critical => 'Critical',
+        RiskLevel.unknown => 'No data',
+      };
 }
 
 enum VitalKey {
@@ -55,54 +55,54 @@ enum VitalKey {
   weight;
 
   String get label => switch (this) {
-    VitalKey.bloodPressure => 'Blood Pressure',
-    VitalKey.heartRate => 'Heart Rate',
-    VitalKey.bloodOxygen => 'Blood Oxygen',
-    VitalKey.temperature => 'Temperature',
-    VitalKey.bloodGlucose => 'Blood Glucose',
-    VitalKey.respiratoryRate => 'Respiratory Rate',
-    VitalKey.weight => 'Weight',
-  };
+        VitalKey.bloodPressure => 'Blood Pressure',
+        VitalKey.heartRate => 'Heart Rate',
+        VitalKey.bloodOxygen => 'Blood Oxygen',
+        VitalKey.temperature => 'Temperature',
+        VitalKey.bloodGlucose => 'Blood Glucose',
+        VitalKey.respiratoryRate => 'Respiratory Rate',
+        VitalKey.weight => 'Weight',
+      };
 
   String get shortLabel => switch (this) {
-    VitalKey.bloodPressure => 'BP',
-    VitalKey.heartRate => 'HR',
-    VitalKey.bloodOxygen => 'SpO₂',
-    VitalKey.temperature => 'Temp',
-    VitalKey.bloodGlucose => 'Glucose',
-    VitalKey.respiratoryRate => 'Resp',
-    VitalKey.weight => 'Weight',
-  };
+        VitalKey.bloodPressure => 'BP',
+        VitalKey.heartRate => 'HR',
+        VitalKey.bloodOxygen => 'SpO₂',
+        VitalKey.temperature => 'Temp',
+        VitalKey.bloodGlucose => 'Glucose',
+        VitalKey.respiratoryRate => 'Resp',
+        VitalKey.weight => 'Weight',
+      };
 
   String get unit => switch (this) {
-    VitalKey.bloodPressure => 'mmHg',
-    VitalKey.heartRate => 'bpm',
-    VitalKey.bloodOxygen => '%',
-    VitalKey.temperature => '°C',
-    VitalKey.bloodGlucose => 'mg/dL',
-    VitalKey.respiratoryRate => '/min',
-    VitalKey.weight => 'kg',
-  };
+        VitalKey.bloodPressure => 'mmHg',
+        VitalKey.heartRate => 'bpm',
+        VitalKey.bloodOxygen => '%',
+        VitalKey.temperature => '°C',
+        VitalKey.bloodGlucose => 'mg/dL',
+        VitalKey.respiratoryRate => '/min',
+        VitalKey.weight => 'kg',
+      };
 
   IconData get icon => switch (this) {
-    VitalKey.bloodPressure => AppIcons.bloodPressure,
-    VitalKey.heartRate => AppIcons.heartRate,
-    VitalKey.bloodOxygen => AppIcons.spo2,
-    VitalKey.temperature => AppIcons.temperature,
-    VitalKey.bloodGlucose => AppIcons.glucose,
-    VitalKey.respiratoryRate => AppIcons.respiratory,
-    VitalKey.weight => AppIcons.weight,
-  };
+        VitalKey.bloodPressure => AppIcons.bloodPressure,
+        VitalKey.heartRate => AppIcons.heartRate,
+        VitalKey.bloodOxygen => AppIcons.spo2,
+        VitalKey.temperature => AppIcons.temperature,
+        VitalKey.bloodGlucose => AppIcons.glucose,
+        VitalKey.respiratoryRate => AppIcons.respiratory,
+        VitalKey.weight => AppIcons.weight,
+      };
 
   Color get accent => switch (this) {
-    VitalKey.bloodPressure => AppColors.bpPurple,
-    VitalKey.heartRate => AppColors.heartRed,
-    VitalKey.bloodOxygen => AppColors.spo2Blue,
-    VitalKey.temperature => AppColors.tempTeal,
-    VitalKey.bloodGlucose => AppColors.glucoseAmber,
-    VitalKey.respiratoryRate => AppColors.respGreen,
-    VitalKey.weight => AppColors.weightSlate,
-  };
+        VitalKey.bloodPressure => AppColors.bpPurple,
+        VitalKey.heartRate => AppColors.heartRed,
+        VitalKey.bloodOxygen => AppColors.spo2Blue,
+        VitalKey.temperature => AppColors.tempTeal,
+        VitalKey.bloodGlucose => AppColors.glucoseAmber,
+        VitalKey.respiratoryRate => AppColors.respGreen,
+        VitalKey.weight => AppColors.weightSlate,
+      };
 
   bool get hasSecondaryValue => this == VitalKey.bloodPressure;
 }
@@ -268,14 +268,15 @@ class VitalAlertConfig {
     int? escalationDelayMinutes,
     String? criticalAlertTitle,
     String? warningAlertTitle,
-  }) => VitalAlertConfig(
-    enableWarningAlerts: enableWarningAlerts ?? this.enableWarningAlerts,
-    enableCriticalAlerts: enableCriticalAlerts ?? this.enableCriticalAlerts,
-    autoResolveOnNormal: autoResolveOnNormal ?? this.autoResolveOnNormal,
-    escalationEnabled: escalationEnabled ?? this.escalationEnabled,
-    escalationDelayMinutes:
-        escalationDelayMinutes ?? this.escalationDelayMinutes,
-    criticalAlertTitle: criticalAlertTitle ?? this.criticalAlertTitle,
-    warningAlertTitle: warningAlertTitle ?? this.warningAlertTitle,
-  );
+  }) =>
+      VitalAlertConfig(
+        enableWarningAlerts: enableWarningAlerts ?? this.enableWarningAlerts,
+        enableCriticalAlerts: enableCriticalAlerts ?? this.enableCriticalAlerts,
+        autoResolveOnNormal: autoResolveOnNormal ?? this.autoResolveOnNormal,
+        escalationEnabled: escalationEnabled ?? this.escalationEnabled,
+        escalationDelayMinutes:
+            escalationDelayMinutes ?? this.escalationDelayMinutes,
+        criticalAlertTitle: criticalAlertTitle ?? this.criticalAlertTitle,
+        warningAlertTitle: warningAlertTitle ?? this.warningAlertTitle,
+      );
 }

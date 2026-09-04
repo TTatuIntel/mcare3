@@ -25,7 +25,10 @@ void showDoctorPrescriptionSheet(
 }
 
 class _RxSheetBody extends StatefulWidget {
-  const _RxSheetBody({this.initialPatientId, this.initialPatientName});
+  const _RxSheetBody({
+    this.initialPatientId,
+    this.initialPatientName,
+  });
 
   final String? initialPatientId;
   final String? initialPatientName;
@@ -122,12 +125,10 @@ class _RxSheetBodyState extends State<_RxSheetBody> {
                 ),
                 hint: const Text('Select a patient'),
                 items: _patients
-                    .map(
-                      (p) => DropdownMenuItem<String>(
-                        value: p.id,
-                        child: Text(p.name),
-                      ),
-                    )
+                    .map((p) => DropdownMenuItem<String>(
+                          value: p.id,
+                          child: Text(p.name),
+                        ))
                     .toList(),
                 onChanged: (id) {
                   if (id == null) return;
@@ -165,7 +166,11 @@ class _RxSheetBodyState extends State<_RxSheetBody> {
               ],
             ),
             const SizedBox(height: AppSpacing.sm),
-            AppTextField(controller: _dur, label: 'Duration', hint: '90 days'),
+            AppTextField(
+              controller: _dur,
+              label: 'Duration',
+              hint: '90 days',
+            ),
             const SizedBox(height: AppSpacing.lg),
             AppButton(
               label: 'Issue prescription',

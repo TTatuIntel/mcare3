@@ -33,15 +33,14 @@ class DoctorAlertsView extends StatelessWidget {
               .assignedPatientsForDoctor()
               .map((p) => p.id)
               .toSet();
-          final alerts =
-              StaffState.instance.alerts
-                  .where((a) => assignedIds.contains(a.patientId))
-                  .toList()
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          final open = alerts.where((a) => !a.resolved).toList(growable: false);
-          final resolved = alerts
-              .where((a) => a.resolved)
-              .toList(growable: false);
+          final alerts = StaffState.instance.alerts
+              .where((a) => assignedIds.contains(a.patientId))
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          final open =
+              alerts.where((a) => !a.resolved).toList(growable: false);
+          final resolved =
+              alerts.where((a) => a.resolved).toList(growable: false);
 
           if (alerts.isEmpty) {
             return const EmptyStateView(
@@ -77,20 +76,15 @@ class DoctorAlertsView extends StatelessWidget {
                   trailing: '${resolved.length} recently closed',
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                ...resolved
-                    .take(12)
-                    .toList()
-                    .asMap()
-                    .entries
-                    .map(
-                      (entry) => StaggeredEntry(
-                        index: entry.key + open.length,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: _AlertRow(alert: entry.value, dimmed: true),
-                        ),
-                      ),
+                ...resolved.take(12).toList().asMap().entries.map(
+                  (entry) => StaggeredEntry(
+                    index: entry.key + open.length,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _AlertRow(alert: entry.value, dimmed: true),
                     ),
+                  ),
+                ),
               ],
             ],
           );
@@ -112,19 +106,19 @@ class _AlertRow extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: StaffListRow(
         icon: alert.vital.icon,
-        iconColor: dimmed
-            ? AppPalette.textMuted(context)
-            : alert.severity.color,
+        iconColor: dimmed ? AppPalette.textMuted(context) : alert.severity.color,
         title: '${alert.patientName} · ${alert.vital.label}',
         subtitle:
             '${alert.value} · ${DateFormat.MMMd().add_jm().format(alert.createdAt)}',
         pill: alert.resolved
             ? 'Resolved'
             : (alert.acknowledged ? 'Ack' : alert.severity.label),
-        pillColor: alert.resolved ? AppColors.success : alert.severity.color,
-        onTap: () => Navigator.of(
-          context,
-        ).pushNamed(RouteNames.doctorAlertDetail, arguments: alert.id),
+        pillColor:
+            alert.resolved ? AppColors.success : alert.severity.color,
+        onTap: () => Navigator.of(context).pushNamed(
+          RouteNames.doctorAlertDetail,
+          arguments: alert.id,
+        ),
       ),
     );
   }

@@ -49,7 +49,10 @@ class DoctorActionItem {
   Object? get routeArguments {
     if (overrideRouteName != null) return overrideRouteArguments;
     if (alertId != null) return alertId;
-    return {'patientId': patientId, 'section': section.name};
+    return {
+      'patientId': patientId,
+      'section': section.name,
+    };
   }
 }
 
@@ -69,51 +72,47 @@ class DoctorActionQueue {
     for (final e in StaffState.instance.patientSos) {
       if (!assignedIds.contains(e.patientId) || !e.isActive) continue;
       final name = patientName(e.patientId)?.name ?? 'Patient';
-      items.add(
-        DoctorActionItem(
-          priority: 0,
-          icon: AppIcons.sos,
-          iconColor: AppColors.critical,
-          title: '$name · SOS',
-          subtitle: e.locationLabel ?? e.kindLabel,
-          pill: 'Respond',
-          pillColor: AppColors.critical,
-          at: e.triggeredAt,
-          patientId: e.patientId,
-          section: DoctorPatientSection.sos,
-          overrideRouteName: RouteNames.doctorPatientChart,
-          overrideRouteArguments: {
-            'patientId': e.patientId,
-            'section': DoctorPatientSection.sos.name,
-            'sosRespond': true,
-            'eventId': e.id,
-          },
-        ),
-      );
+      items.add(DoctorActionItem(
+        priority: 0,
+        icon: AppIcons.sos,
+        iconColor: AppColors.critical,
+        title: '$name · SOS',
+        subtitle: e.locationLabel ?? e.kindLabel,
+        pill: 'Respond',
+        pillColor: AppColors.critical,
+        at: e.triggeredAt,
+        patientId: e.patientId,
+        section: DoctorPatientSection.sos,
+        overrideRouteName: RouteNames.doctorPatientChart,
+        overrideRouteArguments: {
+          'patientId': e.patientId,
+          'section': DoctorPatientSection.sos.name,
+          'sosRespond': true,
+          'eventId': e.id,
+        },
+      ));
     }
 
     for (final a in StaffState.instance.alerts) {
       if (!assignedIds.contains(a.patientId) || a.acknowledged) continue;
       final severity = a.severity == RiskLevel.critical ? 1 : 5;
-      items.add(
-        DoctorActionItem(
-          priority: severity,
-          icon: a.vital.icon,
-          iconColor: a.severity == RiskLevel.critical
-              ? AppColors.critical
-              : AppColors.warning,
-          title: '${a.patientName} · ${a.vital.label}',
-          subtitle: '${a.value} · ${_relative(a.createdAt)}',
-          pill: a.severity == RiskLevel.critical ? 'Critical' : 'Review',
-          pillColor: a.severity == RiskLevel.critical
-              ? AppColors.critical
-              : AppColors.warning,
-          at: a.createdAt,
-          patientId: a.patientId,
-          section: DoctorPatientSection.alerts,
-          alertId: a.id,
-        ),
-      );
+      items.add(DoctorActionItem(
+        priority: severity,
+        icon: a.vital.icon,
+        iconColor: a.severity == RiskLevel.critical
+            ? AppColors.critical
+            : AppColors.warning,
+        title: '${a.patientName} · ${a.vital.label}',
+        subtitle: '${a.value} · ${_relative(a.createdAt)}',
+        pill: a.severity == RiskLevel.critical ? 'Critical' : 'Review',
+        pillColor: a.severity == RiskLevel.critical
+            ? AppColors.critical
+            : AppColors.warning,
+        at: a.createdAt,
+        patientId: a.patientId,
+        section: DoctorPatientSection.alerts,
+        alertId: a.id,
+      ));
     }
 
     for (final v in StaffState.instance.patientVitalReadings) {
@@ -121,12 +120,10 @@ class DoctorActionQueue {
       if (now.difference(v.recordedAt).inHours > previewHours) continue;
       final isNormal = v.risk == RiskLevel.normal;
       if (!isNormal) {
-        final hasAlert = StaffState.instance.alerts.any(
-          (a) =>
-              a.patientId == v.patientId &&
-              a.vital == v.vital &&
-              !a.acknowledged,
-        );
+        final hasAlert = StaffState.instance.alerts.any((a) =>
+            a.patientId == v.patientId &&
+            a.vital == v.vital &&
+            !a.acknowledged);
         if (hasAlert) continue;
       }
 
@@ -134,28 +131,26 @@ class DoctorActionQueue {
       final color = v.risk == RiskLevel.critical
           ? AppColors.critical
           : v.risk == RiskLevel.warning
-          ? AppColors.warning
-          : AppColors.info;
-      items.add(
-        DoctorActionItem(
-          priority: v.risk == RiskLevel.critical
-              ? 3
-              : v.risk == RiskLevel.warning
-              ? 4
-              : 7,
-          icon: v.vital.icon,
-          iconColor: color,
-          title: isNormal
-              ? '$name · ${v.vital.label} logged'
-              : '$name · New ${v.vital.label}',
-          subtitle: '${v.value} · ${_relative(v.recordedAt)}',
-          pill: isNormal ? 'Logged' : 'Vitals',
-          pillColor: color,
-          at: v.recordedAt,
-          patientId: v.patientId,
-          section: DoctorPatientSection.vitals,
-        ),
-      );
+              ? AppColors.warning
+              : AppColors.info;
+      items.add(DoctorActionItem(
+        priority: v.risk == RiskLevel.critical
+            ? 3
+            : v.risk == RiskLevel.warning
+                ? 4
+                : 7,
+        icon: v.vital.icon,
+        iconColor: color,
+        title: isNormal
+            ? '$name · ${v.vital.label} logged'
+            : '$name · New ${v.vital.label}',
+        subtitle: '${v.value} · ${_relative(v.recordedAt)}',
+        pill: isNormal ? 'Logged' : 'Vitals',
+        pillColor: color,
+        at: v.recordedAt,
+        patientId: v.patientId,
+        section: DoctorPatientSection.vitals,
+      ));
     }
 
     for (final a in StaffState.instance.appointments) {
@@ -166,41 +161,38 @@ class DoctorActionQueue {
       if (diff.inMinutes < -30) continue;
       if (diff.inHours > 24) continue;
       final isToday = _isToday(a.startAt);
-      items.add(
-        DoctorActionItem(
-          priority: isToday ? 6 : 9,
-          icon: AppIcons.appointment,
-          iconColor: AppColors.success,
-          title: '${a.patientName} · ${a.kind}',
-          subtitle:
-              '${isToday ? DateFormat.jm().format(a.startAt) : DateFormat.MMMEd().add_jm().format(a.startAt)}${a.notes != null ? ' · ${a.notes}' : ''}',
-          pill: isToday ? 'Today' : 'Upcoming',
-          pillColor: AppColors.success,
-          at: a.startAt,
-          patientId: a.patientId!,
-          section: DoctorPatientSection.appointments,
-        ),
-      );
+      items.add(DoctorActionItem(
+        priority: isToday ? 6 : 9,
+        icon: AppIcons.appointment,
+        iconColor: AppColors.success,
+        title: '${a.patientName} · ${a.kind}',
+        subtitle:
+            '${isToday ? DateFormat.jm().format(a.startAt) : DateFormat.MMMEd().add_jm().format(a.startAt)}${a.notes != null ? ' · ${a.notes}' : ''}',
+        pill: isToday ? 'Today' : 'Upcoming',
+        pillColor: AppColors.success,
+        at: a.startAt,
+        patientId: a.patientId!,
+        section: DoctorPatientSection.appointments,
+      ));
     }
 
     // Recently issued prescriptions / reminders assigned to the patient.
     for (final p in StaffState.instance.prescriptions) {
       if (!assignedIds.contains(p.patientId)) continue;
       if (now.difference(p.issuedAt).inHours > 24) continue;
-      items.add(
-        DoctorActionItem(
-          priority: 8,
-          icon: AppIcons.prescription,
-          iconColor: AppColors.info,
-          title: '${p.patientName} · Rx ${p.drug}',
-          subtitle: '${p.dosage} · ${p.frequency} · ${_relative(p.issuedAt)}',
-          pill: 'Reminder',
-          pillColor: AppColors.info,
-          at: p.issuedAt,
-          patientId: p.patientId,
-          section: DoctorPatientSection.prescriptions,
-        ),
-      );
+      items.add(DoctorActionItem(
+        priority: 8,
+        icon: AppIcons.prescription,
+        iconColor: AppColors.info,
+        title: '${p.patientName} · Rx ${p.drug}',
+        subtitle:
+            '${p.dosage} · ${p.frequency} · ${_relative(p.issuedAt)}',
+        pill: 'Reminder',
+        pillColor: AppColors.info,
+        at: p.issuedAt,
+        patientId: p.patientId,
+        section: DoctorPatientSection.prescriptions,
+      ));
     }
 
     items.sort((a, b) {

@@ -9,6 +9,8 @@ import '../../shared/theme/app_spacing.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_icons.dart';
 import '../../shared/widgets/app_page_route.dart';
+import '../../shared/widgets/empty_state.dart';
+import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/role_shell.dart';
 import '../../shared/widgets/section_label.dart';
 import '../../shared/widgets/staff_blocks.dart';
@@ -40,11 +42,39 @@ class DoctorReportsView extends StatelessWidget {
         animation: StaffState.instance,
         builder: (context, _) {
           final reports = StaffState.instance.reports;
+          if (reports.isEmpty) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Sign-off queue comes first — it is other people's blocked
+                // work, so it outranks this doctor's own drafts.
+                const StaggeredEntry(
+                  index: 0,
+                  child: DoctorReportSignaturesList(),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                StaggeredEntry(
+                  index: 1,
+                  child: GlassCard(
+                    frosted: true,
+                    child: EmptyStateView(
+                      icon: AppIcons.report,
+                      title: 'No reports yet',
+                      actionLabel: 'Create report',
+                      onAction: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorReportEditor),
+                      compact: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.huge),
+              ],
+            );
+          }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Sign-off queue comes first — it is other people's blocked
-              // work, so it outranks this doctor's own drafts.
               const StaggeredEntry(
                 index: 0,
                 child: DoctorReportSignaturesList(),
@@ -58,33 +88,32 @@ class DoctorReportsView extends StatelessWidget {
                   trailing: '${reports.length}',
                 ),
               ),
-              if (reports.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.xs),
-                StaggeredEntry(
-                  index: 1,
-                  child: StaffListCard(
-                    children: reports
-                        .map(
-                          (r) => StaffListRow(
-                            icon: AppIcons.report,
-                            iconColor: AppColors.doctorGreen,
-                            title: r.title,
-                            subtitle:
-                                '${r.patientName} · ${DateFormat.MMMd().format(r.createdAt)}',
-                            pill: r.published ? 'Published' : 'Draft',
-                            pillColor: r.published
-                                ? AppColors.success
-                                : AppColors.warning,
-                            onTap: () => Navigator.of(context).pushNamed(
-                              RouteNames.doctorReportEditor,
-                              arguments: r.id,
-                            ),
+              const SizedBox(height: AppSpacing.xs),
+              StaggeredEntry(
+                index: 1,
+                child: StaffListCard(
+                  children: reports
+                      .map(
+                        (r) => StaffListRow(
+                          icon: AppIcons.report,
+                          iconColor: AppColors.doctorGreen,
+                          title: r.title,
+                          subtitle:
+                              '${r.patientName} · ${DateFormat.MMMd().format(r.createdAt)}',
+                          pill: r.published ? 'Published' : 'Draft',
+                          pillColor: r.published
+                              ? AppColors.success
+                              : AppColors.warning,
+                          onTap: () => Navigator.of(context).pushNamed(
+                            RouteNames.doctorReportEditor,
+                            arguments: r.id,
                           ),
-                        )
-                        .toList(),
-                  ),
+                        ),
+                      )
+                      .toList(),
                 ),
-              ],
+              ),
+              const SizedBox(height: AppSpacing.huge),
             ],
           );
         },

@@ -10,17 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * A customised patient report an admin has asked for.
  *
  * The row is a permission ledger first and a document second: it records
- * exactly which sections were requested, which doctor signed off on them, and
- * what an admin then decided. The assembled content is only frozen into
- * `snapshot` at issue time.
- *
- *   draft → pending_signature → signed → issued
- *                             ↘ under_review (parked by an admin)
- *                             ↘ back to pending_signature (returned)
- *
- * The consent columns are historical. Reports issued before the patient-consent
- * gate was retired really were consented to, and `consented_at` on those rows
- * is a fact about what happened — it is still surfaced, never re-derived.
+ * exactly which sections were requested, that the patient consented to those
+ * sections, and that a doctor signed off before anything was disclosed. The
+ * assembled content is only frozen into `snapshot` at issue time.
  */
 class PatientReportRequest extends Model
 {
@@ -37,9 +29,6 @@ class PatientReportRequest extends Model
     public const STATUS_PENDING_SIGNATURE = 'pending_signature';
 
     public const STATUS_SIGNED = 'signed';
-
-    /** Signed, read by an admin, and parked rather than issued. */
-    public const STATUS_UNDER_REVIEW = 'under_review';
 
     public const STATUS_ISSUED = 'issued';
 
@@ -72,12 +61,6 @@ class PatientReportRequest extends Model
         'signed_at',
         'signature_name',
         'signature_note',
-        'returned_at',
-        'returned_by_user_id',
-        'return_note',
-        'return_count',
-        'under_review_at',
-        'under_review_note',
         'issued_at',
         'revoked_at',
         'revoke_reason',
@@ -100,8 +83,6 @@ class PatientReportRequest extends Model
             'consented_at' => 'datetime',
             'declined_at' => 'datetime',
             'signed_at' => 'datetime',
-            'returned_at' => 'datetime',
-            'under_review_at' => 'datetime',
             'issued_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];
@@ -122,11 +103,6 @@ class PatientReportRequest extends Model
         return $this->belongsTo(User::class, 'doctor_user_id');
     }
 
-    public function returnedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'returned_by_user_id');
-    }
-
     public function consentExpired(): bool
     {
         return $this->consent_expires_at !== null
@@ -143,18 +119,24 @@ class PatientReportRequest extends Model
     }
 
     /**
-     * A signature is the one gate. Every report needs one, so this is simply
-     * whether the nominated doctor has signed.
+     * Consent is satisfied when it was never needed, or when the patient
+     * granted it and has not since withdrawn.
      */
+    public function consentSatisfied(): bool
+    {
+        return ! $this->consent_required || $this->consented_at !== null;
+    }
+
     public function signatureSatisfied(): bool
     {
-        return $this->signed_at !== null;
+        return ! $this->signature_required || $this->signed_at !== null;
     }
 
     public function readyToIssue(): bool
     {
         return ! $this->isTerminal()
             && $this->issued_at === null
+            && $this->consentSatisfied()
             && $this->signatureSatisfied();
     }
 
@@ -166,38 +148,14 @@ class PatientReportRequest extends Model
         if ($this->isTerminal() || $this->issued_at !== null) {
             return null;
         }
+        if (! $this->consentSatisfied()) {
+            return 'patient_consent';
+        }
         if (! $this->signatureSatisfied()) {
             return 'doctor_signature';
         }
 
         return 'issue';
-    }
-
-    /**
-     * Signed, not yet issued, still open — the report is sitting on an admin's
-     * desk waiting for a decision.
-     *
-     * Distinct from {@see readyToIssue()}, which is also true for a report that
-     * never needed a signature at all. Only this one belongs in the admin's
-     * "signed and waiting on you" queue.
-     */
-    public function awaitingIssueDecision(): bool
-    {
-        return $this->signed_at !== null
-            && $this->issued_at === null
-            && ! $this->isTerminal();
-    }
-
-    /** Sent back to the doctor at least once and not yet re-signed. */
-    public function awaitingRework(): bool
-    {
-        return $this->returned_at !== null && $this->signed_at === null;
-    }
-
-    /** An admin has read this and parked it rather than issuing it. */
-    public function isUnderReview(): bool
-    {
-        return $this->under_review_at !== null && $this->issued_at === null;
     }
 
     public function statusLabel(): string
@@ -208,11 +166,8 @@ class PatientReportRequest extends Model
             self::STATUS_CONSENTED => 'Consent granted',
             self::STATUS_DECLINED => 'Declined by patient',
             self::STATUS_EXPIRED => 'Consent expired',
-            self::STATUS_PENDING_SIGNATURE => $this->returned_at !== null
-                ? 'Sent back to the doctor'
-                : 'Awaiting doctor signature',
+            self::STATUS_PENDING_SIGNATURE => 'Awaiting doctor signature',
             self::STATUS_SIGNED => 'Signed — ready to issue',
-            self::STATUS_UNDER_REVIEW => 'Under review by admin',
             self::STATUS_ISSUED => 'Issued',
             self::STATUS_REVOKED => 'Revoked',
             default => ucfirst($this->status),
@@ -259,15 +214,6 @@ class PatientReportRequest extends Model
             'signed_at' => $this->signed_at?->toIso8601String(),
             'signature_name' => $this->signature_name,
             'signature_note' => $this->signature_note,
-            'awaiting_issue_decision' => $this->awaitingIssueDecision(),
-            'awaiting_rework' => $this->awaitingRework(),
-            'under_review' => $this->isUnderReview(),
-            'under_review_at' => $this->under_review_at?->toIso8601String(),
-            'under_review_note' => $this->under_review_note,
-            'returned_at' => $this->returned_at?->toIso8601String(),
-            'returned_by_name' => $this->returnedBy?->fullName(),
-            'return_note' => $this->return_note,
-            'return_count' => (int) $this->return_count,
             'issued_at' => $this->issued_at?->toIso8601String(),
             'revoked_at' => $this->revoked_at?->toIso8601String(),
             'revoke_reason' => $this->revoke_reason,
@@ -294,15 +240,8 @@ class PatientReportRequest extends Model
                 'label' => PatientReportSections::label($k),
                 'description' => PatientReportSections::CATALOG[$k]['description'] ?? '',
             ], $this->sections ?? []),
-            // Nothing here is ever waiting on the patient any more: a report
-            // their clinic prepares is signed by their doctor and issued by
-            // staff. The field stays so the badge and prompt keep reading the
-            // same source rather than each deciding for themselves.
-            'awaiting_me' => false,
-            // Whether there is a finished report the patient can open. A
-            // revoked report stays readable to them: it was disclosed, and
-            // being able to see what was sent is the point of the record.
-            'can_open_document' => $this->snapshot !== null,
+            'awaiting_me' => $this->status === self::STATUS_PENDING_CONSENT
+                && ! $this->consentExpired(),
         ];
     }
 }

@@ -22,9 +22,8 @@ class AccountPreferencesList extends StatelessWidget {
   Widget build(BuildContext context) {
     final profileRoute = ProfileNavigation.profileRouteFor(role);
     final items = ProfileNavigation.menuFor(role)
-        .where(
-          (e) => e.route != profileRoute && !excludeRoutes.contains(e.route),
-        )
+        .where((e) =>
+            e.route != profileRoute && !excludeRoutes.contains(e.route))
         .toList();
 
     if (items.isEmpty) return const SizedBox.shrink();
@@ -49,29 +48,31 @@ class AccountPreferencesList extends StatelessWidget {
   }
 
   static String _subtitleFor(String route, UserRole role) => switch (route) {
-    RouteNames.adminSettings ||
-    RouteNames.doctorSettings ||
-    RouteNames.assistantSettings ||
-    RouteNames.patientSettings => 'Theme, language and alert preferences',
-    RouteNames.adminNotifications ||
-    RouteNames.doctorNotifications ||
-    RouteNames.assistantNotifications ||
-    RouteNames.patientNotifications => 'Unified inbox — alerts and updates',
-    RouteNames.adminSupport ||
-    RouteNames.assistantSupport ||
-    RouteNames.patientSupport =>
-      role == UserRole.admin || role == UserRole.mcareAssistant
-          ? 'Patient and staff help requests'
-          : 'Support tickets and replies',
-    RouteNames.adminUsers ||
-    RouteNames.assistantUsers => 'Temp passwords, unlocks and invites',
-    RouteNames.adminAudit ||
-    RouteNames.assistantAudit => 'Recent workspace actions',
-    RouteNames.adminSystem => 'Runtime, data, access',
-    RouteNames.patientCareTeam => 'Doctors and care coordinators',
-    RouteNames.patientSos => 'Emergency contacts and SOS',
-    _ => 'Open',
-  };
+        RouteNames.adminSettings ||
+        RouteNames.doctorSettings ||
+        RouteNames.assistantSettings ||
+        RouteNames.patientSettings =>
+          'Theme, language and alert preferences',
+        RouteNames.adminNotifications ||
+        RouteNames.doctorNotifications ||
+        RouteNames.assistantNotifications ||
+        RouteNames.patientNotifications =>
+          'Unified inbox — alerts and updates',
+        RouteNames.adminSupport ||
+        RouteNames.assistantSupport ||
+        RouteNames.patientSupport =>
+          role == UserRole.admin || role == UserRole.mcareAssistant
+              ? 'Patient and staff help requests'
+              : 'Support tickets and replies',
+        RouteNames.adminUsers || RouteNames.assistantUsers =>
+          'Temp passwords, unlocks and invites',
+        RouteNames.adminAudit || RouteNames.assistantAudit =>
+          'Recent workspace actions',
+        RouteNames.adminSystem => 'Runtime, data, access',
+        RouteNames.patientCareTeam => 'Doctors and care coordinators',
+        RouteNames.patientSos => 'Emergency contacts and SOS',
+        _ => 'Open',
+      };
 }
 
 /// Compact shortcuts row for notifications / settings footers.
@@ -89,10 +90,10 @@ class AccountHubQuickLinks extends StatelessWidget {
   Widget build(BuildContext context) {
     final profileRoute = ProfileNavigation.profileRouteFor(role);
     final items = ProfileNavigation.menuFor(role)
-        .where(
-          (e) =>
-              e.route != profileRoute && e.route != currentRoute && !e.danger,
-        )
+        .where((e) =>
+            e.route != profileRoute &&
+            e.route != currentRoute &&
+            !e.danger)
         .take(3)
         .toList();
 

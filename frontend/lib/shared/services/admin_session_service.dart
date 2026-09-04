@@ -324,18 +324,5 @@ class AdminSessionService {
             .toList(),
       );
     }
-
-    final notifications = session['notifications'] as List?;
-    if (notifications != null) {
-      NotificationState.instance.mergeAdminApiNotifications(
-        notifications
-            .map(
-              (e) => PatientDomainMapper.notificationFromApi(
-                (e as Map).cast<String, dynamic>(),
-              ),
-            )
-            .toList(),
-      );
-    }
   }
 }

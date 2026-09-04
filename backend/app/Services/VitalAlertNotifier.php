@@ -7,7 +7,6 @@ use App\Models\AppNotification;
 use App\Models\User;
 use App\Models\VitalReading;
 use App\Support\VitalAlertPayload;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Creates patient notifications when a vital reading is outside range.
@@ -71,20 +70,10 @@ class VitalAlertNotifier
             'resolved' => false,
         ]);
 
-        // Do not attempt a socket publish when real-time delivery is
-        // unconfigured (the common local/demo case), and never let one that is
-        // configured but unreachable fail the alert: the notification row is
-        // already written, and [RealtimeSignalService] has already buffered
-        // the change for clients polling the fallback path.
+        // Do not enqueue broadcast jobs when real-time delivery is unconfigured
+        // (the common local/demo case). REST reconciliation remains available.
         if (RealtimeSignalService::enabled()) {
-            try {
-                VitalAlertBroadcast::dispatch($patient, $reading, $notification);
-            } catch (\Throwable $e) {
-                Log::warning('Vital alert broadcast failed; the alert still reaches clients via the change buffer.', [
-                    'reading_id' => $reading->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            VitalAlertBroadcast::dispatch($patient, $reading, $notification);
         }
     }
 }

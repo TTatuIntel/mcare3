@@ -33,6 +33,14 @@ return [
     'private_disk' => env('MCARE_PRIVATE_DISK', 'local'),
 
     /*
+    | Ceiling on a single uploaded document, in kilobytes. 10 MB refused most
+    | of one MRI series and a good half of the scanned multi-page results
+    | patients are actually asked to bring in, so the default is 25 MB. PHP's
+    | own upload_max_filesize / post_max_size still bound this from below.
+    */
+    'max_document_upload_kb' => (int) env('MCARE_MAX_DOCUMENT_UPLOAD_KB', 25600),
+
+    /*
     |--------------------------------------------------------------------------
     | Mock social sign-in (local demo only)
     |--------------------------------------------------------------------------

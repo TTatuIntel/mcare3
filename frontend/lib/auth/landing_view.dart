@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'register_view.dart';
-import '../shared/auth/auth_state.dart';
-import '../shared/auth/session_recovery.dart';
 import '../shared/theme/app_colors.dart';
 import '../shared/theme/app_spacing.dart';
 import '../shared/widgets/app_button.dart';
@@ -56,12 +54,6 @@ class AppSplashScreen extends StatelessWidget {
 }
 
 /// Pre-login landing: Flutter splash overlay until bootstrap completes, then hero.
-///
-/// This is the signed-out face of mCare and nothing else. A live session that
-/// arrives while it is on screen — restored after the launch watchdog fired,
-/// or signed in from a sheet layered over it — moves straight on to that
-/// role's home rather than leaving someone reading marketing copy about an
-/// app they are already inside.
 class LandingView extends StatefulWidget {
   const LandingView({super.key, this.splashOnly = false});
 
@@ -73,38 +65,6 @@ class LandingView extends StatefulWidget {
 }
 
 class _LandingViewState extends State<LandingView> {
-  @override
-  void initState() {
-    super.initState();
-    if (widget.splashOnly) return;
-    AuthState.instance.addListener(_leaveIfSignedIn);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _leaveIfSignedIn());
-  }
-
-  @override
-  void dispose() {
-    AuthState.instance.removeListener(_leaveIfSignedIn);
-    super.dispose();
-  }
-
-  void _leaveIfSignedIn() {
-    final user = AuthState.instance.user;
-    if (user == null) return;
-    // An unverified account belongs here on purpose: `AuthService` sends it
-    // back to landing when the code sheet is dismissed, and the `/verify-email`
-    // route renders this same page beneath that sheet. Moving it on would
-    // re-open the popup it just closed.
-    if (!user.emailVerified) return;
-
-    // Deferred: the sign-in that triggered this may still be inside a build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final target = SessionRecovery.homeRoute();
-      if (target == ModalRoute.of(context)?.settings.name) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(target, (_) => false);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.splashOnly) {

@@ -114,9 +114,8 @@ class _CompleteStaffProfileViewState extends State<CompleteStaffProfileView> {
                                   widget.role.accent.withOpacity(0.7),
                                 ],
                               ),
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.radiusPill,
-                              ),
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusPill),
                             ),
                             alignment: Alignment.center,
                             child: Text(
@@ -208,3 +207,4 @@ class _CompleteStaffProfileViewState extends State<CompleteStaffProfileView> {
     );
   }
 }
+

@@ -18,6 +18,16 @@ class DocumentOpener {
 
   /// Fetches [documentId] and hands it to the platform viewer.
   ///
+  /// [mimeType] and [downloadName] are what the server recorded for the stored
+  /// file. Pass them wherever they are known: without them the type has to be
+  /// guessed from [fileType], a four-value enum in which every issued report is
+  /// "other" — and "other" meant `application/octet-stream` named `.bin`, which
+  /// no browser renders and no phone will open.
+  ///
+  /// [save] asks for the file to be written to the reader's device rather than
+  /// displayed. On the web those are genuinely different acts; on a phone the
+  /// share sheet is both, and is where Save to Files lives.
+  ///
   /// Returns false when there was nothing to open, so the caller can say so
   /// rather than leaving the reader looking at a spinner that stopped.
   static Future<bool> open({
@@ -25,11 +35,15 @@ class DocumentOpener {
     required DocumentFileType fileType,
     required String title,
     String? patientUserId,
+    String? mimeType,
+    String? downloadName,
+    bool save = false,
   }) async {
     final content = await DocumentPreviewService.resolveContent(
       documentId: documentId,
       fileType: fileType,
       patientUserId: patientUserId,
+      mimeType: mimeType,
     );
 
     final bytes = content.bytes;
@@ -40,10 +54,25 @@ class DocumentOpener {
       return url != null && url.isNotEmpty && await _openUrl(url);
     }
 
+    final filename = resolveFilename(
+      downloadName: downloadName,
+      title: title,
+      mimeType: content.mimeType,
+      fileType: fileType,
+    );
+
+    if (save) {
+      return impl.downloadDocumentBytes(
+        bytes: bytes,
+        mimeType: content.mimeType,
+        filename: filename,
+      );
+    }
+
     return impl.openDocumentBytes(
       bytes: bytes,
       mimeType: content.mimeType,
-      filename: filenameFor(title, fileType),
+      filename: filename,
     );
   }
 
@@ -58,24 +87,46 @@ class DocumentOpener {
     required Uint8List bytes,
     required String mimeType,
     required String filename,
+    bool save = false,
   }) {
     if (bytes.isEmpty) return Future.value(false);
 
-    return impl.openDocumentBytes(
-      bytes: bytes,
-      mimeType: mimeType,
-      filename: filename,
-    );
+    return save
+        ? impl.downloadDocumentBytes(
+            bytes: bytes,
+            mimeType: mimeType,
+            filename: filename,
+          )
+        : impl.openDocumentBytes(
+            bytes: bytes,
+            mimeType: mimeType,
+            filename: filename,
+          );
   }
 
-  /// A filename the receiving app can make sense of. Whatever the patient
-  /// called the document, with the extension its type implies — a PDF handed
-  /// over as "Blood panel" with no suffix opens in nothing.
-  static String filenameFor(String title, DocumentFileType fileType) =>
-      filenameWith(title, extensionFor(fileType));
+  /// The name the file should arrive under.
+  ///
+  /// The server's is authoritative — it is the name the document was uploaded
+  /// with, which is what the patient will look for. Everything after it is
+  /// fallback for older rows.
+  static String resolveFilename({
+    String? downloadName,
+    required String title,
+    String? mimeType,
+    required DocumentFileType fileType,
+  }) {
+    final given = downloadName?.trim() ?? '';
+    if (given.isNotEmpty && given.contains('.')) return given;
 
-  /// Same, for content whose type is known directly rather than through a
-  /// stored document's [DocumentFileType] — an issued report, for instance.
+    final extension =
+        extensionForMime(mimeType) ?? extensionFor(fileType);
+
+    return filenameWith(title, extension);
+  }
+
+  /// A filename the receiving app can make sense of. Whatever the document was
+  /// called, with the extension its type implies — a PDF handed over as "Blood
+  /// panel" with no suffix opens in nothing.
   static String filenameWith(String title, String extension) {
     final base = title
         .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '')
@@ -92,6 +143,35 @@ class DocumentOpener {
     DocumentFileType.doc => 'docx',
     DocumentFileType.other => 'bin',
   };
+
+  /// The extension a content type implies, for naming a file the server
+  /// recorded a type for but no filename.
+  static String? extensionForMime(String? mimeType) {
+    final m = mimeType?.toLowerCase().split(';').first.trim() ?? '';
+    return switch (m) {
+      'application/pdf' => 'pdf',
+      'image/jpeg' => 'jpg',
+      'image/png' => 'png',
+      'image/gif' => 'gif',
+      'image/webp' => 'webp',
+      'image/heic' => 'heic',
+      'image/heif' => 'heif',
+      'image/bmp' => 'bmp',
+      'image/tiff' => 'tiff',
+      'text/html' => 'html',
+      'text/plain' => 'txt',
+      'text/csv' => 'csv',
+      'application/rtf' => 'rtf',
+      'application/msword' => 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' =>
+        'docx',
+      'application/vnd.oasis.opendocument.text' => 'odt',
+      'application/vnd.ms-excel' => 'xls',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' =>
+        'xlsx',
+      _ => null,
+    };
+  }
 }
 
 /// Re-exported so callers do not need the typed-data import.

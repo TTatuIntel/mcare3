@@ -32,7 +32,8 @@ class CaseloadAlertSummary {
 
     final sos = topSos;
     if (sos != null) {
-      final first = (sos.patientName ?? 'Patient').split(' ').first;
+      final first =
+          (sos.patientName ?? 'Patient').split(' ').first;
       return criticalCount > 1
           ? '$criticalCount critical · $first · SOS'
           : '$first · SOS';
@@ -42,9 +43,8 @@ class CaseloadAlertSummary {
     if (top == null) return '$openCount open';
 
     final first = top.patientName.split(' ').first;
-    final valueSuffix = top.value.trim().isEmpty
-        ? ''
-        : ' · ${top.value.trim()}';
+    final valueSuffix =
+        top.value.trim().isEmpty ? '' : ' · ${top.value.trim()}';
 
     if (top.kind == 'sos') {
       return criticalCount > 0
@@ -65,7 +65,8 @@ class CaseloadAlertSummary {
   }
 
   /// Highest-priority alert id when the KPI should drill into alert detail.
-  String? get primaryAlertId => topSos == null ? topAlert?.id : null;
+  String? get primaryAlertId =>
+      topSos == null ? topAlert?.id : null;
 
   String? get primarySosPatientId => topSos?.patientId;
 
@@ -88,9 +89,10 @@ void openCaseloadAlertPrimary(
   }
   final alertId = summary.primaryAlertId;
   if (alertId != null) {
-    Navigator.of(
-      context,
-    ).pushNamed(RouteNames.doctorAlertDetail, arguments: alertId);
+    Navigator.of(context).pushNamed(
+      RouteNames.doctorAlertDetail,
+      arguments: alertId,
+    );
     return;
   }
   Navigator.of(context).pushNamed(RouteNames.doctorAlerts);
@@ -112,9 +114,8 @@ extension StaffStateCaseloadAlerts on StaffState {
     final ids =
         patientIds ?? assignedPatientsForDoctor().map((p) => p.id).toSet();
     return alerts
-        .where(
-          (a) => !a.acknowledged && !a.resolved && ids.contains(a.patientId),
-        )
+        .where((a) =>
+            !a.acknowledged && !a.resolved && ids.contains(a.patientId))
         .toList();
   }
 
@@ -131,9 +132,8 @@ extension StaffStateCaseloadAlerts on StaffState {
     final open = openAlertsForCaseload(patientIds: patientIds);
     final activeSos = activeSosForCaseload(patientIds: patientIds);
     final sorted = sortAlertsByUrgency(open);
-    final criticalAlerts = open
-        .where((a) => a.severity == RiskLevel.critical)
-        .length;
+    final criticalAlerts =
+        open.where((a) => a.severity == RiskLevel.critical).length;
     final critical = criticalAlerts + activeSos.length;
 
     final topSos = activeSos.isEmpty ? null : activeSos.first;
@@ -148,11 +148,13 @@ extension StaffStateCaseloadAlerts on StaffState {
     );
   }
 
-  /// Every built-in vital supported by the patient tracking experience.
-  ///
-  /// Catalog enablement controls defaults and alert configuration. It must
-  /// not prevent a doctor from assigning a supported vital to a patient.
+  /// Built-in vitals enabled in the global catalog (admin / doctor defaults).
   List<VitalKey> enabledBuiltinVitals() {
+    final fromCatalog = vitalCatalog
+        .where((e) => e.enabled && e.vital != null)
+        .map((e) => e.vital!)
+        .toList();
+    if (fromCatalog.isNotEmpty) return fromCatalog;
     return VitalKey.values;
   }
 }

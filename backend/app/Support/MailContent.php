@@ -148,41 +148,6 @@ final class MailContent
     }
 
     /**
-     * A document header card — the thing the email is *about*, drawn the way
-     * the document itself is drawn.
-     *
-     * A report notification made of paragraphs makes the reader work out which
-     * report it means. This puts the title, reference, status and provenance
-     * in one branded block that matches the masthead of the report they will
-     * open, so the two are recognisably the same document.
-     *
-     * @param  array<string, string|int|float|null>  $meta  Label/value rows.
-     */
-    public function document(
-        string $title,
-        array $meta = [],
-        ?string $status = null,
-        string $kicker = 'Medical report',
-    ): self {
-        $rows = [];
-        foreach ($meta as $label => $value) {
-            $value = is_string($value) ? trim($value) : $value;
-            if ($value === null || $value === '') {
-                continue;
-            }
-            $rows[(string) $label] = (string) $value;
-        }
-
-        return $this->push([
-            'type' => 'document',
-            'title' => $title,
-            'kicker' => $kicker,
-            'status' => $status,
-            'rows' => $rows,
-        ]);
-    }
-
-    /**
      * @param  list<string>  $items
      */
     public function bullets(array $items, ?string $title = null): self

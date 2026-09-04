@@ -44,6 +44,17 @@ class VitalReportIssuer
             return $request->document;
         }
 
+        // A request whose document row was deleted, or whose id was written
+        // while the row never landed, must not silently render a second copy
+        // under a stale link. Re-reading from the database rather than trusting
+        // the loaded relation is what makes a retry safe.
+        if ($request->document_id) {
+            $existing = MedicalDocument::find($request->document_id);
+            if ($existing) {
+                return $existing;
+            }
+        }
+
         try {
             $patient = $request->user;
             $title = $this->title($request);
@@ -60,6 +71,12 @@ class VitalReportIssuer
                 'title' => $title,
                 'category' => 'vitalReport',
                 'file_type' => 'other',
+                // Rendered HTML. Recording the type is what makes it openable
+                // later: stored with none it was served as octet-stream named
+                // ".bin", so the report the patient asked for arrived as a file
+                // their phone would not open.
+                'mime_type' => $stored['mime'],
+                'original_filename' => $stored['original_name'],
                 'storage_path' => $stored['path'],
                 'size_bytes' => $stored['size'],
                 'description' => 'Vital report you requested on '

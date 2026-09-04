@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Concerns\ManagesPatientDocuments;
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
 use App\Models\Appointment;
@@ -14,13 +15,9 @@ use App\Models\User;
 use App\Models\VitalCatalog;
 use App\Models\VitalReading;
 use App\Models\VitalReportRequest;
-use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 use App\Support\ApiResponse;
-use App\Support\DocumentDelivery;
-use App\Support\DocumentRemoval;
 use App\Support\MedicalDocumentFiles;
-use App\Support\VitalRecorder;
 use App\Support\VitalAlertPayload;
 use Illuminate\Http\Request;
 
@@ -33,15 +30,19 @@ use Illuminate\Http\Request;
 class DoctorPatientController extends Controller
 {
     use ApiResponse;
+    use ManagesPatientDocuments;
 
+<<<<<<< Updated upstream
+=======
     /**
      * Honouring a patient's removal request is the one write here that deletes
      * something, so it records through the full audit service rather than
      * {@see DoctorAccess::audit()} — that helper writes no meta, and the whole
      * point of the entry is to outlive the row it describes.
      */
-    public function __construct(private readonly AuditService $audit) {}
+    public function __construct(protected readonly AuditService $audit) {}
 
+>>>>>>> Stashed changes
     public function show(Request $request, User $patient)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
@@ -135,7 +136,7 @@ class DoctorPatientController extends Controller
             'assigned_vitals.*' => 'string',
         ]);
 
-        $allowed = VitalCatalog::whereIn('vital_key', VitalCatalog::BUILTIN_KEYS)
+        $allowed = VitalCatalog::where('enabled', true)
             ->pluck('vital_key')
             ->all();
 
@@ -285,6 +286,7 @@ class DoctorPatientController extends Controller
         ], 'Chart updated.');
     }
 
+<<<<<<< Updated upstream
     public function storeDocument(Request $request, User $patient)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
@@ -301,9 +303,6 @@ class DoctorPatientController extends Controller
             'description' => $data['description'] ?? null,
             'uploaded_by' => 'Dr. '.$request->user()->fullName(),
             'uploaded_at' => now(),
-            // Part of the clinical record from the moment it is filed, so it
-            // cannot later be deleted by staff or by the patient.
-            'source' => MedicalDocument::SOURCE_CLINICIAN,
         ]);
 
         DoctorAccess::audit(
@@ -311,10 +310,6 @@ class DoctorPatientController extends Controller
             'Uploaded document',
             $doc->title.' for '.$patient->fullName(),
         );
-
-        // Filing the document is not the same as delivering it. Without this
-        // the patient had to notice the new row on their own.
-        DocumentDelivery::notifyOwner($doc, 'Dr. '.$request->user()->fullName());
 
         return $this->success(['document' => $doc->toApiArray()], 'Document uploaded.', 201);
     }
@@ -336,69 +331,49 @@ class DoctorPatientController extends Controller
         return $this->success(['document' => $document->fresh()->toApiArray()], 'Document updated.');
     }
 
-    /**
-     * Delete a document — only where the patient has asked for it.
-     *
-     * Clinicians used to be able to delete anything in a patient's documents,
-     * including the patient's own uploads and issued reports. Nothing in the
-     * record disappears on one clinician's say-so: a document that is wrong is
-     * corrected or superseded, and a report that should not have gone out is
-     * revoked — both leave a trace, which deletion does not.
-     *
-     * What the flat refusal missed is that the patient can say so. A result
-     * filed against the wrong person is theirs to have taken out, and once they
-     * have asked, honouring it is the correct answer rather than an exception
-     * to be worked around. The authority is the request, not the role, so this
-     * is the same check and the same audit trail the admin route uses.
-     */
     public function destroyDocument(Request $request, User $patient, MedicalDocument $document)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
         abort_unless($document->user_id === $patient->id, 404);
 
-        if (! $document->isRemovableByStaff()) {
-            return $this->error(
-                'Documents in the patient record cannot be deleted. Upload a '
-                .'corrected version, ask mCare staff to revoke an issued '
-                .'report, or ask the patient to request its removal.',
-                403,
-            );
-        }
+        MedicalDocumentFiles::deleteStoredFile($document->storage_path);
+        $document->delete();
 
-        DocumentRemoval::honour(
-            $this->audit,
-            $request->user(),
-            $document,
-            $request->string('note')->trim()->value() ?: null,
-        );
+        return $this->success(null, 'Document deleted.');
+=======
+    // ------------------------------------------------------------------
+    // Documents — see ManagesPatientDocuments for the shared implementation
+    // ------------------------------------------------------------------
 
-        return $this->success(null, 'Document removed at the patient\'s request.');
-    }
-
-    /** Refuse a removal the patient asked for, with a reason they read. */
-    public function declineDocumentRemoval(Request $request, User $patient, MedicalDocument $document)
+    /**
+     * A doctor may only touch the record of a patient on their caseload. Never
+     * trust the URL-bound patient model alone.
+     */
+    protected function assertPatientDocumentAccess(Request $request, User $patient): void
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
+    }
 
-        $data = $request->validate([
-            'reason' => 'required|string|min:4|max:280',
-        ]);
+    protected function documentActorLabel(Request $request): string
+    {
+        return 'Dr. '.$request->user()->fullName();
+    }
 
-        if (! $document->removalPending()) {
-            return $this->error('There is no removal request to answer.', 422);
-        }
+    protected function documentStreamUrl(User $patient, MedicalDocument $document): string
+    {
+        return url('/api/v1/doctor/patients/'.$patient->id.'/documents/'.$document->id.'/stream');
+    }
 
-        DocumentRemoval::decline(
-            $this->audit,
+    protected function recordDocumentAudit(
+        Request $request,
+        User $patient,
+        MedicalDocument $document,
+        string $action,
+    ): void {
+        DoctorAccess::audit(
             $request->user(),
-            $document,
-            trim($data['reason']),
-        );
-
-        return $this->success(
-            ['document' => $document->fresh()->toApiArray()],
-            'Removal request declined and the patient told why.',
+            ucfirst($action).' document',
+            $document->title.' for '.$patient->fullName(),
         );
     }
 
@@ -438,30 +413,7 @@ class DoctorPatientController extends Controller
             'Reading recorded for the patient.',
             201,
         );
-    }
-
-    public function streamDocument(Request $request, User $patient, MedicalDocument $document)
-    {
-        DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
-        if ($error = MedicalDocumentFiles::streamError($document)) {
-            return $error;
-        }
-
-        return MedicalDocumentFiles::stream($document);
-    }
-
-    public function downloadDocument(Request $request, User $patient, MedicalDocument $document)
-    {
-        DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
-        if (! $document->storage_path) {
-            return $this->error('No file attached.', 404);
-        }
-
-        return $this->success([
-            'url' => url('/api/v1/doctor/patients/'.$patient->id.'/documents/'.$document->id.'/stream'),
-        ]);
+>>>>>>> Stashed changes
     }
 
     private static function labelFor(string $key): string

@@ -9,13 +9,23 @@ enum DocumentCategory {
   imaging,
   discharge,
   consultationNote,
+<<<<<<< Updated upstream
+=======
 
   /// Issued by the care team from a vital report request. Its own category
   /// rather than "other" because it is the one document a patient goes looking
   /// for by name — they asked for it, so they know it exists.
   vitalReport,
+
+  /// The patient's copy of a customised report issued from their record —
+  /// signed by a doctor, approved by an admin, and filed here the moment it
+  /// goes out. Same reasoning as [vitalReport]: filed as "other" it was buried
+  /// among insurance scans, which is the last place someone asked for a
+  /// referral letter at a hospital desk will think to look.
+  report,
   referral,
   insurance,
+>>>>>>> Stashed changes
   other,
 }
 
@@ -26,9 +36,13 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => 'Imaging',
     DocumentCategory.discharge => 'Discharge',
     DocumentCategory.consultationNote => 'Consultation note',
+<<<<<<< Updated upstream
+=======
     DocumentCategory.vitalReport => 'Vital report',
+    DocumentCategory.report => 'Medical report',
     DocumentCategory.referral => 'Referral',
     DocumentCategory.insurance => 'Insurance',
+>>>>>>> Stashed changes
     DocumentCategory.other => 'Other',
   };
 
@@ -38,9 +52,13 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppColors.bpPurple,
     DocumentCategory.discharge => AppColors.doctorGreen,
     DocumentCategory.consultationNote => AppColors.info,
+<<<<<<< Updated upstream
+=======
     DocumentCategory.vitalReport => AppColors.brandIndigo,
+    DocumentCategory.report => AppColors.brandIndigo,
     DocumentCategory.referral => AppColors.tempTeal,
     DocumentCategory.insurance => AppColors.adminPurple,
+>>>>>>> Stashed changes
     DocumentCategory.other => AppColors.weightSlate,
   };
 
@@ -50,11 +68,26 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppIcons.image,
     DocumentCategory.discharge => AppIcons.nurse,
     DocumentCategory.consultationNote => AppIcons.report,
+<<<<<<< Updated upstream
+=======
     DocumentCategory.vitalReport => AppIcons.vitals,
+    DocumentCategory.report => AppIcons.report,
     DocumentCategory.referral => AppIcons.send,
     DocumentCategory.insurance => AppIcons.approval,
+>>>>>>> Stashed changes
     DocumentCategory.other => AppIcons.document,
   };
+}
+
+extension DocumentCategoryReports on DocumentCategory {
+  /// Whether this is a report the care team issued.
+  ///
+  /// Two categories mean it, because a vital report and a customised record
+  /// disclosure come out of different flows — but a patient counting the
+  /// reports they hold does not care which flow made them, so every count,
+  /// filter and label in the app asks this rather than naming one of them.
+  bool get isIssuedReport =>
+      this == DocumentCategory.vitalReport || this == DocumentCategory.report;
 }
 
 enum DocumentFileType { pdf, image, doc, other }
@@ -75,23 +108,6 @@ extension DocumentFileTypeX on DocumentFileType {
   };
 }
 
-/// Where a document came from, which is what decides whether it can be
-/// removed. A file the patient uploaded is theirs to delete; anything a
-/// clinician filed is part of the clinical record, and an issued report is the
-/// evidence of a disclosure they consented to. Neither of those goes away.
-enum DocumentSource { patient, clinician, report }
-
-extension DocumentSourceX on DocumentSource {
-  bool get isDeletable => this == DocumentSource.patient;
-
-  /// Shown where the document came from matters to the reader.
-  String? get badge => switch (this) {
-    DocumentSource.patient => null,
-    DocumentSource.clinician => 'From your care team',
-    DocumentSource.report => 'Issued report',
-  };
-}
-
 class MedicalDocument {
   const MedicalDocument({
     required this.id,
@@ -104,6 +120,10 @@ class MedicalDocument {
     this.description,
     this.sharedWithDoctorId,
     this.hasFile = true,
+<<<<<<< Updated upstream
+=======
+    this.mimeType,
+    this.downloadName,
     this.source = DocumentSource.patient,
     this.issuedReportId,
     this.removalRequested = false,
@@ -112,6 +132,7 @@ class MedicalDocument {
     this.removalDeclinedAt,
     this.removalDeclinedReason,
     this.canRequestRemoval = false,
+>>>>>>> Stashed changes
   });
 
   final String id;
@@ -124,6 +145,22 @@ class MedicalDocument {
   final String? description;
   final String? sharedWithDoctorId;
   final bool hasFile;
+
+<<<<<<< Updated upstream
+=======
+  /// What the stored file actually is, as recorded by the server when it was
+  /// uploaded or generated.
+  ///
+  /// The app used to derive this from [fileType], a four-value enum that is
+  /// enough to pick an icon and nothing like enough to hand a file to a browser
+  /// or a share sheet. An issued report is HTML and lands in `other`, so it was
+  /// handed over as `application/octet-stream` named `.bin` — the one document
+  /// the patient was explicitly told to go and open was the one nothing could.
+  final String? mimeType;
+
+  /// The filename this document should arrive under, server-decided. Falls back
+  /// to a name derived from the title where an older server does not send one.
+  final String? downloadName;
 
   /// Legacy rows carry no source and are treated as patient uploads, which is
   /// what they were.
@@ -157,6 +194,7 @@ class MedicalDocument {
   bool get isRemovableByStaff =>
       source == DocumentSource.clinician && removalRequested;
 
+>>>>>>> Stashed changes
   String get sizeLabel {
     if (sizeBytes < 1024) return '$sizeBytes B';
     if (sizeBytes < 1024 * 1024) {
@@ -176,6 +214,10 @@ class MedicalDocument {
     String? description,
     String? sharedWithDoctorId,
     bool? hasFile,
+<<<<<<< Updated upstream
+=======
+    String? mimeType,
+    String? downloadName,
     DocumentSource? source,
     String? issuedReportId,
     bool? removalRequested,
@@ -184,6 +226,7 @@ class MedicalDocument {
     DateTime? removalDeclinedAt,
     String? removalDeclinedReason,
     bool? canRequestRemoval,
+>>>>>>> Stashed changes
   }) {
     return MedicalDocument(
       id: id ?? this.id,
@@ -196,6 +239,10 @@ class MedicalDocument {
       description: description ?? this.description,
       sharedWithDoctorId: sharedWithDoctorId ?? this.sharedWithDoctorId,
       hasFile: hasFile ?? this.hasFile,
+<<<<<<< Updated upstream
+=======
+      mimeType: mimeType ?? this.mimeType,
+      downloadName: downloadName ?? this.downloadName,
       source: source ?? this.source,
       issuedReportId: issuedReportId ?? this.issuedReportId,
       removalRequested: removalRequested ?? this.removalRequested,
@@ -205,6 +252,7 @@ class MedicalDocument {
       removalDeclinedReason:
           removalDeclinedReason ?? this.removalDeclinedReason,
       canRequestRemoval: canRequestRemoval ?? this.canRequestRemoval,
+>>>>>>> Stashed changes
     );
   }
 }

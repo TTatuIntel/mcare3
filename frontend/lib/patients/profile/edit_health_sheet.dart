@@ -61,12 +61,17 @@ class _EditHealthFormState extends State<_EditHealthForm> {
     _dob = h.dateOfBirth;
     _gender = h.gender;
     _bloodType = h.bloodType;
-    _height = TextEditingController(text: h.heightCm.toStringAsFixed(0));
-    _weight = TextEditingController(text: h.weightKg.toStringAsFixed(0));
+    _height = TextEditingController(
+      text: h.heightCm.toStringAsFixed(0),
+    );
+    _weight = TextEditingController(
+      text: h.weightKg.toStringAsFixed(0),
+    );
     _address = TextEditingController(text: h.address ?? '');
     _conditions = TextEditingController(text: h.chronicConditions.join(', '));
     _allergies = TextEditingController(text: h.allergies.join(', '));
-    _medications = TextEditingController(text: h.currentMedications.join(', '));
+    _medications =
+        TextEditingController(text: h.currentMedications.join(', '));
     _noAllergies = h.noKnownAllergies;
     _noMeds = h.noCurrentMedications;
     _locationConsent = h.locationConsent;
@@ -155,142 +160,134 @@ class _EditHealthFormState extends State<_EditHealthForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OutlinedButton.icon(
-          onPressed: _pickDob,
-          icon: const Icon(AppIcons.calendar, size: 18),
-          label: Text(
-            'Birth date: ${_dob.month}/${_dob.day}/${_dob.year}',
-            style: const TextStyle(fontSize: 13),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Text('Gender', style: theme.textTheme.labelLarge),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: AppSpacing.sm,
-          children: Gender.values.map((g) {
-            return ChoiceChip(
-              label: Text(g.label, style: const TextStyle(fontSize: 12)),
-              selected: _gender == g,
-              onSelected: (_) => setState(() => _gender = g),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Text('Blood type', style: theme.textTheme.labelLarge),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: BloodType.values.map((b) {
-            return ChoiceChip(
-              label: Text(b.label, style: const TextStyle(fontSize: 11)),
-              selected: _bloodType == b,
-              onSelected: (_) => setState(() => _bloodType = b),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: AppTextField(
-                label: 'Height (cm)',
-                controller: _height,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                ],
-              ),
+          OutlinedButton.icon(
+            onPressed: _pickDob,
+            icon: const Icon(AppIcons.calendar, size: 18),
+            label: Text(
+              'Birth date: ${_dob.month}/${_dob.day}/${_dob.year}',
+              style: const TextStyle(fontSize: 13),
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: AppTextField(
-                label: 'Weight (kg)',
-                controller: _weight,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AppTextField(
-          label: 'Home address',
-          controller: _address,
-          hint: 'City, country',
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AppTextField(
-          label: 'Conditions',
-          controller: _conditions,
-          hint: 'Comma-separated',
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text(
-            'No known allergies',
-            style: TextStyle(fontSize: 13),
           ),
-          value: _noAllergies,
-          activeThumbColor: AppColors.brandIndigo,
-          onChanged: (v) => setState(() => _noAllergies = v),
-        ),
-        if (!_noAllergies)
+          const SizedBox(height: AppSpacing.md),
+          Text('Gender', style: theme.textTheme.labelLarge),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            children: Gender.values.map((g) {
+              return ChoiceChip(
+                label: Text(g.label, style: const TextStyle(fontSize: 12)),
+                selected: _gender == g,
+                onSelected: (_) => setState(() => _gender = g),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('Blood type', style: theme.textTheme.labelLarge),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: BloodType.values.map((b) {
+              return ChoiceChip(
+                label: Text(b.label, style: const TextStyle(fontSize: 11)),
+                selected: _bloodType == b,
+                onSelected: (_) => setState(() => _bloodType = b),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              Expanded(
+                child: AppTextField(
+                  label: 'Height (cm)',
+                  controller: _height,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: AppTextField(
+                  label: 'Weight (kg)',
+                  controller: _weight,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
           AppTextField(
-            label: 'Allergies',
-            controller: _allergies,
+            label: 'Home address',
+            controller: _address,
+            hint: 'City, country',
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppTextField(
+            label: 'Conditions',
+            controller: _conditions,
             hint: 'Comma-separated',
           ),
-        const SizedBox(height: AppSpacing.md),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text(
-            'No current medications',
-            style: TextStyle(fontSize: 13),
+          const SizedBox(height: AppSpacing.lg),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('No known allergies', style: TextStyle(fontSize: 13)),
+            value: _noAllergies,
+            activeThumbColor: AppColors.brandIndigo,
+            onChanged: (v) => setState(() => _noAllergies = v),
           ),
-          value: _noMeds,
-          activeThumbColor: AppColors.brandIndigo,
-          onChanged: (v) => setState(() => _noMeds = v),
-        ),
-        if (!_noMeds)
-          AppTextField(
-            label: 'Medications',
-            controller: _medications,
-            hint: 'Comma-separated',
+          if (!_noAllergies)
+            AppTextField(
+              label: 'Allergies',
+              controller: _allergies,
+              hint: 'Comma-separated',
+            ),
+          const SizedBox(height: AppSpacing.md),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('No current medications', style: TextStyle(fontSize: 13)),
+            value: _noMeds,
+            activeThumbColor: AppColors.brandIndigo,
+            onChanged: (v) => setState(() => _noMeds = v),
           ),
-        const SizedBox(height: AppSpacing.md),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text(
-            'Share location during SOS',
-            style: TextStyle(fontSize: 13),
+          if (!_noMeds)
+            AppTextField(
+              label: 'Medications',
+              controller: _medications,
+              hint: 'Comma-separated',
+            ),
+          const SizedBox(height: AppSpacing.md),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Share location during SOS',
+              style: TextStyle(fontSize: 13),
+            ),
+            subtitle: const Text(
+              'Allow sharing GPS with responders in an emergency',
+              style: TextStyle(fontSize: 11),
+            ),
+            value: _locationConsent,
+            activeThumbColor: AppColors.brandIndigo,
+            onChanged: (v) => setState(() => _locationConsent = v),
           ),
-          subtitle: const Text(
-            'Allow sharing GPS with responders in an emergency',
-            style: TextStyle(fontSize: 11),
+          const SizedBox(height: AppSpacing.xl),
+          AppButton(
+            label: 'Save health profile',
+            icon: AppIcons.check,
+            expand: true,
+            loading: _saving,
+            onPressed: _saving ? null : _save,
           ),
-          value: _locationConsent,
-          activeThumbColor: AppColors.brandIndigo,
-          onChanged: (v) => setState(() => _locationConsent = v),
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        AppButton(
-          label: 'Save health profile',
-          icon: AppIcons.check,
-          expand: true,
-          loading: _saving,
-          onPressed: _saving ? null : _save,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-      ],
+          const SizedBox(height: AppSpacing.lg),
+        ],
     );
   }
 }

@@ -21,10 +21,7 @@ class SosRingService {
     if (_playing) return;
     _playing = true;
     _pulse();
-    _timer = Timer.periodic(
-      const Duration(milliseconds: 1600),
-      (_) => _pulse(),
-    );
+    _timer = Timer.periodic(const Duration(milliseconds: 1600), (_) => _pulse());
   }
 
   void stop() {

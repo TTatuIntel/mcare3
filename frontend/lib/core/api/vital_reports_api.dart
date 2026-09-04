@@ -8,24 +8,6 @@ class VitalReportsApi {
   VitalReportsApi._();
   static final VitalReportsApi instance = VitalReportsApi._();
 
-  /// The patient's own requests, with the trail of who has touched each one.
-  ///
-  /// The session carries these too, but a patient watching a request they just
-  /// raised needs to see it move without a full sync — "someone has picked
-  /// this up" is the whole point of a shared queue.
-  Future<List<VitalReportRequest>> listMine() async {
-    if (!AppEnv.backendEnabled) return const [];
-    final res = await ApiClient.instance.get('/patient/vital-report-requests');
-    final rows = res['data']?['requests'] as List? ?? const [];
-    return rows
-        .map(
-          (e) => PatientDomainMapper.vitalReportRequestFromApi(
-            (e as Map).cast<String, dynamic>(),
-          ),
-        )
-        .toList(growable: false);
-  }
-
   Future<VitalReportRequest?> submit({
     required DateTime from,
     required DateTime to,

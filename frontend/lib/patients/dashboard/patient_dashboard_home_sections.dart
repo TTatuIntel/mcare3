@@ -1,39 +1,47 @@
 part of 'patient_dashboard_view.dart';
 
-/// The patient home is intentionally short: search, quick actions, then one
-/// prioritised stream. Status information is not repeated in separate cards.
+/// PDF-approved patient home composition. It deliberately derives every
+/// message and count from the existing stores; the home screen never invents
+/// adherence, risk, or scheduling data.
 class _PatientHomeLayout extends StatelessWidget {
   const _PatientHomeLayout({
     required this.appointments,
     required this.doses,
     required this.unreadNotifications,
+    this.reserveFabSpace = false,
   });
 
   final List<Appointment> appointments;
   final List<MedicationDose> doses;
   final int unreadNotifications;
 
+  /// Keeps the last card clear of the floating "Log vital" button on handhelds.
+  final bool reserveFabSpace;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 840;
-        final quickActions = _PatientQuickActions(
-          appointments: appointments,
-          doses: doses,
-        );
-        const insights = PatientVitalInsightsLauncher();
-        final forYou = _PatientForYouSection(
-          appointments: appointments,
-          doses: doses,
-          unreadNotifications: unreadNotifications,
-        );
-
-        return Column(
+        final wide = constraints.maxWidth >= 920;
+        final primary = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const StaggeredEntry(index: 0, child: PatientDateHeader()),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.md),
+            // A request to share the record blocks staff work and expires on a
+            // timer, so it goes above the daily plan rather than waiting to be
+            // found in a notification the patient may already have read.
+            if (ReportConsentsState.instance.hasAwaiting) ...[
+              const StaggeredEntry(
+                // Keyed: this entry comes and goes, and without a key it and
+                // the today hub below are both an unkeyed StaggeredEntry in
+                // adjacent slots for Flutter to match up.
+                key: ValueKey('patient-sharing-request'),
+                index: 1,
+                child: _PatientSharingRequestCard(),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             StaggeredEntry(
               index: 1,
               child: _PatientTodayHub(
@@ -42,471 +50,63 @@ class _PatientHomeLayout extends StatelessWidget {
                 unreadNotifications: unreadNotifications,
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            const StaggeredEntry(index: 2, child: _PatientFeatureSearch()),
-            if (ReportConsentsState.instance.hasAwaiting) ...[
-              const SizedBox(height: AppSpacing.md),
-              const StaggeredEntry(
-                key: ValueKey('patient-sharing-request'),
-                index: 3,
-                child: _PatientSharingRequestCard(),
-              ),
-            ],
+            const SizedBox(height: AppSpacing.xl),
+            const StaggeredEntry(index: 2, child: _PatientVitalShortcuts()),
             const SizedBox(height: AppSpacing.lg),
+            StaggeredEntry(index: 3, child: _PatientNextDoseCard(doses: doses)),
+            const SizedBox(height: AppSpacing.md),
+            StaggeredEntry(
+              index: 4,
+              child: _PatientNextVisitCard(appointments: appointments),
+            ),
+          ],
+        );
+
+        final secondary = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _RecentVitalsPanel(),
+            const SizedBox(height: AppSpacing.xl),
+            SectionLabel(
+              title: 'Recent activity',
+              icon: AppIcons.trend,
+              actionLabel: unreadNotifications > 0 ? 'Updates' : null,
+              onAction: unreadNotifications > 0
+                  ? () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.patientNotifications)
+                  : null,
+            ),
+            const _CareActivityFeed(),
+          ],
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             if (wide)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 5,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        StaggeredEntry(index: 3, child: quickActions),
-                        const SizedBox(height: AppSpacing.lg),
-                        const StaggeredEntry(index: 4, child: insights),
-                      ],
-                    ),
-                  ),
+                  Expanded(flex: 7, child: primary),
                   const SizedBox(width: AppSpacing.xl),
-                  Expanded(
-                    flex: 7,
-                    child: StaggeredEntry(index: 5, child: forYou),
-                  ),
+                  Expanded(flex: 5, child: secondary),
                 ],
               )
             else ...[
-              StaggeredEntry(index: 3, child: quickActions),
-              const SizedBox(height: AppSpacing.lg),
-              const StaggeredEntry(index: 4, child: insights),
-              const SizedBox(height: AppSpacing.lg),
-              StaggeredEntry(index: 5, child: forYou),
+              primary,
+              const SizedBox(height: AppSpacing.xl),
+              secondary,
             ],
-            const SizedBox(height: 84),
+            // Emergency + help closes every layout (wide and narrow): it is the
+            // last block on the page, inside thumb reach, and the only place
+            // home surfaces SOS.
+            const SizedBox(height: AppSpacing.xl),
+            const StaggeredEntry(index: 6, child: _PatientHelpCard()),
+            SizedBox(height: reserveFabSpace ? 96 : AppSpacing.huge),
           ],
         );
       },
-    );
-  }
-}
-
-class _PatientFeatureSearch extends StatelessWidget {
-  const _PatientFeatureSearch();
-
-  Future<void> _open(BuildContext context) async {
-    final result = await showSearch<_PatientSearchEntry?>(
-      context: context,
-      delegate: _PatientSearchDelegate(),
-    );
-    if (result != null && context.mounted) result.open(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Search mCare features',
-      child: GlassCard(
-        padding: EdgeInsets.zero,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        shadow: const [],
-        onTap: () => _open(context),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              children: [
-                const Icon(
-                  AppIcons.search,
-                  size: 22,
-                  color: AppColors.brandIndigo,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    'Search vitals, appointments, documents…',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.textMuted(context),
-                    ),
-                  ),
-                ),
-                Icon(
-                  AppIcons.chevronRight,
-                  size: 20,
-                  color: AppPalette.textFaint(context),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PatientSearchEntry {
-  const _PatientSearchEntry({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.keywords,
-    required this.icon,
-    required this.color,
-    this.route,
-  });
-
-  final String id;
-  final String title;
-  final String description;
-  final String keywords;
-  final IconData icon;
-  final Color color;
-  final String? route;
-
-  bool matches(String value) {
-    final q = value.trim().toLowerCase();
-    if (q.isEmpty) return true;
-    return '$title $description $keywords'.toLowerCase().contains(q);
-  }
-
-  void open(BuildContext context) {
-    final destination = route;
-    if (destination != null) Navigator.of(context).pushNamed(destination);
-  }
-}
-
-const _patientSearchEntries = <_PatientSearchEntry>[
-  _PatientSearchEntry(
-    id: 'vitals',
-    title: 'Vitals',
-    description: 'Log readings and review trends',
-    keywords: 'blood pressure heart rate glucose temperature oxygen weight',
-    icon: AppIcons.vitals,
-    color: AppColors.brandIndigo,
-    route: RouteNames.patientVitals,
-  ),
-  _PatientSearchEntry(
-    id: 'appointments',
-    title: 'Appointments',
-    description: 'Book or review a visit',
-    keywords: 'visit doctor booking schedule consultation',
-    icon: AppIcons.appointment,
-    color: AppColors.bpPurple,
-    route: RouteNames.patientAppointments,
-  ),
-  _PatientSearchEntry(
-    id: 'medications',
-    title: 'Medications',
-    description: 'View doses and prescriptions',
-    keywords: 'medicine drugs dose pills pharmacy prescription',
-    icon: AppIcons.medication,
-    color: AppColors.glucoseAmber,
-    route: RouteNames.patientMedications,
-  ),
-  _PatientSearchEntry(
-    id: 'documents',
-    title: 'Documents & uploads',
-    description: 'Open results, reports and files',
-    keywords: 'upload lab result imaging record file report',
-    icon: AppIcons.document,
-    color: AppColors.info,
-    route: RouteNames.patientDocuments,
-  ),
-  _PatientSearchEntry(
-    id: 'meals',
-    title: 'Meals',
-    description: 'Review your assigned meal plan',
-    keywords: 'food nutrition diet breakfast lunch dinner meal plan',
-    icon: AppIcons.meals,
-    color: AppColors.success,
-    route: RouteNames.patientMeals,
-  ),
-  _PatientSearchEntry(
-    id: 'emergency',
-    title: 'Emergency SOS',
-    description: 'Get urgent help now',
-    keywords: 'emergency urgent sos danger help',
-    icon: AppIcons.sos,
-    color: AppColors.critical,
-    route: RouteNames.patientSos,
-  ),
-  _PatientSearchEntry(
-    id: 'notifications',
-    title: 'Alerts & activity',
-    description: 'Read care updates and reminders',
-    keywords: 'notifications news activities announcements updates',
-    icon: AppIcons.notifications,
-    color: AppColors.warning,
-    route: RouteNames.patientNotifications,
-  ),
-  _PatientSearchEntry(
-    id: 'messages',
-    title: 'Messages',
-    description: 'Chat with your care team',
-    keywords: 'conversation inbox doctor nurse chat',
-    icon: AppIcons.chat,
-    color: AppColors.info,
-    route: RouteNames.patientMessages,
-  ),
-  _PatientSearchEntry(
-    id: 'care-team',
-    title: 'Care team',
-    description: 'See your doctors and providers',
-    keywords: 'doctor provider nurse clinician team',
-    icon: AppIcons.careTeam,
-    color: AppColors.doctorGreen,
-    route: RouteNames.patientCareTeam,
-  ),
-  _PatientSearchEntry(
-    id: 'support',
-    title: 'Support',
-    description: 'Ask for help with mCare',
-    keywords: 'ticket problem technical help',
-    icon: AppIcons.support,
-    color: AppColors.info,
-    route: RouteNames.patientSupport,
-  ),
-  _PatientSearchEntry(
-    id: 'profile',
-    title: 'Profile',
-    description: 'Update personal and health details',
-    keywords: 'account personal health information contact',
-    icon: AppIcons.profile,
-    color: AppColors.doctorGreen,
-    route: RouteNames.patientProfile,
-  ),
-  _PatientSearchEntry(
-    id: 'settings',
-    title: 'Settings',
-    description: 'Privacy, language and appearance',
-    keywords: 'preferences security theme notifications language privacy',
-    icon: AppIcons.settings,
-    color: AppColors.weightSlate,
-    route: RouteNames.patientSettings,
-  ),
-];
-
-class _PatientSearchDelegate extends SearchDelegate<_PatientSearchEntry?> {
-  @override
-  String get searchFieldLabel => 'What do you need?';
-
-  @override
-  List<Widget>? buildActions(BuildContext context) => [
-    if (query.isNotEmpty)
-      IconButton(
-        tooltip: 'Clear search',
-        onPressed: () => query = '',
-        icon: const Icon(AppIcons.close),
-      ),
-  ];
-
-  @override
-  Widget? buildLeading(BuildContext context) => IconButton(
-    tooltip: 'Back',
-    onPressed: () => close(context, null),
-    icon: const Icon(AppIcons.back),
-  );
-
-  @override
-  Widget buildResults(BuildContext context) => _results(context);
-
-  @override
-  Widget buildSuggestions(BuildContext context) => _results(context);
-
-  Widget _results(BuildContext context) {
-    final matches = _patientSearchEntries.where((item) => item.matches(query));
-    if (matches.isEmpty) {
-      return EmptyStateView(
-        icon: AppIcons.search,
-        title: 'No match found',
-        message: 'Try a word like vitals, appointment, upload or emergency.',
-        compact: true,
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      itemCount: matches.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final item = matches.elementAt(index);
-        return ListTile(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            side: BorderSide(color: AppPalette.border(context)),
-          ),
-          tileColor: AppPalette.surface(context),
-          leading: _PatientIconDisc(icon: item.icon, color: item.color),
-          title: Text(item.title),
-          subtitle: Text(item.description),
-          trailing: const Icon(AppIcons.chevronRight),
-          onTap: () => close(context, item),
-        );
-      },
-    );
-  }
-}
-
-class _PatientQuickActions extends StatelessWidget {
-  const _PatientQuickActions({required this.appointments, required this.doses});
-
-  final List<Appointment> appointments;
-  final List<MedicationDose> doses;
-
-  @override
-  Widget build(BuildContext context) {
-    final pendingDoses = doses.where(
-      (dose) => dose.status == DoseStatus.pending,
-    );
-    final mealsToday = MealPlansState.instance.assignedToday.length;
-    final actions = <_PatientQuickAction>[
-      _PatientQuickAction(
-        label: 'Appointments',
-        detail: appointments.isEmpty
-            ? 'Book a visit'
-            : '${appointments.length} upcoming',
-        icon: AppIcons.appointment,
-        color: AppColors.bpPurple,
-        onTap: () =>
-            Navigator.of(context).pushNamed(RouteNames.patientAppointments),
-      ),
-      _PatientQuickAction(
-        label: 'Medications',
-        detail: pendingDoses.isEmpty
-            ? 'View medicines'
-            : '${pendingDoses.length} due today',
-        icon: AppIcons.medication,
-        color: AppColors.glucoseAmber,
-        onTap: () =>
-            Navigator.of(context).pushNamed(RouteNames.patientMedications),
-      ),
-      _PatientQuickAction(
-        label: 'Vitals',
-        detail: 'Readings & trends',
-        icon: AppIcons.vitals,
-        color: AppColors.brandIndigo,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientVitals),
-      ),
-      _PatientQuickAction(
-        label: 'Meals',
-        detail: mealsToday == 0 ? 'Meal plan' : '$mealsToday for today',
-        icon: AppIcons.meals,
-        color: AppColors.success,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientMeals),
-      ),
-      _PatientQuickAction(
-        label: 'Documents',
-        detail: 'View & upload',
-        icon: AppIcons.upload,
-        color: AppColors.info,
-        onTap: () =>
-            Navigator.of(context).pushNamed(RouteNames.patientDocuments),
-      ),
-      _PatientQuickAction(
-        label: 'Emergency',
-        detail: 'Get help now',
-        icon: AppIcons.sos,
-        color: AppColors.critical,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.patientSos),
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionLabel(title: 'Quick actions', icon: AppIcons.add),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 680 ? 6 : 3;
-            const gap = AppSpacing.xs;
-            final width =
-                (constraints.maxWidth - gap * (columns - 1)) / columns;
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final action in actions)
-                  SizedBox(
-                    width: width,
-                    child: _PatientQuickActionButton(action: action),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _PatientQuickAction {
-  const _PatientQuickAction({
-    required this.label,
-    required this.detail,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final String detail;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-}
-
-class _PatientQuickActionButton extends StatelessWidget {
-  const _PatientQuickActionButton({required this.action});
-
-  final _PatientQuickAction action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: '${action.label}. ${action.detail}',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: action.onTap,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xs,
-              vertical: AppSpacing.sm,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: action.color.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(action.icon, color: action.color, size: 18),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  action.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppPalette.ink(context),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1619,6 +1219,7 @@ String _patientVisitTime(DateTime scheduledAt) {
   return '$day · ${DateFormat.jm().format(scheduledAt)}';
 }
 
+
 /// Home prompt for outstanding record-sharing requests.
 ///
 /// Consent used to travel on a single notification; once that was read there
@@ -1643,8 +1244,8 @@ class _PatientSharingRequestCard extends StatelessWidget {
               '${first.requestedByName == null ? '' : ' · asked by ${first.requestedByName}'}';
 
     return GlassCard(
-        onTap: () =>
-          Navigator.of(context).pushNamed(RouteNames.patientDocuments),
+      onTap: () =>
+          Navigator.of(context).pushNamed(RouteNames.patientReportConsents),
       padding: const EdgeInsets.all(AppSpacing.md),
       background: AppPalette.warningSoft(context),
       border: Border.all(color: accent.withValues(alpha: 0.40)),
@@ -1662,7 +1263,9 @@ class _PatientSharingRequestCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      more > 0 ? 'Approve sharing of your record' : first.title,
+                      more > 0
+                          ? 'Approve sharing of your record'
+                          : first.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -1704,7 +1307,7 @@ class _PatientSharingRequestCard extends StatelessWidget {
             expand: true,
             onPressed: () => Navigator.of(
               context,
-            ).pushNamed(RouteNames.patientDocuments),
+            ).pushNamed(RouteNames.patientReportConsents),
           ),
         ],
       ),

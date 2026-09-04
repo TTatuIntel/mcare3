@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AppNotificationResource;
 use App\Models\AppNotification;
-use App\Services\AlertResolutionNotifier;
 use App\Services\RealtimeSignalService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -37,19 +36,6 @@ class NotificationsController extends Controller
     public function resolve(Request $request, AppNotification $notification)
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
-
-        // Clinical alerts are closed by the care team, never by the patient
-        // they are about. Clearing one is a clinical decision — it records who
-        // reviewed the reading and what they did about it (see
-        // [AlertResolutionNotifier]) — so a patient dismissing their own
-        // critical vital would hide it from the very people meant to act on
-        // it. Everything else in the inbox is theirs to clear.
-        abort_if(
-            in_array($notification->kind, AlertResolutionNotifier::KINDS, true),
-            403,
-            'Only your care team can clear this alert.',
-        );
-
         $notification->update([
             'resolved' => true,
             'resolved_at' => now(),

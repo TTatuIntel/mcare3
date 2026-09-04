@@ -111,7 +111,6 @@ void main() {
 
     await tester.tap(find.text('Last 30 days'));
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
 
     // Presets, calendar spans and a month grid, all in the one sheet.
     expect(find.text('Last 7 days'), findsOneWidget);

@@ -3,10 +3,21 @@
 namespace App\Http\Resources;
 
 use App\Models\MedicalDocument;
-use App\Support\MedicalDocumentFiles;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * The patient-facing wrapper around a document.
+ *
+ * It used to carry its own copy of the field list, which meant every document
+ * in the system had two independent serialisers: this one for the patient's own
+ * routes and {@see MedicalDocument::toApiArray()} for the staff and session
+ * ones. They were identical on the day the second was written and had already
+ * started to drift — a field added for the doctor's chart simply did not exist
+ * for the patient looking at the same row. There is now one shape, defined on
+ * the model, and this exists to keep collection-mapping ergonomics at the call
+ * sites that want them.
+ */
 class MedicalDocumentResource extends JsonResource
 {
     public static $wrap = null;
@@ -20,6 +31,7 @@ class MedicalDocumentResource extends JsonResource
         /** @var MedicalDocument $d */
         $d = $this->resource;
 
+<<<<<<< Updated upstream
         $hasFile = MedicalDocumentFiles::exists($d->storage_path);
 
         return [
@@ -35,14 +47,9 @@ class MedicalDocumentResource extends JsonResource
                 ? (string) $d->shared_with_doctor_id
                 : null,
             'has_file' => $hasFile,
-            // Lets the app hide a delete control it would only be refused on,
-            // and label where a document came from.
-            'source' => $d->source ?? MedicalDocument::SOURCE_PATIENT,
-            'issued_report_id' => $d->issued_report_id
-                ? (string) $d->issued_report_id
-                : null,
-            // Lets the patient's list show a pending removal request, and a
-            // refusal, without a second round trip.
-        ] + $d->removalApiArray();
+        ];
+=======
+        return $d->toApiArray();
+>>>>>>> Stashed changes
     }
 }

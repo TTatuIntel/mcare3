@@ -110,10 +110,7 @@ class _SessionManagerSheetState extends State<_SessionManagerSheet> {
         children: [
           Row(
             children: [
-              Text(
-                'Signed-in devices',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Signed-in devices', style: Theme.of(context).textTheme.titleLarge),
               const Spacer(),
               IconButton(
                 tooltip: 'Close',
@@ -145,22 +142,15 @@ class _SessionManagerSheetState extends State<_SessionManagerSheet> {
                 return ListView.separated(
                   shrinkWrap: true,
                   itemCount: sessions.length,
-                  separatorBuilder: (_, _) =>
-                      Divider(color: AppPalette.border(context)),
+                  separatorBuilder: (_, _) => Divider(color: AppPalette.border(context)),
                   itemBuilder: (context, index) {
                     final session = sessions[index];
                     final current = session['current'] == true;
                     final id = session['id']?.toString();
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        current
-                            ? Icons.smartphone_rounded
-                            : Icons.devices_rounded,
-                      ),
-                      title: Text(
-                        session['name']?.toString() ?? 'mCare device',
-                      ),
+                      leading: Icon(current ? Icons.smartphone_rounded : Icons.devices_rounded),
+                      title: Text(session['name']?.toString() ?? 'mCare device'),
                       subtitle: Text(
                         current
                             ? 'This device'
@@ -170,15 +160,11 @@ class _SessionManagerSheetState extends State<_SessionManagerSheet> {
                           ? const Chip(label: Text('Current'))
                           : IconButton(
                               tooltip: 'Sign out device',
-                              onPressed: _revoking == id
-                                  ? null
-                                  : () => _revoke(session),
+                              onPressed: _revoking == id ? null : () => _revoke(session),
                               icon: _revoking == id
                                   ? const SizedBox.square(
                                       dimension: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
+                                      child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : const Icon(Icons.logout_rounded),
                             ),

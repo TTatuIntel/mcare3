@@ -60,7 +60,6 @@ class PatientBottomNav extends StatelessWidget {
         RouteNames.patientMedications,
         RouteNames.patientMedicationDetail,
         RouteNames.patientDocuments,
-        RouteNames.patientMeals,
       },
     ),
     PatientNavDestination(

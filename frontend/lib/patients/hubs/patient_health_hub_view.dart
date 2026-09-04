@@ -59,13 +59,6 @@ class PatientHealthHubView extends StatelessWidget {
                   route: RouteNames.patientDocuments,
                   color: AppColors.bpPurple,
                 ),
-                const AppSectionLink(
-                  title: 'Meals',
-                  description: 'Review meal plans assigned by your care team.',
-                  icon: AppIcons.meals,
-                  route: RouteNames.patientMeals,
-                  color: AppColors.success,
-                ),
               ],
             ),
           ],
