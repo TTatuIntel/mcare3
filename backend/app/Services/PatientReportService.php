@@ -4,8 +4,13 @@ namespace App\Services;
 
 use App\Mail\PatientReportConsentMail;
 use App\Models\AppNotification;
+<<<<<<< Updated upstream
 use App\Models\CareAssignment;
 use App\Models\CareProvider;
+=======
+use Illuminate\Database\UniqueConstraintViolationException;
+use App\Models\MedicalDocument;
+>>>>>>> Stashed changes
 use App\Models\PatientReportRequest;
 use App\Models\User;
 use App\Support\MailDispatcher;
@@ -456,6 +461,87 @@ class PatientReportService
      * @param  list<string>  $sections
      * @return list<string>
      */
+<<<<<<< Updated upstream
+=======
+    /**
+     * Files the issued report into the patient's own documents.
+     *
+     * Rendered from the frozen snapshot, so this copy and the one the
+     * recipient was sent are the same document, and it stays correct after the
+     * underlying record moves on.
+     *
+     * Never throws. Issuing has already happened and been audited by the time
+     * this runs; failing here would report the disclosure as failed when it
+     * did not, and leave staff unsure whether to issue again.
+     *
+     * @param  array<string, mixed>  $document
+     */
+    private function fileCopyForPatient(
+        User $actor,
+        PatientReportRequest $request,
+        array $document,
+    ): void {
+        try {
+            // Re-issue is refused upstream, but a retry after a partial failure
+            // must not leave the patient with two copies of one report.
+            // The check is only the cheap half: `issued_report_id` is unique,
+            // so two calls racing past it still cannot both write a row, and
+            // the loser is caught below rather than surfacing as a failure on
+            // an issue that in fact succeeded.
+            if (MedicalDocument::where('issued_report_id', $request->id)->exists()) {
+                return;
+            }
+
+            $stored = MedicalDocumentFiles::storeGeneratedFile(
+                (int) $request->patient_user_id,
+                $request->title,
+                $this->renderer->toHtml($document, null, [
+                    'status' => 'issued',
+                    'reference' => 'RPT-'.$request->id,
+                ]),
+            );
+
+            try {
+                $filed = MedicalDocument::create([
+                    'user_id' => $request->patient_user_id,
+                    'title' => $request->title,
+                    // Its own category rather than "other": this is the copy of
+                    // a disclosure the patient consented to, and it belongs
+                    // under Reports, where they will go looking for it, not
+                    // buried among their insurance scans.
+                    'category' => 'report',
+                    'file_type' => 'other',
+                    // Rendered HTML. Recording that is what makes it openable:
+                    // stored with no type it was served as octet-stream named
+                    // ".bin", which no phone will open.
+                    'mime_type' => $stored['mime'],
+                    'original_filename' => $stored['original_name'],
+                    'storage_path' => $stored['path'],
+                    'size_bytes' => $stored['size'],
+                    'description' => 'Report issued'
+                        .($request->recipient ? ' to '.$request->recipient : '')
+                        .' on '.now()->format('j M Y').'.',
+                    'uploaded_by' => 'mCare · '.$actor->fullName(),
+                    'uploaded_at' => now(),
+                    'source' => MedicalDocument::SOURCE_REPORT,
+                    'issued_report_id' => $request->id,
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                // Another call filed it first. The patient has their copy,
+                // which is the whole objective — drop the file this call wrote
+                // rather than leave it orphaned on disk.
+                MedicalDocumentFiles::deleteStoredFile($stored['path']);
+
+                return;
+            }
+
+            DocumentDelivery::notifyOwner($filed, 'mCare');
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+>>>>>>> Stashed changes
     private function normalizeSections(array $sections): array
     {
         $valid = array_values(array_unique(array_filter(

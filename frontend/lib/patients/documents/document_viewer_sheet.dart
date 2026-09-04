@@ -57,6 +57,14 @@ class _ViewerState extends State<_Viewer> {
     return MedicalDocumentViewerBody(
       documentId: _doc.id,
       fileType: _doc.fileType,
+<<<<<<< Updated upstream
+=======
+      documentTitle: _doc.title,
+      // What the server recorded the file to be, so View and Download hand
+      // over the real thing rather than a `.bin` guessed from `fileType`.
+      mimeType: _doc.mimeType,
+      downloadName: _doc.downloadName,
+>>>>>>> Stashed changes
       hasFile: _doc.hasFile,
       previewReloadToken: _previewReload,
       metaRows: [

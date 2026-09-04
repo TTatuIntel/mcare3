@@ -483,11 +483,18 @@ class _RequestFormState extends State<_RequestForm> {
           style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppSpacing.sm),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('All tracked vitals'),
-          value: _allTracked,
-          onChanged: (v) => setState(() => _allTracked = v),
+        // Its own Material: the sheet paints its glass background with a
+        // DecoratedBox, and a ListTile renders its ink on the nearest Material
+        // ancestor — which was above that box, so the tap ripple on this row
+        // was drawn underneath the background and never seen.
+        Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('All tracked vitals'),
+            value: _allTracked,
+            onChanged: (v) => setState(() => _allTracked = v),
+          ),
         ),
         if (!_allTracked)
           Wrap(

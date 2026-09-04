@@ -114,7 +114,7 @@ class DocumentsState extends ChangeNotifier {
       return draft;
     }
 
-    final saved = await DocumentsApi.instance.createWithFile(
+    final saved = await DocumentsApi.instance.create(
       file: file,
       title: title,
       category: category,

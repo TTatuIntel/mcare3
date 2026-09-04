@@ -20,6 +20,7 @@ class DocumentPreviewPanel extends StatefulWidget {
     super.key,
     required this.documentId,
     required this.fileType,
+    this.mimeType,
     this.patientUserId,
     this.hasFile = true,
     this.height = 280,
@@ -28,6 +29,12 @@ class DocumentPreviewPanel extends StatefulWidget {
 
   final String documentId;
   final DocumentFileType fileType;
+
+  /// What the server recorded the stored file to be. The panel decides what to
+  /// render from this rather than from [fileType], which cannot distinguish an
+  /// issued report from a binary blob — both are `other`.
+  final String? mimeType;
+
   final String? patientUserId;
   final bool hasFile;
   final double height;
@@ -40,6 +47,7 @@ class DocumentPreviewPanel extends StatefulWidget {
 class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
   Uint8List? _bytes;
   String? _objectUrl;
+  String? _resolvedMime;
   bool _loading = true;
   String? _error;
 
@@ -55,6 +63,7 @@ class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
     if (oldWidget.documentId != widget.documentId ||
         oldWidget.patientUserId != widget.patientUserId ||
         oldWidget.fileType != widget.fileType ||
+        oldWidget.mimeType != widget.mimeType ||
         oldWidget.hasFile != widget.hasFile ||
         oldWidget.reloadToken != widget.reloadToken) {
       _load();
@@ -90,6 +99,7 @@ class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
         documentId: widget.documentId,
         fileType: widget.fileType,
         patientUserId: widget.patientUserId,
+        mimeType: widget.mimeType,
       );
       if (!mounted) return;
       if (!content.hasData) {
@@ -103,6 +113,7 @@ class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
       setState(() {
         _bytes = content.bytes;
         _objectUrl = url;
+        _resolvedMime = content.mimeType;
         _loading = false;
       });
     } catch (e) {
@@ -144,80 +155,92 @@ class _DocumentPreviewPanelState extends State<DocumentPreviewPanel> {
       );
     }
 
-    switch (widget.fileType) {
-      case DocumentFileType.image:
-        if (_bytes != null) {
-          return InteractiveViewer(
-            minScale: 0.5,
-            maxScale: 4,
-            child: Image.memory(
-              _bytes!,
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (_, __, ___) => _Placeholder(
-                icon: AppIcons.image,
-                message: 'Image could not be loaded.',
-                onRetry: _load,
-              ),
-            ),
-          );
-        }
-        return InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4,
-          child: Image.network(
-            _objectUrl!,
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (_, __, ___) => _Placeholder(
-              icon: AppIcons.image,
-              message: 'Image could not be loaded.',
-              onRetry: _load,
-            ),
-          ),
-        );
-      case DocumentFileType.pdf:
-        if (kIsWeb && _objectUrl != null) {
-          return pdf_view.buildPdfPreview(
-            documentId: widget.documentId,
-            url: _objectUrl!,
-          );
-        }
-        return _Placeholder(
-          icon: AppIcons.document,
-          message: 'PDF preview is available in the browser app.',
-          actionLabel: _objectUrl != null ? 'Open PDF' : null,
-          onAction: _objectUrl != null
-              ? () => web_platform.openWindow(_objectUrl!, '_blank')
-              : null,
-        );
-      case DocumentFileType.doc:
-        return _Placeholder(
-          icon: AppIcons.document,
-          message: 'Word documents open in a new tab.',
-          actionLabel: _objectUrl != null ? 'Open file' : null,
-          onAction: _objectUrl != null
-              ? () => web_platform.openWindow(_objectUrl!, '_blank')
-              : null,
-        );
-      case DocumentFileType.other:
-        if (kIsWeb && _objectUrl != null) {
-          return pdf_view.buildPdfPreview(
-            documentId: widget.documentId,
-            url: _objectUrl!,
-          );
-        }
-        return _Placeholder(
-          icon: AppIcons.document,
-          message: 'Tap View below to open this file.',
-          actionLabel: _objectUrl != null ? 'Open file' : null,
-          onAction: _objectUrl != null
-              ? () => web_platform.openWindow(_objectUrl!, '_blank')
-              : null,
-        );
+    // Decided from the real content type, not from `fileType`. The enum has
+    // four values and cannot tell an issued report — HTML the server rendered —
+    // from an arbitrary binary: both are `other`, so the one document a patient
+    // is told to go and read fell through to "no preview available".
+    final mime = (_resolvedMime ?? '').toLowerCase();
+
+    if (mime.startsWith('image/')) {
+      return _imagePreview();
     }
+
+    // PDFs, HTML reports and plain text all render natively in a browser frame.
+    if (kIsWeb &&
+        _objectUrl != null &&
+        (mime == 'application/pdf' || mime.startsWith('text/'))) {
+      return pdf_view.buildPdfPreview(
+        documentId: widget.documentId,
+        url: _objectUrl!,
+      );
+    }
+
+    if (mime == 'application/pdf') {
+      return _Placeholder(
+        icon: AppIcons.document,
+        message: 'Tap View below to open this PDF.',
+        actionLabel: _objectUrl != null ? 'Open PDF' : null,
+        onAction: _objectUrl != null
+            ? () => web_platform.openWindow(_objectUrl!, '_blank')
+            : null,
+      );
+    }
+
+    if (mime.startsWith('text/')) {
+      return _Placeholder(
+        icon: AppIcons.report,
+        message: 'Tap View below to read this report.',
+        actionLabel: _objectUrl != null ? 'Open report' : null,
+        onAction: _objectUrl != null
+            ? () => web_platform.openWindow(_objectUrl!, '_blank')
+            : null,
+      );
+    }
+
+    return _Placeholder(
+      icon: AppIcons.document,
+      message: 'Tap View below to open this file.',
+      actionLabel: _objectUrl != null ? 'Open file' : null,
+      onAction: _objectUrl != null
+          ? () => web_platform.openWindow(_objectUrl!, '_blank')
+          : null,
+    );
+  }
+
+  Widget _imagePreview() {
+    if (_bytes != null) {
+      return InteractiveViewer(
+        minScale: 0.5,
+        maxScale: 4,
+        child: Image.memory(
+          _bytes!,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => _Placeholder(
+            icon: AppIcons.image,
+            message: 'Image could not be loaded.',
+            onRetry: _load,
+          ),
+        ),
+      );
+    }
+
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 4,
+      child: Image.network(
+        _objectUrl!,
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) => _Placeholder(
+          icon: AppIcons.image,
+          message: 'Image could not be loaded.',
+          onRetry: _load,
+        ),
+      ),
+    );
   }
 }
 

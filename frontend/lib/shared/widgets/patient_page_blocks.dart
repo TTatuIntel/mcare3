@@ -254,9 +254,13 @@ class PatientQuickActionsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Few actions: equal-width row. Many actions (admin): scroll so mobile
-    // labels stay readable instead of crushing into ~9px columns.
-    if (children.length <= 6) {
+    // Few actions: equal-width row. Many actions: scroll so mobile labels stay
+    // readable instead of crushing into ~9px columns.
+    //
+    // Five is the limit, not six. On a 360dp phone six equal columns leave
+    // about 58dp each, which ellipsises any label longer than one short word —
+    // and a row of actions nobody can read is worse than a row they scroll.
+    if (children.length <= 5) {
       return Row(
         children: [
           for (var i = 0; i < children.length; i++) ...[

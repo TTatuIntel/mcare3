@@ -28,6 +28,13 @@ class DocumentPreviewContent {
 class DocumentPreviewService {
   DocumentPreviewService._();
 
+  /// Last-resort content type, used only where the server recorded none.
+  ///
+  /// This used to be the *only* source of a mime type, which is why an issued
+  /// report — HTML, filed as [DocumentFileType.other] — was handed to the
+  /// browser and the share sheet as `application/octet-stream`. Nothing on any
+  /// platform opens that, so the one document a patient is explicitly told to
+  /// go and read was the one they could not.
   static String mimeFor(DocumentFileType type) => switch (type) {
     DocumentFileType.pdf => 'application/pdf',
     DocumentFileType.image => 'image/jpeg',
@@ -36,14 +43,33 @@ class DocumentPreviewService {
     DocumentFileType.other => 'application/octet-stream',
   };
 
+  /// The type to treat this document as: what the server recorded, falling back
+  /// to the coarse enum for rows written before it recorded anything.
+  static String resolveMime({
+    required DocumentFileType fileType,
+    String? recordedMimeType,
+  }) {
+    final recorded = recordedMimeType?.trim() ?? '';
+    if (recorded.isEmpty || recorded == 'application/octet-stream') {
+      final guess = mimeFor(fileType);
+      // A recorded octet-stream and no better guess are the same answer; a
+      // recorded octet-stream with a usable guess means an older row whose
+      // type the enum still describes better than nothing.
+      return guess;
+    }
+
+    return recorded;
+  }
+
   static Future<DocumentPreviewContent> resolveContent({
     required String documentId,
     required DocumentFileType fileType,
     String? patientUserId,
+    String? mimeType,
   }) async {
     if (AppEnv.backendEnabled) {
       final role = AuthState.instance.user?.role;
-      final useDoctorPath =
+      final useStaffPath =
           patientUserId != null &&
           (role == UserRole.doctor ||
               role == UserRole.admin ||
@@ -51,13 +77,19 @@ class DocumentPreviewService {
 
       final bytes = await DocumentsApi.instance.fetchBytes(
         documentId: documentId,
-        patientUserId: useDoctorPath ? patientUserId : null,
+        patientUserId: useStaffPath ? patientUserId : null,
       );
-      return DocumentPreviewContent(bytes: bytes, mimeType: mimeFor(fileType));
+      return DocumentPreviewContent(
+        bytes: bytes,
+        mimeType: resolveMime(fileType: fileType, recordedMimeType: mimeType),
+      );
     }
 
     final url = _demoUrl(documentId, fileType);
-    return DocumentPreviewContent(demoUrl: url, mimeType: mimeFor(fileType));
+    return DocumentPreviewContent(
+      demoUrl: url,
+      mimeType: resolveMime(fileType: fileType, recordedMimeType: mimeType),
+    );
   }
 
   /// Legacy URL resolver — prefer [resolveContent] for authenticated previews.
@@ -65,12 +97,14 @@ class DocumentPreviewService {
     required String documentId,
     required DocumentFileType fileType,
     String? patientUserId,
+    String? mimeType,
   }) async {
     if (AppEnv.backendEnabled) {
       final content = await resolveContent(
         documentId: documentId,
         fileType: fileType,
         patientUserId: patientUserId,
+        mimeType: mimeType,
       );
       if (content.bytes != null) {
         return blob_url.createBlobUrl(content.bytes!, content.mimeType);

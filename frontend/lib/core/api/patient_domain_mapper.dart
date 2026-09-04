@@ -251,6 +251,25 @@ class PatientDomainMapper {
       description: json['description'] as String?,
       sharedWithDoctorId: json['shared_with_doctor_id'] as String?,
       hasFile: json['has_file'] as bool? ?? true,
+<<<<<<< Updated upstream
+=======
+      // Server-recorded, not inferred. An older server sends neither, and the
+      // opener falls back to guessing from file_type exactly as it used to.
+      mimeType: json['mime_type'] as String?,
+      downloadName: json['download_name'] as String?,
+      source: switch (json['source'] as String?) {
+        'clinician' => DocumentSource.clinician,
+        'report' => DocumentSource.report,
+        _ => DocumentSource.patient,
+      },
+      issuedReportId: json['issued_report_id'] as String?,
+      removalRequested: json['removal_requested'] == true,
+      removalRequestedAt: _optionalDate(json['removal_requested_at']),
+      removalReason: json['removal_reason'] as String?,
+      removalDeclinedAt: _optionalDate(json['removal_declined_at']),
+      removalDeclinedReason: json['removal_declined_reason'] as String?,
+      canRequestRemoval: json['can_request_removal'] == true,
+>>>>>>> Stashed changes
     );
   }
 

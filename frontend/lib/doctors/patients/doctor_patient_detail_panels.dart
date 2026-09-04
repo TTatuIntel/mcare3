@@ -65,6 +65,14 @@ class _DoctorDocumentViewerState extends State<_DoctorDocumentViewer> {
     return MedicalDocumentViewerBody(
       documentId: _doc.id,
       fileType: _doc.fileType,
+<<<<<<< Updated upstream
+=======
+      documentTitle: _doc.title,
+      // The care team opens the same bytes the patient does, so it reads the
+      // same server-recorded type and filename rather than guessing.
+      mimeType: _doc.mimeType,
+      downloadName: _doc.downloadName,
+>>>>>>> Stashed changes
       patientUserId: _doc.patientId,
       hasFile: _doc.hasFile,
       previewReloadToken: _previewReload,

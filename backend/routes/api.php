@@ -218,9 +218,23 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
     Route::post('patients/{patient}/notes', [PatientChartController::class, 'storeNote']);
     Route::patch('patients/{patient}/chart', [DoctorPatientController::class, 'updateChart']);
     Route::patch('patients/{patient}/assigned-vitals', [DoctorPatientController::class, 'updateAssignedVitals']);
+<<<<<<< Updated upstream
     Route::post('patients/{patient}/documents', [DoctorPatientController::class, 'storeDocument']);
     Route::patch('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'updateDocument']);
     Route::delete('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'destroyDocument']);
+=======
+    // Staff-assisted entry: a reading taken at the desk or read back by phone.
+    Route::post('patients/{patient}/vitals', [DoctorPatientController::class, 'storeVital']);
+    // A patient's documents, as their care team sees them. The dossier carries
+    // these too, but a doctor watching a patient upload the result they were
+    // asked for needs the list on its own — reloading the whole chart to find
+    // out whether one file arrived is not a refresh anyone will do.
+    Route::get('patients/{patient}/documents', [DoctorPatientController::class, 'indexDocuments']);
+    Route::post('patients/{patient}/documents', [DoctorPatientController::class, 'storeDocument']);
+    Route::patch('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'updateDocument']);
+    Route::delete('patients/{patient}/documents/{document}', [DoctorPatientController::class, 'honourDocumentRemoval']);
+    Route::post('patients/{patient}/documents/{document}/decline-removal', [DoctorPatientController::class, 'declineDocumentRemoval']);
+>>>>>>> Stashed changes
     Route::get('patients/{patient}/documents/{document}/stream', [DoctorPatientController::class, 'streamDocument']);
     Route::get('patients/{patient}/documents/{document}/download', [DoctorPatientController::class, 'downloadDocument']);
 
@@ -351,6 +365,32 @@ Route::middleware(['auth:sanctum', 'account.active', 'email.verified', 'throttle
         [AdminPatientsController::class, 'updateAssignedVitals'])
         ->middleware('permission:can_create_users');
 
+<<<<<<< Updated upstream
+=======
+    Route::post('patients/{patient}/vitals', [AdminPatientsController::class, 'storeVital'])
+        ->middleware('permission:can_create_users');
+
+    // Documents admin staff file into a patient's record. Same store, same
+    // patient-side list and viewer as a doctor upload; only the actor differs.
+    Route::get('patients/{patient}/documents', [AdminPatientDocumentsController::class, 'indexDocuments'])
+        ->middleware('permission:can_create_users');
+    Route::post('patients/{patient}/documents', [AdminPatientDocumentsController::class, 'storeDocument'])
+        ->middleware('permission:can_create_users');
+    Route::patch('patients/{patient}/documents/{document}', [AdminPatientDocumentsController::class, 'updateDocument'])
+        ->middleware('permission:can_create_users');
+    Route::get('patients/{patient}/documents/{document}/stream', [AdminPatientDocumentsController::class, 'streamDocument'])
+        ->middleware('permission:can_create_users');
+    Route::get('patients/{patient}/documents/{document}/download', [AdminPatientDocumentsController::class, 'downloadDocument'])
+        ->middleware('permission:can_create_users');
+    // Answering a removal the patient asked for. Honouring it is the only
+    // delete anywhere in the record, and it is unreachable without a standing
+    // request from the patient themselves.
+    Route::delete('patients/{patient}/documents/{document}', [AdminPatientDocumentsController::class, 'honourDocumentRemoval'])
+        ->middleware('permission:can_create_users');
+    Route::post('patients/{patient}/documents/{document}/decline-removal', [AdminPatientDocumentsController::class, 'declineDocumentRemoval'])
+        ->middleware('permission:can_create_users');
+
+>>>>>>> Stashed changes
     // Customised patient reports — tick-list, consent, signature, issue.
     Route::get('report-sections', [AdminPatientReportsController::class, 'sections'])
         ->middleware('permission:can_create_users');

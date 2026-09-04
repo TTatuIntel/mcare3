@@ -176,6 +176,22 @@ class StaffState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Swaps in a freshly fetched list for one patient, leaving every other
+  /// patient's rows alone.
+  ///
+  /// Lets a screen refresh the documents it is showing without pulling the
+  /// whole dossier — five hundred vital readings and every medication — back
+  /// down to find out whether one file arrived.
+  void replaceDocumentsForPatient(
+    String patientId,
+    List<StaffPatientDocument> documents,
+  ) {
+    _documents
+      ..removeWhere((d) => d.patientId == patientId)
+      ..addAll(documents);
+    notifyListeners();
+  }
+
   void removeDocumentForPatient(String id) {
     _documents.removeWhere((d) => d.id == id);
     notifyListeners();

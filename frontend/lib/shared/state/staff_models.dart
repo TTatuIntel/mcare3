@@ -100,6 +100,8 @@ class StaffPatientDocument {
     required this.uploadedAt,
     this.uploadedBy = 'Patient',
     this.fileType = DocumentFileType.pdf,
+    this.mimeType,
+    this.downloadName,
     this.description,
     this.hasFile = true,
   });
@@ -111,6 +113,15 @@ class StaffPatientDocument {
   final DateTime uploadedAt;
   final String uploadedBy;
   final DocumentFileType fileType;
+
+  /// What the server recorded the stored file to be, and the name it should be
+  /// saved under. The care team opens the same bytes the patient does, so it
+  /// needs the same truth about them — deriving the type from [fileType] hands
+  /// a clinician an issued report as an unopenable `.bin` exactly as it did the
+  /// patient.
+  final String? mimeType;
+  final String? downloadName;
+
   final String? description;
   final bool hasFile;
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/patient_domain_mapper.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../core/api/documents_api.dart';
 import '../../core/env/app_env.dart';
 import '../../patients/documents/edit_document_sheet.dart';
@@ -70,7 +71,8 @@ class DoctorPatientWorkspaceView extends StatefulWidget {
 }
 
 class _DoctorPatientWorkspaceViewState
-    extends State<DoctorPatientWorkspaceView> {
+    extends State<DoctorPatientWorkspaceView>
+    with RealtimeRefreshMixin<DoctorPatientWorkspaceView> {
   late DoctorPatientSection _section = widget.initialSection;
   var _respondSheetShown = false;
 
@@ -89,6 +91,22 @@ class _DoctorPatientWorkspaceViewState
         );
       }
     });
+
+    // The chart was loaded once, on open, and then never again. A clinician
+    // with a patient's workspace in front of them — which is exactly when they
+    // have asked that patient to upload a result — had no way to see it arrive
+    // short of navigating away and back.
+    watchRealtime(
+      const {
+        'documents',
+        'vitals',
+        'medications',
+        'appointments',
+        'alerts',
+        'sos',
+      },
+      () => DoctorPatientDetailService.instance.loadPatient(widget.patientId),
+    );
   }
 
   Map<DoctorPatientSection, int> _badges(String patientId) {

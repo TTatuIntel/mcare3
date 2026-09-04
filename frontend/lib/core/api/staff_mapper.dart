@@ -299,6 +299,8 @@ class StaffMapper {
     fileType: PatientDomainMapper.documentFileTypeFromApi(
       j['file_type'] as String?,
     ),
+    mimeType: j['mime_type'] as String?,
+    downloadName: j['download_name'] as String?,
     description: j['description'] as String?,
     hasFile: j['has_file'] as bool? ?? true,
   );

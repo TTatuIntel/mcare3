@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Concerns\ManagesPatientDocuments;
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
 use App\Models\Appointment;
@@ -29,7 +30,19 @@ use Illuminate\Http\Request;
 class DoctorPatientController extends Controller
 {
     use ApiResponse;
+    use ManagesPatientDocuments;
 
+<<<<<<< Updated upstream
+=======
+    /**
+     * Honouring a patient's removal request is the one write here that deletes
+     * something, so it records through the full audit service rather than
+     * {@see DoctorAccess::audit()} — that helper writes no meta, and the whole
+     * point of the entry is to outlive the row it describes.
+     */
+    public function __construct(protected readonly AuditService $audit) {}
+
+>>>>>>> Stashed changes
     public function show(Request $request, User $patient)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
@@ -273,6 +286,7 @@ class DoctorPatientController extends Controller
         ], 'Chart updated.');
     }
 
+<<<<<<< Updated upstream
     public function storeDocument(Request $request, User $patient)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
@@ -326,30 +340,80 @@ class DoctorPatientController extends Controller
         $document->delete();
 
         return $this->success(null, 'Document deleted.');
-    }
+=======
+    // ------------------------------------------------------------------
+    // Documents — see ManagesPatientDocuments for the shared implementation
+    // ------------------------------------------------------------------
 
-    public function streamDocument(Request $request, User $patient, MedicalDocument $document)
+    /**
+     * A doctor may only touch the record of a patient on their caseload. Never
+     * trust the URL-bound patient model alone.
+     */
+    protected function assertPatientDocumentAccess(Request $request, User $patient): void
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
-        if ($error = MedicalDocumentFiles::streamError($document)) {
-            return $error;
-        }
-
-        return MedicalDocumentFiles::stream($document);
     }
 
-    public function downloadDocument(Request $request, User $patient, MedicalDocument $document)
+    protected function documentActorLabel(Request $request): string
+    {
+        return 'Dr. '.$request->user()->fullName();
+    }
+
+    protected function documentStreamUrl(User $patient, MedicalDocument $document): string
+    {
+        return url('/api/v1/doctor/patients/'.$patient->id.'/documents/'.$document->id.'/stream');
+    }
+
+    protected function recordDocumentAudit(
+        Request $request,
+        User $patient,
+        MedicalDocument $document,
+        string $action,
+    ): void {
+        DoctorAccess::audit(
+            $request->user(),
+            ucfirst($action).' document',
+            $document->title.' for '.$patient->fullName(),
+        );
+    }
+
+    /**
+     * Logs a vital on the patient's behalf.
+     *
+     * A reading taken at the desk, or read back over the phone, previously had
+     * nowhere to go: only the patient could write to their own vitals, so staff
+     * either asked them to enter it later — which often meant never — or it was
+     * left in a note nothing grades or alerts on. Recorded through the same
+     * path as the patient's own entry, so the range override, the risk grade
+     * and the alert to the care team all behave identically. The row records
+     * who entered it.
+     */
+    public function storeVital(Request $request, User $patient)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
-        if (! $document->storage_path) {
-            return $this->error('No file attached.', 404);
-        }
 
-        return $this->success([
-            'url' => url('/api/v1/doctor/patients/'.$patient->id.'/documents/'.$document->id.'/stream'),
-        ]);
+        $data = $request->validate(VitalRecorder::rules());
+        $actor = $request->user();
+
+        $reading = VitalRecorder::record(
+            $patient,
+            $data,
+            $actor,
+            'Dr. '.$actor->fullName(),
+        );
+
+        DoctorAccess::audit(
+            $actor,
+            'Logged a vital for '.$patient->fullName(),
+            $data['vital_key'].' = '.$data['value'],
+        );
+
+        return $this->success(
+            ['vital' => $reading->toApiArray()],
+            'Reading recorded for the patient.',
+            201,
+        );
+>>>>>>> Stashed changes
     }
 
     private static function labelFor(string $key): string
