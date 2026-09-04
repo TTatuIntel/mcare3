@@ -6,6 +6,7 @@ import '../../shared/models/patient_report_request.dart';
 import '../../shared/state/announcements_state.dart';
 import '../../shared/state/appointments_state.dart';
 import '../../shared/state/care_state.dart';
+import '../../shared/state/document_requests_state.dart';
 import '../../shared/state/documents_state.dart';
 import '../../shared/state/meal_plans_state.dart';
 import '../../shared/state/medications_state.dart';
@@ -191,6 +192,19 @@ class PatientSessionSync {
         )
         .toList();
     VitalReportState.instance.seed(reportRequests);
+
+    // Documents the patient is still waiting on. Seeded from the session for
+    // the same reason the consents are: otherwise the documents screen only
+    // learns about an outstanding request from a notification that may already
+    // have been read and dismissed.
+    final documentRequests = (data['document_requests'] as List? ?? [])
+        .map(
+          (e) => PatientDomainMapper.documentRequestFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
+    DocumentRequestsState.instance.seed(documentRequests);
 
     final mealPlans = (data['meal_plans'] as List? ?? [])
         .map(

@@ -44,7 +44,8 @@ class Vitals7DayView extends StatelessWidget {
               child: EmptyStateView(
                 icon: AppIcons.vitals,
                 title: 'No vitals tracked',
-                message: 'Choose vitals to track, then your 7-day history appears here.',
+                message:
+                    'Choose vitals to track, then your 7-day history appears here.',
                 compact: true,
               ),
             );
@@ -223,7 +224,11 @@ class _VitalWeekCard extends StatelessWidget {
             Icon(AppIcons.alert, size: 16, color: alert.kind.tint),
           ],
           const SizedBox(width: 4),
-          Icon(AppIcons.chevronRight, size: 18, color: vital.accent.withOpacity(0.7)),
+          Icon(
+            AppIcons.chevronRight,
+            size: 18,
+            color: vital.accent.withOpacity(0.7),
+          ),
         ],
       ),
     );
@@ -275,8 +280,8 @@ class _TimelineRow extends StatelessWidget {
                   Text(
                     '${vital.shortLabel} · ${reading.formatValue()} ${vital.unit}',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   Text(
                     DateFormat.MMMEd().add_jm().format(reading.recordedAt),

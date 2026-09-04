@@ -166,6 +166,50 @@ class ResponseShapeParityTest extends TestCase
         ]);
     }
 
+    public function test_custom_vital_keys_are_allowed_for_assignment_and_patient_tracking(): void
+    {
+        $admin = User::factory()->role('admin')->create();
+        $patient = User::factory()->role('patient')->create();
+
+        VitalCatalog::create([
+            'vital_key' => 'custom_respiratory_rate',
+            'label' => 'Respiratory rate',
+            'unit' => 'breaths/min',
+            'normal_min' => 12,
+            'normal_max' => 20,
+            'warning_low' => 10,
+            'warning_high' => 24,
+            'critical_low' => 6,
+            'critical_high' => 30,
+            'enabled' => true,
+        ]);
+        $this->assertDatabaseHas('vital_catalog', [
+            'vital_key' => 'custom_respiratory_rate',
+            'enabled' => true,
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/v1/admin/patients/{$patient->id}/assigned-vitals", [
+            'assigned_vitals' => ['custom_respiratory_rate'],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('patient_assigned_vitals', [
+            'user_id' => $patient->id,
+            'vital_key' => 'custom_respiratory_rate',
+        ]);
+
+        Sanctum::actingAs($patient);
+
+        $this->patchJson('/api/v1/patient/tracked-vitals', [
+            'tracked_vitals' => ['custom_respiratory_rate'],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('patient_tracked_vitals', [
+            'user_id' => $patient->id,
+            'vital_key' => 'custom_respiratory_rate',
+        ]);
+    }
+
     public function test_external_access_index_shape(): void
     {
         $patient = User::factory()->role('patient')->create();

@@ -9,14 +9,8 @@ import 'package:mcare/shared/models/vital.dart';
 import 'package:mcare/shared/state/vitals_state.dart';
 import 'package:mcare/shared/theme/app_theme.dart';
 
-/// The home vitals board is the patient's main logging surface: it must show
-/// what each tracked vital currently reads, and it must let the patient add
-/// vitals to their own plan without going through a clinician.
-///
-/// Home keeps the board collapsed so the page stays short, so every assertion
-/// about a tile runs after the drop-down is opened. What stays visible while
-/// it is closed — the statistics strip, the Vitals shortcut and the floating
-/// log action — is covered by its own test.
+/// The upgraded home keeps repeated health detail off the dashboard. Vitals
+/// remain one tap away through search and the compact Log vital action.
 void main() {
   setUp(() {
     AuthState.instance.signIn(
@@ -55,63 +49,60 @@ void main() {
     ]);
   });
 
-  testWidgets('collapsed board still summarises vitals and offers shortcuts', (
+  testWidgets('home exposes the compact quick actions patients use most', (
     tester,
   ) async {
     await _pumpDashboard(tester);
 
-    // General statistics stay on screen with the board closed.
-    expect(find.text('Tracked'), findsOneWidget);
-    expect(find.text('Logged today'), findsOneWidget);
-    expect(find.text('Need review'), findsOneWidget);
-
-    // Both quick routes out of the collapsed card, plus the floating action.
-    expect(find.text('Go to vitals'), findsOneWidget);
-    expect(find.text('Quick log'), findsOneWidget);
+    expect(find.text('Quick actions'), findsOneWidget);
+    expect(find.text('Appointments'), findsOneWidget);
+    expect(find.text('Medications'), findsOneWidget);
     expect(find.text('Log vital'), findsOneWidget);
+    expect(find.text('Meals'), findsOneWidget);
+    expect(find.text('Documents'), findsOneWidget);
+    expect(find.text('Emergency'), findsOneWidget);
 
-    // The tiles themselves are not paid for until the patient opens the board.
+    // The old detail board and its duplicate calls-to-action are gone.
+    expect(find.text('Go to vitals'), findsNothing);
+    expect(find.text('Quick log'), findsNothing);
     expect(find.text('Add a vital'), findsNothing);
-    expect(find.text('Care team'), findsNothing);
 
     await _dispose(tester);
   });
 
-  testWidgets('board shows each tracked vital with its latest reading', (
-    tester,
-  ) async {
+  testWidgets('Log vital opens the existing multi-vital flow', (tester) async {
     await _pumpDashboard(tester);
-    await _expandBoard(tester);
-
-    expect(find.text('Record a vital'), findsOneWidget);
-    expect(find.text('2 tracked'), findsOneWidget);
-
-    // Assigned vital renders its latest value, its source and a log action.
-    expect(find.text('BP'), findsWidgets);
-    expect(find.textContaining('128/82'), findsWidgets);
-    expect(find.text('Care team'), findsWidgets);
-
-    // A self-tracked vital with no reading still invites a first entry.
-    expect(find.text('HR'), findsWidgets);
-    expect(find.text('Self-tracked'), findsWidgets);
-    expect(find.text('Not logged yet'), findsWidgets);
-
-    await _dispose(tester);
-  });
-
-  testWidgets('patient can self-assign more vitals from home', (tester) async {
-    await _pumpDashboard(tester);
-    await _expandBoard(tester);
-
-    expect(find.text('Add a vital'), findsOneWidget);
-    await tester.tap(find.text('Add a vital'));
+    await tester.tap(find.text('Log vital'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
+    expect(find.text('Log vitals'), findsOneWidget);
     expect(find.text('Your tracked vitals'), findsOneWidget);
-    expect(find.text('Optional vitals'), findsOneWidget);
-    // Doctor-assigned vitals stay locked to the care team.
-    expect(find.text('Required by your care team'), findsWidgets);
+    expect(find.text('BP'), findsWidgets);
+    expect(find.text('HR'), findsWidgets);
+
+    await _dispose(tester);
+  });
+
+  testWidgets('dashboard search finds functionality by plain language', (
+    tester,
+  ) async {
+    await _pumpDashboard(tester);
+    await tester.tap(find.textContaining('Search vitals'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.enterText(find.byType(TextField), 'urgent help');
+    await tester.pump();
+
+    expect(find.text('Emergency SOS'), findsOneWidget);
+    expect(find.text('Get urgent help now'), findsOneWidget);
+    expect(find.text('Appointments'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'upload');
+    await tester.pump();
+    expect(find.text('Documents & uploads'), findsOneWidget);
+    expect(find.text('Open results, reports and files'), findsOneWidget);
 
     await _dispose(tester);
   });
@@ -134,14 +125,7 @@ Future<void> _pumpDashboard(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 1200));
 }
 
-/// Opens the home vitals drop-down, which starts collapsed.
-Future<void> _expandBoard(WidgetTester tester) async {
-  await tester.tap(find.text('Quick log'));
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 400));
-}
-
-/// Tears the tree down so the dashboard's auto-paging timers are cancelled.
+/// Tears the tree down so the dashboard's auto-paging timer is cancelled.
 Future<void> _dispose(WidgetTester tester) async {
   expect(tester.takeException(), isNull);
   await tester.pumpWidget(const SizedBox());

@@ -217,7 +217,9 @@ void main() {
 
     await pump(tester);
 
-    expect(find.text('Vital report'), findsWidgets);
+    // The tile names its category inline with the size, so the label is
+    // matched within the row rather than as a standalone chip.
+    expect(find.textContaining('Vital report'), findsWidgets);
     // Issued reports are not the patient's to delete, and the row says so.
     expect(find.text('Issued report'), findsOneWidget);
   });
@@ -256,12 +258,13 @@ void main() {
     );
 
     // And the Reports filter spans both rather than one of them. Named inside
-    // the action bar: "Reports" is also the hero stat's label, and tapping
-    // that one filters nothing.
+    // the filter bar: "Reports" is also the hero stat's label, and tapping
+    // that one filters nothing. The chip carries its count, so the text is
+    // matched loosely.
     await tester.tap(
       find.descendant(
-        of: find.byType(PatientQuickActionsBar),
-        matching: find.text('Reports'),
+        of: find.byType(FilterChip),
+        matching: find.textContaining('Reports'),
       ),
     );
     await tester.pumpAndSettle();
@@ -294,6 +297,71 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Vital reports'), findsWidgets);
+  });
+
+  testWidgets('every filter says how much it would leave', (tester) async {
+    DocumentsState.instance.seed([
+      document(id: 'd1', title: 'Lipid panel'),
+      document(id: 'd2', title: 'HbA1c'),
+      document(
+        id: 'd3',
+        title: 'Amlodipine',
+        category: DocumentCategory.prescription,
+      ),
+    ]);
+
+    await pump(tester);
+
+    // A filter that silently leads to an empty list is a dead end the patient
+    // only discovers by tapping it, so each chip carries its count.
+    expect(find.textContaining('Lab result  2'), findsOneWidget);
+    expect(find.textContaining('Prescription  1'), findsOneWidget);
+    expect(find.textContaining('All  3'), findsOneWidget);
+  });
+
+  testWidgets('category is filterable from exactly one control', (
+    tester,
+  ) async {
+    DocumentsState.instance.seed([document(id: 'd1', title: 'Lipid panel')]);
+
+    await pump(tester);
+
+    // Category used to be filterable from the hero counts, a row of quick
+    // actions and a row of chips at once — three answers to one question,
+    // two of which disagreed with the third about what was selected.
+    expect(
+      find.descendant(
+        of: find.byType(PatientQuickActionsBar),
+        matching: find.text('Labs'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(FilterChip),
+        matching: find.textContaining('Lab result'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the record is grouped by when it arrived', (tester) async {
+    DocumentsState.instance.seed([
+      document(id: 'd1', title: 'Arrived today').copyWith(
+        uploadedAt: DateTime.now(),
+      ),
+      document(id: 'd2', title: 'Arrived long ago').copyWith(
+        uploadedAt: DateTime.now().subtract(const Duration(days: 200)),
+      ),
+    ]);
+
+    await pump(tester);
+
+    // A record that grows for years should still read as "what came in
+    // recently", then history — not one undifferentiated run of rows.
+    expect(find.text('TODAY'), findsOneWidget);
+    expect(find.text('Arrived today'), findsOneWidget);
+    expect(find.text('Arrived long ago'), findsOneWidget);
   });
 
   testWidgets('search narrows the record but never hides an open request', (

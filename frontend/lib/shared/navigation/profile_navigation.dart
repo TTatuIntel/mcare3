@@ -271,6 +271,14 @@ class ProfileNavigation {
 
     final items = switch (role) {
       UserRole.patient => [
+        // The record itself, not the editable profile the header already
+        // opens: what the clinic reads, in the shape they read it.
+        const ProfileMenuEntry(
+          icon: AppIcons.vitals,
+          label: 'Clinical profile',
+          subtitle: 'The full record your care team reads',
+          route: RouteNames.patientClinicalProfile,
+        ),
         const ProfileMenuEntry(
           icon: AppIcons.careTeam,
           label: 'My care team',

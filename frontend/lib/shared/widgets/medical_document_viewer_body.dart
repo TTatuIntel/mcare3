@@ -2,9 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../core/env/app_env.dart';
-import '../../core/web/web_platform.dart' as web_platform;
 import '../models/document.dart';
-import '../services/document_preview_service.dart';
+import '../services/document_opener.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'document_action_bar.dart';
@@ -20,24 +19,20 @@ class MedicalDocumentViewerBody extends StatefulWidget {
     required this.documentId,
     required this.fileType,
     required this.metaRows,
-<<<<<<< Updated upstream
-=======
     this.documentTitle = 'document',
     this.mimeType,
     this.downloadName,
->>>>>>> Stashed changes
     this.patientUserId,
     this.hasFile = true,
     this.onDelete,
     this.onEdit,
     this.previewHeight = 300,
     this.previewReloadToken = 0,
+    this.footer,
   });
 
   final String documentId;
   final DocumentFileType fileType;
-<<<<<<< Updated upstream
-=======
 
   /// Names the file handed to the browser or the share sheet. A PDF arriving
   /// as an extensionless temp name opens in nothing.
@@ -49,7 +44,6 @@ class MedicalDocumentViewerBody extends StatefulWidget {
   final String? mimeType;
   final String? downloadName;
 
->>>>>>> Stashed changes
   final List<Widget> metaRows;
   final String? patientUserId;
   final bool hasFile;
@@ -57,6 +51,11 @@ class MedicalDocumentViewerBody extends StatefulWidget {
   final VoidCallback? onEdit;
   final double previewHeight;
   final int previewReloadToken;
+
+  /// Rendered under the action bar. Carries the actions that are about the
+  /// record rather than the file — asking staff to remove a document the
+  /// patient cannot delete themselves, and the answer when they refuse.
+  final Widget? footer;
 
   @override
   State<MedicalDocumentViewerBody> createState() =>
@@ -68,18 +67,6 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
   bool _deleting = false;
   bool _viewing = false;
 
-<<<<<<< Updated upstream
-  Future<String?> _resolveOpenUrl() async {
-    final content = await DocumentPreviewService.resolveContent(
-      documentId: widget.documentId,
-      fileType: widget.fileType,
-      patientUserId: widget.patientUserId,
-    );
-    return DocumentPreviewService.objectUrlFor(content);
-  }
-
-  Future<void> _openExternal() async {
-=======
   /// Fetches the bytes once and hands them to the platform, either to display
   /// or to save. One call site for both so the two actions cannot drift apart
   /// again in what they ask the server for.
@@ -99,24 +86,17 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
   /// the system share sheet ("Open in…", Files, Books, print) on iOS and
   /// Android.
   Future<void> _view() async {
->>>>>>> Stashed changes
     if (!widget.hasFile) {
       AppToast.warn(context, 'No file attached. Use Edit to upload a file.');
       return;
     }
     setState(() => _viewing = true);
     try {
-<<<<<<< Updated upstream
-      final url = await _resolveOpenUrl();
-=======
       final opened = await _fetchAndHandOver(save: false);
->>>>>>> Stashed changes
       if (!mounted) return;
-      if (url == null) {
-        AppToast.warn(context, 'File link unavailable.');
-        return;
+      if (!opened) {
+        AppToast.warn(context, 'This file could not be opened.');
       }
-      web_platform.openWindow(url, '_blank');
     } catch (e) {
       if (!mounted) return;
       AppToast.warn(context, 'Could not open file: $e');
@@ -139,17 +119,6 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
     }
     setState(() => _downloading = true);
     try {
-<<<<<<< Updated upstream
-      if (!AppEnv.backendEnabled) {
-        await _openExternal();
-        return;
-      }
-      final url = await _resolveOpenUrl();
-      if (!mounted) return;
-      if (url == null) {
-        AppToast.warn(context, 'Download link unavailable.');
-        return;
-=======
       final saved = await _fetchAndHandOver(save: AppEnv.backendEnabled);
       if (!mounted) return;
       if (saved) {
@@ -159,10 +128,7 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
         );
       } else {
         AppToast.warn(context, 'This file could not be downloaded.');
->>>>>>> Stashed changes
       }
-      web_platform.openWindow(url, '_blank');
-      AppToast.success(context, 'Opening file…');
     } catch (e) {
       if (!mounted) return;
       AppToast.warn(context, 'Could not download: $e');
@@ -222,6 +188,10 @@ class _MedicalDocumentViewerBodyState extends State<MedicalDocumentViewerBody> {
           downloadLoading: _downloading,
           deleteLoading: _deleting,
         ),
+        if (widget.footer != null) ...[
+          const SizedBox(height: AppSpacing.lg),
+          widget.footer!,
+        ],
       ],
     );
   }

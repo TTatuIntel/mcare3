@@ -10,59 +10,59 @@ enum TicketCategory { technical, medical, billing, account, other }
 
 extension TicketStatusX on TicketStatus {
   String get label => switch (this) {
-        TicketStatus.open => 'Open',
-        TicketStatus.inProgress => 'In progress',
-        TicketStatus.resolved => 'Resolved',
-        TicketStatus.closed => 'Closed',
-      };
+    TicketStatus.open => 'Open',
+    TicketStatus.inProgress => 'In progress',
+    TicketStatus.resolved => 'Resolved',
+    TicketStatus.closed => 'Closed',
+  };
 
   Color get color => switch (this) {
-        TicketStatus.open => AppColors.info,
-        TicketStatus.inProgress => AppColors.warning,
-        TicketStatus.resolved => AppColors.success,
-        TicketStatus.closed => AppColors.textMutedAA,
-      };
+    TicketStatus.open => AppColors.info,
+    TicketStatus.inProgress => AppColors.warning,
+    TicketStatus.resolved => AppColors.success,
+    TicketStatus.closed => AppColors.textMutedAA,
+  };
 
   Color get soft => switch (this) {
-        TicketStatus.open => AppColors.infoSoft,
-        TicketStatus.inProgress => AppColors.warningSoft,
-        TicketStatus.resolved => AppColors.successSoft,
-        TicketStatus.closed => AppColors.surfaceMuted,
-      };
+    TicketStatus.open => AppColors.infoSoft,
+    TicketStatus.inProgress => AppColors.warningSoft,
+    TicketStatus.resolved => AppColors.successSoft,
+    TicketStatus.closed => AppColors.surfaceMuted,
+  };
 
   /// Theme-aware soft background for status chips.
   Color softBg(BuildContext context) => switch (this) {
-        TicketStatus.open => AppPalette.infoSoft(context),
-        TicketStatus.inProgress => AppPalette.warningSoft(context),
-        TicketStatus.resolved => AppPalette.successSoft(context),
-        TicketStatus.closed => AppPalette.surfaceMuted(context),
-      };
+    TicketStatus.open => AppPalette.infoSoft(context),
+    TicketStatus.inProgress => AppPalette.warningSoft(context),
+    TicketStatus.resolved => AppPalette.successSoft(context),
+    TicketStatus.closed => AppPalette.surfaceMuted(context),
+  };
 }
 
 extension TicketPriorityX on TicketPriority {
   String get label => switch (this) {
-        TicketPriority.low => 'Low',
-        TicketPriority.normal => 'Normal',
-        TicketPriority.high => 'High',
-        TicketPriority.urgent => 'Urgent',
-      };
+    TicketPriority.low => 'Low',
+    TicketPriority.normal => 'Normal',
+    TicketPriority.high => 'High',
+    TicketPriority.urgent => 'Urgent',
+  };
 
   Color get color => switch (this) {
-        TicketPriority.low => AppColors.textMutedAA,
-        TicketPriority.normal => AppColors.info,
-        TicketPriority.high => AppColors.warning,
-        TicketPriority.urgent => AppColors.critical,
-      };
+    TicketPriority.low => AppColors.textMutedAA,
+    TicketPriority.normal => AppColors.info,
+    TicketPriority.high => AppColors.warning,
+    TicketPriority.urgent => AppColors.critical,
+  };
 }
 
 extension TicketCategoryX on TicketCategory {
   String get label => switch (this) {
-        TicketCategory.technical => 'Technical',
-        TicketCategory.medical => 'Medical',
-        TicketCategory.billing => 'Billing',
-        TicketCategory.account => 'Account',
-        TicketCategory.other => 'Other',
-      };
+    TicketCategory.technical => 'Technical',
+    TicketCategory.medical => 'Medical',
+    TicketCategory.billing => 'Billing',
+    TicketCategory.account => 'Account',
+    TicketCategory.other => 'Other',
+  };
 }
 
 class TicketReply {
@@ -118,20 +118,19 @@ class SupportTicket {
     DateTime? updatedAt,
     String? assignedTo,
     String? assignedToName,
-  }) =>
-      SupportTicket(
-        id: id,
-        subject: subject,
-        description: description,
-        category: category,
-        priority: priority,
-        status: status ?? this.status,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        assignedTo: assignedTo ?? this.assignedTo,
-        assignedToName: assignedToName ?? this.assignedToName,
-        patientName: patientName,
-        patientUserId: patientUserId,
-        replies: replies ?? this.replies,
-      );
+  }) => SupportTicket(
+    id: id,
+    subject: subject,
+    description: description,
+    category: category,
+    priority: priority,
+    status: status ?? this.status,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    assignedTo: assignedTo ?? this.assignedTo,
+    assignedToName: assignedToName ?? this.assignedToName,
+    patientName: patientName,
+    patientUserId: patientUserId,
+    replies: replies ?? this.replies,
+  );
 }

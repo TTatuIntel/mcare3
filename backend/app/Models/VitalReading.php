@@ -16,6 +16,8 @@ class VitalReading extends Model
         'risk',
         'recorded_at',
         'note',
+        'recorded_by_user_id',
+        'recorded_by_label',
     ];
 
     protected function casts(): array

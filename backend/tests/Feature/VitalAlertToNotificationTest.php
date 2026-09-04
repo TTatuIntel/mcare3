@@ -99,6 +99,52 @@ class VitalAlertToNotificationTest extends TestCase
         ]);
     }
 
+    public function test_patient_cannot_clear_their_own_vital_alert(): void
+    {
+        $patient = User::factory()->role('patient')->create();
+        Sanctum::actingAs($patient);
+
+        $this->postJson('/api/v1/patient/vitals', [
+            'vital_key' => 'heart_rate',
+            'value' => 180,
+        ])->assertCreated();
+
+        $alert = \App\Models\AppNotification::where('user_id', $patient->id)
+            ->where('kind', 'vital_critical')
+            ->firstOrFail();
+
+        $this->patchJson("/api/v1/patient/notifications/{$alert->id}/resolve")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('app_notifications', [
+            'id' => $alert->id,
+            'resolved' => false,
+        ]);
+    }
+
+    public function test_patient_can_still_clear_a_non_alert_notification(): void
+    {
+        $patient = User::factory()->role('patient')->create();
+        Sanctum::actingAs($patient);
+
+        $notification = \App\Models\AppNotification::create([
+            'user_id' => $patient->id,
+            'kind' => 'appointment',
+            'title' => 'Appointment confirmed',
+            'body' => 'Tuesday at 10:00.',
+            'read' => false,
+            'resolved' => false,
+        ]);
+
+        $this->patchJson("/api/v1/patient/notifications/{$notification->id}/resolve")
+            ->assertOk();
+
+        $this->assertDatabaseHas('app_notifications', [
+            'id' => $notification->id,
+            'resolved' => true,
+        ]);
+    }
+
     public function test_duplicate_alerts_within_thirty_minutes_are_suppressed(): void
     {
         $patient = User::factory()->role('patient')->create();

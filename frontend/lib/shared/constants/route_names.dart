@@ -37,11 +37,15 @@ class RouteNames {
   static const patientAppointments = '/patient/appointments';
   static const patientAppointmentDetail = '/patient/appointments/detail';
   static const patientDocuments = '/patient/documents';
+  static const patientMeals = '/patient/meals';
   static const patientMessages = '/patient/messages';
   static const patientChatThread = '/patient/messages/thread';
   static const patientCareTeam = '/patient/care-team';
   static const patientNotifications = '/patient/notifications';
   static const patientProfile = '/patient/profile';
+
+  /// The patient's own clinical record — the dossier their care team reads.
+  static const patientClinicalProfile = '/patient/clinical-profile';
   static const patientForcePassword = '/patient/force-password';
   static const patientSettings = '/patient/settings';
   static const patientSupport = '/patient/support';
@@ -86,6 +90,10 @@ class RouteNames {
   static const adminUsers = '/admin/users';
   static const adminUserDetail = '/admin/users/detail';
   static const adminApprovals = '/admin/approvals';
+
+  /// The patient-report queue. Every "Report signed" notification the backend
+  /// writes points here, so the constant and the server string must match.
+  static const adminReports = '/admin/reports';
 
   /// Care-request triage **and** care assignments — one merged workspace.
   static const adminCareRequests = '/admin/care-requests';

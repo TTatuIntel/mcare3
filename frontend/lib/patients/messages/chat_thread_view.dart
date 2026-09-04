@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/constants/route_names.dart';
 import '../../shared/state/messages_state.dart';
 import '../../shared/theme/app_colors.dart';
@@ -18,16 +19,33 @@ class ChatThreadView extends StatefulWidget {
   State<ChatThreadView> createState() => _ChatThreadViewState();
 }
 
-class _ChatThreadViewState extends State<ChatThreadView> {
+class _ChatThreadViewState extends State<ChatThreadView>
+    with RealtimeRefreshMixin<ChatThreadView> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'messages'}, _refreshThread);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      MessagesState.instance.loadThread(widget.conversationId);
-      MessagesState.instance.markRead(widget.conversationId);
+      _refreshThread();
+    });
+  }
+
+  Future<void> _refreshThread() async {
+    await MessagesState.instance.loadThread(widget.conversationId);
+    final conversation = MessagesState.instance.byId(widget.conversationId);
+    if (conversation != null && conversation.unreadCount > 0) {
+      await MessagesState.instance.markRead(widget.conversationId);
+    }
+    _scrollToLatest();
+  }
+
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
 

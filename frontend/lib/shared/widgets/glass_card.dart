@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_spacing.dart';
-import 'patient_ui_scope.dart';
 
 /// The canonical application surface.
 ///
@@ -44,13 +43,7 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius =
-        borderRadius ??
-        BorderRadius.circular(
-          PatientUiScope.isActive(context)
-              ? AppSpacing.radiusSm
-              : AppSpacing.radiusLg,
-        );
+    final radius = borderRadius ?? BorderRadius.circular(AppSpacing.radiusLg);
 
     final defaultSurface = AppPalette.surface(context);
     final defaultBorder = AppPalette.border(context);

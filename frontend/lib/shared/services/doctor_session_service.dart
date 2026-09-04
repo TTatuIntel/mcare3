@@ -7,6 +7,7 @@ import '../auth/auth_state.dart';
 import '../models/message.dart';
 import '../../core/mock/mock_data.dart';
 import '../state/messages_state.dart';
+import '../state/notification_state.dart';
 import '../state/staff_state.dart';
 
 /// Pulls the doctor session payload from `/doctor/session` and rehydrates
@@ -76,6 +77,13 @@ class DoctorSessionService {
           ),
         )
         .toList();
+    final documentRequests = (data['document_requests'] as List? ?? const [])
+        .map(
+          (e) => StaffMapper.documentRequestFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
     final sosEvents = (data['sos_events'] as List? ?? const []).map((e) {
       final m = (e as Map).cast<String, dynamic>();
       return StaffMapper.sosFromApi(
@@ -113,6 +121,7 @@ class DoctorSessionService {
       prescriptions: prescriptions,
       reports: reports,
       vitalRequests: vitalRequests,
+      documentRequests: documentRequests,
       // Triage belongs to admins and mCare assistants; the doctor session
       // deliberately carries no pending care requests.
       careRequests: const [],
@@ -121,6 +130,15 @@ class DoctorSessionService {
       mealPlans: mealPlans,
       vitalReadings: vitalReadings,
     );
+
+    final notifications = (data['notifications'] as List? ?? const [])
+        .map(
+          (e) => PatientDomainMapper.notificationFromApi(
+            (e as Map).cast<String, dynamic>(),
+          ),
+        )
+        .toList();
+    NotificationState.instance.mergeAdminApiNotifications(notifications);
 
     await _syncDoctorMessages();
     return true;

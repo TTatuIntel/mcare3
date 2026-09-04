@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\CareAssignment;
 use App\Models\CareProvider;
 use App\Models\ClinicalReport;
+use App\Models\DocumentRequest;
 use App\Models\MealPlan;
 use App\Models\Medication;
 use App\Models\SosEvent;
@@ -152,14 +153,32 @@ class DoctorSessionController extends Controller
             })
             ->all();
 
+        // The shared care-team queue, open items only. `toStaffArray` adds who
+        // holds each one and whether this doctor is that person — without it
+        // the inbox cannot tell work in progress from work nobody has started.
         $vitalRequests = $patientIds
-            ? VitalReportRequest::whereIn('user_id', $patientIds)
+            ? VitalReportRequest::with('events')
+                ->whereIn('user_id', $patientIds)
                 ->whereIn('status', ['pending', 'in_progress'])
                 ->orderByDesc('created_at')
                 ->get()
-                ->map(function (VitalReportRequest $r) use ($patients) {
-                    $arr = $r->toApiArray();
-                    $arr['patient_id'] = (string) $r->user_id;
+                ->map(function (VitalReportRequest $r) use ($patients, $doctor) {
+                    $arr = $r->toStaffArray($doctor);
+                    $arr['patient_name'] = optional($patients->firstWhere('id', $r->user_id))->fullName();
+
+                    return $arr;
+                })
+                ->all()
+            : [];
+
+        $documentRequests = $patientIds
+            ? DocumentRequest::with(['events', 'targetDoctor'])
+                ->whereIn('user_id', $patientIds)
+                ->whereIn('status', ['pending', 'in_progress'])
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function (DocumentRequest $r) use ($patients, $doctor) {
+                    $arr = $r->toStaffArray($doctor);
                     $arr['patient_name'] = optional($patients->firstWhere('id', $r->user_id))->fullName();
 
                     return $arr;
@@ -205,6 +224,14 @@ class DoctorSessionController extends Controller
                 ->all()
             : [];
 
+        $notifications = AppNotification::query()
+            ->where('user_id', $doctor->id)
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get()
+            ->map->toApiArray()
+            ->all();
+
         return $this->success([
             'doctor' => array_merge($doctor->toApiArray(), [
                 'display_name' => 'Dr. '.$doctor->fullName(),
@@ -214,10 +241,12 @@ class DoctorSessionController extends Controller
             ]),
             'caseload' => $caseload,
             'alerts' => $alerts,
+            'notifications' => $notifications,
             'appointments' => $appointments,
             'prescriptions' => $prescriptions,
             'reports' => $reports,
             'vital_report_requests' => $vitalRequests,
+            'document_requests' => $documentRequests,
             'care_requests' => [],
             'sos_events' => $sosEvents,
             'vital_readings' => $vitalReadings,

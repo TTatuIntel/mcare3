@@ -36,73 +36,7 @@ class UploadDocumentSheet {
               sizeBytes: sizeBytes,
               description: description,
             ),
-<<<<<<< Updated upstream
-            child: Row(
-              children: [
-                Icon(
-                  hasFile ? AppIcons.check : AppIcons.document,
-                  color: hasFile ? AppColors.success : AppPalette.textMuted(context),
-                  size: 20,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        hasFile ? _selectedFileName! : 'Choose file',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: hasFile ? AppColors.success : AppPalette.ink(context),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (hasFile && _selectedFileBytes > 0)
-                        Text(
-                          _sizeLabel(_selectedFileBytes),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                          ),
-                        )
-                      else
-                        Text(
-                          'PDF, image, or Word document',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppPalette.textMuted(context),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                if (hasFile)
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 16),
-                    color: AppPalette.textMuted(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => setState(() {
-                      _selectedFileName = null;
-                      _selectedFileBytes = 0;
-                      _pickedFile = null;
-                    }),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        AppButton(
-          label: 'Upload',
-          icon: AppIcons.document,
-          loading: _saving,
-          expand: true,
-          onPressed: _upload,
-        ),
-      ],
-=======
       ),
->>>>>>> Stashed changes
     );
   }
 }

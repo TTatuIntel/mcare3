@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Models\VitalReading;
 use App\Models\VitalReportRequest;
 use App\Support\DocumentDelivery;
-use App\Support\MedicalDocumentFiles;
+use App\Support\ReportDocumentFiler;
 use App\Support\VitalLabels;
 use Illuminate\Support\Collection;
 
@@ -55,51 +55,28 @@ class VitalReportIssuer
             }
         }
 
-        try {
-            $patient = $request->user;
-            $title = $this->title($request);
-            $html = $this->render($request, $patient, $authorLabel, $note);
+        $patient = $request->user;
+        $title = $this->title($request);
 
-            $stored = MedicalDocumentFiles::storeGeneratedFile(
-                (int) $request->user_id,
-                $title,
-                $html,
-            );
+        $document = ReportDocumentFiler::file(
+            ownerUserId: (int) $request->user_id,
+            title: $title,
+            html: $this->render($request, $patient, $authorLabel, $note),
+            category: 'vitalReport',
+            uploadedBy: $authorLabel,
+            description: 'Vital report you requested on '
+                .$request->created_at?->format('j M Y')
+                .', prepared by '.$authorLabel.'.',
+        );
 
-            $document = MedicalDocument::create([
-                'user_id' => $request->user_id,
-                'title' => $title,
-                'category' => 'vitalReport',
-                'file_type' => 'other',
-                // Rendered HTML. Recording the type is what makes it openable
-                // later: stored with none it was served as octet-stream named
-                // ".bin", so the report the patient asked for arrived as a file
-                // their phone would not open.
-                'mime_type' => $stored['mime'],
-                'original_filename' => $stored['original_name'],
-                'storage_path' => $stored['path'],
-                'size_bytes' => $stored['size'],
-                'description' => 'Vital report you requested on '
-                    .$request->created_at?->format('j M Y')
-                    .', prepared by '.$authorLabel.'.',
-                'uploaded_by' => $authorLabel,
-                'uploaded_at' => now(),
-                // An issued report: part of the record, and not deletable by
-                // the patient or the clinician who wrote it.
-                'source' => MedicalDocument::SOURCE_REPORT,
-            ]);
-
+        // The clinician's work is already recorded on the request. Losing the
+        // rendered copy is bad; failing the whole fulfilment and leaving them
+        // unsure whether to write it again is worse — the filer never throws.
+        if ($document !== null) {
             DocumentDelivery::notifyOwner($document, $authorLabel);
-
-            return $document;
-        } catch (\Throwable $e) {
-            // The clinician's work is already recorded on the request. Losing
-            // the rendered copy is bad; failing the whole fulfilment and
-            // leaving them unsure whether to write it again is worse.
-            report($e);
-
-            return null;
         }
+
+        return $document;
     }
 
     private function title(VitalReportRequest $request): string

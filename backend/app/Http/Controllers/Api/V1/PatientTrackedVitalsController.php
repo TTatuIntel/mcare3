@@ -28,7 +28,10 @@ class PatientTrackedVitalsController extends Controller
         $assigned = $user->assignedVitals()->pluck('vital_key')->all();
         $enabled = VitalCatalog::where('enabled', true)->pluck('vital_key')->all();
 
-        $keys = collect($data['tracked_vitals'])->unique()->values()->all();
+        $keys = collect($data['tracked_vitals'])
+            ->unique()
+            ->values()
+            ->all();
 
         foreach ($assigned as $key) {
             abort_unless(

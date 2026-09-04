@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\VitalCatalog;
 use App\Services\AuditService;
 use App\Support\ApiResponse;
+use App\Support\VitalRecorder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +27,49 @@ class PatientsController extends Controller
     use ApiResponse;
 
     public function __construct(private readonly AuditService $audit) {}
+
+    /**
+     * Logs a vital on the patient's behalf.
+     *
+     * The mCare desk takes readings over the phone and at walk-ins, and had
+     * nowhere to put them: writing vitals was the patient's own endpoint alone.
+     * Goes through the same recorder as the patient's app, so the range
+     * override, the risk grade and the alert to the care team behave
+     * identically — a critical value is critical whoever typed it.
+     *
+     * No caseload check, by design: admin staff are not on one. The route's
+     * permission middleware is the gate.
+     */
+    public function storeVital(Request $request, User $patient)
+    {
+        abort_unless($patient->role === 'patient', 404);
+
+        $data = $request->validate(VitalRecorder::rules());
+        $actor = $request->user();
+        $label = ($actor->role === 'mcare_assistant' ? 'mCare team' : 'mCare admin')
+            .' · '.$actor->fullName();
+
+        $reading = VitalRecorder::record($patient, $data, $actor, $label);
+
+        $this->audit->record(
+            $actor,
+            'patient.vital_recorded',
+            $data['vital_key'].' = '.$data['value'].' for '.$patient->fullName(),
+            'activity',
+            [
+                'patient_user_id' => $patient->id,
+                'target_user_id' => $patient->id,
+                'vital_key' => $data['vital_key'],
+                'risk' => $reading->risk,
+            ],
+        );
+
+        return $this->success(
+            ['vital' => $reading->toApiArray()],
+            'Reading recorded for the patient.',
+            201,
+        );
+    }
 
     public function show(Request $request, User $patient)
     {

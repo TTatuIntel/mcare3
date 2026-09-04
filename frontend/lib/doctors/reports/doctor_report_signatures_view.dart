@@ -14,7 +14,6 @@ import '../../shared/widgets/app_icons.dart';
 import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/app_toast.dart';
 import '../../shared/widgets/dossier/dossier_blocks.dart';
-import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_sheet.dart';
 import '../../shared/widgets/section_label.dart';
@@ -38,7 +37,6 @@ class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
     with RealtimeRefreshMixin<DoctorReportSignaturesList> {
   List<PatientReportRequestItem> _items = const [];
   bool _loading = true;
-  String? _error;
 
   @override
   void initState() {
@@ -62,13 +60,11 @@ class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
       setState(() {
         _items = rows.map(PatientReportRequestItem.fromJson).toList();
         _loading = false;
-        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '$e';
       });
     }
   }
@@ -83,28 +79,27 @@ class _DoctorReportSignaturesListState extends State<DoctorReportSignaturesList>
     }
 
     if (_items.isEmpty) {
-      return GlassCard(
-        child: EmptyStateView(
-          icon: AppIcons.approval,
-          title: 'No reports awaiting signature',
-          message:
-              _error ??
-              'Reports nominated to you appear here once the patient has '
-                  'approved the disclosure.',
-          compact: true,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
-    final pending = _items.where((r) => r.awaitingSignature).toList();
+    // Returned reports come first inside the pending group: they carry a
+    // correction someone is waiting on, where an untouched one is simply new.
+    final pending = _items.where((r) => r.awaitingSignature).toList()
+      ..sort((a, b) {
+        if (a.awaitingRework == b.awaitingRework) return 0;
+        return a.awaitingRework ? -1 : 1;
+      });
     final rest = _items.where((r) => !r.awaitingSignature).toList();
+    final returned = pending.where((r) => r.awaitingRework).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (pending.isNotEmpty) ...[
           SectionLabel(
-            title: 'Awaiting your signature',
+            title: returned > 0
+                ? 'Awaiting your signature · $returned sent back'
+                : 'Awaiting your signature',
             icon: AppIcons.approval,
             trailing: '${pending.length}',
           ),
@@ -186,6 +181,44 @@ class _ReportCard extends StatelessWidget {
                 height: 1.4,
               ),
             ),
+            // A report that came back is not a new one, and reading it as new
+            // is how a doctor re-signs the same mistake.
+            if (request.awaitingRework && request.returnNote != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      AppIcons.refresh,
+                      size: 14,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Sent back by '
+                        '${request.returnedByName ?? 'mCare admin'}: '
+                        '${request.returnNote}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 10.5,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.sm),
             Text(
               '${request.sectionLabels.length} section'
@@ -360,6 +393,29 @@ class _SignBodyState extends State<_SignBody> {
             ),
           ],
         ),
+        if (r.awaitingRework && r.returnNote != null)
+          DossierCard(
+            title: 'Sent back for changes',
+            icon: AppIcons.refresh,
+            children: [
+              DossierRow(
+                label: 'Returned by',
+                value: [
+                  r.returnedByName,
+                  dossierDateTime(r.returnedAt),
+                ].whereType<String>().join(' — '),
+                valueColor: AppColors.warning,
+              ),
+              DossierRow(label: 'Asked to change', value: r.returnNote),
+              if (r.returnCount > 1)
+                DossierRow(
+                  label: 'Times returned',
+                  value: '${r.returnCount}',
+                  valueColor: AppColors.critical,
+                  emphasise: true,
+                ),
+            ],
+          ),
         DossierCard(
           title: 'Sections disclosed',
           icon: AppIcons.catalog,
@@ -394,7 +450,9 @@ class _SignBodyState extends State<_SignBody> {
           ),
           const SizedBox(height: AppSpacing.md),
           AppButton(
-            label: 'Sign report',
+            label: r.awaitingRework
+                ? 'Sign the corrected report'
+                : 'Sign report',
             icon: AppIcons.approval,
             expand: true,
             loading: _busy,

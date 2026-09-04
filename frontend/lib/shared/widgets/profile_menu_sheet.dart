@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../auth/auth_state.dart';
-import '../auth/sign_out_action.dart';
 import '../constants/route_names.dart';
 import '../models/app_user.dart';
 import '../models/patient_profile.dart';
@@ -9,6 +8,7 @@ import '../models/profile_completion.dart';
 import '../models/sos.dart';
 import '../models/user_role.dart';
 import '../navigation/profile_navigation.dart';
+import '../navigation/root_navigator.dart';
 import '../dashboard/admin_workspace_catalog.dart';
 import '../state/profile_state.dart';
 import '../state/sos_state.dart';
@@ -16,6 +16,7 @@ import '../state/vitals_state.dart';
 import '../settings/widgets/settings_quick_actions.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'app_dialog.dart';
 import 'app_button.dart';
 import 'app_icons.dart';
 import 'section_label.dart';
@@ -433,7 +434,23 @@ class _SignOutButton extends StatelessWidget {
             'Sign out',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           ),
-          onPressed: () => confirmAndSignOut(context),
+          onPressed: () async {
+            final ok = await AppDialog.confirm(
+              context,
+              title: 'Sign out?',
+              message:
+                  'You\'ll be returned to the home screen and will need to sign in again.',
+              danger: true,
+              icon: AppIcons.logout,
+              iconActionOnly: true,
+            );
+            if (ok != true) return;
+            AuthState.instance.signOut();
+            rootNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+              RouteNames.landing,
+              (_) => false,
+            );
+          },
         ),
       ],
     );

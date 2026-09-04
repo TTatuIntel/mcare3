@@ -73,6 +73,11 @@ class CareProvider extends Model
     {
         return [
             'id' => (string) $this->id,
+            // The directory user behind the provider row. Every staff-facing
+            // surface addresses clinicians by user id, so a payload that only
+            // carries the care_providers id cannot name one — which is what
+            // a patient asking a specific doctor for a document has to do.
+            'user_id' => $this->user_id ? (string) $this->user_id : null,
             'name' => $this->name,
             'specialty' => $this->specialty,
             'facility' => $this->facility,

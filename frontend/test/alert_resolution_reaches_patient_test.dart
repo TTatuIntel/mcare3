@@ -27,8 +27,8 @@ import 'package:mcare/shared/theme/app_theme.dart';
 /// A doctor resolving a critical reading used to change nothing the patient
 /// could see. The reason went into a staff-only field, the closure notice
 /// arrived typed as a generic system row, it never linked back to the vital it
-/// was about, and the red card on the home screen kept shouting the same
-/// number — because that card read the reading, not the conversation about it.
+/// was about, and the red row on the home screen kept shouting the same
+/// number — because it read the reading, not the conversation about it.
 /// These hold the whole leg: the notice arrives as a resolution, it points at
 /// the right vital, and the home screen stops sounding an alarm once the care
 /// team has answered.
@@ -63,12 +63,20 @@ void main() {
       );
     });
 
+    test('support updates keep their own icon and destination kind', () {
+      expect(
+        PatientDomainMapper.notificationKindFromApi('support'),
+        NotificationKind.support,
+      );
+    });
+
     test('the notice links back to the vital the API named', () {
       final notice = PatientDomainMapper.notificationFromApi({
         'id': 'n1',
         'kind': 'alert_resolved',
         'title': 'Heart rate alert resolved',
-        'body': 'Dr. Mensah reviewed your heart rate alert · Patient '
+        'body':
+            'Dr. Mensah reviewed your heart rate alert · Patient '
             'contacted. Resting and stable.',
         'created_at': DateTime.now().toIso8601String(),
         'action_route': '/patient/vitals',
@@ -203,7 +211,8 @@ void main() {
           id: 'r1',
           kind: NotificationKind.resolution,
           title: 'Heart rate alert resolved',
-          body: 'Dr. Mensah reviewed your heart rate alert · Patient '
+          body:
+              'Dr. Mensah reviewed your heart rate alert · Patient '
               'contacted. Resting and stable, recheck at 6pm.',
           createdAt: DateTime.now(),
           actionArguments: VitalKey.heartRate,
@@ -241,20 +250,18 @@ Future<void> _pumpDashboard(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(theme: AppTheme.light(), home: const PatientDashboardView()),
   );
-  // Let the staggered entry animations run out. Never pumpAndSettle: the live
-  // badge pulses forever by design.
+  // Let the staggered entry animations run out. Never pumpAndSettle: the
+  // floating action button cycles its colours forever by design.
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 1200));
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 600));
+  }
 }
 
-bool _showing(WidgetTester tester, String text) {
-  final finder = find.ancestor(
-    of: find.text(text),
-    matching: find.byType(AnimatedOpacity),
-  );
-  if (finder.evaluate().isEmpty) return false;
-  return tester.widget<AnimatedOpacity>(finder.first).opacity == 1;
-}
+/// The home page lists every scene at once now, so what the patient is told
+/// about this alert is simply what is on the page.
+bool _showing(WidgetTester tester, String text) =>
+    find.text(text).evaluate().isNotEmpty;
 
 Future<void> _dispose(WidgetTester tester) async {
   expect(tester.takeException(), isNull);

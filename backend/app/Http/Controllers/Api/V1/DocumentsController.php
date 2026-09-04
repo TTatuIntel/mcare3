@@ -6,12 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\MedicalDocumentResource;
 use App\Models\MedicalDocument;
 use App\Support\ApiResponse;
+use App\Support\DocumentRemoval;
 use App\Support\MedicalDocumentFiles;
 use Illuminate\Http\Request;
 
 class DocumentsController extends Controller
 {
     use ApiResponse;
+
+    /**
+     * The patient's own documents, newest first.
+     *
+     * Everything in the patient app was reachable only through
+     * `GET /patient/session`, which returns twenty-one collections at once. A
+     * doctor filing a lab result therefore could not be picked up without
+     * refetching the whole record — and the notification that announces it
+     * routes straight to the documents screen. This is the list that screen
+     * needs, and nothing more.
+     */
+    public function index(Request $request)
+    {
+        $documents = $request->user()->medicalDocuments()
+            ->orderByDesc('uploaded_at')
+            ->get();
+
+        return $this->success([
+            'documents' => MedicalDocumentResource::collection($documents),
+        ]);
+    }
 
     public function store(Request $request)
     {
@@ -33,6 +55,8 @@ class DocumentsController extends Controller
             'shared_with_doctor_id' => $data['shared_with_doctor_id'] ?? null,
             'uploaded_by' => $request->user()->fullName(),
             'uploaded_at' => now(),
+            // Their own file. The one case that stays deletable.
+            'source' => MedicalDocument::SOURCE_PATIENT,
         ]);
 
         return $this->success(['document' => new MedicalDocumentResource($doc)], 'Document uploaded.', 201);
@@ -50,14 +74,24 @@ class DocumentsController extends Controller
     public function destroy(Request $request, MedicalDocument $document)
     {
         abort_unless($document->user_id === $request->user()->id, 403);
+
+        // Own file: theirs to remove. Anything a clinician filed, and above all
+        // an issued report, is the record of something that happened and stays.
+        if (! $document->isDeletableBy($request->user())) {
+            return $this->error($document->deleteRefusalReason(), 403, [
+                // A refusal that names the way forward. A patient looking at a
+                // document filed against them in error needs a route, not a no.
+                'can_request_removal' => $document->canRequestRemoval(),
+                'removal_requested' => $document->removalPending(),
+            ]);
+        }
+
         MedicalDocumentFiles::deleteStoredFile($document->storage_path);
         $document->delete();
 
         return $this->success(null, 'Document deleted.');
     }
 
-<<<<<<< Updated upstream
-=======
     /**
      * Ask the care team to take a document out of the record.
      *
@@ -126,7 +160,6 @@ class DocumentsController extends Controller
      * hospital reception being asked for their discharge summary — never got a
      * file onto their device at all.
      */
->>>>>>> Stashed changes
     public function stream(Request $request, MedicalDocument $document)
     {
         abort_unless($document->user_id === $request->user()->id, 403);

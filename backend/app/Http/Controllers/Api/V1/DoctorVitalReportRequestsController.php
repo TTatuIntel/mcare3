@@ -2,68 +2,53 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Concerns\ManagesVitalReportQueue;
 use App\Http\Controllers\Controller;
-use App\Models\AppNotification;
 use App\Models\VitalReportRequest;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
+/**
+ * The doctor's view of the shared vital report queue.
+ *
+ * Every clinician on the patient's caseload sees every request — that is
+ * deliberate, and it is what makes cover possible when one of them is away.
+ * What was missing was ownership: two doctors could open the same request and
+ * both write the report, and a request nobody had started looked identical to
+ * one being worked on right now.
+ *
+ * So the queue is shared and the work is not. A request must be claimed before
+ * it can be finished, exactly one clinician can hold it, and every claim,
+ * release and resolution is written to the request's own trail — which the
+ * patient reads too.
+ *
+ * The behaviour lives in {@see ManagesVitalReportQueue}, shared with the admin
+ * tiers the queue escalates to. This class supplies only what is specific to a
+ * doctor: the caseload gate and the name the patient reads.
+ */
 class DoctorVitalReportRequestsController extends Controller
 {
     use ApiResponse;
+    use ManagesVitalReportQueue;
 
-    public function index(Request $request)
-    {
-        $patientIds = DoctorAccess::caseloadPatientIds($request->user());
-        return $this->success([
-            'requests' => VitalReportRequest::whereIn('user_id', $patientIds)
-                ->orderByDesc('created_at')
-                ->get()
-                ->map->toApiArray()
-                ->all(),
-        ]);
-    }
-
-    public function fulfill(Request $request, VitalReportRequest $vitalReportRequest)
+    protected function assertQueueAccess(Request $request, VitalReportRequest $vitalReportRequest): void
     {
         DoctorAccess::assertCaseload($request->user(), $vitalReportRequest->user_id);
-        $data = $request->validate([
-            'note' => 'nullable|string|max:1000',
-        ]);
-        $vitalReportRequest->update([
-            'status' => 'fulfilled',
-            'responded_at' => now(),
-            'responded_by' => 'Dr. '.$request->user()->fullName(),
-            'response_note' => $data['note'] ?? null,
-        ]);
-        AppNotification::create([
-            'user_id' => $vitalReportRequest->user_id,
-            'kind' => 'report',
-            'title' => 'Your vital report is ready',
-            'body' => 'Dr. '.$request->user()->fullName().' completed your requested report.',
-            'action_route' => '/patient/vitals',
-            'read' => false,
-        ]);
-        DoctorAccess::audit(
-            $request->user(),
-            'Fulfilled vital report request',
-            "Request #{$vitalReportRequest->id}"
-        );
-        return $this->success(['request' => $vitalReportRequest->fresh()->toApiArray()], 'Request fulfilled.');
     }
 
-    public function escalate(Request $request, VitalReportRequest $vitalReportRequest)
+    /** @return list<int>|null */
+    protected function queueScopedPatientIds(Request $request): ?array
     {
-        DoctorAccess::assertCaseload($request->user(), $vitalReportRequest->user_id);
-        $vitalReportRequest->update([
-            'current_responder' => 'admin',
-            'last_escalated_at' => now(),
-        ]);
-        DoctorAccess::audit(
-            $request->user(),
-            'Escalated vital report request',
-            "Request #{$vitalReportRequest->id}"
-        );
-        return $this->success(['request' => $vitalReportRequest->fresh()->toApiArray()], 'Request escalated.');
+        return DoctorAccess::caseloadPatientIds($request->user());
+    }
+
+    protected function queueActorLabel(Request $request): string
+    {
+        return 'Dr. '.$request->user()->fullName();
+    }
+
+    protected function recordQueueAudit(Request $request, string $action, string $detail): void
+    {
+        DoctorAccess::audit($request->user(), $action, $detail);
     }
 }

@@ -40,16 +40,15 @@ class _DoctorPatientsViewState extends State<DoctorPatientsView> {
       profileRoute: RouteNames.doctorProfile,
       notificationsRoute: RouteNames.doctorNotifications,
       title: 'Patients',
-      subtitle: 'Assigned caseload · ${DateFormat.MMMEd().format(DateTime.now())}',
+      subtitle:
+          'Assigned caseload · ${DateFormat.MMMEd().format(DateTime.now())}',
       body: AnimatedBuilder(
         animation: StaffState.instance,
         builder: (context, _) {
           final s = StaffState.instance;
           final all = s.assignedPatientsForDoctor();
           final q = _search.text.trim();
-          final list = all
-              .where((p) => s.patientMatchesQuery(p, q))
-              .toList()
+          final list = all.where((p) => s.patientMatchesQuery(p, q)).toList()
             ..sort(
               (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
             );
@@ -126,10 +125,10 @@ class _DoctorPatientsViewState extends State<DoctorPatientsView> {
                           style: Theme.of(context).textTheme.bodyMedium,
                           decoration: InputDecoration(
                             hintText: 'Name, email, phone or patient ID',
-                            hintStyle:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppPalette.textMuted(context),
-                                    ),
+                            hintStyle: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: AppPalette.textMuted(context),
+                                ),
                             border: InputBorder.none,
                             isDense: true,
                           ),
@@ -164,39 +163,38 @@ class _DoctorPatientsViewState extends State<DoctorPatientsView> {
                         ),
                       )
                     : list.isEmpty
-                        ? GlassCard(
-                            frosted: true,
-                            child: EmptyStateView(
-                              icon: AppIcons.search,
-                              title: 'No matches',
-                              message:
-                                  'Try another name, email, phone number or patient ID.',
-                              compact: true,
-                              actionLabel: 'Clear search',
-                              onAction: () {
-                                _search.clear();
-                                setState(() {});
-                              },
-                            ),
-                          )
-                        : StaffListCard(
-                            children: list
-                                .map(
-                                  (p) => StaffPatientRow(
-                                    name: p.name,
-                                    summary: s.patientListSubtitle(p),
-                                    risk: p.risk,
-                                    lastActivity: p.lastReading,
-                                    unreadAlerts: 0,
-                                    onTap: () =>
-                                        Navigator.of(context).pushNamed(
-                                      RouteNames.doctorPatientChart,
-                                      arguments: p.id,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
+                    ? GlassCard(
+                        frosted: true,
+                        child: EmptyStateView(
+                          icon: AppIcons.search,
+                          title: 'No matches',
+                          message:
+                              'Try another name, email, phone number or patient ID.',
+                          compact: true,
+                          actionLabel: 'Clear search',
+                          onAction: () {
+                            _search.clear();
+                            setState(() {});
+                          },
+                        ),
+                      )
+                    : StaffListCard(
+                        children: list
+                            .map(
+                              (p) => StaffPatientRow(
+                                name: p.name,
+                                summary: s.patientListSubtitle(p),
+                                risk: p.risk,
+                                lastActivity: p.lastReading,
+                                unreadAlerts: 0,
+                                onTap: () => Navigator.of(context).pushNamed(
+                                  RouteNames.doctorPatientChart,
+                                  arguments: p.id,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
               ),
               const SizedBox(height: AppSpacing.huge),
             ],

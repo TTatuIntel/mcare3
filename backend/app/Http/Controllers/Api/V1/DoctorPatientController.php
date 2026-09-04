@@ -15,9 +15,13 @@ use App\Models\User;
 use App\Models\VitalCatalog;
 use App\Models\VitalReading;
 use App\Models\VitalReportRequest;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 use App\Support\ApiResponse;
+use App\Support\DocumentDelivery;
+use App\Support\DocumentRemoval;
 use App\Support\MedicalDocumentFiles;
+use App\Support\VitalRecorder;
 use App\Support\VitalAlertPayload;
 use Illuminate\Http\Request;
 
@@ -32,8 +36,6 @@ class DoctorPatientController extends Controller
     use ApiResponse;
     use ManagesPatientDocuments;
 
-<<<<<<< Updated upstream
-=======
     /**
      * Honouring a patient's removal request is the one write here that deletes
      * something, so it records through the full audit service rather than
@@ -42,7 +44,6 @@ class DoctorPatientController extends Controller
      */
     public function __construct(protected readonly AuditService $audit) {}
 
->>>>>>> Stashed changes
     public function show(Request $request, User $patient)
     {
         DoctorAccess::assertCaseload($request->user(), $patient->id);
@@ -286,61 +287,6 @@ class DoctorPatientController extends Controller
         ], 'Chart updated.');
     }
 
-<<<<<<< Updated upstream
-    public function storeDocument(Request $request, User $patient)
-    {
-        DoctorAccess::assertCaseload($request->user(), $patient->id);
-
-        $data = MedicalDocumentFiles::validateMeta($request, requireFile: true);
-        $stored = MedicalDocumentFiles::storeUploadedFile($request, $patient->id);
-
-        $doc = $patient->medicalDocuments()->create([
-            'title' => $data['title'],
-            'category' => $data['category'],
-            'file_type' => $data['file_type'],
-            'storage_path' => $stored['path'],
-            'size_bytes' => $stored['size'],
-            'description' => $data['description'] ?? null,
-            'uploaded_by' => 'Dr. '.$request->user()->fullName(),
-            'uploaded_at' => now(),
-        ]);
-
-        DoctorAccess::audit(
-            $request->user(),
-            'Uploaded document',
-            $doc->title.' for '.$patient->fullName(),
-        );
-
-        return $this->success(['document' => $doc->toApiArray()], 'Document uploaded.', 201);
-    }
-
-    public function updateDocument(Request $request, User $patient, MedicalDocument $document)
-    {
-        DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
-
-        $data = MedicalDocumentFiles::validateUpdate($request);
-        MedicalDocumentFiles::applyUpdate($document, $data, $request, $patient->id);
-
-        DoctorAccess::audit(
-            $request->user(),
-            'Updated document',
-            $document->title.' for '.$patient->fullName(),
-        );
-
-        return $this->success(['document' => $document->fresh()->toApiArray()], 'Document updated.');
-    }
-
-    public function destroyDocument(Request $request, User $patient, MedicalDocument $document)
-    {
-        DoctorAccess::assertCaseload($request->user(), $patient->id);
-        abort_unless($document->user_id === $patient->id, 404);
-
-        MedicalDocumentFiles::deleteStoredFile($document->storage_path);
-        $document->delete();
-
-        return $this->success(null, 'Document deleted.');
-=======
     // ------------------------------------------------------------------
     // Documents — see ManagesPatientDocuments for the shared implementation
     // ------------------------------------------------------------------
@@ -413,7 +359,6 @@ class DoctorPatientController extends Controller
             'Reading recorded for the patient.',
             201,
         );
->>>>>>> Stashed changes
     }
 
     private static function labelFor(string $key): string

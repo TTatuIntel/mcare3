@@ -37,12 +37,16 @@ class PatientSessionService {
       return;
     }
 
-    await ApiClient.instance.post('/patient/onboarding', body: {
-      'health': PatientProfileMapper.healthToApi(health),
-      'emergency_contacts':
-          contacts.map(PatientProfileMapper.contactToApi).toList(),
-      'assigned_vitals': assignedVitals.map((v) => v.name).toList(),
-    });
+    await ApiClient.instance.post(
+      '/patient/onboarding',
+      body: {
+        'health': PatientProfileMapper.healthToApi(health),
+        'emergency_contacts': contacts
+            .map(PatientProfileMapper.contactToApi)
+            .toList(),
+        'assigned_vitals': assignedVitals.map((v) => v.name).toList(),
+      },
+    );
 
     await syncFromApi();
   }
@@ -62,11 +66,14 @@ class PatientSessionService {
       return;
     }
 
-    await ApiClient.instance.put('/patient/profile/health', body: {
-      ...PatientProfileMapper.healthToApi(health),
-      if (assignedVitals != null)
-        'assigned_vitals': assignedVitals.map((v) => v.name).toList(),
-    });
+    await ApiClient.instance.put(
+      '/patient/profile/health',
+      body: {
+        ...PatientProfileMapper.healthToApi(health),
+        if (assignedVitals != null)
+          'assigned_vitals': assignedVitals.map((v) => v.name).toList(),
+      },
+    );
     ProfileState.instance.updateHealth(health);
     if (assignedVitals != null) {
       VitalsState.instance.seedAssigned(assignedVitals);
@@ -80,11 +87,10 @@ class PatientSessionService {
   }) async {
     if (!AppEnv.backendEnabled) return;
 
-    final res = await ApiClient.instance.put('/patient/profile/account', body: {
-      'first_name': firstName,
-      'last_name': lastName,
-      'phone': phone,
-    });
+    final res = await ApiClient.instance.put(
+      '/patient/profile/account',
+      body: {'first_name': firstName, 'last_name': lastName, 'phone': phone},
+    );
     final data = res['data'] as Map<String, dynamic>?;
     final userMap = data?['user'] as Map<String, dynamic>?;
     if (userMap != null) {
@@ -135,13 +141,16 @@ class PatientSessionService {
       return;
     }
 
-    final res = await ApiClient.instance.put('/auth/profile', body: {
-      'first_name': firstName,
-      'last_name': lastName,
-      'phone': phone,
-      if (specialty != null) 'specialty': specialty,
-      if (licenseNumber != null) 'license_number': licenseNumber,
-    });
+    final res = await ApiClient.instance.put(
+      '/auth/profile',
+      body: {
+        'first_name': firstName,
+        'last_name': lastName,
+        'phone': phone,
+        if (specialty != null) 'specialty': specialty,
+        if (licenseNumber != null) 'license_number': licenseNumber,
+      },
+    );
     final data = res['data'] as Map<String, dynamic>?;
     final userMap = data?['user'] as Map<String, dynamic>?;
     if (userMap != null) {
@@ -155,14 +164,17 @@ class PatientSessionService {
       return contact;
     }
 
-    final res = await ApiClient.instance.post('/patient/emergency-contacts', body: {
-      'name': contact.name,
-      'relationship': contact.relationship,
-      'phone': contact.phone,
-      if (contact.email != null && contact.email!.isNotEmpty)
-        'email': contact.email,
-      'priority': contact.priority,
-    });
+    final res = await ApiClient.instance.post(
+      '/patient/emergency-contacts',
+      body: {
+        'name': contact.name,
+        'relationship': contact.relationship,
+        'phone': contact.phone,
+        if (contact.email != null && contact.email!.isNotEmpty)
+          'email': contact.email,
+        'priority': contact.priority,
+      },
+    );
     final data = res['data']?['contact'] as Map<String, dynamic>?;
     final saved = data != null
         ? PatientProfileMapper.contactFromApi(data)

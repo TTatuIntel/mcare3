@@ -234,6 +234,19 @@ class _VerifyEmailSheetState extends State<VerifyEmailSheet> {
         _codeRejected = false;
       });
       _codeKey.currentState?.clear();
+
+      // The API answers 502 when nothing left the server, so this is belt and
+      // braces — but a 2xx that admits `delivered: false` is exactly the shape
+      // that would otherwise render as success, start a countdown, and leave
+      // someone waiting at an empty inbox with the retry hidden behind a timer.
+      if (!dispatch.delivered) {
+        setState(
+          () => _error = 'We could not deliver the code. Check the address, '
+              'then send it again.',
+        );
+        return;
+      }
+
       _startCooldown(
         dispatch.retryAfter > 0
             ? dispatch.retryAfter

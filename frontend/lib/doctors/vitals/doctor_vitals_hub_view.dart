@@ -199,7 +199,11 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
           r.recordedAt.month,
           r.recordedAt.day,
         );
-        final from = DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
+        final from = DateTime(
+          _dateFrom!.year,
+          _dateFrom!.month,
+          _dateFrom!.day,
+        );
         final to = DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day);
         if (day.isBefore(from) || day.isAfter(to)) return false;
       }
@@ -244,8 +248,7 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
       for (final r in readings) r.vital,
       for (final entry in catalog.where((e) => e.enabled && e.vital != null))
         entry.vital!,
-    }.toList()
-      ..sort((a, b) => a.label.compareTo(b.label));
+    }.toList()..sort((a, b) => a.label.compareTo(b.label));
 
     // Alert lifecycle counts across the doctor's caseload.
     final caseloadAlerts = StaffState.instance.alerts
@@ -257,14 +260,14 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
     final reviewingCount = caseloadAlerts
         .where((a) => a.acknowledged && !a.resolved)
         .length;
-    final resolvedCount =
-        caseloadAlerts.where((a) => a.resolved).length;
+    final resolvedCount = caseloadAlerts.where((a) => a.resolved).length;
 
     final overrideCount = StaffState.instance.vitalOverrides
         .where((o) => assignedIds.contains(o.patientId))
         .length;
-    final openReadingAlerts =
-        readings.where((r) => _openAlertFor(r) != null).length;
+    final openReadingAlerts = readings
+        .where((r) => _openAlertFor(r) != null)
+        .length;
     final activeFilterCount = _countActiveFilters();
     final visibleReadings = filtered.take(_visibleCount).toList();
     final hasMore = filtered.length > _visibleCount;
@@ -281,161 +284,158 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
         ),
         padding: EdgeInsets.zero,
         children: [
-        _VitalsSummaryBar(
-          readingCount: readings.length,
-          filteredCount: filtered.length,
-          openAlerts: openReadingAlerts,
-          newAlerts: newAlertCount,
-          refreshing: _refreshing,
-          activeFilters: activeFilterCount,
-          filtersOpen: _filtersExpanded,
-          onRefresh: () => _refreshReadings(),
-          onToggleFilters: () =>
-              setState(() => _filtersExpanded = !_filtersExpanded),
-          onAssign: () => DoctorVitalFlows.openAssignVital(context),
-          onTemplates: () =>
-              Navigator.of(context).pushNamed(RouteNames.doctorVitalTemplate),
-          onAlertsTap: () {
-            if (!hasPatients) return;
-            setState(() {
-              _statusFilter = _AlertStatusFilter.newAlert;
-              _filtersExpanded = false;
-              _resetVisibleCount();
-            });
-          },
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        StaggeredEntry(
-          index: 0,
-          child: _VitalsFilterStrip(
-          searchCtrl: _searchCtrl,
-          onQueryChanged: (v) => setState(() {
-            _patientQuery = v;
-            _resetVisibleCount();
-          }),
-          expanded: _filtersExpanded,
-          activeFilterCount: activeFilterCount,
-          datePreset: _datePreset,
-          dateFrom: _dateFrom,
-          dateTo: _dateTo,
-          onDatePreset: _applyDatePreset,
-          onPickCustomRange: () => _pickDateRange(context),
-          vitalFilter: _vitalFilter,
-          vitalOptions: usedVitals,
-          onVitalChanged: (v) => setState(() {
-            _vitalFilter = v;
-            _resetVisibleCount();
-          }),
-          riskFilter: _riskFilter,
-          onRiskChanged: (v) => setState(() {
-            _riskFilter = v;
-            _resetVisibleCount();
-          }),
-          statusFilter: _statusFilter,
-          onStatusChanged: (v) => setState(() {
-            _statusFilter = v;
-            _resetVisibleCount();
-          }),
-          newAlertCount: newAlertCount,
-          reviewingCount: reviewingCount,
-          resolvedCount: resolvedCount,
-          overridesOnly: _overridesOnly,
-          overrideCount: overrideCount,
-          onOverridesOnlyChanged: (v) => setState(() {
-            _overridesOnly = v;
-            _resetVisibleCount();
-          }),
-          onClearFilters: _clearAllFilters,
-          hasPatients: hasPatients,
-          patients: assigned,
-          patientFilterId: _patientFilterId,
-          onPatientFilterChanged: (id) => setState(() {
-            _patientFilterId = id;
-            _resetVisibleCount();
-          }),
-          onQuickToday: () => _applyDatePreset(_DatePreset.today),
-          onQuickAlerts: () => setState(() {
-            _statusFilter = _AlertStatusFilter.newAlert;
-            _resetVisibleCount();
-          }),
-          onQuickCritical: () => setState(() {
-            _riskFilter = RiskLevel.critical;
-            _resetVisibleCount();
-          }),
+          _VitalsSummaryBar(
+            readingCount: readings.length,
+            filteredCount: filtered.length,
+            openAlerts: openReadingAlerts,
+            newAlerts: newAlertCount,
+            refreshing: _refreshing,
+            activeFilters: activeFilterCount,
+            filtersOpen: _filtersExpanded,
+            onRefresh: () => _refreshReadings(),
+            onToggleFilters: () =>
+                setState(() => _filtersExpanded = !_filtersExpanded),
+            onAssign: () => DoctorVitalFlows.openAssignVital(context),
+            onTemplates: () =>
+                Navigator.of(context).pushNamed(RouteNames.doctorVitalTemplate),
+            onAlertsTap: () {
+              if (!hasPatients) return;
+              setState(() {
+                _statusFilter = _AlertStatusFilter.newAlert;
+                _filtersExpanded = false;
+                _resetVisibleCount();
+              });
+            },
           ),
-        ),
-        if (hasPatients) ...[
           const SizedBox(height: AppSpacing.sm),
-          if (filtered.isEmpty)
+          StaggeredEntry(
+            index: 0,
+            child: _VitalsFilterStrip(
+              searchCtrl: _searchCtrl,
+              onQueryChanged: (v) => setState(() {
+                _patientQuery = v;
+                _resetVisibleCount();
+              }),
+              expanded: _filtersExpanded,
+              activeFilterCount: activeFilterCount,
+              datePreset: _datePreset,
+              dateFrom: _dateFrom,
+              dateTo: _dateTo,
+              onDatePreset: _applyDatePreset,
+              onPickCustomRange: () => _pickDateRange(context),
+              vitalFilter: _vitalFilter,
+              vitalOptions: usedVitals,
+              onVitalChanged: (v) => setState(() {
+                _vitalFilter = v;
+                _resetVisibleCount();
+              }),
+              riskFilter: _riskFilter,
+              onRiskChanged: (v) => setState(() {
+                _riskFilter = v;
+                _resetVisibleCount();
+              }),
+              statusFilter: _statusFilter,
+              onStatusChanged: (v) => setState(() {
+                _statusFilter = v;
+                _resetVisibleCount();
+              }),
+              newAlertCount: newAlertCount,
+              reviewingCount: reviewingCount,
+              resolvedCount: resolvedCount,
+              overridesOnly: _overridesOnly,
+              overrideCount: overrideCount,
+              onOverridesOnlyChanged: (v) => setState(() {
+                _overridesOnly = v;
+                _resetVisibleCount();
+              }),
+              onClearFilters: _clearAllFilters,
+              hasPatients: hasPatients,
+              patients: assigned,
+              patientFilterId: _patientFilterId,
+              onPatientFilterChanged: (id) => setState(() {
+                _patientFilterId = id;
+                _resetVisibleCount();
+              }),
+              onQuickToday: () => _applyDatePreset(_DatePreset.today),
+              onQuickAlerts: () => setState(() {
+                _statusFilter = _AlertStatusFilter.newAlert;
+                _resetVisibleCount();
+              }),
+              onQuickCritical: () => setState(() {
+                _riskFilter = RiskLevel.critical;
+                _resetVisibleCount();
+              }),
+            ),
+          ),
+          if (hasPatients) ...[
+            const SizedBox(height: AppSpacing.sm),
+            if (filtered.isEmpty)
+              GlassCard(
+                frosted: true,
+                child: EmptyStateView(
+                  icon: AppIcons.vitals,
+                  title: readings.isEmpty
+                      ? 'No readings yet'
+                      : 'No vitals match',
+                  message: readings.isEmpty
+                      ? 'Patient vitals appear here as they are recorded.'
+                      : 'Adjust filters or tap Refresh.',
+                  compact: true,
+                ),
+              )
+            else
+              StaffListCard(
+                children: [
+                  for (var i = 0; i < visibleReadings.length; i++) ...[
+                    if (i > 0)
+                      Divider(height: 1, color: AppPalette.border(context)),
+                    _CompactVitalsRow(
+                      reading: visibleReadings[i],
+                      patient: _patientForReading(
+                        visibleReadings[i],
+                        patientById,
+                      ),
+                      openAlert: _openAlertFor(visibleReadings[i]),
+                      onOpenPatient: () =>
+                          _openPatient(visibleReadings[i].patientId),
+                      onMessage: () => _messagePatient(
+                        _patientForReading(visibleReadings[i], patientById),
+                      ),
+                      onAcknowledge: () =>
+                          _acknowledgeAlert(visibleReadings[i]),
+                      onResolve: () => _resolveAlert(visibleReadings[i]),
+                      onEditThreshold: () => _editThreshold(
+                        context,
+                        _patientForReading(visibleReadings[i], patientById),
+                        visibleReadings[i].vital,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            if (hasMore) ...[
+              const SizedBox(height: AppSpacing.sm),
+              TextButton.icon(
+                onPressed: () => setState(() => _visibleCount += 40),
+                icon: const Icon(AppIcons.expandMore, size: 18),
+                label: Text(
+                  'Load more (${filtered.length - visibleReadings.length})',
+                ),
+              ),
+            ],
+          ] else ...[
+            const SizedBox(height: AppSpacing.sm),
             GlassCard(
               frosted: true,
-              child: EmptyStateView(
-                icon: AppIcons.vitals,
-                title: readings.isEmpty
-                    ? 'No readings yet'
-                    : 'No vitals match',
-                message: readings.isEmpty
-                    ? 'Patient vitals appear here as they are recorded.'
-                    : 'Adjust filters or tap Refresh.',
+              child: const EmptyStateView(
+                icon: AppIcons.patients,
+                title: 'No assigned patients',
+                message: 'Assign patients to review their vitals.',
                 compact: true,
-              ),
-            )
-          else
-            StaffListCard(
-              children: [
-                for (var i = 0; i < visibleReadings.length; i++) ...[
-                  if (i > 0)
-                    Divider(
-                      height: 1,
-                      color: AppPalette.border(context),
-                    ),
-                  _CompactVitalsRow(
-                    reading: visibleReadings[i],
-                    patient: _patientForReading(
-                      visibleReadings[i],
-                      patientById,
-                    ),
-                    openAlert: _openAlertFor(visibleReadings[i]),
-                    onOpenPatient: () =>
-                        _openPatient(visibleReadings[i].patientId),
-                    onMessage: () => _messagePatient(
-                      _patientForReading(visibleReadings[i], patientById),
-                    ),
-                    onAcknowledge: () =>
-                        _acknowledgeAlert(visibleReadings[i]),
-                    onResolve: () => _resolveAlert(visibleReadings[i]),
-                    onEditThreshold: () => _editThreshold(
-                      context,
-                      _patientForReading(visibleReadings[i], patientById),
-                      visibleReadings[i].vital,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          if (hasMore) ...[
-            const SizedBox(height: AppSpacing.sm),
-            TextButton.icon(
-              onPressed: () => setState(() => _visibleCount += 40),
-              icon: const Icon(AppIcons.expandMore, size: 18),
-              label: Text(
-                'Load more (${filtered.length - visibleReadings.length})',
               ),
             ),
           ],
-        ] else ...[
-          const SizedBox(height: AppSpacing.sm),
-          GlassCard(
-            frosted: true,
-            child: const EmptyStateView(
-              icon: AppIcons.patients,
-              title: 'No assigned patients',
-              message: 'Assign patients to review their vitals.',
-              compact: true,
-            ),
-          ),
-        ],
-        const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.md),
         ],
       ),
     );
@@ -566,10 +566,9 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
       patientName: patient.name,
     );
     if (conv != null) {
-      Navigator.of(context).pushNamed(
-        RouteNames.doctorChatThread,
-        arguments: conv.id,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed(RouteNames.doctorChatThread, arguments: conv.id);
       return;
     }
     Navigator.of(context).pushNamed(RouteNames.doctorMessages);
@@ -594,8 +593,14 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
   }
 
   Future<void> _editThreshold(
-      BuildContext context, StaffPatient patient, VitalKey vital) async {
-    final current = StaffState.instance.effectiveThresholdFor(patient.id, vital);
+    BuildContext context,
+    StaffPatient patient,
+    VitalKey vital,
+  ) async {
+    final current = StaffState.instance.effectiveThresholdFor(
+      patient.id,
+      vital,
+    );
     final result = await GlassSheet.show<VitalThresholdFormResult>(
       context,
       title: 'Thresholds · ${vital.label}',
@@ -613,8 +618,10 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
     if (result.clear) {
       StaffState.instance.clearPatientThreshold(patient.id, vital);
       if (mounted) {
-        AppToast.show(context,
-            message: 'Reverted to default for ${vital.label}.');
+        AppToast.show(
+          context,
+          message: 'Reverted to default for ${vital.label}.',
+        );
       }
       return;
     }
@@ -634,8 +641,10 @@ class _VitalsHubBodyState extends State<_VitalsHubBody>
       note: result.note,
     );
     if (mounted) {
-      AppToast.show(context,
-          message: '${vital.label} thresholds updated for ${patient.name}.');
+      AppToast.show(
+        context,
+        message: '${vital.label} thresholds updated for ${patient.name}.',
+      );
     }
   }
 }
@@ -689,11 +698,7 @@ class _VitalsSummaryBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _SummaryChip(
-            icon: AppIcons.vitals,
-            label: countLabel,
-            color: accent,
-          ),
+          _SummaryChip(icon: AppIcons.vitals, label: countLabel, color: accent),
           const SizedBox(width: AppSpacing.xs),
           InkWell(
             onTap: openAlerts > 0 ? onAlertsTap : null,
@@ -707,10 +712,7 @@ class _VitalsSummaryBar extends StatelessWidget {
           ),
           const Spacer(),
           if (refreshing)
-            const McarePulse(
-              size: McarePulseSize.micro,
-              semanticLabel: null,
-            )
+            const McarePulse(size: McarePulseSize.micro, semanticLabel: null)
           else
             _ToolbarIcon(
               icon: AppIcons.refresh,
@@ -941,7 +943,8 @@ class _VitalsFilterStrip extends StatelessWidget {
                     children: [
                       _FilterChip(
                         label: 'All',
-                        selected: datePreset == _DatePreset.all &&
+                        selected:
+                            datePreset == _DatePreset.all &&
                             statusFilter == _AlertStatusFilter.all &&
                             riskFilter == null &&
                             vitalFilter == null,
@@ -964,8 +967,7 @@ class _VitalsFilterStrip extends StatelessWidget {
                         _FilterChip(
                           label: 'Alerts ($newAlertCount)',
                           color: AppColors.critical,
-                          selected:
-                              statusFilter == _AlertStatusFilter.newAlert,
+                          selected: statusFilter == _AlertStatusFilter.newAlert,
                           onTap: onQuickAlerts,
                         ),
                       if (newAlertCount > 0) const SizedBox(width: 6),
@@ -981,9 +983,8 @@ class _VitalsFilterStrip extends StatelessWidget {
                           label: v.shortLabel,
                           color: v.accent,
                           selected: vitalFilter == v,
-                          onTap: () => onVitalChanged(
-                            vitalFilter == v ? null : v,
-                          ),
+                          onTap: () =>
+                              onVitalChanged(vitalFilter == v ? null : v),
                         ),
                       ],
                     ],
@@ -1262,15 +1263,13 @@ class _CompactVitalsRow extends StatelessWidget {
     final pill = hasAlert
         ? (openAlert!.acknowledged ? 'Ack' : 'Alert')
         : reading.risk.label;
-    final pillColor = hasAlert
-        ? AppColors.critical
-        : reading.risk.color;
+    final pillColor = hasAlert ? AppColors.critical : reading.risk.color;
 
     final displayName = patient.name.trim().isNotEmpty
         ? patient.name
         : (reading.patientName?.trim().isNotEmpty == true
-            ? reading.patientName!
-            : 'Patient');
+              ? reading.patientName!
+              : 'Patient');
 
     return StaffListRow(
       icon: reading.vital.icon,

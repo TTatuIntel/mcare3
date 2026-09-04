@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/admin_api.dart';
+import '../../core/realtime/background_session_sync.dart';
+import '../../core/realtime/realtime_refresh_mixin.dart';
 import '../../shared/auth/auth_state.dart';
 import '../../shared/constants/route_names.dart';
+import '../../shared/models/user_role.dart';
 import '../../shared/navigation/staff_destinations.dart';
 import '../../shared/state/staff_state.dart';
 import '../../shared/theme/app_colors.dart';
@@ -26,7 +29,8 @@ class AdminPermissionsView extends StatefulWidget {
   State<AdminPermissionsView> createState() => _AdminPermissionsViewState();
 }
 
-class _AdminPermissionsViewState extends State<AdminPermissionsView> {
+class _AdminPermissionsViewState extends State<AdminPermissionsView>
+    with RealtimeRefreshMixin<AdminPermissionsView> {
   /// permissionGrants[userId] = set of granted keys (loaded from API).
   final Map<String, Set<String>> _permissionGrants = {};
   final Set<String> _loading = {}; // user IDs currently being synced
@@ -51,7 +55,13 @@ class _AdminPermissionsViewState extends State<AdminPermissionsView> {
   @override
   void initState() {
     super.initState();
+    watchRealtime(const {'permissions', 'profile'}, _refreshLivePermissions);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPermissions());
+  }
+
+  Future<void> _refreshLivePermissions() async {
+    await BackgroundSessionSync.refresh(role: UserRole.admin);
+    await _loadPermissions();
   }
 
   Future<void> _loadPermissions() async {

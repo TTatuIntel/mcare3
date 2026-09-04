@@ -89,11 +89,17 @@ void showDoctorEditChartSheet(
                           isExpanded: true,
                           items: const [
                             DropdownMenuItem(
-                                value: 'Male', child: Text('Male')),
+                              value: 'Male',
+                              child: Text('Male'),
+                            ),
                             DropdownMenuItem(
-                                value: 'Female', child: Text('Female')),
+                              value: 'Female',
+                              child: Text('Female'),
+                            ),
                             DropdownMenuItem(
-                                value: 'Other', child: Text('Other')),
+                              value: 'Other',
+                              child: Text('Other'),
+                            ),
                           ],
                           onChanged: (v) {
                             if (v != null) setSheetState(() => sex = v);
@@ -107,10 +113,9 @@ void showDoctorEditChartSheet(
               const SizedBox(height: AppSpacing.md),
               Text(
                 'Clinical risk',
-                style: Theme.of(sheetCtx)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(color: AppPalette.textMuted(context)),
+                style: Theme.of(sheetCtx).textTheme.labelMedium?.copyWith(
+                  color: AppPalette.textMuted(context),
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Wrap(
@@ -143,14 +148,11 @@ void showDoctorEditChartSheet(
                   final healthDelta = <String, dynamic>{};
                   if (condition.text.trim().isNotEmpty &&
                       condition.text.trim() != patient.condition) {
-                    healthDelta['chronic_conditions'] = [
-                      condition.text.trim(),
-                    ];
+                    healthDelta['chronic_conditions'] = [condition.text.trim()];
                   }
                   if (sex != patient.sex) healthDelta['gender'] = sex;
 
-                  final changes =
-                      await StaffState.instance.updatePatientChart(
+                  final changes = await StaffState.instance.updatePatientChart(
                     patientId: patientId,
                     actor: actor.fullName,
                     condition: condition.text,
@@ -162,8 +164,7 @@ void showDoctorEditChartSheet(
                   if (!sheetCtx.mounted) return;
                   Navigator.of(sheetCtx).pop();
                   if (changes.isEmpty) {
-                    AppToast.show(context,
-                        message: 'No changes to save.');
+                    AppToast.show(context, message: 'No changes to save.');
                     return;
                   }
                   // Local notification only in mock mode; with the backend

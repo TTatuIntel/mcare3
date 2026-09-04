@@ -43,6 +43,12 @@ return [
             ],
             'client_options' => [
                 // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // Events publish inline (see App\Events\RealtimeDataChanged),
+                // so a socket server that is down or hung must fail fast
+                // instead of holding the API request that triggered it.
+                // Clients still get the change from the buffer they poll.
+                'timeout' => env('REVERB_PUBLISH_TIMEOUT', 2),
+                'connect_timeout' => env('REVERB_PUBLISH_CONNECT_TIMEOUT', 1),
             ],
         ],
 

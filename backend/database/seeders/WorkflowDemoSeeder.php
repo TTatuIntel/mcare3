@@ -21,6 +21,7 @@ use App\Models\UserInvite;
 use App\Models\UserSetting;
 use App\Models\VitalRangeOverride;
 use App\Models\VitalReportRequest;
+use App\Services\VitalReportIssuer;
 use App\Support\MedicalDocumentFiles;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -262,19 +263,46 @@ class WorkflowDemoSeeder extends Seeder
             ],
         );
 
-        VitalReportRequest::updateOrCreate(
+        $fulfilled = $index % 2 !== 0;
+
+        $vitalRequest = VitalReportRequest::updateOrCreate(
             ['user_id' => $patient->id, 'note' => 'Seeded 30-day trend review'],
             [
                 'range_from' => $now->copy()->subDays(30)->toDateString(),
                 'range_to' => $now->toDateString(),
                 'vitals' => ['bloodPressure', 'heartRate'],
-                'status' => $index % 2 === 0 ? 'pending' : 'fulfilled',
-                'current_responder' => $index % 2 === 0 ? 'doctor' : 'mcareAssistant',
-                'responded_at' => $index % 2 === 0 ? null : $now->copy()->subDay(),
-                'responded_by' => $index % 2 === 0 ? null : 'Dr. '.$doctor->fullName(),
-                'response_note' => $index % 2 === 0 ? null : 'Trends reviewed; continue the current plan.',
+                'status' => $fulfilled ? 'fulfilled' : 'pending',
+                'current_responder' => $fulfilled ? 'mcareAssistant' : 'doctor',
+                'responded_at' => $fulfilled ? $now->copy()->subDay() : null,
+                'responded_by' => $fulfilled ? 'Dr. '.$doctor->fullName() : null,
+                'response_note' => $fulfilled
+                    ? 'Trends reviewed; continue the current plan.'
+                    : null,
+                // Fulfilling is signing. Seeding the status without it produced
+                // a report that rendered "this copy was made before it was
+                // signed" — an unsigned clinical document in the demo.
+                'signed_by_user_id' => $fulfilled ? $doctor->id : null,
+                'signed_by' => $fulfilled ? 'Dr. '.$doctor->fullName() : null,
+                'signed_by_role' => $fulfilled ? 'doctor' : null,
+                'signed_at' => $fulfilled ? $now->copy()->subDay() : null,
             ],
         );
+
+        // A seeded "fulfilled" request used to be a status and nothing else:
+        // the patient was shown a report as ready and had nothing to open,
+        // which is the exact failure the real fulfil path exists to avoid.
+        if ($fulfilled && ! $vitalRequest->document_id) {
+            $document = app(VitalReportIssuer::class)->issue(
+                $vitalRequest,
+                $doctor,
+                'Dr. '.$doctor->fullName(),
+                'Trends reviewed; continue the current plan.',
+            );
+
+            if ($document !== null) {
+                $vitalRequest->update(['document_id' => $document->id]);
+            }
+        }
 
         AppNotification::updateOrCreate(
             ['user_id' => $patient->id, 'title' => 'Care-plan review scheduled'],

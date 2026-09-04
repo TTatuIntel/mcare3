@@ -136,6 +136,30 @@ class VitalsState extends ChangeNotifier {
         .toList();
   }
 
+  /// Readings inside an explicit window, newest first.
+  ///
+  /// [recentReadings] answers "the last N days"; a reader who has picked a
+  /// calendar month or two arbitrary dates is asking a different question, and
+  /// rounding it to a day count would answer a window they did not choose.
+  List<VitalReading> readingsBetween(
+    DateTime from,
+    DateTime to, {
+    Iterable<VitalKey>? vitals,
+  }) {
+    final keys = (vitals ?? _tracked).toSet();
+    final list =
+        _readings
+            .where(
+              (r) =>
+                  keys.contains(r.vital) &&
+                  !r.recordedAt.isBefore(from) &&
+                  !r.recordedAt.isAfter(to),
+            )
+            .toList()
+          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    return List.unmodifiable(list);
+  }
+
   int readingCountInRange(VitalKey k, {int days = 7}) =>
       recentReadings(days: days, vitals: [k]).length;
 

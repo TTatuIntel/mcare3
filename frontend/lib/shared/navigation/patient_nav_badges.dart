@@ -33,8 +33,7 @@ abstract final class PatientNavBadges {
         .dosesForToday()
         .where(
           (d) =>
-              (d.status == DoseStatus.pending &&
-                  !d.scheduledAt.isAfter(now)) ||
+              (d.status == DoseStatus.pending && !d.scheduledAt.isAfter(now)) ||
               d.status == DoseStatus.missed,
         )
         .length;
@@ -43,8 +42,9 @@ abstract final class PatientNavBadges {
   /// Unread messages from the care team.
   static int get care => MessagesState.instance.totalUnread;
 
-  /// Unread notifications. This is the count for the Notifications tile
-  /// itself, which holds nothing but the inbox.
+  /// Unread notifications. The header bell owns this count on every patient
+  /// screen; the More tab no longer carries a Notifications tile, so it no
+  /// longer carries this number either.
   static int get inbox => NotificationState.instance.unreadCount;
 
   /// Sharing requests the patient has neither approved nor declined. These
@@ -52,8 +52,15 @@ abstract final class PatientNavBadges {
   /// from the inbox and never fall off it once the notification is read.
   static int get sharingRequests => ReportConsentsState.instance.awaitingCount;
 
-  /// The More tab covers both surfaces behind it, so its badge is the sum.
-  static int get more => inbox + sharingRequests;
+  /// Reports waiting on the patient — the only thing behind the More tab with
+  /// nowhere else to announce itself.
+  ///
+  /// It used to add [inbox] on top. That double-counted: the bell in the
+  /// header shows the unread count on every screen including this tab, so an
+  /// unread notification badged the tab for a room the patient could already
+  /// see the door to, and the tab stayed lit after they had read it from the
+  /// bell.
+  static int get more => sharingRequests;
 
   /// Count for [route], or 0 when that tab has nothing outstanding. Home is
   /// deliberately never badged: it is where everything is already summarised.

@@ -38,7 +38,9 @@ class ProfileService {
     if (firstName.trim() != user.firstName) changes.add('First name');
     if (lastName.trim() != user.lastName) changes.add('Last name');
     if (phone.trim() != (user.phone ?? '')) changes.add('Phone');
-    if (isDoctor && specialty != null && specialty.trim() != (user.specialty ?? '')) {
+    if (isDoctor &&
+        specialty != null &&
+        specialty.trim() != (user.specialty ?? '')) {
       changes.add('Specialty');
     }
     if (isDoctor &&
@@ -97,8 +99,7 @@ class ProfileService {
     final prev = ProfileState.instance.health;
     await PatientSessionService.instance.updateHealth(health);
 
-    final fields = changedFields ??
-        _diffHealth(prev, health);
+    final fields = changedFields ?? _diffHealth(prev, health);
     if (fields.isEmpty) return;
 
     _notifyProfileChange(
@@ -117,14 +118,17 @@ class ProfileService {
     final health = ProfileState.instance.health;
     if (health == null) return;
 
-    await PatientSessionService.instance
-        .updateHealth(health, assignedVitals: assignedVitals);
+    await PatientSessionService.instance.updateHealth(
+      health,
+      assignedVitals: assignedVitals,
+    );
 
     _notifyProfileChange(
       editor: editor,
       patient: AuthState.instance.user!,
       changedFields: ['Monitoring plan'],
-      summary: '${assignedVitals.length} vital'
+      summary:
+          '${assignedVitals.length} vital'
           '${assignedVitals.length == 1 ? '' : 's'} monitored',
     );
   }
@@ -214,7 +218,8 @@ class ProfileService {
     if (prev.heightCm != next.heightCm) changes.add('Height');
     if (prev.weightKg != next.weightKg) changes.add('Weight');
     if (prev.address != next.address) changes.add('Address');
-    if (prev.allergies.join() != next.allergies.join()) changes.add('Allergies');
+    if (prev.allergies.join() != next.allergies.join())
+      changes.add('Allergies');
     if (prev.chronicConditions.join() != next.chronicConditions.join()) {
       changes.add('Conditions');
     }
@@ -276,8 +281,7 @@ class ProfileService {
           id: 'profile_patient_${now.millisecondsSinceEpoch}',
           kind: NotificationKind.profile,
           title: 'Profile updated by $editorLabel',
-          body:
-              '${editor.role.label} updated your profile: $summary',
+          body: '${editor.role.label} updated your profile: $summary',
           createdAt: now,
           actionRoute: RouteNames.patientProfile,
         ),
@@ -287,8 +291,7 @@ class ProfileService {
           id: 'profile_staff_${now.millisecondsSinceEpoch}',
           kind: NotificationKind.profile,
           title: 'Patient profile edited',
-          body:
-              '$editorLabel updated ${patient.fullName}: $summary',
+          body: '$editorLabel updated ${patient.fullName}: $summary',
           createdAt: now,
           read: true,
           actionRoute: RouteNames.patientProfile,

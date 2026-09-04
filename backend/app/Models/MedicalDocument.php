@@ -23,13 +23,31 @@ class MedicalDocument extends Model
         'description',
         'shared_with_doctor_id',
         'uploaded_at',
+        'source',
+        'issued_report_id',
+        'clinical_report_id',
+        'removal_requested_at',
+        'removal_reason',
+        'removal_declined_at',
+        'removal_declined_reason',
     ];
+
+    /** Uploaded by the patient themselves. Their file, theirs to remove. */
+    public const SOURCE_PATIENT = 'patient';
+
+    /** Filed by a doctor or admin. Part of the clinical record. */
+    public const SOURCE_CLINICIAN = 'clinician';
+
+    /** A report issued from the record after consent. Never removable. */
+    public const SOURCE_REPORT = 'report';
 
     protected function casts(): array
     {
         return [
             'uploaded_at' => 'datetime',
             'size_bytes' => 'integer',
+            'removal_requested_at' => 'datetime',
+            'removal_declined_at' => 'datetime',
         ];
     }
 
@@ -46,14 +64,20 @@ class MedicalDocument extends Model
         return $this->belongsTo(User::class, 'shared_with_doctor_id');
     }
 
-<<<<<<< Updated upstream
-=======
     /**
      * The report request this document is the patient's copy of.
      */
     public function issuedReport(): BelongsTo
     {
         return $this->belongsTo(PatientReportRequest::class, 'issued_report_id');
+    }
+
+    /**
+     * The published clinical report this document is the patient's copy of.
+     */
+    public function clinicalReport(): BelongsTo
+    {
+        return $this->belongsTo(ClinicalReport::class, 'clinical_report_id');
     }
 
     /**
@@ -174,7 +198,6 @@ class MedicalDocument extends Model
      *
      * @return array<string, mixed>
      */
->>>>>>> Stashed changes
     public function toApiArray(): array
     {
         return [
@@ -195,15 +218,18 @@ class MedicalDocument extends Model
             'shared_with_doctor_id' => $this->shared_with_doctor_id
                 ? (string) $this->shared_with_doctor_id
                 : null,
-<<<<<<< Updated upstream
-            'has_file' => $hasFile,
-=======
             'has_file' => MedicalDocumentFiles::exists($this->storage_path),
             // Lets the app hide a delete control it would only be refused on,
             // and label where a document came from.
             'source' => $this->source ?? self::SOURCE_PATIENT,
             'issued_report_id' => $this->issued_report_id
                 ? (string) $this->issued_report_id
+                : null,
+            // Lets the app open the exact document a "New clinical report"
+            // notification is about, rather than dropping the reader at the
+            // top of their documents list to go hunting for it.
+            'clinical_report_id' => $this->clinical_report_id
+                ? (string) $this->clinical_report_id
                 : null,
         ] + $this->removalApiArray();
     }
@@ -224,7 +250,6 @@ class MedicalDocument extends Model
             'removal_declined_at' => $this->removal_declined_at?->toIso8601String(),
             'removal_declined_reason' => $this->removal_declined_reason,
             'can_request_removal' => $this->canRequestRemoval(),
->>>>>>> Stashed changes
         ];
     }
 }

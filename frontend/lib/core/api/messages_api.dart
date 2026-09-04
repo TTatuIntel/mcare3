@@ -1,4 +1,5 @@
 import '../../shared/models/message.dart';
+import '../../shared/auth/auth_state.dart';
 import '../env/app_env.dart';
 import 'api_client.dart';
 import 'patient_domain_mapper.dart';
@@ -17,7 +18,7 @@ class MessagesApi {
         .map(
           (e) => PatientDomainMapper.messageFromApi(
             e as Map<String, dynamic>,
-            currentUserId: null,
+            currentUserId: AuthState.instance.user?.id,
           ),
         )
         .toList();
@@ -31,7 +32,10 @@ class MessagesApi {
     );
     final json = res['data']?['message'] as Map<String, dynamic>?;
     if (json == null) return null;
-    return PatientDomainMapper.messageFromApi(json);
+    return PatientDomainMapper.messageFromApi(
+      json,
+      currentUserId: AuthState.instance.user?.id,
+    );
   }
 
   Future<bool> markRead(String conversationId) async {

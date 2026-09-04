@@ -9,8 +9,6 @@ enum DocumentCategory {
   imaging,
   discharge,
   consultationNote,
-<<<<<<< Updated upstream
-=======
 
   /// Issued by the care team from a vital report request. Its own category
   /// rather than "other" because it is the one document a patient goes looking
@@ -25,7 +23,6 @@ enum DocumentCategory {
   report,
   referral,
   insurance,
->>>>>>> Stashed changes
   other,
 }
 
@@ -36,13 +33,10 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => 'Imaging',
     DocumentCategory.discharge => 'Discharge',
     DocumentCategory.consultationNote => 'Consultation note',
-<<<<<<< Updated upstream
-=======
     DocumentCategory.vitalReport => 'Vital report',
     DocumentCategory.report => 'Medical report',
     DocumentCategory.referral => 'Referral',
     DocumentCategory.insurance => 'Insurance',
->>>>>>> Stashed changes
     DocumentCategory.other => 'Other',
   };
 
@@ -52,13 +46,10 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppColors.bpPurple,
     DocumentCategory.discharge => AppColors.doctorGreen,
     DocumentCategory.consultationNote => AppColors.info,
-<<<<<<< Updated upstream
-=======
     DocumentCategory.vitalReport => AppColors.brandIndigo,
     DocumentCategory.report => AppColors.brandIndigo,
     DocumentCategory.referral => AppColors.tempTeal,
     DocumentCategory.insurance => AppColors.adminPurple,
->>>>>>> Stashed changes
     DocumentCategory.other => AppColors.weightSlate,
   };
 
@@ -68,13 +59,10 @@ extension DocumentCategoryX on DocumentCategory {
     DocumentCategory.imaging => AppIcons.image,
     DocumentCategory.discharge => AppIcons.nurse,
     DocumentCategory.consultationNote => AppIcons.report,
-<<<<<<< Updated upstream
-=======
     DocumentCategory.vitalReport => AppIcons.vitals,
     DocumentCategory.report => AppIcons.report,
     DocumentCategory.referral => AppIcons.send,
     DocumentCategory.insurance => AppIcons.approval,
->>>>>>> Stashed changes
     DocumentCategory.other => AppIcons.document,
   };
 }
@@ -108,6 +96,23 @@ extension DocumentFileTypeX on DocumentFileType {
   };
 }
 
+/// Where a document came from, which is what decides whether it can be
+/// removed. A file the patient uploaded is theirs to delete; anything a
+/// clinician filed is part of the clinical record, and an issued report is the
+/// evidence of a disclosure they consented to. Neither of those goes away.
+enum DocumentSource { patient, clinician, report }
+
+extension DocumentSourceX on DocumentSource {
+  bool get isDeletable => this == DocumentSource.patient;
+
+  /// Shown where the document came from matters to the reader.
+  String? get badge => switch (this) {
+    DocumentSource.patient => null,
+    DocumentSource.clinician => 'From your care team',
+    DocumentSource.report => 'Issued report',
+  };
+}
+
 class MedicalDocument {
   const MedicalDocument({
     required this.id,
@@ -120,19 +125,17 @@ class MedicalDocument {
     this.description,
     this.sharedWithDoctorId,
     this.hasFile = true,
-<<<<<<< Updated upstream
-=======
     this.mimeType,
     this.downloadName,
     this.source = DocumentSource.patient,
     this.issuedReportId,
+    this.clinicalReportId,
     this.removalRequested = false,
     this.removalRequestedAt,
     this.removalReason,
     this.removalDeclinedAt,
     this.removalDeclinedReason,
     this.canRequestRemoval = false,
->>>>>>> Stashed changes
   });
 
   final String id;
@@ -146,8 +149,6 @@ class MedicalDocument {
   final String? sharedWithDoctorId;
   final bool hasFile;
 
-<<<<<<< Updated upstream
-=======
   /// What the stored file actually is, as recorded by the server when it was
   /// uploaded or generated.
   ///
@@ -168,6 +169,11 @@ class MedicalDocument {
 
   /// Set when this document is the copy of an issued report.
   final String? issuedReportId;
+
+  /// Set when this document is the copy of a published clinical report. Lets a
+  /// "New clinical report" notification open the right document instead of
+  /// dropping the reader at the top of their list to go hunting.
+  final String? clinicalReportId;
 
   /// The patient has asked for this to be taken out and staff have not
   /// answered yet.
@@ -194,7 +200,6 @@ class MedicalDocument {
   bool get isRemovableByStaff =>
       source == DocumentSource.clinician && removalRequested;
 
->>>>>>> Stashed changes
   String get sizeLabel {
     if (sizeBytes < 1024) return '$sizeBytes B';
     if (sizeBytes < 1024 * 1024) {
@@ -214,19 +219,17 @@ class MedicalDocument {
     String? description,
     String? sharedWithDoctorId,
     bool? hasFile,
-<<<<<<< Updated upstream
-=======
     String? mimeType,
     String? downloadName,
     DocumentSource? source,
     String? issuedReportId,
+    String? clinicalReportId,
     bool? removalRequested,
     DateTime? removalRequestedAt,
     String? removalReason,
     DateTime? removalDeclinedAt,
     String? removalDeclinedReason,
     bool? canRequestRemoval,
->>>>>>> Stashed changes
   }) {
     return MedicalDocument(
       id: id ?? this.id,
@@ -239,12 +242,11 @@ class MedicalDocument {
       description: description ?? this.description,
       sharedWithDoctorId: sharedWithDoctorId ?? this.sharedWithDoctorId,
       hasFile: hasFile ?? this.hasFile,
-<<<<<<< Updated upstream
-=======
       mimeType: mimeType ?? this.mimeType,
       downloadName: downloadName ?? this.downloadName,
       source: source ?? this.source,
       issuedReportId: issuedReportId ?? this.issuedReportId,
+      clinicalReportId: clinicalReportId ?? this.clinicalReportId,
       removalRequested: removalRequested ?? this.removalRequested,
       removalRequestedAt: removalRequestedAt ?? this.removalRequestedAt,
       removalReason: removalReason ?? this.removalReason,
@@ -252,7 +254,6 @@ class MedicalDocument {
       removalDeclinedReason:
           removalDeclinedReason ?? this.removalDeclinedReason,
       canRequestRemoval: canRequestRemoval ?? this.canRequestRemoval,
->>>>>>> Stashed changes
     );
   }
 }

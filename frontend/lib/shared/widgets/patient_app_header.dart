@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../utils/time_greeting.dart';
-import '../auth/sign_out_action.dart';
 import '../widgets/app_icons.dart';
 import '../navigation/navigation_roots.dart';
 import '../auth/auth_state.dart';
@@ -105,14 +104,6 @@ class PatientAppHeader extends StatelessWidget implements PreferredSizeWidget {
               if (actions != null && !onPrimaryHome) ...actions!,
               const MessagesButton(),
               const NotificationBell(),
-              IconButton(
-                splashRadius: 28,
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                tooltip: 'Sign out',
-                onPressed: () => confirmAndSignOut(context),
-                icon: const Icon(AppIcons.logout, size: 28),
-              ),
             ],
           ),
         ),
@@ -160,7 +151,7 @@ class _Avatar extends StatelessWidget {
         width: 42,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [accent, accent.withValues(alpha: 0.7)],
+            colors: [accent, accent.withOpacity(0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

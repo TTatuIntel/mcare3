@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClinicalReport;
+use App\Support\ClinicalReportPublisher;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\PatientChartService;
@@ -86,6 +87,13 @@ class PatientChartController extends Controller
             'published' => $publish,
             'published_at' => $publish ? now() : null,
         ]);
+
+        // "Shared" has to mean the patient can actually read it. Without this
+        // a note published from the chart reached them nowhere at all — no
+        // document, and not even a notification.
+        if ($publish) {
+            ClinicalReportPublisher::publish($note, $actor->fullName());
+        }
 
         $this->audit->record(
             $actor,

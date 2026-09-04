@@ -514,7 +514,14 @@ class _UrgentActionButtonState extends State<_UrgentActionButton> {
     return null;
   }
 
-  Future<bool> _acknowledge(UrgentItem item) async {
+  /// Marks the case as being worked.
+  ///
+  /// [silent] is used when acknowledgement is a step on the way to resolving
+  /// rather than the action someone asked for: it still has to be recorded —
+  /// resolving does not write `acknowledged_by`, and a second responder needs
+  /// to see the case is already being handled — but announcing it would be
+  /// narrating a step the responder did not choose.
+  Future<bool> _acknowledge(UrgentItem item, {bool silent = false}) async {
     final ok = item.alert != null
         ? await StaffState.instance.acknowledgeAlert(item.alert!.id)
         : await StaffState.instance.updateSosForCurrentRole(
@@ -522,6 +529,7 @@ class _UrgentActionButtonState extends State<_UrgentActionButton> {
             status: 'acknowledged',
           );
     if (!mounted) return false;
+    if (silent) return ok;
     if (ok) {
       AppToast.success(
         context,
@@ -559,6 +567,14 @@ class _UrgentActionButtonState extends State<_UrgentActionButton> {
       return;
     }
     if (item.alert != null) {
+      // Record that it was seen before opening the outcome sheet. Resolving
+      // does not write acknowledgement itself, so going straight to resolve
+      // would lose who picked the alert up — and leave a concurrent responder
+      // thinking nobody had.
+      if (!item.acknowledged) {
+        await _acknowledge(item, silent: true);
+        if (!mounted) return;
+      }
       await DoctorAlertResolveFlow.resolve(context, item.alert!);
     }
   });
@@ -581,23 +597,18 @@ class _UrgentActionButtonState extends State<_UrgentActionButton> {
           );
         }
 
-        if (!item.acknowledged) {
-          return AppButton(
-            label: item.isSos ? 'Respond now' : 'Acknowledge alert',
-            icon: item.isSos ? AppIcons.sos : AppIcons.checkMark,
-            variant: AppButtonVariant.danger,
-            expand: true,
-            loading: _busy,
-            onPressed: _busy
-                ? null
-                : () => item.isSos
-                      ? _finish(item)
-                      : _run(() => _acknowledge(item)),
-          );
-        }
-
+        // One action, and it is the one that closes the case. Offering
+        // "acknowledge" first made the common path two taps and left the alert
+        // open after the responder had already dealt with it — the queue then
+        // showed work that was finished. Acknowledgement still happens, as a
+        // step inside resolving rather than a button of its own.
+        //
+        // Labels stay short deliberately: these render two to a row on a
+        // phone, where "Acknowledge alert" clipped to "Acknowled…".
         return AppButton(
-          label: item.isSos ? 'Continue response' : 'Resolve alert',
+          label: item.isSos
+              ? (item.acknowledged ? 'Continue' : 'Respond')
+              : 'Resolve',
           icon: item.isSos ? AppIcons.sos : AppIcons.check,
           variant: AppButtonVariant.danger,
           expand: true,

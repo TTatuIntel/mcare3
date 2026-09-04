@@ -84,7 +84,7 @@ class MedicalDocumentFiles
     {
         return $request->validate([
             'title' => 'required|string|max:200',
-            'category' => 'required|string|in:labResult,prescription,imaging,discharge,consultationNote,other',
+            'category' => 'required|string|in:'.DocumentCategories::rule(),
             'file_type' => 'required|string|in:pdf,image,doc,other',
             'description' => 'nullable|string',
             'shared_with_doctor_id' => 'nullable|exists:users,id',
@@ -98,7 +98,7 @@ class MedicalDocumentFiles
     {
         return $request->validate([
             'title' => 'sometimes|string|max:200',
-            'category' => 'sometimes|string|in:labResult,prescription,imaging,discharge,consultationNote,other',
+            'category' => 'sometimes|string|in:'.DocumentCategories::rule(),
             'file_type' => 'sometimes|string|in:pdf,image,doc,other',
             'description' => 'nullable|string',
             'file' => 'nullable|file|max:'.self::maxUploadKilobytes()
@@ -319,8 +319,6 @@ class MedicalDocumentFiles
         ];
     }
 
-<<<<<<< Updated upstream
-=======
     /**
      * Writes content the server generated — as opposed to a file someone
      * uploaded — into the same private store, and returns the same shape the
@@ -367,7 +365,6 @@ class MedicalDocumentFiles
         return $name === '' ? 'document' : (string) Str::limit($name, 120, '');
     }
 
->>>>>>> Stashed changes
     public static function privateDiskName(): string
     {
         return (string) config('mcare.private_disk', 'local');

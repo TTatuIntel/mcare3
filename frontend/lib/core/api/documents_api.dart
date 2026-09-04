@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 
 import '../../shared/models/document.dart';
+import '../../shared/auth/auth_state.dart';
+import '../../shared/models/user_role.dart';
 import '../env/app_env.dart';
 import 'api_client.dart';
 import 'multipart_file_builder.dart';
@@ -23,8 +25,6 @@ class DocumentsApi {
   DocumentsApi._();
   static final DocumentsApi instance = DocumentsApi._();
 
-<<<<<<< Updated upstream
-=======
   /// Base path for acting on a patient's documents.
   ///
   /// [patientUserId] null means the signed-in patient's own record. Otherwise
@@ -43,7 +43,6 @@ class DocumentsApi {
         : '/doctor/patients/$patientUserId/documents';
   }
 
->>>>>>> Stashed changes
   String patientStreamPath(String documentId) =>
       '/patient/documents/$documentId/stream';
 
@@ -52,8 +51,6 @@ class DocumentsApi {
     required String documentId,
   }) => '/doctor/patients/$patientUserId/documents/$documentId/stream';
 
-<<<<<<< Updated upstream
-=======
   /// The signed-in patient's own documents.
   ///
   /// Everything used to arrive through the one session payload, so a document
@@ -91,7 +88,6 @@ class DocumentsApi {
         .toList();
   }
 
->>>>>>> Stashed changes
   Future<Uint8List> fetchBytes({
     required String documentId,
     String? patientUserId,
@@ -178,35 +174,6 @@ class DocumentsApi {
     return true;
   }
 
-<<<<<<< Updated upstream
-  Future<String?> downloadUrl(String id) async {
-    if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.get('/patient/documents/$id/download');
-    return res['data']?['url'] as String?;
-  }
-
-  Future<MedicalDocument?> uploadForPatient({
-    required String patientUserId,
-    required PlatformFile file,
-    required String title,
-    required DocumentCategory category,
-    required DocumentFileType fileType,
-    String? description,
-  }) async {
-    if (!AppEnv.backendEnabled) return null;
-    final fields = PatientDomainMapper.documentMetaToApi(
-      title: title,
-      category: category,
-      fileType: fileType,
-      description: description,
-    ).map((k, v) => MapEntry(k, v.toString()));
-
-    final multipart = await MultipartFileBuilder.fromPlatformFile(file);
-    final res = await ApiClient.instance.postMultipart(
-      '/doctor/patients/$patientUserId/documents',
-      fields: fields,
-      files: [multipart],
-=======
   /// Ask the care team to take a clinician-filed document out of the record.
   ///
   /// The patient cannot delete one themselves and should not be able to, but a
@@ -286,62 +253,9 @@ class DocumentsApi {
       url: data?['url'] as String?,
       downloadName: data?['download_name'] as String?,
       mimeType: data?['mime_type'] as String?,
->>>>>>> Stashed changes
     );
   }
 
-<<<<<<< Updated upstream
-  Future<MedicalDocument?> doctorUpdate({
-    required String patientUserId,
-    required String documentId,
-    String? title,
-    DocumentCategory? category,
-    DocumentFileType? fileType,
-    String? description,
-    PlatformFile? file,
-  }) async {
-    if (!AppEnv.backendEnabled) return null;
-    final fields = <String, String>{};
-    if (title != null) fields['title'] = title;
-    if (category != null) fields['category'] = category.name;
-    if (fileType != null) fields['file_type'] = fileType.name;
-    if (description != null) fields['description'] = description;
-
-    final files = file == null
-        ? <http.MultipartFile>[]
-        : [await MultipartFileBuilder.fromPlatformFile(file)];
-
-    final res = await ApiClient.instance.patchMultipart(
-      '/doctor/patients/$patientUserId/documents/$documentId',
-      fields: fields,
-      files: files,
-    );
-    final json = res['data']?['document'] as Map<String, dynamic>?;
-    if (json == null) return null;
-    return PatientDomainMapper.documentFromApi(json);
-  }
-
-  Future<String?> doctorDownloadUrl({
-    required String patientUserId,
-    required String documentId,
-  }) async {
-    if (!AppEnv.backendEnabled) return null;
-    final res = await ApiClient.instance.get(
-      '/doctor/patients/$patientUserId/documents/$documentId/download',
-    );
-    return res['data']?['url'] as String?;
-  }
-
-  Future<bool> doctorDelete({
-    required String patientUserId,
-    required String documentId,
-  }) async {
-    if (!AppEnv.backendEnabled) return false;
-    await ApiClient.instance.delete(
-      '/doctor/patients/$patientUserId/documents/$documentId',
-    );
-    return true;
-=======
   /// Answers a patient's document request with the file, closing the request
   /// in the same call.
   ///
@@ -384,6 +298,5 @@ class DocumentsApi {
           : PatientDomainMapper.documentFromApi(docJson),
       request: (res['data']?['request'] as Map?)?.cast<String, dynamic>(),
     );
->>>>>>> Stashed changes
   }
 }

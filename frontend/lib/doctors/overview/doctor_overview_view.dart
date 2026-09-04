@@ -40,7 +40,8 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
       profileRoute: RouteNames.doctorProfile,
       notificationsRoute: RouteNames.doctorNotifications,
       title: 'Overview',
-      subtitle: 'Caseload analytics · ${DateFormat.MMMEd().format(DateTime.now())}',
+      subtitle:
+          'Caseload analytics · ${DateFormat.MMMEd().format(DateTime.now())}',
       headerActions: [
         AppButton(
           label: 'Report',
@@ -68,8 +69,9 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
           final alerts = StaffState.instance.alerts
               .where((a) => ids.contains(a.patientId))
               .toList();
-          final alertSummary =
-              StaffState.instance.caseloadAlertSummary(patientIds: ids);
+          final alertSummary = StaffState.instance.caseloadAlertSummary(
+            patientIds: ids,
+          );
           final critical = alertSummary.criticalCount;
           final readings = StaffState.instance.patientVitalReadings
               .where((r) => ids.contains(r.patientId))
@@ -82,10 +84,12 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
               .toList();
 
           final attention = assigned
-              .where((p) =>
-                  p.risk == RiskLevel.critical ||
-                  p.risk == RiskLevel.warning ||
-                  p.unreadAlerts > 0)
+              .where(
+                (p) =>
+                    p.risk == RiskLevel.critical ||
+                    p.risk == RiskLevel.warning ||
+                    p.unreadAlerts > 0,
+              )
               .length;
           final stable = assigned.length - attention;
 
@@ -107,22 +111,25 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
                           : '$stable stable',
                       icon: AppIcons.patients,
                       accent: accent,
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.doctorPatients),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorPatients),
                     ),
                     StaffStatCardData(
                       value: '$attention',
                       label: 'Need attention',
-                      detail:
-                          critical > 0 ? '$critical critical' : 'No critical',
+                      detail: critical > 0
+                          ? '$critical critical'
+                          : 'No critical',
                       icon: AppIcons.alert,
                       accent: critical > 0
                           ? AppColors.critical
                           : (attention > 0
-                              ? AppColors.warning
-                              : AppPalette.textMuted(context)),
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.doctorPatients),
+                                ? AppColors.warning
+                                : AppPalette.textMuted(context)),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorPatients),
                     ),
                     StaffStatCardData(
                       value: '${alertSummary.openCount}',
@@ -145,10 +152,11 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
                       accent: adherence >= 70
                           ? AppColors.success
                           : (adherence >= 40
-                              ? AppColors.warning
-                              : AppPalette.textMuted(context)),
-                      onTap: () => Navigator.of(context)
-                          .pushNamed(RouteNames.doctorVitals),
+                                ? AppColors.warning
+                                : AppPalette.textMuted(context)),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pushNamed(RouteNames.doctorVitals),
                     ),
                   ],
                 ),
@@ -160,8 +168,8 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
                   title: 'Alert frequency · last $_alertWindowDays days',
                   icon: AppIcons.trend,
                   actionLabel: 'View alerts',
-                  onAction: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorAlerts),
+                  onAction: () =>
+                      Navigator.of(context).pushNamed(RouteNames.doctorAlerts),
                 ),
               ),
               StaggeredEntry(
@@ -169,8 +177,7 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
                 child: _AlertFrequencyCard(
                   alerts: alerts,
                   windowDays: _alertWindowDays,
-                  onWindowChanged: (d) =>
-                      setState(() => _alertWindowDays = d),
+                  onWindowChanged: (d) => setState(() => _alertWindowDays = d),
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
@@ -180,8 +187,9 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
                   title: 'Condition distribution',
                   icon: AppIcons.chart,
                   actionLabel: 'Patients',
-                  onAction: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorPatients),
+                  onAction: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.doctorPatients),
                 ),
               ),
               StaggeredEntry(
@@ -213,8 +221,9 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
                   title: 'Risk by patient',
                   icon: AppIcons.patients,
                   actionLabel: 'Open caseload',
-                  onAction: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorPatients),
+                  onAction: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.doctorPatients),
                 ),
               ),
               StaggeredEntry(
@@ -238,7 +247,9 @@ class _DoctorOverviewViewState extends State<DoctorOverviewView> {
   }
 
   double _adherenceFor(
-      List<StaffPatient> patients, List<StaffPatientVitalReading> readings) {
+    List<StaffPatient> patients,
+    List<StaffPatientVitalReading> readings,
+  ) {
     if (patients.isEmpty) return 0;
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     final active = readings
@@ -264,8 +275,11 @@ class _AlertFrequencyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final start = DateTime(today.year, today.month, today.day)
-        .subtract(Duration(days: windowDays - 1));
+    final start = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(Duration(days: windowDays - 1));
     final counts = List<int>.filled(windowDays, 0);
     for (final a in alerts) {
       final d = a.createdAt;
@@ -283,10 +297,9 @@ class _AlertFrequencyCard extends StatelessWidget {
     final labelStep = windowDays <= 7
         ? 1
         : windowDays <= 14
-            ? 2
-            : 5;
-    final barWidth =
-        windowDays <= 7 ? 14.0 : (windowDays <= 14 ? 10.0 : 6.0);
+        ? 2
+        : 5;
+    final barWidth = windowDays <= 7 ? 14.0 : (windowDays <= 14 ? 10.0 : 6.0);
 
     return GlassCard(
       frosted: true,
@@ -309,15 +322,11 @@ class _AlertFrequencyCard extends StatelessWidget {
                   children: [
                     _MetricChip(label: 'Total', value: '$total'),
                     _MetricChip(label: 'Peak', value: '$peak / day'),
-                    _MetricChip(
-                        label: 'Avg', value: avg.toStringAsFixed(1)),
+                    _MetricChip(label: 'Avg', value: avg.toStringAsFixed(1)),
                   ],
                 ),
               ),
-              _WindowSelector(
-                value: windowDays,
-                onChanged: onWindowChanged,
-              ),
+              _WindowSelector(value: windowDays, onChanged: onWindowChanged),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -337,8 +346,7 @@ class _AlertFrequencyCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     getTooltipItem: (group, _, rod, __) {
-                      final d =
-                          start.add(Duration(days: group.x.toInt()));
+                      final d = start.add(Duration(days: group.x.toInt()));
                       final n = rod.toY.toInt();
                       return BarTooltipItem(
                         '${DateFormat.MMMd().format(d)}\n$n ${n == 1 ? 'alert' : 'alerts'}',
@@ -354,8 +362,7 @@ class _AlertFrequencyCard extends StatelessWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval:
-                      maxY <= 2 ? 1 : (maxY / 4).ceilToDouble(),
+                  horizontalInterval: maxY <= 2 ? 1 : (maxY / 4).ceilToDouble(),
                   getDrawingHorizontalLine: (_) => FlLine(
                     color: AppPalette.textMuted(context).withOpacity(0.15),
                     strokeWidth: 1,
@@ -364,9 +371,11 @@ class _AlertFrequencyCard extends StatelessWidget {
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -387,8 +396,7 @@ class _AlertFrequencyCard extends StatelessWidget {
                       reservedSize: 22,
                       getTitlesWidget: (value, _) {
                         final idx = value.toInt();
-                        if (idx % labelStep != 0 &&
-                            idx != windowDays - 1) {
+                        if (idx % labelStep != 0 && idx != windowDays - 1) {
                           return const SizedBox.shrink();
                         }
                         final d = start.add(Duration(days: idx));
@@ -418,12 +426,13 @@ class _AlertFrequencyCard extends StatelessWidget {
                           toY: counts[i].toDouble(),
                           width: barWidth,
                           borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(4)),
+                            top: Radius.circular(4),
+                          ),
                           color: counts[i] >= 4
                               ? AppColors.critical
                               : counts[i] >= 2
-                                  ? AppColors.warning
-                                  : accent,
+                              ? AppColors.warning
+                              : accent,
                         ),
                       ],
                     ),
@@ -454,14 +463,9 @@ class _WindowSelector extends StatelessWidget {
             onTap: () => onChanged(opt),
             borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: opt == value
-                    ? accent
-                    : accent.withOpacity(0.08),
+                color: opt == value ? accent : accent.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
               ),
               child: Text(
@@ -491,17 +495,11 @@ class _MetricChip extends StatelessWidget {
       children: [
         Text(
           '$label ',
-          style: TextStyle(
-            color: AppPalette.textMuted(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: AppPalette.textMuted(context), fontSize: 11),
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
         ),
       ],
     );
@@ -540,8 +538,8 @@ class _ConditionBreakdownCard extends StatelessWidget {
         children: [
           for (var i = 0; i < entries.length; i++) ...[
             InkWell(
-              onTap: () => Navigator.of(context)
-                  .pushNamed(RouteNames.doctorPatients),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(RouteNames.doctorPatients),
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -597,8 +595,7 @@ class _ConditionBreakdownCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (i < entries.length - 1)
-              const SizedBox(height: AppSpacing.sm),
+            if (i < entries.length - 1) const SizedBox(height: AppSpacing.sm),
           ],
         ],
       ),
@@ -630,8 +627,8 @@ class _WorkloadCard extends StatelessWidget {
               value: '$appointments',
               icon: AppIcons.appointment,
               accent: theme.colorScheme.primary,
-              onTap: () => Navigator.of(context)
-                  .pushNamed(RouteNames.doctorVisits),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(RouteNames.doctorVisits),
             ),
           ),
           Container(
@@ -645,8 +642,8 @@ class _WorkloadCard extends StatelessWidget {
               value: '$reports',
               icon: AppIcons.report,
               accent: AppColors.spo2Blue,
-              onTap: () => Navigator.of(context)
-                  .pushNamed(RouteNames.doctorReports),
+              onTap: () =>
+                  Navigator.of(context).pushNamed(RouteNames.doctorReports),
             ),
           ),
           Container(
@@ -660,8 +657,9 @@ class _WorkloadCard extends StatelessWidget {
               value: '$prescriptions',
               icon: AppIcons.prescription,
               accent: AppColors.glucoseAmber,
-              onTap: () => Navigator.of(context)
-                  .pushNamed(RouteNames.doctorPrescriptions),
+              onTap: () => Navigator.of(
+                context,
+              ).pushNamed(RouteNames.doctorPrescriptions),
             ),
           ),
         ],
@@ -720,14 +718,10 @@ class _RiskDistributionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final critical =
-        patients.where((p) => p.risk == RiskLevel.critical).length;
-    final warning =
-        patients.where((p) => p.risk == RiskLevel.warning).length;
-    final normal =
-        patients.where((p) => p.risk == RiskLevel.normal).length;
-    final unknown =
-        patients.where((p) => p.risk == RiskLevel.unknown).length;
+    final critical = patients.where((p) => p.risk == RiskLevel.critical).length;
+    final warning = patients.where((p) => p.risk == RiskLevel.warning).length;
+    final normal = patients.where((p) => p.risk == RiskLevel.normal).length;
+    final unknown = patients.where((p) => p.risk == RiskLevel.unknown).length;
     final total = patients.length.toDouble();
     if (total == 0) return const SizedBox.shrink();
 
@@ -737,8 +731,8 @@ class _RiskDistributionCard extends StatelessWidget {
       child: Column(
         children: [
           InkWell(
-            onTap: () => Navigator.of(context)
-                .pushNamed(RouteNames.doctorPatients),
+            onTap: () =>
+                Navigator.of(context).pushNamed(RouteNames.doctorPatients),
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             child: SizedBox(
               height: 160,
@@ -809,26 +803,26 @@ class _RiskDistributionCard extends StatelessWidget {
             children: [
               if (critical > 0)
                 InkWell(
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorPatients),
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusPill),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.doctorPatients),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   child: const RiskBadge(risk: RiskLevel.critical),
                 ),
               if (warning > 0)
                 InkWell(
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorPatients),
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusPill),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.doctorPatients),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   child: const RiskBadge(risk: RiskLevel.warning),
                 ),
               if (normal > 0)
                 InkWell(
-                  onTap: () => Navigator.of(context)
-                      .pushNamed(RouteNames.doctorPatients),
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusPill),
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.doctorPatients),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   child: const RiskBadge(risk: RiskLevel.normal),
                 ),
             ],

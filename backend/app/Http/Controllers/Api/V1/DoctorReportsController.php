@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\AppNotification;
 use App\Models\ClinicalReport;
+use App\Support\ClinicalReportPublisher;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -46,7 +46,7 @@ class DoctorReportsController extends Controller
         ]);
 
         if ($publish) {
-            $this->notifyPatient($report);
+            ClinicalReportPublisher::publish($report, $this->authorLabel($request));
         }
         DoctorAccess::audit(
             $request->user(),
@@ -65,7 +65,16 @@ class DoctorReportsController extends Controller
             'body' => 'nullable|string',
         ]);
         $report->update(array_filter($data, fn ($v) => $v !== null));
-        return $this->success(['report' => $report->fresh()->toApiArray()], 'Report updated.');
+
+        // A published report is already in the patient's documents. Leaving
+        // that copy at the old wording means a correction the doctor made here
+        // never reaches the person it is about.
+        $fresh = $report->fresh();
+        if ($fresh->published) {
+            ClinicalReportPublisher::publish($fresh, $this->authorLabel($request));
+        }
+
+        return $this->success(['report' => $fresh->toApiArray()], 'Report updated.');
     }
 
     public function publish(Request $request, ClinicalReport $report)
@@ -73,7 +82,10 @@ class DoctorReportsController extends Controller
         $this->authorizeAuthor($request, $report);
         if (! $report->published) {
             $report->update(['published' => true, 'published_at' => now()]);
-            $this->notifyPatient($report->fresh());
+            ClinicalReportPublisher::publish(
+                $report->fresh(),
+                $this->authorLabel($request),
+            );
             DoctorAccess::audit(
                 $request->user(),
                 'Published clinical report',
@@ -100,16 +112,11 @@ class DoctorReportsController extends Controller
         );
     }
 
-    private function notifyPatient(ClinicalReport $report): void
+    /**
+     * What the patient reads in "who sent me this?" on the filed document.
+     */
+    private function authorLabel(Request $request): string
     {
-        AppNotification::create([
-            'user_id' => $report->patient_user_id,
-            'kind' => 'report',
-            'title' => 'New clinical report',
-            'body' => $report->title,
-            'action_route' => '/patient/documents',
-            'action_arguments' => ['report_id' => (string) $report->id],
-            'read' => false,
-        ]);
+        return 'Dr. '.$request->user()->fullName();
     }
 }
